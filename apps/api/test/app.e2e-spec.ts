@@ -1,0 +1,366 @@
+/**
+ * Parcours de bout en bout du socle Sama360 :
+ * OTP → profil → entreprise → événements (outbox → BullMQ → abonnés) → catalogue,
+ * contacts, isolation entre entreprises (RLS), invitations et rôles, rotation des sessions.
+ *
+ * Prérequis : une base de test vide accessible par un rôle NON superutilisateur
+ * (TEST_DATABASE_URL) et Redis (REDIS_URL). La base est réinitialisée au début.
+ */
+const TEST_DB = process.env.TEST_DATABASE_URL ?? 'postgresql://sama_app:sama@localhost:5433/sama360_test';
+process.env.NODE_ENV = 'test';
+process.env.DATABASE_URL = TEST_DB;
+process.env.REDIS_URL = process.env.REDIS_URL ?? 'redis://localhost:6379';
+process.env.JWT_ACCESS_SECRET = 'test-access-secret-0123456789-abcdefghij';
+process.env.JWT_REFRESH_SECRET = 'test-refresh-secret-0123456789-abcdefghij';
+process.env.OTP_SECRET = 'test-otp-secret-0123456789-abcdefghijklmn';
+
+import { INestApplication } from '@nestjs/common';
+import { Test } from '@nestjs/testing';
+import { sql } from 'drizzle-orm';
+import { Client } from 'pg';
+import request from 'supertest';
+import { AppModule } from '../src/app.module';
+import { ConsoleOtpSender } from '../src/modules/auth/otp-sender';
+import { DbService } from '../src/shared/db/db.service';
+import { contacts } from '../src/shared/db/schema';
+import { migrate } from '../src/shared/db/migrate';
+import { EventWorkerService } from '../src/shared/events/event-worker.service';
+import { OutboxRelayService } from '../src/shared/events/outbox-relay.service';
+
+async function resetDatabase(url: string) {
+  const c = new Client({ connectionString: url });
+  await c.connect();
+  await c.query(`
+    DROP SCHEMA IF EXISTS catalog CASCADE;
+    DROP SCHEMA IF EXISTS contacts CASCADE;
+    DROP SCHEMA IF EXISTS core CASCADE;
+    DROP TABLE IF EXISTS public.schema_migrations;`);
+  const { rows } = await c.query<{ rolsuper: boolean; rolbypassrls: boolean }>(
+    'SELECT rolsuper, rolbypassrls FROM pg_roles WHERE rolname = current_user',
+  );
+  await c.end();
+  if (rows[0]?.rolsuper || rows[0]?.rolbypassrls) {
+    throw new Error('Le rôle de test ignore la RLS (SUPERUSER/BYPASSRLS) : utilisez un rôle applicatif.');
+  }
+  await migrate(url, () => undefined);
+}
+
+async function waitFor<T>(fn: () => Promise<T>, ok: (v: T) => boolean, timeoutMs = 10_000): Promise<T> {
+  const start = Date.now();
+  for (;;) {
+    const v = await fn();
+    if (ok(v)) return v;
+    if (Date.now() - start > timeoutMs) throw new Error('Délai dépassé en attendant la condition');
+    await new Promise((r) => setTimeout(r, 150));
+  }
+}
+
+describe('Socle Sama360 (e2e)', () => {
+  let app: INestApplication;
+  let http: ReturnType<typeof request>;
+  let otp: ConsoleOtpSender;
+  let relay: OutboxRelayService;
+  let worker: EventWorkerService;
+  let dbs: DbService;
+
+  const AWA = '+221771234567';
+  const MOUSSA = '+221781112233';
+  const FATOU = '+221765554433';
+
+  let awa: { accessToken: string; refreshToken: string };
+  let moussa: { accessToken: string; refreshToken: string };
+  let awaBiz: string;
+  let moussaBiz: string;
+
+  const auth = (token: string, businessId?: string) => {
+    const h: Record<string, string> = { Authorization: `Bearer ${token}` };
+    if (businessId) h['X-Business-Id'] = businessId;
+    return h;
+  };
+
+  async function login(phone: string) {
+    await http.post('/v1/auth/otp/request').send({ phone }).expect(200);
+    const code = otp.sent.get(phone)!;
+    const res = await http.post('/v1/auth/otp/verify').send({ phone, code }).expect(200);
+    return res.body as { accessToken: string; refreshToken: string; isNewUser: boolean; user: { id: string } };
+  }
+
+  beforeAll(async () => {
+    await resetDatabase(TEST_DB);
+    const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
+    app = moduleRef.createNestApplication();
+    await app.init();
+    http = request(app.getHttpServer());
+    otp = app.get(ConsoleOtpSender);
+    relay = app.get(OutboxRelayService);
+    worker = app.get(EventWorkerService);
+    dbs = app.get(DbService);
+    worker.start(2);
+  });
+
+  afterAll(async () => {
+    await app?.close();
+  });
+
+  it('GET /health', async () => {
+    const res = await http.get('/health').expect(200);
+    expect(res.body).toEqual({ status: 'ok', db: 'ok' });
+  });
+
+  describe('Authentification OTP', () => {
+    it('refuse un numéro invalide', async () => {
+      const res = await http.post('/v1/auth/otp/request').send({ phone: '12345678' }).expect(422);
+      expect(res.body.error.code).toBe('PHONE_INVALID');
+    });
+
+    it('envoie un code, refuse un mauvais code puis connecte avec le bon', async () => {
+      const r1 = await http.post('/v1/auth/otp/request').send({ phone: '77 123 45 67' }).expect(200);
+      expect(r1.body).toEqual({ phone: AWA, expiresIn: 300 });
+
+      const again = await http.post('/v1/auth/otp/request').send({ phone: AWA }).expect(429);
+      expect(again.body.error.code).toBe('OTP_TOO_SOON');
+
+      const code = otp.sent.get(AWA)!;
+      const wrong = code === '000000' ? '111111' : '000000';
+      const bad = await http.post('/v1/auth/otp/verify').send({ phone: AWA, code: wrong }).expect(400);
+      expect(bad.body.error).toMatchObject({ code: 'OTP_INVALID', details: { remainingAttempts: 4 } });
+
+      const ok = await http.post('/v1/auth/otp/verify').send({ phone: AWA, code, deviceId: 'pixel-7' }).expect(200);
+      expect(ok.body.isNewUser).toBe(true);
+      expect(ok.body.user.phone).toBe(AWA);
+      awa = ok.body;
+
+      // un code ne sert qu'une fois
+      const reuse = await http.post('/v1/auth/otp/verify').send({ phone: AWA, code }).expect(400);
+      expect(reuse.body.error.code).toBe('OTP_EXPIRED');
+    });
+
+    it('protège les routes et renvoie le profil', async () => {
+      const anon = await http.get('/v1/me').expect(401);
+      expect(anon.body.error.code).toBe('UNAUTHENTICATED');
+
+      await http.patch('/v1/me').set(auth(awa.accessToken)).send({ fullName: 'Awa Diallo' }).expect(200);
+      const me = await http.get('/v1/me').set(auth(awa.accessToken)).expect(200);
+      expect(me.body.user).toMatchObject({ phone: AWA, fullName: 'Awa Diallo' });
+      expect(me.body.businesses).toEqual([]);
+    });
+  });
+
+  describe('Entreprise et événements', () => {
+    it('crée une entreprise avec ses modules et son abonnement', async () => {
+      const res = await http
+        .post('/v1/businesses')
+        .set(auth(awa.accessToken))
+        .send({ name: 'Awa Beauté', category: 'boutique', city: 'Dakar' })
+        .expect(201);
+      awaBiz = res.body.business.id;
+      expect(res.body.business.slug).toBe('awa-beaute');
+      expect(res.body.modules).toEqual(expect.arrayContaining(['sales', 'inventory', 'invoicing', 'shop']));
+      expect(res.body.subscription.plan).toBe('free');
+    });
+
+    it('exige X-Business-Id et renvoie mes droits', async () => {
+      const no = await http.get('/v1/business').set(auth(awa.accessToken)).expect(400);
+      expect(no.body.error.code).toBe('BUSINESS_REQUIRED');
+
+      const res = await http.get('/v1/business').set(auth(awa.accessToken, awaBiz)).expect(200);
+      expect(res.body.business.name).toBe('Awa Beauté');
+      expect(res.body.me).toEqual({ role: 'owner', permissions: ['*'] });
+      expect(res.body.modules).toHaveLength(6);
+    });
+
+    it('business.created passe par l’outbox et crée les catégories par défaut (une seule fois)', async () => {
+      const published = await relay.relayOnce();
+      expect(published).toBeGreaterThanOrEqual(1);
+
+      const cats = await waitFor(
+        async () => (await http.get('/v1/catalog/categories').set(auth(awa.accessToken, awaBiz))).body as { name: string }[],
+        (list) => list.length >= 2,
+      );
+      expect(cats.map((c) => c.name)).toEqual(['Général', 'Nouveautés']);
+
+      // Re-livraison du même job : l'abonné ne s'exécute pas deux fois
+      const [evt] = (
+        await dbs.db.execute(sql`SELECT id FROM core.outbox_events WHERE type = 'business.created' AND business_id = ${awaBiz}`)
+      ).rows as { id: string }[];
+      const replay = await worker.process({
+        data: { eventId: evt.id, handler: 'CatalogEventHandlers.createDefaultCategories' },
+      });
+      expect(replay).toBe(false);
+      const after = await http.get('/v1/catalog/categories').set(auth(awa.accessToken, awaBiz)).expect(200);
+      expect(after.body).toHaveLength(2);
+    });
+  });
+
+  describe('Catalogue et contacts', () => {
+    let productId: string;
+
+    it('crée, liste et modifie un produit', async () => {
+      const created = await http
+        .post('/v1/catalog/products')
+        .set(auth(awa.accessToken, awaBiz))
+        .send({ name: 'Beurre de karité 250 g', price: 3500, cost: 2000, sku: 'KAR-250' })
+        .expect(201);
+      productId = created.body.id;
+      expect(created.body).toMatchObject({ price: 3500, cost: 2000, unit: 'pièce', version: 1 });
+
+      const dup = await http
+        .post('/v1/catalog/products')
+        .set(auth(awa.accessToken, awaBiz))
+        .send({ name: 'Doublon', price: 100, sku: 'KAR-250' })
+        .expect(409);
+      expect(dup.body.error.code).toBe('CONFLICT');
+
+      const patched = await http
+        .patch(`/v1/catalog/products/${productId}`)
+        .set(auth(awa.accessToken, awaBiz))
+        .send({ price: 3800 })
+        .expect(200);
+      expect(patched.body).toMatchObject({ price: 3800, cost: 2000, version: 2 });
+
+      const list = await http.get('/v1/catalog/products?search=karité').set(auth(awa.accessToken, awaBiz)).expect(200);
+      expect(list.body.data).toHaveLength(1);
+      expect(list.body.nextCursor).toBeNull();
+    });
+
+    it('valide les entrées', async () => {
+      const res = await http
+        .post('/v1/catalog/products')
+        .set(auth(awa.accessToken, awaBiz))
+        .send({ name: '', price: -5 })
+        .expect(422);
+      expect(res.body.error.code).toBe('VALIDATION_FAILED');
+      expect(res.body.error.details.map((d: { field: string }) => d.field)).toEqual(
+        expect.arrayContaining(['name', 'price']),
+      );
+    });
+
+    it('crée un contact avec numéro normalisé', async () => {
+      const res = await http
+        .post('/v1/contacts')
+        .set(auth(awa.accessToken, awaBiz))
+        .send({ name: 'Fatou Ndiaye', phone: '77 412 08 55' })
+        .expect(201);
+      expect(res.body).toMatchObject({ name: 'Fatou Ndiaye', phone: '+221774120855', type: 'customer', balance: 0 });
+    });
+  });
+
+  describe('Isolation entre entreprises', () => {
+    it('un autre commerçant ne voit rien de l’entreprise d’Awa', async () => {
+      moussa = await login(MOUSSA);
+      const biz = await http
+        .post('/v1/businesses')
+        .set(auth(moussa.accessToken))
+        .send({ name: 'Moussa Électricité', category: 'prestataire' })
+        .expect(201);
+      moussaBiz = biz.body.business.id;
+
+      const denied = await http.get('/v1/contacts').set(auth(moussa.accessToken, awaBiz)).expect(403);
+      expect(denied.body.error.code).toBe('NOT_A_MEMBER');
+
+      const own = await http.get('/v1/contacts').set(auth(moussa.accessToken, moussaBiz)).expect(200);
+      expect(own.body.data).toEqual([]);
+    });
+
+    it('la RLS filtre au niveau de la base, même sans filtre applicatif', async () => {
+      const inMoussa = await dbs.withTenant(moussaBiz, (tx) => tx.select().from(contacts));
+      expect(inMoussa).toHaveLength(0);
+      const inAwa = await dbs.withTenant(awaBiz, (tx) => tx.select().from(contacts));
+      expect(inAwa).toHaveLength(1);
+      // Sans entreprise positionnée : aucune ligne métier visible
+      const none = await dbs.db.select().from(contacts);
+      expect(none).toHaveLength(0);
+      // Écrire pour une autre entreprise est refusé par la politique
+      await expect(
+        dbs.withTenant(moussaBiz, (tx) =>
+          tx.insert(contacts).values({ id: '01930000-0000-7000-8000-0000000000aa', businessId: awaBiz, name: 'Intrus' }),
+        ),
+      ).rejects.toThrow(/row-level security/);
+    });
+  });
+
+  describe('Membres et rôles', () => {
+    it('invite un utilisateur existant comme caissier, avec des droits limités', async () => {
+      const inv = await http
+        .post('/v1/members')
+        .set(auth(awa.accessToken, awaBiz))
+        .send({ phone: '78 111 22 33', roleKey: 'cashier' })
+        .expect(201);
+      expect(inv.body).toMatchObject({ phone: MOUSSA, role: 'cashier', status: 'active' });
+
+      const dup = await http
+        .post('/v1/members')
+        .set(auth(awa.accessToken, awaBiz))
+        .send({ phone: MOUSSA, roleKey: 'manager' })
+        .expect(409);
+      expect(dup.body.error.code).toBe('CONFLICT');
+
+      await http.get('/v1/catalog/products').set(auth(moussa.accessToken, awaBiz)).expect(200);
+      const forbidden = await http
+        .post('/v1/catalog/products')
+        .set(auth(moussa.accessToken, awaBiz))
+        .send({ name: 'Test', price: 100 })
+        .expect(403);
+      expect(forbidden.body.error).toMatchObject({ code: 'INSUFFICIENT_PERMISSION', details: { permission: 'catalog:write' } });
+      await http.post('/v1/contacts').set(auth(moussa.accessToken, awaBiz)).send({ name: 'Client comptoir' }).expect(201);
+
+      const me = await http.get('/v1/me').set(auth(moussa.accessToken)).expect(200);
+      expect(me.body.businesses.map((b: { role: string }) => b.role).sort()).toEqual(['cashier', 'owner']);
+    });
+
+    it('invite un nouveau numéro : l’adhésion s’active à la première connexion', async () => {
+      const inv = await http
+        .post('/v1/members')
+        .set(auth(awa.accessToken, awaBiz))
+        .send({ phone: FATOU, fullName: 'Fatou Sarr', roleKey: 'manager' })
+        .expect(201);
+      expect(inv.body.status).toBe('invited');
+
+      const fatou = await login(FATOU);
+      expect(fatou.isNewUser).toBe(false); // nom déjà renseigné par l'invitation
+      const me = await http.get('/v1/me').set(auth(fatou.accessToken)).expect(200);
+      expect(me.body.businesses).toEqual([expect.objectContaining({ id: awaBiz, role: 'manager' })]);
+
+      const members = await http.get('/v1/members').set(auth(awa.accessToken, awaBiz)).expect(200);
+      expect(members.body).toHaveLength(3);
+      expect(members.body.every((m: { status: string }) => m.status === 'active')).toBe(true);
+    });
+
+    it('un caissier ne peut pas gérer les membres et le propriétaire est protégé', async () => {
+      const members = (await http.get('/v1/members').set(auth(awa.accessToken, awaBiz))).body as {
+        id: string;
+        role: string;
+      }[];
+      const owner = members.find((m) => m.role === 'owner')!;
+      const cashier = members.find((m) => m.role === 'cashier')!;
+
+      await http
+        .patch(`/v1/members/${cashier.id}`)
+        .set(auth(moussa.accessToken, awaBiz))
+        .send({ status: 'suspended' })
+        .expect(403);
+      await http.patch(`/v1/members/${owner.id}`).set(auth(awa.accessToken, awaBiz)).send({ roleKey: 'manager' }).expect(403);
+
+      await http.patch(`/v1/members/${cashier.id}`).set(auth(awa.accessToken, awaBiz)).send({ status: 'suspended' }).expect(200);
+      const blocked = await http.get('/v1/catalog/products').set(auth(moussa.accessToken, awaBiz)).expect(403);
+      expect(blocked.body.error.code).toBe('NOT_A_MEMBER');
+    });
+  });
+
+  describe('Sessions', () => {
+    it('fait tourner le jeton de rafraîchissement et détecte sa réutilisation', async () => {
+      const r1 = await http.post('/v1/auth/refresh').send({ refreshToken: awa.refreshToken }).expect(200);
+      expect(r1.body.refreshToken).not.toBe(awa.refreshToken);
+      await http.get('/v1/me').set(auth(r1.body.accessToken)).expect(200);
+
+      // Réutilisation de l'ancien jeton → toutes les sessions sont coupées
+      await http.post('/v1/auth/refresh').send({ refreshToken: awa.refreshToken }).expect(401);
+      await http.post('/v1/auth/refresh').send({ refreshToken: r1.body.refreshToken }).expect(401);
+    });
+
+    it('déconnexion', async () => {
+      await http.post('/v1/auth/logout').send({ refreshToken: moussa.refreshToken }).expect(204);
+      await http.post('/v1/auth/refresh').send({ refreshToken: moussa.refreshToken }).expect(401);
+    });
+  });
+});

@@ -1,0 +1,23 @@
+# Services locaux de secours. En développement normal, la base est sur Neon
+# (DATABASE_URL dans apps/api/.env) ; seul Redis est alors nécessaire en local.
+services:
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+
+  # Optionnel : PostgreSQL local si tu travailles hors ligne sans Neon.
+  postgres:
+    image: postgres:16-alpine
+    profiles: ["local-db"]
+    environment:
+      POSTGRES_USER: sama
+      POSTGRES_PASSWORD: sama
+      POSTGRES_DB: sama360
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+volumes:
+  pgdata:
