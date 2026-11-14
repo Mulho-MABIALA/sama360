@@ -5,10 +5,10 @@
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "dev": "tsx watch --tsconfig tsconfig.json src/main.ts",
+    "dev": "tsc-watch -p tsconfig.build.json --onSuccess \"node dist/main.js\"",
     "start": "node dist/main.js",
     "worker": "node dist/worker.js",
-    "worker:dev": "tsx watch --tsconfig tsconfig.json src/worker.ts",
+    "worker:dev": "tsc-watch -p tsconfig.build.json --onSuccess \"node dist/worker.js\"",
     "db:migrate": "tsx src/shared/db/migrate.ts",
     "test": "jest --config jest.config.js",
     "test:e2e": "jest --config test/jest-e2e.config.js --runInBand"
@@ -39,6 +39,7 @@
     "jest": "^29.7.0",
     "supertest": "^7.0.0",
     "ts-jest": "^29.2.5",
+    "tsc-watch": "^6.3.1",
     "tsx": "^4.19.2",
     "typescript": "^5.6.3"
   }

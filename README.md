@@ -31,9 +31,13 @@ En développement, le code OTP s'affiche dans les logs de l'API (`OTP_PROVIDER=c
 ### Configurer Neon
 
 1. Créer un projet Neon (région la plus proche : `aws-eu-central-1`).
-2. Créer une base `sama360` et, de préférence, un **rôle applicatif dédié** (`sama_app`).
-3. `DATABASE_URL` = chaîne **pooled** (hôte en `-pooler`), utilisée par l'API.
-4. `DATABASE_URL_DIRECT` = chaîne **directe**, utilisée par `pnpm db:migrate`.
+2. `DATABASE_URL_DIRECT` = chaîne **directe** du propriétaire `neondb_owner`, utilisée **uniquement** par `pnpm db:migrate`.
+3. Créer le **rôle applicatif** `sama_app` (le propriétaire Neon a `BYPASSRLS`, l'API ne doit donc pas l'utiliser) :
+   ```sql
+   CREATE ROLE sama_app WITH LOGIN NOSUPERUSER NOBYPASSRLS PASSWORD '<mot de passe fort>';
+   ```
+   puis lancer `pnpm db:migrate` : la migration `0003` lui accorde les droits de lecture/écriture.
+4. `DATABASE_URL` = chaîne **pooled** (hôte en `-pooler`) avec l'utilisateur `sama_app`, utilisée par l'API.
 5. Créer des branches Neon `dev` et `staging` pour ne jamais tester sur la production.
 
 > **Important — RLS.** L'isolation des entreprises repose sur la Row Level Security de PostgreSQL.
