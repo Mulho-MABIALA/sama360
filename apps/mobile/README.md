@@ -19,7 +19,8 @@ stock, carnet de crédit. Elle parle à l'API de `apps/api`.
 cd apps/mobile
 flutter pub get
 
-# Émulateur Android : l'émulateur joint le PC via 10.0.2.2 (valeur par défaut)
+# Chrome ou émulateur Android : l'adresse de l'API est choisie automatiquement
+# (localhost:3000 dans Chrome, 10.0.2.2:3000 depuis l'émulateur)
 flutter run
 
 # Vrai téléphone sur le même Wi-Fi que le PC : remplacer par l'IP du PC (ipconfig sous Windows)
