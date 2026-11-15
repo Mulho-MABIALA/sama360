@@ -8,10 +8,11 @@ Ce dépôt est un monorepo :
 | Dossier | Contenu |
 | --- | --- |
 | `apps/api` | API NestJS + worker d'événements (TypeScript) |
+| `apps/mobile` | App Flutter des commerçants (voir `apps/mobile/README.md`) |
 | `packages/contracts` | Types partagés : événements de domaine, permissions, rôles |
 | `infra` | docker-compose local (Redis, PostgreSQL optionnel) |
 
-L'app Flutter, le back-office React et les boutiques Next.js viendront dans `apps/`.
+Le back-office React et les boutiques Next.js viendront dans `apps/`.
 
 ## Démarrage rapide
 
@@ -109,4 +110,4 @@ La CI GitHub Actions lance build, typecheck, tests unitaires et e2e (PostgreSQL 
 2. Synchronisation hors ligne (`/v1/sync/push`, `/v1/sync/pull`).
 3. **invoicing** + génération PDF, puis **payments** (agrégateur Wave / Orange Money).
 4. Fournisseur OTP réel (SMS / WhatsApp Business).
-5. App Flutter branchée sur cette API.
+5. ~~App Flutter branchée sur cette API~~ ✔ (connexion, accueil, caisse, stock, crédits).
