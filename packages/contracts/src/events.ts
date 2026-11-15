@@ -36,12 +36,60 @@ export type ProductUpdated = DomainEvent<
   { productId: string; price: number; cost: number; published: boolean }
 >;
 
+// ---------- Ventes et stock ----------
+
+export interface SaleLine {
+  productId: string | null;
+  quantity: number;
+  unitCost: number;
+  trackStock: boolean;
+}
+
+export type SaleCompleted = DomainEvent<
+  'sale.completed',
+  {
+    saleId: string;
+    number: string;
+    customerId: string | null;
+    warehouseId: string;
+    items: SaleLine[];
+    total: number;
+    paid: number;
+    due: number; // > 0 = vente (partiellement) à crédit
+  }
+>;
+
+export type SaleVoided = DomainEvent<
+  'sale.voided',
+  { saleId: string; number: string; customerId: string | null; warehouseId: string; items: SaleLine[]; due: number }
+>;
+
+export type CustomerRepaymentRecorded = DomainEvent<
+  'customer.repayment_recorded',
+  { entryId: string; customerId: string; amount: number; method: string }
+>;
+
+export type StockLow = DomainEvent<
+  'stock.low',
+  { productId: string; warehouseId: string; name: string; onHand: number; threshold: number }
+>;
+
+export type ExpenseRecorded = DomainEvent<
+  'expense.recorded',
+  { expenseId: string; amount: number; category: string }
+>;
+
 /** Table de correspondance type → événement, utilisée pour typer émetteurs et abonnés. */
 export interface EventMap {
   'business.created': BusinessCreated;
   'member.invited': MemberInvited;
   'contact.created': ContactCreated;
   'product.updated': ProductUpdated;
+  'sale.completed': SaleCompleted;
+  'sale.voided': SaleVoided;
+  'customer.repayment_recorded': CustomerRepaymentRecorded;
+  'stock.low': StockLow;
+  'expense.recorded': ExpenseRecorded;
 }
 
 export type EventType = keyof EventMap;

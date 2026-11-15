@@ -31,6 +31,8 @@ async function resetDatabase(url: string) {
   const c = new Client({ connectionString: url });
   await c.connect();
   await c.query(`
+    DROP SCHEMA IF EXISTS sales CASCADE;
+    DROP SCHEMA IF EXISTS inventory CASCADE;
     DROP SCHEMA IF EXISTS catalog CASCADE;
     DROP SCHEMA IF EXISTS contacts CASCADE;
     DROP SCHEMA IF EXISTS core CASCADE;
@@ -344,6 +346,234 @@ describe('Socle Sama360 (e2e)', () => {
       await http.patch(`/v1/members/${cashier.id}`).set(auth(awa.accessToken, awaBiz)).send({ status: 'suspended' }).expect(200);
       const blocked = await http.get('/v1/catalog/products').set(auth(moussa.accessToken, awaBiz)).expect(403);
       expect(blocked.body.error.code).toBe('NOT_A_MEMBER');
+    });
+  });
+
+  describe('Ventes et stock', () => {
+    const CAISSIER = '+221770000099';
+    let cashier: { accessToken: string };
+    let karite: string;
+    let huile: string;
+    let aminata: string;
+    let cashSaleId: string;
+    let creditSaleId: string;
+    const year = new Date().getUTCFullYear();
+    const A = () => auth(awa.accessToken, awaBiz);
+
+    /** Relaie l'outbox puis attend que la condition soit vraie (les abonnés tournent dans le worker). */
+    async function settle<T>(read: () => Promise<T>, ok: (v: T) => boolean) {
+      await relay.relayOnce();
+      return waitFor(read, ok);
+    }
+    const stockOf = async (productId: string) => {
+      const res = await http.get('/v1/inventory/stock').set(A()).expect(200);
+      return (res.body.items as { productId: string; onHand: number }[]).find((i) => i.productId === productId)!.onHand;
+    };
+    const balanceOf = async (customerId: string) =>
+      (await http.get(`/v1/sales/customers/${customerId}/ledger`).set(A()).expect(200)).body.balance as number;
+
+    it('prépare produits, stock initial, client et caissier', async () => {
+      const products = (await http.get('/v1/catalog/products?search=karité').set(A()).expect(200)).body.data;
+      karite = products[0].id; // prix 3 800, coût 2 000
+      huile = (
+        await http
+          .post('/v1/catalog/products')
+          .set(A())
+          .send({ name: 'Huile de coco 500 ml', price: 4000, cost: 2600, lowStockThreshold: 5 })
+          .expect(201)
+      ).body.id;
+
+      const entry = await http
+        .post('/v1/inventory/movements')
+        .set(A())
+        .send({ productId: huile, type: 'purchase', quantity: 10 })
+        .expect(201);
+      expect(entry.body).toMatchObject({ before: 0, onHand: 10 });
+      await http.post('/v1/inventory/movements').set(A()).send({ productId: karite, type: 'purchase', quantity: 20 }).expect(201);
+      const bad = await http
+        .post('/v1/inventory/movements')
+        .set(A())
+        .send({ productId: huile, type: 'purchase', quantity: -3 })
+        .expect(422);
+      expect(bad.body.error.code).toBe('VALIDATION_FAILED');
+
+      aminata = (await http.post('/v1/contacts').set(A()).send({ name: 'Aminata Ba', phone: '76 555 12 34' }).expect(201)).body.id;
+
+      await http.post('/v1/members').set(A()).send({ phone: CAISSIER, roleKey: 'cashier' }).expect(201);
+      cashier = await login(CAISSIER);
+    });
+
+    it('encaisse une vente au comptant, de façon idempotente', async () => {
+      const id = '01930000-0000-7000-8000-00000000c001';
+      const body = {
+        id,
+        customerId: aminata,
+        items: [
+          { productId: karite, quantity: 2 },
+          { productId: huile, quantity: 1 },
+        ],
+        payments: [{ method: 'cash', amount: 11600 }],
+      };
+      const res = await http.post('/v1/sales').set(A()).send(body).expect(201);
+      cashSaleId = res.body.id;
+      expect(res.body).toMatchObject({
+        number: `VEN-${year}-0001`,
+        status: 'completed',
+        subtotal: 11600,
+        total: 11600,
+        paid: 11600,
+        due: 0,
+        costTotal: 6600,
+      });
+      expect(res.body.items.map((i: { name: string; total: number }) => [i.name, i.total])).toEqual([
+        ['Beurre de karité 250 g', 7600],
+        ['Huile de coco 500 ml', 4000],
+      ]);
+
+      // Renvoi du même id (mobile hors ligne qui resynchronise) : pas de doublon
+      const again = await http.post('/v1/sales').set(A()).send(body).expect(200);
+      expect(again.body.number).toBe(`VEN-${year}-0001`);
+    });
+
+    it('refuse le crédit sans client et le trop-payé', async () => {
+      const noCustomer = await http
+        .post('/v1/sales')
+        .set(A())
+        .send({ items: [{ productId: huile, quantity: 1 }], payments: [{ method: 'wave', amount: 1000 }] })
+        .expect(422);
+      expect(noCustomer.body.error).toMatchObject({ code: 'CREDIT_REQUIRES_CUSTOMER', details: { due: 3000 } });
+
+      const over = await http
+        .post('/v1/sales')
+        .set(A())
+        .send({ items: [{ productId: huile, quantity: 1 }], payments: [{ method: 'cash', amount: 5000 }] })
+        .expect(422);
+      expect(over.body.error.code).toBe('OVERPAYMENT');
+    });
+
+    it('vend à crédit : dette au carnet, stock décrémenté, alerte de stock bas', async () => {
+      const res = await http
+        .post('/v1/sales')
+        .set(A())
+        .send({ customerId: aminata, items: [{ productId: huile, quantity: 5 }], payments: [{ method: 'wave', amount: 5000 }] })
+        .expect(201);
+      creditSaleId = res.body.id;
+      expect(res.body).toMatchObject({ number: `VEN-${year}-0002`, total: 20000, paid: 5000, due: 15000 });
+      expect(await balanceOf(aminata)).toBe(15000); // carnet écrit dans la même transaction
+
+      // Le stock est mis à jour par l'abonné inventory (10 − 1 − 5 = 4 ; 20 − 2 = 18)
+      await settle(() => stockOf(huile), (q) => q === 4);
+      expect(await stockOf(karite)).toBe(18);
+
+      const low = await http.get('/v1/inventory/stock?lowOnly=true').set(A()).expect(200);
+      expect(low.body.items.map((i: { name: string }) => i.name)).toEqual(['Huile de coco 500 ml']);
+      const alerts = (
+        await dbs.db.execute(sql`SELECT payload FROM core.outbox_events WHERE type = 'stock.low' AND aggregate_id = ${huile}`)
+      ).rows as { payload: { onHand: number; threshold: number } }[];
+      expect(alerts).toHaveLength(1);
+      expect(alerts[0].payload).toMatchObject({ onHand: 4, threshold: 5 });
+
+      // Le cache de solde de l'annuaire suit, via contacts
+      const contact = await waitFor(
+        async () => (await http.get(`/v1/contacts/${aminata}`).set(A())).body,
+        (c) => c.balance === 15000,
+      );
+      expect(contact.balance).toBe(15000);
+    });
+
+    it('un abonné ne décrémente jamais deux fois la même vente', async () => {
+      const [evt] = (
+        await dbs.db.execute(sql`SELECT id FROM core.outbox_events WHERE type = 'sale.completed' AND aggregate_id = ${creditSaleId}`)
+      ).rows as { id: string }[];
+      expect(await worker.process({ data: { eventId: evt.id, handler: 'InventoryEventHandlers.decrementOnSale' } })).toBe(false);
+      expect(await stockOf(huile)).toBe(4);
+    });
+
+    it('enregistre un remboursement sans dépasser la dette', async () => {
+      const tooMuch = await http
+        .post(`/v1/sales/customers/${aminata}/repayments`)
+        .set(A())
+        .send({ amount: 20000, method: 'cash' })
+        .expect(422);
+      expect(tooMuch.body.error).toMatchObject({ code: 'REPAYMENT_EXCEEDS_BALANCE', details: { balance: 15000 } });
+
+      const ok = await http
+        .post(`/v1/sales/customers/${aminata}/repayments`)
+        .set(A())
+        .send({ amount: 5000, method: 'orange_money' })
+        .expect(201);
+      expect(ok.body.balance).toBe(10000);
+
+      const debtors = await http.get('/v1/sales/debtors').set(A()).expect(200);
+      expect(debtors.body).toEqual([expect.objectContaining({ customerId: aminata, name: 'Aminata Ba', balance: 10000 })]);
+      await settle(async () => (await http.get(`/v1/contacts/${aminata}`).set(A())).body.balance, (b) => b === 10000);
+    });
+
+    it('calcule le résumé du jour : CA, bénéfice, encaissements, crédit', async () => {
+      await http.post('/v1/sales/expenses').set(A()).send({ category: 'transport', amount: 2000, method: 'cash' }).expect(201);
+      const s = (await http.get('/v1/sales/summary').set(A()).expect(200)).body;
+      expect(s).toMatchObject({
+        salesCount: 2,
+        revenue: 31600,
+        cost: 19600,
+        grossProfit: 12000,
+        expenses: 2000,
+        netProfit: 10000,
+        collected: 16600,
+        onCredit: 15000,
+        receivables: 10000,
+      });
+      expect(s.byMethod).toEqual([
+        { method: 'cash', amount: 11600 },
+        { method: 'wave', amount: 5000 },
+      ]);
+      expect(s.topProducts[0]).toMatchObject({ name: 'Huile de coco 500 ml', quantity: 6, revenue: 24000 });
+    });
+
+    it('le caissier vend mais ne voit pas les bénéfices et ne peut pas annuler', async () => {
+      const C = auth(cashier.accessToken, awaBiz);
+      const sale = await http
+        .post('/v1/sales')
+        .set(C)
+        .send({ items: [{ name: 'Sachet', quantity: 1, unitPrice: 100 }], payments: [{ method: 'cash', amount: 100 }] })
+        .expect(201);
+      expect(sale.body).toMatchObject({ number: `VEN-${year}-0003`, total: 100, costTotal: 0 });
+      expect((await http.get('/v1/sales/summary').set(C).expect(403)).body.error.code).toBe('INSUFFICIENT_PERMISSION');
+      await http.post(`/v1/sales/${cashSaleId}/void`).set(C).send({ reason: 'erreur de saisie' }).expect(403);
+    });
+
+    it('annule une vente : stock remis et dette annulée', async () => {
+      const res = await http
+        .post(`/v1/sales/${creditSaleId}/void`)
+        .set(A())
+        .send({ reason: 'Client a rendu la marchandise' })
+        .expect(200);
+      expect(res.body).toMatchObject({ status: 'voided', voidReason: 'Client a rendu la marchandise' });
+
+      await settle(() => stockOf(huile), (q) => q === 9);
+      // 10 000 dus − 15 000 annulés : la boutique doit 5 000 à la cliente (déjà payés)
+      expect(await balanceOf(aminata)).toBe(-5000);
+
+      const twice = await http.post(`/v1/sales/${creditSaleId}/void`).set(A()).send({ reason: 'encore' }).expect(409);
+      expect(twice.body.error.code).toBe('SALE_ALREADY_VOIDED');
+
+      const summary = (await http.get('/v1/sales/summary').set(A()).expect(200)).body;
+      expect(summary).toMatchObject({ salesCount: 2, revenue: 11700 }); // 11 600 + 100 (vente annulée exclue)
+    });
+
+    it('ajuste le stock par inventaire physique', async () => {
+      const res = await http
+        .post('/v1/inventory/counts')
+        .set(A())
+        .send({ items: [{ productId: karite, counted: 17 }] })
+        .expect(201);
+      expect(res.body).toMatchObject({ adjusted: 1, items: [{ before: 18, counted: 17, delta: -1 }] });
+      const moves = await http.get(`/v1/inventory/products/${karite}/movements`).set(A()).expect(200);
+      expect(moves.body.data.map((m: { type: string; quantity: number }) => [m.type, m.quantity])).toEqual([
+        ['count', -1],
+        ['sale', -2],
+        ['purchase', 20],
+      ]);
     });
   });
 

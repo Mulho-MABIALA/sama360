@@ -18,6 +18,11 @@ export type ErrorCode =
   | 'CONFLICT'
   | 'FORBIDDEN'
   | 'RATE_LIMITED'
+  | 'CREDIT_REQUIRES_CUSTOMER'
+  | 'OVERPAYMENT'
+  | 'REPAYMENT_EXCEEDS_BALANCE'
+  | 'SALE_ALREADY_VOIDED'
+  | 'PRODUCT_NOT_TRACKED'
   | 'INTERNAL';
 
 export class AppError extends Error {

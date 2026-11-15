@@ -5,6 +5,8 @@
 import {
   bigint,
   boolean,
+  customType,
+  date,
   integer,
   jsonb,
   numeric,
@@ -15,6 +17,7 @@ import {
   uuid,
   varchar,
 } from 'drizzle-orm/pg-core';
+import { sql } from 'drizzle-orm';
 
 const ts = (name: string) => timestamp(name, { withTimezone: true, mode: 'date' });
 const money = (name: string) => bigint(name, { mode: 'number' });
@@ -200,4 +203,140 @@ export const products = catalogSchema.table('products', {
   createdAt: ts('created_at').notNull().defaultNow(),
   updatedAt: ts('updated_at').notNull().defaultNow(),
   deletedAt: ts('deleted_at'),
+});
+
+// ---------- quantités (numeric(12,3) → number) ----------
+
+const qty = customType<{ data: number; driverData: string }>({
+  dataType: () => 'numeric(12,3)',
+  fromDriver: (v) => Number(v),
+  toDriver: (v) => String(v),
+});
+
+// ---------- inventory ----------
+export const inventorySchema = pgSchema('inventory');
+
+export const warehouses = inventorySchema.table('warehouses', {
+  id: uuid('id').primaryKey(),
+  businessId: uuid('business_id').notNull(),
+  name: varchar('name', { length: 80 }).notNull(),
+  isDefault: boolean('is_default').notNull().default(false),
+  createdAt: ts('created_at').notNull().defaultNow(),
+});
+
+export type MovementType = 'purchase' | 'sale' | 'return' | 'adjustment' | 'count';
+
+export const stockMovements = inventorySchema.table('stock_movements', {
+  id: uuid('id').primaryKey(),
+  businessId: uuid('business_id').notNull(),
+  productId: uuid('product_id').notNull(),
+  warehouseId: uuid('warehouse_id').notNull(),
+  type: varchar('type', { length: 15 }).$type<MovementType>().notNull(),
+  quantity: qty('quantity').notNull(),
+  unitCost: money('unit_cost'),
+  refType: varchar('ref_type', { length: 20 }),
+  refId: uuid('ref_id'),
+  note: text('note'),
+  occurredAt: ts('occurred_at').notNull().defaultNow(),
+  createdBy: uuid('created_by'),
+});
+
+export const stockLevels = inventorySchema.table(
+  'stock_levels',
+  {
+    businessId: uuid('business_id').notNull(),
+    productId: uuid('product_id').notNull(),
+    warehouseId: uuid('warehouse_id').notNull(),
+    onHand: qty('on_hand').notNull().default(0),
+    updatedAt: ts('updated_at').notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.businessId, t.productId, t.warehouseId] })],
+);
+
+// ---------- sales ----------
+export const salesSchema = pgSchema('sales');
+
+export const sequences = salesSchema.table(
+  'sequences',
+  {
+    businessId: uuid('business_id').notNull(),
+    key: varchar('key', { length: 20 }).notNull(),
+    year: integer('year').notNull(),
+    lastValue: integer('last_value').notNull().default(0),
+  },
+  (t) => [primaryKey({ columns: [t.businessId, t.key, t.year] })],
+);
+
+export const sales = salesSchema.table('sales', {
+  id: uuid('id').primaryKey(),
+  businessId: uuid('business_id').notNull(),
+  number: varchar('number', { length: 30 }).notNull(),
+  customerId: uuid('customer_id'),
+  cashierId: uuid('cashier_id').notNull(),
+  warehouseId: uuid('warehouse_id').notNull(),
+  source: varchar('source', { length: 10 }).notNull().default('pos'),
+  status: varchar('status', { length: 12 }).$type<'completed' | 'voided'>().notNull().default('completed'),
+  subtotal: money('subtotal').notNull(),
+  discount: money('discount').notNull().default(0),
+  total: money('total').notNull(),
+  paid: money('paid').notNull().default(0),
+  due: money('due').generatedAlwaysAs(sql`total - paid`),
+  costTotal: money('cost_total').notNull().default(0),
+  note: text('note'),
+  soldAt: ts('sold_at').notNull(),
+  voidedAt: ts('voided_at'),
+  voidReason: text('void_reason'),
+  createdAt: ts('created_at').notNull().defaultNow(),
+});
+
+export const saleItems = salesSchema.table('sale_items', {
+  id: uuid('id').primaryKey(),
+  businessId: uuid('business_id').notNull(),
+  saleId: uuid('sale_id').notNull(),
+  productId: uuid('product_id'),
+  name: varchar('name', { length: 160 }).notNull(),
+  quantity: qty('quantity').notNull(),
+  unitPrice: money('unit_price').notNull(),
+  unitCost: money('unit_cost').notNull().default(0),
+  discount: money('discount').notNull().default(0),
+  total: money('total').notNull(),
+  trackStock: boolean('track_stock').notNull().default(false),
+});
+
+export type PaymentMethod = 'cash' | 'wave' | 'orange_money' | 'free_money' | 'card';
+
+export const salePayments = salesSchema.table('sale_payments', {
+  id: uuid('id').primaryKey(),
+  businessId: uuid('business_id').notNull(),
+  saleId: uuid('sale_id').notNull(),
+  method: varchar('method', { length: 15 }).$type<PaymentMethod>().notNull(),
+  amount: money('amount').notNull(),
+  reference: varchar('reference', { length: 80 }),
+  paidAt: ts('paid_at').notNull(),
+});
+
+export const customerLedger = salesSchema.table('customer_ledger', {
+  id: uuid('id').primaryKey(),
+  businessId: uuid('business_id').notNull(),
+  customerId: uuid('customer_id').notNull(),
+  entryType: varchar('entry_type', { length: 12 }).$type<'debt' | 'repayment' | 'adjustment'>().notNull(),
+  amount: money('amount').notNull(),
+  method: varchar('method', { length: 15 }),
+  refType: varchar('ref_type', { length: 20 }),
+  refId: uuid('ref_id'),
+  note: text('note'),
+  occurredAt: ts('occurred_at').notNull(),
+  createdBy: uuid('created_by'),
+});
+
+export const expenses = salesSchema.table('expenses', {
+  id: uuid('id').primaryKey(),
+  businessId: uuid('business_id').notNull(),
+  category: varchar('category', { length: 40 }).notNull(),
+  amount: money('amount').notNull(),
+  method: varchar('method', { length: 15 }),
+  note: text('note'),
+  spentAt: date('spent_at', { mode: 'string' }).notNull(),
+  createdBy: uuid('created_by').notNull(),
+  createdAt: ts('created_at').notNull().defaultNow(),
 });

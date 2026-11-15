@@ -6,6 +6,8 @@ import { CatalogModule } from './modules/catalog/catalog.module';
 import { ContactsModule } from './modules/contacts/contacts.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { CoreModule } from './modules/core/core.module';
+import { InventoryModule } from './modules/inventory/inventory.module';
+import { SalesModule } from './modules/sales/sales.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { Public } from './shared/auth/decorators';
 import { JwtAuthGuard } from './shared/auth/jwt-auth.guard';
@@ -36,6 +38,8 @@ class HealthController {
     CoreModule,
     ContactsModule,
     CatalogModule,
+    InventoryModule,
+    SalesModule,
     NotificationsModule,
   ],
   controllers: [HealthController],

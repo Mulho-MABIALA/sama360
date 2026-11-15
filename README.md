@@ -78,6 +78,18 @@ Toutes les erreurs : `{ "error": { "code", "message", "details?" } }`.
 | GET / POST | `/v1/catalog/categories` | `catalog:read` / `catalog:write` |
 | GET / POST | `/v1/catalog/products` | idem (`?search=&categoryId=&cursor=&limit=`) |
 | GET / PATCH / DELETE | `/v1/catalog/products/:id` | idem |
+| POST | `/v1/sales` | `sales:create` — encaisser (idempotent si `id` fourni par le mobile) |
+| GET | `/v1/sales` · `/v1/sales/:id` | `sales:read` (`?from=&to=&customerId=&status=`) |
+| POST | `/v1/sales/:id/void` | `sales:void` — annule : stock remis, dette annulée |
+| GET | `/v1/sales/summary` | `reports:read` — CA, coût, bénéfice, dépenses, encaissé, crédit (`?from=&to=`) |
+| GET | `/v1/sales/debtors` | `sales:read` — clients qui doivent de l'argent |
+| GET | `/v1/sales/customers/:id/ledger` | `sales:read` — carnet de crédit d'un client |
+| POST | `/v1/sales/customers/:id/repayments` | `sales:create` — remboursement |
+| GET / POST | `/v1/sales/expenses` | `reports:read` / `sales:create` |
+| GET | `/v1/inventory/stock` | `inventory:read` (`?search=&lowOnly=true`) |
+| POST | `/v1/inventory/movements` | `inventory:write` — entrée, retour, correction |
+| POST | `/v1/inventory/counts` | `inventory:write` — inventaire physique |
+| GET | `/v1/inventory/products/:id/movements` | `inventory:read` |
 | GET | `/health` | public |
 
 Rôles système : `owner` (tout), `manager`, `cashier`, `accountant` — voir `migrations/0001_core.sql`.
@@ -93,7 +105,7 @@ La CI GitHub Actions lance build, typecheck, tests unitaires et e2e (PostgreSQL 
 
 ## Prochaines étapes
 
-1. Module **sales** (caisse, ventes, dettes clients) + **inventory** (mouvements de stock).
+1. ~~Module **sales** + **inventory**~~ ✔ (caisse, carnet de crédit, dépenses, résumé, stock).
 2. Synchronisation hors ligne (`/v1/sync/push`, `/v1/sync/pull`).
 3. **invoicing** + génération PDF, puis **payments** (agrégateur Wave / Orange Money).
 4. Fournisseur OTP réel (SMS / WhatsApp Business).
