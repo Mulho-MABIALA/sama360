@@ -146,7 +146,7 @@ class _StockRow extends StatelessWidget {
               width: 44,
               height: 44,
               alignment: Alignment.center,
-              decoration: BoxDecoration(color: const Color(0xFFF2F0EA), borderRadius: BorderRadius.circular(12)),
+              decoration: BoxDecoration(color: const Color(0xFFEEF4F0), borderRadius: BorderRadius.circular(12)),
               child: Text(productInitials(item.name), style: const TextStyle(color: AppColors.green, fontWeight: FontWeight.w800)),
             ),
             const SizedBox(width: 12),

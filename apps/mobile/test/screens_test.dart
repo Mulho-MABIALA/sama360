@@ -8,12 +8,16 @@ void main() {
   testWidgets("l'accueil affiche le résumé du jour, l'alerte stock et les services", (tester) async {
     phoneSize(tester);
     await pumpSama(tester);
-    expect(find.text('Bonjour Awa'), findsOneWidget);
     expect(find.text('Awa Beauté'), findsOneWidget);
-    expect(find.textContaining('86'), findsWidgets); // 86 500 FCFA
+    expect(find.text('Caisse du jour'), findsOneWidget);
+    expect(find.textContaining('86'), findsWidgets); // 86 500 F
+    expect(find.text('12 ventes aujourd’hui'), findsOneWidget);
     expect(find.text('2 produits en stock bas'), findsOneWidget);
-    expect(find.text('Mes services'), findsOneWidget);
-    expect(find.text('Bientôt'), findsNWidgets(8));
+    expect(find.text('Bientôt'), findsNWidgets(3)); // Factures, Boutique, Paiements
+    await tester.tap(find.text('Plus'));
+    await tester.pumpAndSettle();
+    expect(find.text('Tous les services'), findsOneWidget);
+    expect(find.text('Assistant IA'), findsOneWidget);
   });
 
   testWidgets('caisse : panier, encaissement comptant, identifiant de vente envoyé', (tester) async {

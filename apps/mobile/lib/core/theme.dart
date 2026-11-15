@@ -3,13 +3,19 @@ import 'package:google_fonts/google_fonts.dart';
 
 /// Palette des maquettes Sama360.
 abstract final class AppColors {
-  static const green = Color(0xFF0F6E56);
-  static const greenDark = Color(0xFF0A5241);
-  static const greenSoft = Color(0xFFE3F1EC);
-  static const ink = Color(0xFF14201C);
-  static const muted = Color(0xFF5B6762);
-  static const ground = Color(0xFFF6F5F1);
-  static const line = Color(0xFFE6E3DA);
+  // Vert émeraude plus lumineux, fond menthe très clair (charte « super app »).
+  static const green = Color(0xFF097E4F); // texte et boutons : contraste ≥ 4,5:1 sur blanc et sur le fond
+  static const leaf = Color(0xFF19B56F); // décoratif uniquement (dégradés, illustrations)
+  static const greenDark = Color(0xFF0B6E47);
+  static const greenSoft = Color(0xFFE4F5EC);
+  static const mint = Color(0xFFD6F1E3);
+  static const ink = Color(0xFF13241C);
+  static const muted = Color(0xFF5E6E66);
+  static const ground = Color(0xFFF4F8F5);
+  static const line = Color(0xFFE3EBE6);
+  static const orange = Color(0xFFFF8A3D);
+  static const peach = Color(0xFFFFE9D6);
+  static const sky = Color(0xFFE6F6EE);
   static const card = Colors.white;
   static const saffron = Color(0xFFF2A93B);
   static const warnBg = Color(0xFFFDF1DD);
