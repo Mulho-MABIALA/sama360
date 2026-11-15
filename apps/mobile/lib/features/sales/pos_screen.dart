@@ -205,7 +205,7 @@ class _ProductCard extends StatelessWidget {
                 height: 48,
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
-                  color: inCart ? AppColors.greenSoft : const Color(0xFFF2F0EA),
+                  color: inCart ? AppColors.greenSoft : const Color(0xFFEEF4F0),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Text(
