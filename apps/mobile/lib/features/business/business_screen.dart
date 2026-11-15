@@ -39,11 +39,13 @@ class _BusinessScreenState extends ConsumerState<BusinessScreen> {
     if (_name.text.trim().length < 2) return;
     setState(() => _busy = true);
     try {
-      await ref.read(authProvider.notifier).createBusiness(
-        name: _name.text,
-        category: _category == 'autre' ? null : _category,
-        city: _city.text.trim().isEmpty ? null : _city.text.trim(),
-      );
+      await ref
+          .read(authProvider.notifier)
+          .createBusiness(
+            name: _name.text,
+            category: _category == 'autre' ? null : _category,
+            city: _city.text.trim().isEmpty ? null : _city.text.trim(),
+          );
       if (mounted) context.go('/');
     } catch (e) {
       if (mounted) showError(context, e);
@@ -60,7 +62,10 @@ class _BusinessScreenState extends ConsumerState<BusinessScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(list.isEmpty ? 'Votre activité' : 'Mes entreprises', style: const TextStyle(fontWeight: FontWeight.w800)),
+        title: Text(
+          list.isEmpty ? 'Votre activité' : 'Mes entreprises',
+          style: const TextStyle(fontWeight: FontWeight.w800),
+        ),
         automaticallyImplyLeading: auth?.businessId != null,
       ),
       body: SafeArea(
@@ -117,7 +122,10 @@ class _BusinessScreenState extends ConsumerState<BusinessScreen> {
                 ],
               ),
               const SizedBox(height: 16),
-              TextField(controller: _city, decoration: const InputDecoration(labelText: 'Ville')),
+              TextField(
+                controller: _city,
+                decoration: const InputDecoration(labelText: 'Ville'),
+              ),
               const SizedBox(height: 24),
               BusyButton(label: "Créer l'entreprise", busy: _busy, onPressed: _create),
               if (list.isNotEmpty)

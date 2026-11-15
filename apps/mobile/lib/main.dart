@@ -11,10 +11,7 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await initializeDateFormatting('fr');
   runApp(
-    ProviderScope(
-      overrides: [sessionStoreProvider.overrideWithValue(SecureSessionStore())],
-      child: const SamaApp(),
-    ),
+    ProviderScope(overrides: [sessionStoreProvider.overrideWithValue(SecureSessionStore())], child: const SamaApp()),
   );
 }
 

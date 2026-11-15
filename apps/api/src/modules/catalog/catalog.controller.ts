@@ -1,4 +1,18 @@
-import { Body, Controller, Delete, Get, HttpCode, Param, ParseUUIDPipe, Patch, Post, Query } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  HttpCode,
+  Param,
+  ParseUUIDPipe,
+  Patch,
+  Post,
+  Query,
+  UploadedFile,
+  UseInterceptors,
+} from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { and, asc, desc, eq, ilike, isNull, lt, or, SQL } from 'drizzle-orm';
 import { z } from 'zod';
 import { AuthUser, TenantContext } from '../../shared/auth/auth.types';
@@ -9,6 +23,8 @@ import { OutboxService } from '../../shared/events/outbox.service';
 import { AppError } from '../../shared/http/app-error';
 import { PageQuery, parse } from '../../shared/http/zod';
 import { newId } from '../../shared/ids';
+import { env } from '../../shared/config/env';
+import { FilesService } from '../files/files.service';
 
 const amount = z.coerce.number().int().min(0).max(1_000_000_000_000);
 
@@ -53,6 +69,7 @@ export class CatalogController {
   constructor(
     private readonly dbs: DbService,
     private readonly outbox: OutboxService,
+    private readonly filesService: FilesService,
   ) {}
 
   // ---------- Catégories ----------
@@ -179,6 +196,68 @@ export class CatalogController {
           payload: { productId: product.id, price: product.price, cost: product.cost, published: product.published },
         });
       }
+      return product;
+    });
+  }
+
+  /**
+   * Photo du produit (multipart, champ « file »). Remplace la photo précédente.
+   * Le format est vérifié sur les octets réels ; le téléphone compresse avant l'envoi.
+   */
+  @Post('products/:id/image')
+  @HttpCode(200)
+  @RequirePermission('catalog:write')
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 20 * 1024 * 1024, files: 1 } }))
+  setImage(
+    @CurrentTenant() t: TenantContext,
+    @CurrentUser() user: AuthUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @UploadedFile() file?: { buffer: Buffer; size: number },
+  ) {
+    if (!file?.buffer?.length) throw new AppError('VALIDATION_FAILED', 'Ajoutez une photo (champ « file »)', 422);
+    const maxMb = env().MAX_UPLOAD_MB;
+    if (file.size > maxMb * 1024 * 1024) {
+      throw new AppError('PAYLOAD_TOO_LARGE', `Photo trop lourde (maximum ${maxMb} Mo)`, 413);
+    }
+    return this.dbs.withTenant(t.businessId, async (tx) => {
+      const [current] = await tx
+        .select({ id: products.id, imageFileIds: products.imageFileIds, version: products.version })
+        .from(products)
+        .where(and(eq(products.id, id), isNull(products.deletedAt)))
+        .limit(1);
+      if (!current) throw AppError.notFound('Produit');
+      const saved = await this.filesService.saveImage(tx, {
+        businessId: t.businessId,
+        kind: 'product_image',
+        data: file.buffer,
+        createdBy: user.id,
+      });
+      const [product] = await tx
+        .update(products)
+        .set({ imageFileIds: [saved.id], version: current.version + 1, updatedAt: new Date() })
+        .where(eq(products.id, id))
+        .returning();
+      for (const old of current.imageFileIds) await this.filesService.remove(tx, old);
+      return product;
+    });
+  }
+
+  @Delete('products/:id/image')
+  @RequirePermission('catalog:write')
+  removeImage(@CurrentTenant() t: TenantContext, @Param('id', ParseUUIDPipe) id: string) {
+    return this.dbs.withTenant(t.businessId, async (tx) => {
+      const [current] = await tx
+        .select({ imageFileIds: products.imageFileIds, version: products.version })
+        .from(products)
+        .where(and(eq(products.id, id), isNull(products.deletedAt)))
+        .limit(1);
+      if (!current) throw AppError.notFound('Produit');
+      const [product] = await tx
+        .update(products)
+        .set({ imageFileIds: [], version: current.version + 1, updatedAt: new Date() })
+        .where(eq(products.id, id))
+        .returning();
+      for (const old of current.imageFileIds) await this.filesService.remove(tx, old);
       return product;
     });
   }

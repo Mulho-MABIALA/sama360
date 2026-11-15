@@ -8,6 +8,7 @@ import '../../core/models.dart';
 import '../../core/providers.dart';
 import '../../core/theme.dart';
 import '../../core/widgets.dart';
+import '../catalog/product_photo.dart';
 import '../customers/customer_picker.dart';
 import 'cart.dart';
 
@@ -32,12 +33,14 @@ class _PosScreenState extends ConsumerState<PosScreen> {
     setState(() => _busy = true);
     SaleResult sale;
     try {
-      sale = await ref.read(repoProvider).createSale(
-        id: id,
-        customerId: cart.customer?.id,
-        items: [for (final l in cart.lines.values) (productId: l.product.id, quantity: l.quantity)],
-        payments: paymentsFor(cart.total, cart.mode, cart.deposit),
-      );
+      sale = await ref
+          .read(repoProvider)
+          .createSale(
+            id: id,
+            customerId: cart.customer?.id,
+            items: [for (final l in cart.lines.values) (productId: l.product.id, quantity: l.quantity)],
+            payments: paymentsFor(cart.total, cart.mode, cart.deposit),
+          );
     } on ApiException catch (e) {
       // Réseau coupé : le panier et son identifiant sont gardés, un nouvel essai ne crée pas de doublon.
       if (mounted) {
@@ -87,7 +90,9 @@ class _PosScreenState extends ConsumerState<PosScreen> {
     final cart = ref.watch(cartProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Nouvelle vente', style: TextStyle(fontWeight: FontWeight.w800))),
+      appBar: AppBar(
+        title: const Text('Nouvelle vente', style: TextStyle(fontWeight: FontWeight.w800)),
+      ),
       body: Column(
         children: [
           Padding(
@@ -133,7 +138,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
                   padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
                   gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
                     maxCrossAxisExtent: 200,
-                    mainAxisExtent: 158,
+                    mainAxisExtent: 186,
                     crossAxisSpacing: 10,
                     mainAxisSpacing: 10,
                   ),
@@ -175,7 +180,13 @@ class _EmptyCatalog extends StatelessWidget {
 }
 
 class _ProductCard extends StatelessWidget {
-  const _ProductCard({required this.product, this.stock, required this.quantity, required this.onAdd, required this.onRemove});
+  const _ProductCard({
+    required this.product,
+    this.stock,
+    required this.quantity,
+    required this.onAdd,
+    required this.onRemove,
+  });
   final Product product;
   final StockItem? stock;
   final double quantity;
@@ -201,18 +212,7 @@ class _ProductCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(
-                height: 48,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: inCart ? AppColors.greenSoft : const Color(0xFFEEF4F0),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Text(
-                  productInitials(product.name),
-                  style: const TextStyle(color: AppColors.green, fontWeight: FontWeight.w800, fontSize: 17),
-                ),
-              ),
+              ProductThumb(name: product.name, fileId: product.imageFileId, height: 76, highlight: inCart),
               const SizedBox(height: 8),
               Expanded(
                 child: Text(
@@ -224,7 +224,12 @@ class _ProductCard extends StatelessWidget {
               ),
               Row(
                 children: [
-                  Expanded(child: Text(moneyShort(product.price), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700))),
+                  Expanded(
+                    child: Text(
+                      moneyShort(product.price),
+                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+                    ),
+                  ),
                   if (inCart)
                     Semantics(
                       label: 'Retirer un ${product.name}',
@@ -247,7 +252,11 @@ class _ProductCard extends StatelessWidget {
               if (stock != null)
                 Text(
                   low ? 'Stock bas : ${qty(stock!.onHand)}' : 'En stock : ${qty(stock!.onHand)}',
-                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: low ? AppColors.warn : AppColors.muted),
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: low ? AppColors.warn : AppColors.muted,
+                  ),
                 ),
             ],
           ),
@@ -295,15 +304,18 @@ class _CheckoutPanel extends ConsumerWidget {
                         cart.customer == null
                             ? '$articles article(s) · Choisir un client'
                             : '$articles article(s) · ${cart.customer!.name}',
-                        style: const TextStyle(fontSize: 12, color: AppColors.muted, decoration: TextDecoration.underline),
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: AppColors.muted,
+                          decoration: TextDecoration.underline,
+                        ),
                       ),
                     ),
                     Text(money(cart.total), style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800)),
                   ],
                 ),
               ),
-              if (!cart.isEmpty)
-                TextButton(onPressed: ctrl.clear, child: const Text('Vider')),
+              if (!cart.isEmpty) TextButton(onPressed: ctrl.clear, child: const Text('Vider')),
             ],
           ),
           const SizedBox(height: 10),
@@ -323,7 +335,11 @@ class _CheckoutPanel extends ConsumerWidget {
               key: const Key('deposit'),
               keyboardType: TextInputType.number,
               inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-              decoration: const InputDecoration(labelText: 'Acompte payé en espèces (facultatif)', suffixText: 'FCFA', isDense: true),
+              decoration: const InputDecoration(
+                labelText: 'Acompte payé en espèces (facultatif)',
+                suffixText: 'FCFA',
+                isDense: true,
+              ),
               onChanged: (v) => ctrl.setDeposit(int.tryParse(v) ?? 0),
             ),
             if (cart.total > 0)

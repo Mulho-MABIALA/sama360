@@ -74,7 +74,10 @@ class _PhoneScreenState extends ConsumerState<PhoneScreen> {
               controller: _phone,
               keyboardType: TextInputType.phone,
               autofocus: true,
-              inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[\d ]')), LengthLimitingTextInputFormatter(14)],
+              inputFormatters: [
+                FilteringTextInputFormatter.allow(RegExp(r'[\d ]')),
+                LengthLimitingTextInputFormatter(14),
+              ],
               style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700, letterSpacing: 0.5),
               decoration: InputDecoration(
                 labelText: 'Numéro',

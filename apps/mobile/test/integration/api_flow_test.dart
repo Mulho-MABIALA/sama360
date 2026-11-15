@@ -5,9 +5,11 @@ library;
 /// Prérequis : API + worker démarrés, et SAMA_API_URL / SAMA_OTP_LOG (journal de l'API
 /// où s'affichent les codes OTP en développement).
 ///   SAMA_API_URL=http://localhost:3000 SAMA_OTP_LOG=/tmp/api.log flutter test --tags integration
+import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
 
+import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sama360/core/api/api_client.dart';
 import 'package:sama360/core/api/session_store.dart';
@@ -77,6 +79,19 @@ void main() {
     await repo.addStock(karite.id, 20);
     await repo.addStock(huile.id, 8);
     expect((await repo.products()).map((p) => p.name), containsAll(['Beurre de karité 250 g', 'Huile de coco 500 ml']));
+
+    // Photo du produit : envoi, puis lecture publique comme l'app l'affiche
+    final png = base64Decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==');
+    final withPhoto = await repo.uploadProductImage(karite.id, png, filename: 'karite.png');
+    expect(withPhoto.imageFileId, isNotNull);
+    final img = await Dio().get<List<int>>(repo.fileUrl(withPhoto.imageFileId!), options: Options(responseType: ResponseType.bytes));
+    expect(img.headers.value('content-type'), 'image/png');
+    expect(img.data, png);
+    expect((await repo.stock()).items.firstWhere((i) => i.productId == karite.id).imageFileId, withPhoto.imageFileId);
+    await expectLater(
+      repo.uploadProductImage(karite.id, utf8.encode('pas une image'), filename: 'x.jpg'),
+      throwsA(isA<ApiException>().having((e) => e.code, 'code', 'VALIDATION_FAILED')),
+    );
 
     // Vente au comptant (Wave), idempotente
     final id = const Uuid().v7();

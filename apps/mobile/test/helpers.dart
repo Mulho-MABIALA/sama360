@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/date_symbol_data_local.dart';
@@ -54,7 +55,27 @@ class FakeRepo extends SamaRepository {
   FakeRepo() : super(ApiClient(baseUrl: 'http://localhost', store: MemorySessionStore()));
 
   final sales = <Map<String, Object?>>[];
+  final createdProducts = <String>[];
+  final uploads = <String, int>{}; // productId → taille de la photo envoyée
   int saleCounter = 0;
+
+  @override
+  Future<Product> createProduct({
+    required String name,
+    required int price,
+    int cost = 0,
+    String? categoryId,
+    int lowStockThreshold = 5,
+  }) async {
+    createdProducts.add(name);
+    return Product(id: 'new-${createdProducts.length}', name: name, price: price, cost: cost);
+  }
+
+  @override
+  Future<Product> uploadProductImage(String productId, List<int> bytes, {String filename = 'photo.jpg'}) async {
+    uploads[productId] = bytes.length;
+    return Product(id: productId, name: 'x', price: 0, cost: 0, imageFileId: 'f-$productId');
+  }
 
   @override
   Future<CurrentBusiness> currentBusiness() async => demoBusiness;
@@ -126,7 +147,11 @@ class FakeAuth extends AuthController {
 }
 
 /// Lance l'app complète (vrai routeur, vrais écrans) sur des données factices.
-Future<(ProviderContainer, FakeRepo)> pumpSama(WidgetTester tester, {String location = '/'}) async {
+Future<(ProviderContainer, FakeRepo)> pumpSama(
+  WidgetTester tester, {
+  String location = '/',
+  List<Override> overrides = const [],
+}) async {
   await initializeDateFormatting('fr');
   final repo = FakeRepo();
   final container = ProviderContainer(
@@ -134,6 +159,7 @@ Future<(ProviderContainer, FakeRepo)> pumpSama(WidgetTester tester, {String loca
       sessionStoreProvider.overrideWithValue(MemorySessionStore()),
       repoProvider.overrideWithValue(repo),
       authProvider.overrideWith(FakeAuth.new),
+      ...overrides,
     ],
   );
   addTearDown(container.dispose);

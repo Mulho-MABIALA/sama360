@@ -98,6 +98,7 @@ class Product {
     this.categoryId,
     this.trackStock = true,
     this.lowStockThreshold = 5,
+    this.imageFileId,
   });
   final String id;
   final String name;
@@ -106,6 +107,7 @@ class Product {
   final String? categoryId;
   final bool trackStock;
   final int lowStockThreshold;
+  final String? imageFileId; // photo principale (GET /v1/files/:id)
 
   factory Product.fromJson(Map<String, dynamic> j) => Product(
     id: j['id'] as String,
@@ -115,6 +117,7 @@ class Product {
     categoryId: j['categoryId'] as String?,
     trackStock: j['trackStock'] as bool? ?? true,
     lowStockThreshold: _int(j['lowStockThreshold']),
+    imageFileId: ((j['imageFileIds'] as List?) ?? const []).cast<String>().firstOrNull,
   );
 }
 
@@ -127,6 +130,7 @@ class StockItem {
     required this.threshold,
     required this.onHand,
     required this.low,
+    this.imageFileId,
   });
   final String productId;
   final String name;
@@ -135,6 +139,7 @@ class StockItem {
   final int threshold;
   final double onHand;
   final bool low;
+  final String? imageFileId;
 
   factory StockItem.fromJson(Map<String, dynamic> j) => StockItem(
     productId: j['productId'] as String,
@@ -144,6 +149,7 @@ class StockItem {
     threshold: _int(j['threshold']),
     onHand: _num(j['onHand']),
     low: j['low'] as bool? ?? false,
+    imageFileId: j['imageFileId'] as String?,
   );
 
   int get margin => price == 0 ? 0 : (((price - cost) / price) * 100).round();
@@ -227,7 +233,14 @@ class Debtor {
 }
 
 class LedgerEntry {
-  const LedgerEntry({required this.id, required this.type, required this.amount, this.note, this.method, required this.at});
+  const LedgerEntry({
+    required this.id,
+    required this.type,
+    required this.amount,
+    this.note,
+    this.method,
+    required this.at,
+  });
   final String id;
   final String type; // debt, repayment, adjustment
   final int amount;
@@ -259,7 +272,13 @@ class Ledger {
 }
 
 class SaleResult {
-  const SaleResult({required this.id, required this.number, required this.total, required this.paid, required this.due});
+  const SaleResult({
+    required this.id,
+    required this.number,
+    required this.total,
+    required this.paid,
+    required this.due,
+  });
   final String id;
   final String number;
   final int total;

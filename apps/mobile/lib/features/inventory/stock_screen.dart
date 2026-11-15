@@ -7,6 +7,7 @@ import '../../core/models.dart';
 import '../../core/providers.dart';
 import '../../core/theme.dart';
 import '../../core/widgets.dart';
+import '../catalog/product_photo.dart';
 
 /// Stock (maquette « Stock ») : valeur, stock bas, liste des produits, entrées et nouveaux produits.
 class StockScreen extends ConsumerStatefulWidget {
@@ -33,7 +34,9 @@ class _StockScreenState extends ConsumerState<StockScreen> {
     final canCatalog = ref.can('catalog:write');
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Stock', style: TextStyle(fontWeight: FontWeight.w800))),
+      appBar: AppBar(
+        title: const Text('Stock', style: TextStyle(fontWeight: FontWeight.w800)),
+      ),
       floatingActionButton: canCatalog
           ? FloatingActionButton.extended(
               onPressed: () => _openNewProduct(context),
@@ -58,16 +61,26 @@ class _StockScreenState extends ConsumerState<StockScreen> {
               children: [
                 Row(
                   children: [
-                    Expanded(child: StatTile(label: 'Valeur du stock', value: moneyShort(s.stockValue))),
+                    Expanded(
+                      child: StatTile(label: 'Valeur du stock', value: moneyShort(s.stockValue)),
+                    ),
                     const SizedBox(width: 8),
-                    Expanded(child: StatTile(label: 'Produits', value: '${s.items.length}')),
+                    Expanded(
+                      child: StatTile(label: 'Produits', value: '${s.items.length}'),
+                    ),
                     const SizedBox(width: 8),
-                    Expanded(child: StatTile(label: 'Stock bas', value: '${s.lowStock}', warn: s.lowStock > 0)),
+                    Expanded(
+                      child: StatTile(label: 'Stock bas', value: '${s.lowStock}', warn: s.lowStock > 0),
+                    ),
                   ],
                 ),
                 const SizedBox(height: 12),
                 TextField(
-                  decoration: const InputDecoration(hintText: 'Rechercher', prefixIcon: Icon(Icons.search), isDense: true),
+                  decoration: const InputDecoration(
+                    hintText: 'Rechercher',
+                    prefixIcon: Icon(Icons.search),
+                    isDense: true,
+                  ),
                   onChanged: (v) => setState(() => _search = v.trim().toLowerCase()),
                 ),
                 const SizedBox(height: 10),
@@ -83,7 +96,9 @@ class _StockScreenState extends ConsumerState<StockScreen> {
                   Padding(
                     padding: const EdgeInsets.all(32),
                     child: Text(
-                      s.items.isEmpty ? 'Aucun produit suivi en stock.\nAjoutez votre premier produit.' : 'Aucun produit ne correspond.',
+                      s.items.isEmpty
+                          ? 'Aucun produit suivi en stock.\nAjoutez votre premier produit.'
+                          : 'Aucun produit ne correspond.',
                       textAlign: TextAlign.center,
                       style: const TextStyle(color: AppColors.muted),
                     ),
@@ -103,6 +118,7 @@ class _StockScreenState extends ConsumerState<StockScreen> {
 
   Future<void> _openEntry(BuildContext context, StockItem item) async {
     final done = await showModalBottomSheet<bool>(
+      useRootNavigator: true,
       context: context,
       isScrollControlled: true,
       showDragHandle: true,
@@ -116,6 +132,7 @@ class _StockScreenState extends ConsumerState<StockScreen> {
 
   Future<void> _openNewProduct(BuildContext context) async {
     final done = await showModalBottomSheet<bool>(
+      useRootNavigator: true,
       context: context,
       isScrollControlled: true,
       showDragHandle: true,
@@ -142,21 +159,23 @@ class _StockRow extends StatelessWidget {
         padding: const EdgeInsets.all(12),
         child: Row(
           children: [
-            Container(
-              width: 44,
-              height: 44,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(color: const Color(0xFFEEF4F0), borderRadius: BorderRadius.circular(12)),
-              child: Text(productInitials(item.name), style: const TextStyle(color: AppColors.green, fontWeight: FontWeight.w800)),
-            ),
+            ProductThumb(name: item.name, fileId: item.imageFileId, size: 48),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(item.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
+                  Text(
+                    item.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+                  ),
                   const SizedBox(height: 2),
-                  Text('${moneyShort(item.price)} · marge ${item.margin} %', style: const TextStyle(fontSize: 12, color: AppColors.muted)),
+                  Text(
+                    '${moneyShort(item.price)} · marge ${item.margin} %',
+                    style: const TextStyle(fontSize: 12, color: AppColors.muted),
+                  ),
                 ],
               ),
             ),
@@ -165,14 +184,21 @@ class _StockRow extends StatelessWidget {
               children: [
                 Text(
                   qty(item.onHand),
-                  style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: item.low ? AppColors.warn : AppColors.ink),
+                  style: TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w800,
+                    color: item.low ? AppColors.warn : AppColors.ink,
+                  ),
                 ),
                 if (item.low)
                   Container(
                     margin: const EdgeInsets.only(top: 3),
                     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                     decoration: BoxDecoration(color: AppColors.warnBg, borderRadius: BorderRadius.circular(6)),
-                    child: Text('Seuil ${item.threshold}', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: AppColors.warnText)),
+                    child: Text(
+                      'Seuil ${item.threshold}',
+                      style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: AppColors.warnText),
+                    ),
                   ),
               ],
             ),
@@ -204,6 +230,19 @@ class _StockEntrySheetState extends ConsumerState<_StockEntrySheet> {
     super.dispose();
   }
 
+  Future<void> _changePhoto() async {
+    final photo = await choosePhoto(context, ref);
+    if (photo == null || !mounted) return;
+    setState(() => _busy = true);
+    try {
+      await ref.read(repoProvider).uploadProductImage(widget.item.productId, photo.bytes, filename: photo.filename);
+      if (mounted) Navigator.pop(context, true);
+    } catch (e) {
+      if (mounted) showError(context, e);
+      setState(() => _busy = false);
+    }
+  }
+
   Future<void> _save() async {
     final q = double.tryParse(_qty.text.replaceAll(',', '.')) ?? 0;
     if (q <= 0) return;
@@ -224,9 +263,33 @@ class _StockEntrySheetState extends ConsumerState<_StockEntrySheet> {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text('Entrée de stock', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
-        const SizedBox(height: 4),
-        Text('${widget.item.name} · actuellement ${qty(widget.item.onHand)}', style: const TextStyle(color: AppColors.muted)),
+        Row(
+          children: [
+            ProductThumb(name: widget.item.name, fileId: widget.item.imageFileId, size: 56),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Entrée de stock', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+                  Text(
+                    '${widget.item.name} · actuellement ${qty(widget.item.onHand)}',
+                    style: const TextStyle(color: AppColors.muted),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        if (ref.can('catalog:write'))
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton.icon(
+              onPressed: _busy ? null : _changePhoto,
+              icon: const Icon(Icons.add_a_photo_outlined, size: 18),
+              label: Text(widget.item.imageFileId == null ? 'Ajouter une photo' : 'Changer la photo'),
+            ),
+          ),
         const SizedBox(height: 16),
         TextField(
           controller: _qty,
@@ -261,6 +324,7 @@ class _NewProductSheetState extends ConsumerState<_NewProductSheet> {
   final _initial = TextEditingController();
   final _threshold = TextEditingController(text: '5');
   String? _categoryId;
+  PickedPhoto? _photo;
   bool _busy = false;
   String? _error;
 
@@ -293,6 +357,14 @@ class _NewProductSheetState extends ConsumerState<_NewProductSheet> {
       );
       final initial = double.tryParse(_initial.text.replaceAll(',', '.')) ?? 0;
       if (initial > 0) await repo.addStock(p.id, initial);
+      if (_photo != null) {
+        try {
+          await repo.uploadProductImage(p.id, _photo!.bytes, filename: _photo!.filename);
+        } catch (e) {
+          // Le produit est créé : on le signale sans bloquer, la photo pourra être ajoutée ensuite.
+          if (mounted) showError(context, 'Produit créé, mais la photo n’a pas pu être envoyée : ${errorMessage(e)}');
+        }
+      }
       if (mounted) Navigator.pop(context, true);
     } catch (e) {
       setState(() {
@@ -320,6 +392,8 @@ class _NewProductSheetState extends ConsumerState<_NewProductSheet> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             const Text('Nouveau produit', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+            const SizedBox(height: 14),
+            PhotoField(photo: _photo, onChanged: (p) => setState(() => _photo = p)),
             const SizedBox(height: 14),
             TextField(
               controller: _name,

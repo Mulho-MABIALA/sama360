@@ -79,4 +79,11 @@ void main() {
     await pumpSama(tester, location: '/customers/k1');
     await _shot(tester, '6_fiche_client');
   });
+
+  testWidgets('nouveau produit', (tester) async {
+    phoneSize(tester);
+    await pumpSama(tester, location: '/stock');
+    await tester.tap(find.text('Nouveau produit'));
+    await _shot(tester, '7_nouveau_produit');
+  });
 }

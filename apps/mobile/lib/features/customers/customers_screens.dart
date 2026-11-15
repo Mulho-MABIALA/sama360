@@ -58,9 +58,14 @@ class DebtorsScreen extends ConsumerWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const Text('Total à encaisser', style: TextStyle(color: Colors.white70, fontSize: 12)),
-                      Text(money(total), style: const TextStyle(color: AppColors.saffron, fontSize: 26, fontWeight: FontWeight.w800)),
                       Text(
-                        list.isEmpty ? 'Aucun client ne vous doit d’argent' : '${list.length} client(s) vous doivent de l’argent',
+                        money(total),
+                        style: const TextStyle(color: AppColors.saffron, fontSize: 26, fontWeight: FontWeight.w800),
+                      ),
+                      Text(
+                        list.isEmpty
+                            ? 'Aucun client ne vous doit d’argent'
+                            : '${list.length} client(s) vous doivent de l’argent',
                         style: const TextStyle(color: Colors.white70, fontSize: 12),
                       ),
                     ],
@@ -79,7 +84,10 @@ class DebtorsScreen extends ConsumerWidget {
                           d.firstDebtAt == null ? '' : 'Depuis le ${shortDate(d.firstDebtAt!)}',
                           style: const TextStyle(fontSize: 12),
                         ),
-                        trailing: Text(money(d.balance), style: const TextStyle(fontWeight: FontWeight.w800, color: AppColors.warn)),
+                        trailing: Text(
+                          money(d.balance),
+                          style: const TextStyle(fontWeight: FontWeight.w800, color: AppColors.warn),
+                        ),
                         onTap: () => context.push('/customers/${d.customerId}'),
                       ),
                     ),
@@ -103,18 +111,30 @@ class LedgerScreen extends ConsumerWidget {
     final ledger = ref.watch(ledgerProvider(customerId));
     final business = ref.watch(authProvider).value?.business?.name ?? '';
     return Scaffold(
-      appBar: AppBar(title: const Text('Fiche client', style: TextStyle(fontWeight: FontWeight.w800))),
+      appBar: AppBar(
+        title: const Text('Fiche client', style: TextStyle(fontWeight: FontWeight.w800)),
+      ),
       body: AsyncView<Ledger>(
         value: ledger,
         onRetry: () => ref.invalidate(ledgerProvider(customerId)),
         data: (l) => ListView(
           padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
           children: [
-            Center(child: Avatar(name: l.customer.name, size: 64, bg: AppColors.warnBg, fg: AppColors.warnText)),
+            Center(
+              child: Avatar(name: l.customer.name, size: 64, bg: AppColors.warnBg, fg: AppColors.warnText),
+            ),
             const SizedBox(height: 8),
-            Text(l.customer.name, textAlign: TextAlign.center, style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w800)),
+            Text(
+              l.customer.name,
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w800),
+            ),
             if (l.customer.phone != null)
-              Text('+221 ${displayPhone(l.customer.phone!)}', textAlign: TextAlign.center, style: const TextStyle(color: AppColors.muted)),
+              Text(
+                '+221 ${displayPhone(l.customer.phone!)}',
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: AppColors.muted),
+              ),
             const SizedBox(height: 16),
             Container(
               padding: const EdgeInsets.all(18),
@@ -122,8 +142,14 @@ class LedgerScreen extends ConsumerWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(l.balance >= 0 ? 'Solde dû' : 'Avoir du client', style: const TextStyle(color: Colors.white70, fontSize: 12)),
-                  Text(money(l.balance.abs()), style: const TextStyle(color: AppColors.saffron, fontSize: 28, fontWeight: FontWeight.w800)),
+                  Text(
+                    l.balance >= 0 ? 'Solde dû' : 'Avoir du client',
+                    style: const TextStyle(color: Colors.white70, fontSize: 12),
+                  ),
+                  Text(
+                    money(l.balance.abs()),
+                    style: const TextStyle(color: AppColors.saffron, fontSize: 28, fontWeight: FontWeight.w800),
+                  ),
                   if (l.balance > 0) ...[
                     const SizedBox(height: 14),
                     FilledButton.icon(
@@ -131,7 +157,9 @@ class LedgerScreen extends ConsumerWidget {
                         backgroundColor: Colors.white,
                         foregroundColor: AppColors.ink,
                         minimumSize: const Size.fromHeight(46),
-                        textStyle: Theme.of(context).textTheme.labelLarge?.copyWith(fontSize: 14, fontWeight: FontWeight.w800),
+                        textStyle: Theme.of(
+                          context,
+                        ).textTheme.labelLarge?.copyWith(fontSize: 14, fontWeight: FontWeight.w800),
                       ),
                       onPressed: () => _repay(context, ref, l),
                       icon: const Icon(Icons.check, size: 18),
@@ -144,7 +172,9 @@ class LedgerScreen extends ConsumerWidget {
                           backgroundColor: AppColors.whatsapp,
                           foregroundColor: const Color(0xFF08361A),
                           minimumSize: const Size.fromHeight(46),
-                          textStyle: Theme.of(context).textTheme.labelLarge?.copyWith(fontSize: 14, fontWeight: FontWeight.w800),
+                          textStyle: Theme.of(
+                            context,
+                          ).textTheme.labelLarge?.copyWith(fontSize: 14, fontWeight: FontWeight.w800),
                         ),
                         onPressed: () => _remind(context, l, business),
                         icon: const Icon(Icons.chat_rounded, size: 18),
@@ -159,7 +189,10 @@ class LedgerScreen extends ConsumerWidget {
             const Text('Historique', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
             const SizedBox(height: 8),
             if (l.entries.isEmpty)
-              const Padding(padding: EdgeInsets.all(16), child: Text('Aucun mouvement', style: TextStyle(color: AppColors.muted))),
+              const Padding(
+                padding: EdgeInsets.all(16),
+                child: Text('Aucun mouvement', style: TextStyle(color: AppColors.muted)),
+              ),
             Card(
               child: Column(
                 children: [
@@ -187,6 +220,7 @@ class LedgerScreen extends ConsumerWidget {
 
   Future<void> _repay(BuildContext context, WidgetRef ref, Ledger l) async {
     final done = await showModalBottomSheet<bool>(
+      useRootNavigator: true,
       context: context,
       isScrollControlled: true,
       showDragHandle: true,
@@ -215,8 +249,15 @@ class _EntryTile extends StatelessWidget {
       leading: Container(
         width: 36,
         height: 36,
-        decoration: BoxDecoration(color: debt ? AppColors.warnBg : AppColors.greenSoft, borderRadius: BorderRadius.circular(12)),
-        child: Icon(debt ? Icons.arrow_downward : Icons.check, size: 18, color: debt ? AppColors.warn : AppColors.green),
+        decoration: BoxDecoration(
+          color: debt ? AppColors.warnBg : AppColors.greenSoft,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Icon(
+          debt ? Icons.arrow_downward : Icons.check,
+          size: 18,
+          color: debt ? AppColors.warn : AppColors.green,
+        ),
       ),
       title: Text(label, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
       subtitle: Text(dateTime(entry.at), style: const TextStyle(fontSize: 12)),

@@ -28,6 +28,9 @@ pnpm worker                             # dans un 2e terminal : relais outbox + 
 ```
 
 En développement, le code OTP s'affiche dans les logs de l'API (`OTP_PROVIDER=console`).
+Les photos envoyées sont rangées dans `apps/api/storage/` (ignoré par Git ; dossier réglable avec `STORAGE_DIR`).
+En production sur un serveur sans disque persistant, brancher un stockage S3 / Cloudflare R2
+(une seule classe à ajouter : `FileStorage` dans `src/modules/files/storage.ts`).
 
 ### Configurer Neon
 
@@ -79,6 +82,8 @@ Toutes les erreurs : `{ "error": { "code", "message", "details?" } }`.
 | GET / POST | `/v1/catalog/categories` | `catalog:read` / `catalog:write` |
 | GET / POST | `/v1/catalog/products` | idem (`?search=&categoryId=&cursor=&limit=`) |
 | GET / PATCH / DELETE | `/v1/catalog/products/:id` | idem |
+| POST / DELETE | `/v1/catalog/products/:id/image` | `catalog:write` — photo (multipart, champ `file`, JPEG/PNG/WebP, 5 Mo max) |
+| GET | `/v1/files/:id` | public — sert une photo (cache long, l'identifiant change à chaque nouvelle photo) |
 | POST | `/v1/sales` | `sales:create` — encaisser (idempotent si `id` fourni par le mobile) |
 | GET | `/v1/sales` · `/v1/sales/:id` | `sales:read` (`?from=&to=&customerId=&status=`) |
 | POST | `/v1/sales/:id/void` | `sales:void` — annule : stock remis, dette annulée |

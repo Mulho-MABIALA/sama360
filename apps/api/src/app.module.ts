@@ -6,6 +6,7 @@ import { CatalogModule } from './modules/catalog/catalog.module';
 import { ContactsModule } from './modules/contacts/contacts.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { CoreModule } from './modules/core/core.module';
+import { FilesModule } from './modules/files/files.module';
 import { InventoryModule } from './modules/inventory/inventory.module';
 import { SalesModule } from './modules/sales/sales.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
@@ -34,6 +35,7 @@ class HealthController {
     ThrottlerModule.forRoot([{ name: 'default', ttl: 60_000, limit: 120 }]),
     DbModule,
     EventsModule,
+    FilesModule,
     AuthModule,
     CoreModule,
     ContactsModule,

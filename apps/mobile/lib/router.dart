@@ -42,22 +42,39 @@ final routerProvider = Provider<GoRouter>((ref) {
     routes: [
       GoRoute(path: '/splash', builder: (_, _) => const SplashScreen()),
       GoRoute(path: '/login', builder: (_, _) => const PhoneScreen()),
-      GoRoute(path: '/otp', builder: (_, s) => OtpScreen(phone: s.extra as String? ?? '')),
+      GoRoute(
+        path: '/otp',
+        builder: (_, s) => OtpScreen(phone: s.extra as String? ?? ''),
+      ),
       GoRoute(path: '/profile', builder: (_, _) => const ProfileSetupScreen()),
       GoRoute(path: '/business', builder: (_, _) => const BusinessScreen()),
-      GoRoute(path: '/customers/:id', builder: (_, s) => LedgerScreen(customerId: s.pathParameters['id']!)),
+      GoRoute(
+        path: '/customers/:id',
+        builder: (_, s) => LedgerScreen(customerId: s.pathParameters['id']!),
+      ),
       StatefulShellRoute.indexedStack(
         builder: (_, _, shell) => AppShell(shell: shell),
         branches: [
-          StatefulShellBranch(routes: [GoRoute(path: '/', builder: (_, _) => const HomeScreen())]),
-          StatefulShellBranch(routes: [GoRoute(path: '/pos', builder: (_, _) => const PosScreen())]),
+          StatefulShellBranch(
+            routes: [GoRoute(path: '/', builder: (_, _) => const HomeScreen())],
+          ),
+          StatefulShellBranch(
+            routes: [GoRoute(path: '/pos', builder: (_, _) => const PosScreen())],
+          ),
           StatefulShellBranch(
             routes: [
-              GoRoute(path: '/stock', builder: (_, s) => StockScreen(lowOnly: s.uri.queryParameters['low'] == '1')),
+              GoRoute(
+                path: '/stock',
+                builder: (_, s) => StockScreen(lowOnly: s.uri.queryParameters['low'] == '1'),
+              ),
             ],
           ),
-          StatefulShellBranch(routes: [GoRoute(path: '/customers', builder: (_, _) => const DebtorsScreen())]),
-          StatefulShellBranch(routes: [GoRoute(path: '/account', builder: (_, _) => const AccountScreen())]),
+          StatefulShellBranch(
+            routes: [GoRoute(path: '/customers', builder: (_, _) => const DebtorsScreen())],
+          ),
+          StatefulShellBranch(
+            routes: [GoRoute(path: '/account', builder: (_, _) => const AccountScreen())],
+          ),
         ],
       ),
     ],

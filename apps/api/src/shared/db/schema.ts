@@ -340,3 +340,15 @@ export const expenses = salesSchema.table('expenses', {
   createdBy: uuid('created_by').notNull(),
   createdAt: ts('created_at').notNull().defaultNow(),
 });
+
+// ---------- fichiers ----------
+export const files = core.table('files', {
+  id: uuid('id').primaryKey(),
+  businessId: uuid('business_id').notNull(),
+  kind: varchar('kind', { length: 30 }).notNull(),
+  storageKey: varchar('storage_key', { length: 255 }).notNull().unique(),
+  mime: varchar('mime', { length: 60 }).notNull(),
+  size: integer('size').notNull(),
+  createdBy: uuid('created_by'),
+  createdAt: ts('created_at').notNull().defaultNow(),
+});

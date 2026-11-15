@@ -64,7 +64,8 @@ class ApiClient {
   Future<void> _onError(DioException e, ErrorInterceptorHandler h) async {
     final res = e.response;
     final code = _code(res?.data);
-    final canRetry = res?.statusCode == 401 &&
+    final canRetry =
+        res?.statusCode == 401 &&
         code == 'TOKEN_INVALID' &&
         e.requestOptions.extra['retried'] != true &&
         e.requestOptions.extra['public'] != true;
@@ -97,7 +98,10 @@ class ApiClient {
         data: {'refreshToken': current.refreshToken},
         options: Options(extra: {'public': true}),
       );
-      final s = Session(accessToken: res.data!['accessToken'] as String, refreshToken: res.data!['refreshToken'] as String);
+      final s = Session(
+        accessToken: res.data!['accessToken'] as String,
+        refreshToken: res.data!['refreshToken'] as String,
+      );
       await store.save(s);
       return s;
     } on DioException {
@@ -111,10 +115,26 @@ class ApiClient {
   Future<T> get<T>(String path, {Map<String, dynamic>? query}) =>
       _wrap(() => dio.get<T>(path, queryParameters: _clean(query)));
 
-  Future<T> post<T>(String path, {Object? data, bool public = false}) =>
-      _wrap(() => dio.post<T>(path, data: data ?? const {}, options: Options(extra: {'public': public})));
+  Future<T> post<T>(String path, {Object? data, bool public = false}) => _wrap(
+    () => dio.post<T>(
+      path,
+      data: data ?? const {},
+      options: Options(extra: {'public': public}),
+    ),
+  );
 
   Future<T> patch<T>(String path, {Object? data}) => _wrap(() => dio.patch<T>(path, data: data));
+
+  Future<T> delete<T>(String path) => _wrap(() => dio.delete<T>(path));
+
+  /// Envoi de fichier (multipart/form-data, champ « file »).
+  Future<T> upload<T>(String path, List<int> bytes, {required String filename, String field = 'file'}) => _wrap(
+    () => dio.post<T>(
+      path,
+      data: FormData.fromMap({field: MultipartFile.fromBytes(bytes, filename: filename)}),
+      options: Options(contentType: 'multipart/form-data', sendTimeout: const Duration(seconds: 60)),
+    ),
+  );
 
   Future<T> _wrap<T>(Future<Response<T>> Function() call) async {
     try {

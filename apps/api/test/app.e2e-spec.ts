@@ -13,6 +13,8 @@ process.env.REDIS_URL = process.env.REDIS_URL ?? 'redis://localhost:6379';
 process.env.JWT_ACCESS_SECRET = 'test-access-secret-0123456789-abcdefghij';
 process.env.JWT_REFRESH_SECRET = 'test-refresh-secret-0123456789-abcdefghij';
 process.env.OTP_SECRET = 'test-otp-secret-0123456789-abcdefghijklmn';
+process.env.MAX_UPLOAD_MB = '1';
+process.env.STORAGE_DIR = require('node:path').join(require('node:os').tmpdir(), `sama-e2e-${process.pid}`);
 
 import { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
@@ -72,6 +74,7 @@ describe('Socle Sama360 (e2e)', () => {
   let awa: { accessToken: string; refreshToken: string };
   let moussa: { accessToken: string; refreshToken: string };
   let awaBiz: string;
+  let cashierToken: string;
   let moussaBiz: string;
 
   const auth = (token: string, businessId?: string) => {
@@ -401,6 +404,7 @@ describe('Socle Sama360 (e2e)', () => {
 
       await http.post('/v1/members').set(A()).send({ phone: CAISSIER, roleKey: 'cashier' }).expect(201);
       cashier = await login(CAISSIER);
+      cashierToken = cashier.accessToken;
     });
 
     it('encaisse une vente au comptant, de façon idempotente', async () => {
@@ -574,6 +578,94 @@ describe('Socle Sama360 (e2e)', () => {
         ['sale', -2],
         ['purchase', 20],
       ]);
+    });
+  });
+
+  describe('Photos produit', () => {
+    // PNG 1×1 valide et en-tête JPEG minimal
+    const png = Buffer.from(
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
+      'base64',
+    );
+    const jpeg = Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0]), Buffer.alloc(200, 1)]);
+    let productId: string;
+    let firstFile: string;
+    const A = () => auth(awa.accessToken, awaBiz);
+
+    it('envoie une photo et la sert publiquement avec un cache long', async () => {
+      productId = (await http.get('/v1/catalog/products?search=Huile').set(A()).expect(200)).body.data[0].id;
+      const res = await http
+        .post(`/v1/catalog/products/${productId}/image`)
+        .set(A())
+        .attach('file', png, { filename: 'photo.png', contentType: 'image/png' })
+        .expect(200);
+      expect(res.body.imageFileIds).toHaveLength(1);
+      firstFile = res.body.imageFileIds[0];
+
+      const file = await http.get(`/v1/files/${firstFile}`).buffer(true).expect(200); // sans jeton
+      expect(file.headers['content-type']).toBe('image/png');
+      expect(file.headers['cache-control']).toContain('immutable');
+      expect(Buffer.compare(file.body as Buffer, png)).toBe(0);
+
+      const stock = await http.get('/v1/inventory/stock').set(A()).expect(200);
+      expect(stock.body.items.find((i: { productId: string }) => i.productId === productId).imageFileId).toBe(firstFile);
+    });
+
+    it('remplace la photo : l’ancienne disparaît', async () => {
+      const res = await http
+        .post(`/v1/catalog/products/${productId}/image`)
+        .set(A())
+        .attach('file', jpeg, { filename: 'photo.jpg', contentType: 'image/jpeg' })
+        .expect(200);
+      expect(res.body.imageFileIds).toHaveLength(1);
+      expect(res.body.imageFileIds[0]).not.toBe(firstFile);
+      await http.get(`/v1/files/${firstFile}`).expect(404);
+      const served = await http.get(`/v1/files/${res.body.imageFileIds[0]}`).expect(200);
+      expect(served.headers['content-type']).toBe('image/jpeg');
+    });
+
+    it('refuse un faux fichier image, une photo absente ou trop lourde', async () => {
+      const fake = await http
+        .post(`/v1/catalog/products/${productId}/image`)
+        .set(A())
+        .attach('file', Buffer.from('<svg onload="alert(1)"></svg>'), { filename: 'x.png', contentType: 'image/png' })
+        .expect(422);
+      expect(fake.body.error.message).toContain('JPEG, PNG ou WebP');
+
+      await http.post(`/v1/catalog/products/${productId}/image`).set(A()).expect(422);
+
+      const big = Buffer.concat([jpeg, Buffer.alloc(1.5 * 1024 * 1024)]);
+      const tooBig = await http
+        .post(`/v1/catalog/products/${productId}/image`)
+        .set(A())
+        .attach('file', big, { filename: 'big.jpg', contentType: 'image/jpeg' })
+        .expect(413);
+      expect(tooBig.body.error.code).toBe('PAYLOAD_TOO_LARGE');
+    });
+
+    it('protège les photos : droits et isolation entre entreprises', async () => {
+      // Un autre commerçant, dans sa propre entreprise, ne voit pas ce produit
+      await http
+        .post(`/v1/catalog/products/${productId}/image`)
+        .set(auth(moussa.accessToken, moussaBiz))
+        .attach('file', png, { filename: 'p.png', contentType: 'image/png' })
+        .expect(404);
+      // Le caissier n'a pas catalog:write
+      const cashierRes = await http
+        .post(`/v1/catalog/products/${productId}/image`)
+        .set(auth(cashierToken, awaBiz))
+        .attach('file', png, { filename: 'p.png', contentType: 'image/png' })
+        .expect(403);
+      expect(cashierRes.body.error.code).toBe('INSUFFICIENT_PERMISSION');
+      await http.get('/v1/files/not-a-uuid').expect(400);
+      await http.get('/v1/files/01930000-0000-7000-8000-0000000000ff').expect(404);
+    });
+
+    it('supprime la photo', async () => {
+      const before = (await http.get(`/v1/catalog/products/${productId}`).set(A())).body.imageFileIds[0];
+      const res = await http.delete(`/v1/catalog/products/${productId}/image`).set(A()).expect(200);
+      expect(res.body.imageFileIds).toEqual([]);
+      await http.get(`/v1/files/${before}`).expect(404);
     });
   });
 

@@ -1,6 +1,9 @@
+import 'dart:convert';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:sama360/core/models.dart';
+import 'package:sama360/features/catalog/product_photo.dart';
 
 import 'helpers.dart';
 
@@ -80,5 +83,36 @@ void main() {
     expect(find.text('Envoyer un rappel WhatsApp'), findsOneWidget);
     expect(find.text('Remboursement Wave'), findsOneWidget);
     expect(routerOf(c).state.matchedLocation, '/customers/k1');
+  });
+
+  testWidgets('nouveau produit avec photo : la photo est envoyée après la création', (tester) async {
+    phoneSize(tester);
+    // Remplace la galerie du téléphone par une photo de test
+    final png = base64Decode(
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
+    );
+    final (_, repo) = await pumpSama(
+      tester,
+      location: '/stock',
+      overrides: [photoPickerProvider.overrideWithValue((_) async => PickedPhoto(png, 'karite.jpg'))],
+    );
+
+    await tester.tap(find.text('Nouveau produit'));
+    await tester.pumpAndSettle();
+    expect(find.text('Ajouter une photo'), findsOneWidget);
+    await tester.tap(find.bySemanticsLabel('Choisir une photo du produit'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Choisir dans la galerie'));
+    await tester.pumpAndSettle();
+    expect(find.text('Photo ajoutée'), findsOneWidget);
+
+    await tester.enterText(find.widgetWithText(TextField, 'Nom du produit'), 'Beurre de karité 500 g');
+    await tester.enterText(find.widgetWithText(TextField, 'Prix de vente'), '6000');
+    await tester.tap(find.text('Enregistrer le produit'));
+    await tester.pumpAndSettle();
+
+    expect(repo.createdProducts, ['Beurre de karité 500 g']);
+    expect(repo.uploads, {'new-1': png.length});
+    expect(find.text('Produit ajouté'), findsOneWidget);
   });
 }

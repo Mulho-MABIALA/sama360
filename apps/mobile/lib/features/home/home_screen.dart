@@ -107,6 +107,7 @@ class HomeScreen extends ConsumerWidget {
   }
 
   Future<void> _showMore(BuildContext context, void Function(_Service) open) => showModalBottomSheet<void>(
+    useRootNavigator: true,
     context: context,
     showDragHandle: true,
     builder: (ctx) => Padding(
@@ -144,6 +145,7 @@ class HomeScreen extends ConsumerWidget {
 
   Future<void> _addExpense(BuildContext context, WidgetRef ref) async {
     final saved = await showModalBottomSheet<bool>(
+      useRootNavigator: true,
       context: context,
       isScrollControlled: true,
       showDragHandle: true,
@@ -168,10 +170,17 @@ class _Brand extends StatelessWidget {
         height: 30,
         alignment: Alignment.center,
         decoration: BoxDecoration(
-          gradient: const LinearGradient(colors: [AppColors.leaf, AppColors.green], begin: Alignment.topLeft, end: Alignment.bottomRight),
+          gradient: const LinearGradient(
+            colors: [AppColors.leaf, AppColors.green],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
           borderRadius: BorderRadius.circular(10),
         ),
-        child: const Text('S', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 17)),
+        child: const Text(
+          'S',
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 17),
+        ),
       ),
       const SizedBox(width: 8),
       const SamaLogo(size: 22),
@@ -288,7 +297,10 @@ class _Hero extends StatelessWidget {
                     Icon(Icons.search_rounded, color: AppColors.ink),
                     SizedBox(width: 10),
                     Expanded(
-                      child: Text('Rechercher un produit, un service…', style: TextStyle(color: AppColors.muted, fontSize: 14)),
+                      child: Text(
+                        'Rechercher un produit, un service…',
+                        style: TextStyle(color: AppColors.muted, fontSize: 14),
+                      ),
                     ),
                   ],
                 ),
@@ -338,7 +350,10 @@ class _CashCard extends ConsumerWidget {
             children: [
               const Icon(Icons.point_of_sale_rounded, size: 18, color: AppColors.green),
               const SizedBox(width: 6),
-              const Text('Caisse du jour', style: TextStyle(fontWeight: FontWeight.w800, color: AppColors.green)),
+              const Text(
+                'Caisse du jour',
+                style: TextStyle(fontWeight: FontWeight.w800, color: AppColors.green),
+              ),
               const Spacer(),
               Text(shortDate(DateTime.now()), style: const TextStyle(fontSize: 12, color: AppColors.muted)),
             ],
@@ -375,14 +390,19 @@ class _CashCard extends ConsumerWidget {
                                 TextSpan(
                                   children: [
                                     TextSpan(text: moneyShort(s.revenue).replaceAll(' F', '')),
-                                    const TextSpan(text: ' F', style: TextStyle(fontSize: 16, color: AppColors.muted)),
+                                    const TextSpan(
+                                      text: ' F',
+                                      style: TextStyle(fontSize: 16, color: AppColors.muted),
+                                    ),
                                   ],
                                 ),
                                 style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w800, letterSpacing: -0.5),
                               ),
                             ),
-                            Text('${s.salesCount} vente${s.salesCount > 1 ? 's' : ''} aujourd’hui',
-                                style: const TextStyle(fontSize: 12, color: AppColors.muted)),
+                            Text(
+                              '${s.salesCount} vente${s.salesCount > 1 ? 's' : ''} aujourd’hui',
+                              style: const TextStyle(fontSize: 12, color: AppColors.muted),
+                            ),
                           ],
                         ),
                       ),
@@ -392,10 +412,16 @@ class _CashCard extends ConsumerWidget {
                   const SizedBox(height: 12),
                   Row(
                     children: [
-                      Expanded(child: _Figure(label: 'Bénéfice', value: moneyShort(s.netProfit))),
+                      Expanded(
+                        child: _Figure(label: 'Bénéfice', value: moneyShort(s.netProfit)),
+                      ),
                       Container(width: 1, height: 28, color: AppColors.line),
                       Expanded(
-                        child: _Figure(label: 'À encaisser', value: moneyShort(s.receivables), color: const Color(0xFFB54A00)),
+                        child: _Figure(
+                          label: 'À encaisser',
+                          value: moneyShort(s.receivables),
+                          color: const Color(0xFFB54A00),
+                        ),
                       ),
                     ],
                   ),
@@ -419,9 +445,15 @@ class _Figure extends StatelessWidget {
     padding: const EdgeInsets.symmetric(horizontal: 4),
     child: Column(
       children: [
-        Text(label, style: const TextStyle(fontSize: 11, color: AppColors.muted, fontWeight: FontWeight.w600)),
+        Text(
+          label,
+          style: const TextStyle(fontSize: 11, color: AppColors.muted, fontWeight: FontWeight.w600),
+        ),
         const SizedBox(height: 2),
-        Text(value, style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: color)),
+        Text(
+          value,
+          style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: color),
+        ),
       ],
     ),
   );
@@ -454,7 +486,9 @@ class _RoundAction extends StatelessWidget {
             child: Icon(icon, size: 22, color: filled ? Colors.white : AppColors.ink),
           ),
           const SizedBox(height: 4),
-          ExcludeSemantics(child: Text(label, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700))),
+          ExcludeSemantics(
+            child: Text(label, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700)),
+          ),
         ],
       ),
     ),
@@ -487,7 +521,10 @@ class _LowStockBanner extends StatelessWidget {
                 style: const TextStyle(color: AppColors.warnText, fontWeight: FontWeight.w700),
               ),
             ),
-            const Text('Voir', style: TextStyle(color: AppColors.warnText, fontWeight: FontWeight.w700)),
+            const Text(
+              'Voir',
+              style: TextStyle(color: AppColors.warnText, fontWeight: FontWeight.w700),
+            ),
           ],
         ),
       ),
@@ -556,7 +593,10 @@ class _ServiceTile extends StatelessWidget {
                     padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
                     decoration: BoxDecoration(color: AppColors.ink, borderRadius: BorderRadius.circular(6)),
                     child: const ExcludeSemantics(
-                      child: Text('Bientôt', style: TextStyle(color: Colors.white, fontSize: 8.5, fontWeight: FontWeight.w700)),
+                      child: Text(
+                        'Bientôt',
+                        style: TextStyle(color: Colors.white, fontSize: 8.5, fontWeight: FontWeight.w700),
+                      ),
                     ),
                   ),
                 ),
@@ -590,14 +630,20 @@ class _ProBanner extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Passez à Sama360 Pro', style: TextStyle(color: Color(0xFF8A3A00), fontSize: 16, fontWeight: FontWeight.w800)),
+                  Text(
+                    'Passez à Sama360 Pro',
+                    style: TextStyle(color: Color(0xFF8A3A00), fontSize: 16, fontWeight: FontWeight.w800),
+                  ),
                   SizedBox(height: 4),
                   Text(
                     'Plusieurs vendeurs, factures illimitées et rapports détaillés.',
                     style: TextStyle(color: Color(0xFF5C2E0B), fontSize: 12.5, height: 1.3),
                   ),
                   SizedBox(height: 10),
-                  Text('Découvrir →', style: TextStyle(color: Color(0xFF8A3A00), fontWeight: FontWeight.w800, fontSize: 13)),
+                  Text(
+                    'Découvrir →',
+                    style: TextStyle(color: Color(0xFF8A3A00), fontWeight: FontWeight.w800, fontSize: 13),
+                  ),
                 ],
               ),
             ),
@@ -660,7 +706,8 @@ class _ExpenseSheetState extends ConsumerState<_ExpenseSheet> {
           spacing: 8,
           runSpacing: 8,
           children: [
-            for (final c in _expenseCategories) Pill(label: c, selected: _category == c, onTap: () => setState(() => _category = c)),
+            for (final c in _expenseCategories)
+              Pill(label: c, selected: _category == c, onTap: () => setState(() => _category = c)),
           ],
         ),
         const SizedBox(height: 14),

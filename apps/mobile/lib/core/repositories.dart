@@ -41,9 +41,9 @@ class SamaRepository {
       CurrentBusiness.fromJson(await api.get<Map<String, dynamic>>('/v1/business'));
 
   // ---------- Catalogue ----------
-  Future<List<Category>> categories() async => (await api.get<List<dynamic>>('/v1/catalog/categories'))
-      .map((e) => Category.fromJson(e as Map<String, dynamic>))
-      .toList();
+  Future<List<Category>> categories() async => (await api.get<List<dynamic>>(
+    '/v1/catalog/categories',
+  )).map((e) => Category.fromJson(e as Map<String, dynamic>)).toList();
 
   Future<List<Product>> products({String? search, String? categoryId}) async {
     final r = await api.get<Map<String, dynamic>>(
@@ -71,6 +71,17 @@ class SamaRepository {
       },
     ),
   );
+
+  /// Envoie (ou remplace) la photo d'un produit.
+  Future<Product> uploadProductImage(String productId, List<int> bytes, {String filename = 'photo.jpg'}) async =>
+      Product.fromJson(
+        await api.upload<Map<String, dynamic>>('/v1/catalog/products/$productId/image', bytes, filename: filename),
+      );
+
+  Future<void> deleteProductImage(String productId) => api.delete<void>('/v1/catalog/products/$productId/image');
+
+  /// Adresse publique d'un fichier (photo de produit).
+  String fileUrl(String fileId) => '${api.dio.options.baseUrl}/v1/files/$fileId';
 
   // ---------- Stock ----------
   Future<StockOverview> stock({bool lowOnly = false}) async => StockOverview.fromJson(
@@ -112,17 +123,19 @@ class SamaRepository {
 
   // ---------- Clients et carnet de crédit ----------
   Future<List<Contact>> customers({String? search}) async {
-    final r = await api.get<Map<String, dynamic>>('/v1/contacts', query: {'limit': 100, 'search': search, 'type': 'customer'});
+    final r = await api.get<Map<String, dynamic>>(
+      '/v1/contacts',
+      query: {'limit': 100, 'search': search, 'type': 'customer'},
+    );
     return (r['data'] as List).map((e) => Contact.fromJson(e as Map<String, dynamic>)).toList();
   }
 
-  Future<Contact> createCustomer({required String name, String? phone}) async => Contact.fromJson(
-    await api.post<Map<String, dynamic>>('/v1/contacts', data: {'name': name, 'phone': ?phone}),
-  );
+  Future<Contact> createCustomer({required String name, String? phone}) async =>
+      Contact.fromJson(await api.post<Map<String, dynamic>>('/v1/contacts', data: {'name': name, 'phone': ?phone}));
 
-  Future<List<Debtor>> debtors() async => (await api.get<List<dynamic>>('/v1/sales/debtors'))
-      .map((e) => Debtor.fromJson(e as Map<String, dynamic>))
-      .toList();
+  Future<List<Debtor>> debtors() async => (await api.get<List<dynamic>>(
+    '/v1/sales/debtors',
+  )).map((e) => Debtor.fromJson(e as Map<String, dynamic>)).toList();
 
   Future<Ledger> ledger(String customerId) async =>
       Ledger.fromJson(await api.get<Map<String, dynamic>>('/v1/sales/customers/$customerId/ledger'));

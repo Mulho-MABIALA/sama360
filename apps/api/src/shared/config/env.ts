@@ -21,6 +21,10 @@ const EnvSchema = z.object({
   OTP_TTL_SECONDS: z.coerce.number().int().positive().default(300),
   OTP_MAX_ATTEMPTS: z.coerce.number().int().positive().default(5),
   OUTBOX_POLL_MS: z.coerce.number().int().positive().default(1000),
+  // Fichiers : disque local en développement / sur VPS (S3 ou R2 à brancher plus tard)
+  STORAGE_DRIVER: z.enum(['local']).default('local'),
+  STORAGE_DIR: z.string().optional(), // défaut : apps/api/storage
+  MAX_UPLOAD_MB: z.coerce.number().positive().max(20).default(5),
 });
 
 export type Env = z.infer<typeof EnvSchema>;

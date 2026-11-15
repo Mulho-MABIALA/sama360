@@ -27,7 +27,10 @@ export class AllExceptionsFilter implements ExceptionFilter {
 
     if (exception instanceof HttpException) {
       const status = exception.getStatus();
-      const code = status === 404 ? 'NOT_FOUND' : status === 401 ? 'UNAUTHENTICATED' : 'INTERNAL';
+      const code =
+        ({ 401: 'UNAUTHENTICATED', 403: 'FORBIDDEN', 404: 'NOT_FOUND', 413: 'PAYLOAD_TOO_LARGE', 429: 'RATE_LIMITED' } as const)[
+          status as 401
+        ] ?? (status < 500 ? 'VALIDATION_FAILED' : 'INTERNAL');
       res.status(status).json({ error: { code, message: exception.message } });
       return;
     }

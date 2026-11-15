@@ -7,3 +7,6 @@ coverage/
 *.log
 .DS_Store
 .pgdata/
+
+# fichiers envoyés en développement
+apps/api/storage/

@@ -9,6 +9,7 @@ import '../../core/widgets.dart';
 
 /// Ouvre la liste des clients (recherche + création rapide) et renvoie le client choisi.
 Future<Contact?> pickCustomer(BuildContext context) => showModalBottomSheet<Contact>(
+  useRootNavigator: true,
   context: context,
   isScrollControlled: true,
   showDragHandle: true,
@@ -34,7 +35,9 @@ class _CustomerPickerState extends ConsumerState<_CustomerPicker> {
       children: [
         Row(
           children: [
-            const Expanded(child: Text('Choisir un client', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800))),
+            const Expanded(
+              child: Text('Choisir un client', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+            ),
             TextButton.icon(
               onPressed: () async {
                 final created = await createCustomerDialog(context, ref, initialName: _search);
@@ -47,7 +50,11 @@ class _CustomerPickerState extends ConsumerState<_CustomerPicker> {
         ),
         const SizedBox(height: 8),
         TextField(
-          decoration: const InputDecoration(hintText: 'Nom ou téléphone', prefixIcon: Icon(Icons.search), isDense: true),
+          decoration: const InputDecoration(
+            hintText: 'Nom ou téléphone',
+            prefixIcon: Icon(Icons.search),
+            isDense: true,
+          ),
           onChanged: (v) => setState(() {
             _search = v.trim();
             _future = _load();
@@ -58,11 +65,15 @@ class _CustomerPickerState extends ConsumerState<_CustomerPicker> {
           child: FutureBuilder<List<Contact>>(
             future: _future,
             builder: (_, snap) {
-              if (snap.hasError) return ErrorPanel(message: errorMessage(snap.error!), onRetry: () => setState(() => _future = _load()));
+              if (snap.hasError) {
+                return ErrorPanel(message: errorMessage(snap.error!), onRetry: () => setState(() => _future = _load()));
+              }
               if (!snap.hasData) return const Center(child: CircularProgressIndicator());
               final list = snap.data!;
               if (list.isEmpty) {
-                return const Center(child: Text('Aucun client trouvé', style: TextStyle(color: AppColors.muted)));
+                return const Center(
+                  child: Text('Aucun client trouvé', style: TextStyle(color: AppColors.muted)),
+                );
               }
               return ListView.separated(
                 itemCount: list.length,
@@ -74,7 +85,10 @@ class _CustomerPickerState extends ConsumerState<_CustomerPicker> {
                     title: Text(c.name, style: const TextStyle(fontWeight: FontWeight.w700)),
                     subtitle: c.phone == null ? null : Text(displayPhone(c.phone!)),
                     trailing: c.balance > 0
-                        ? Text(money(c.balance), style: const TextStyle(color: AppColors.warn, fontWeight: FontWeight.w700))
+                        ? Text(
+                            money(c.balance),
+                            style: const TextStyle(color: AppColors.warn, fontWeight: FontWeight.w700),
+                          )
                         : null,
                     onTap: () => Navigator.pop(context, c),
                   );

@@ -18,7 +18,11 @@ class AsyncView<T> extends StatelessWidget {
     return switch (value) {
       AsyncData(:final value) => data(value),
       AsyncError(:final error) => ErrorPanel(message: errorMessage(error), onRetry: onRetry),
-      _ => loading ?? const Center(child: Padding(padding: EdgeInsets.all(32), child: CircularProgressIndicator())),
+      _ =>
+        loading ??
+            const Center(
+              child: Padding(padding: EdgeInsets.all(32), child: CircularProgressIndicator()),
+            ),
     };
   }
 }
@@ -37,7 +41,11 @@ class ErrorPanel extends StatelessWidget {
         children: [
           const Icon(Icons.cloud_off_rounded, size: 40, color: AppColors.muted),
           const SizedBox(height: 12),
-          Text(message, textAlign: TextAlign.center, style: const TextStyle(color: AppColors.muted)),
+          Text(
+            message,
+            textAlign: TextAlign.center,
+            style: const TextStyle(color: AppColors.muted),
+          ),
           if (onRetry != null) ...[
             const SizedBox(height: 12),
             OutlinedButton(onPressed: onRetry, child: const Text('Réessayer')),
@@ -86,7 +94,14 @@ class StatTile extends StatelessWidget {
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: warn ? AppColors.warnText : AppColors.muted)),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w600,
+            color: warn ? AppColors.warnText : AppColors.muted,
+          ),
+        ),
         const SizedBox(height: 2),
         Text(
           value,
@@ -133,9 +148,10 @@ class Pill extends StatelessWidget {
 }
 
 void showError(BuildContext context, Object error) {
+  final text = error is String ? error : errorMessage(error);
   ScaffoldMessenger.of(context)
     ..hideCurrentSnackBar()
-    ..showSnackBar(SnackBar(content: Text(errorMessage(error)), backgroundColor: AppColors.danger));
+    ..showSnackBar(SnackBar(content: Text(text), backgroundColor: AppColors.danger));
 }
 
 void showInfo(BuildContext context, String message) {
@@ -153,8 +169,14 @@ class SamaLogo extends StatelessWidget {
   Widget build(BuildContext context) => Text.rich(
     TextSpan(
       children: [
-        TextSpan(text: 'Sama', style: TextStyle(color: AppColors.ink, fontSize: size, fontWeight: FontWeight.w800)),
-        TextSpan(text: '360', style: TextStyle(color: AppColors.green, fontSize: size, fontWeight: FontWeight.w800)),
+        TextSpan(
+          text: 'Sama',
+          style: TextStyle(color: AppColors.ink, fontSize: size, fontWeight: FontWeight.w800),
+        ),
+        TextSpan(
+          text: '360',
+          style: TextStyle(color: AppColors.green, fontSize: size, fontWeight: FontWeight.w800),
+        ),
       ],
     ),
     semanticsLabel: 'Sama360',

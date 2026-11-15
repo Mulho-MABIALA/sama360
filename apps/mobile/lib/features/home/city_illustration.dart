@@ -11,8 +11,9 @@ class CityIllustration extends StatelessWidget {
   final double height;
 
   @override
-  Widget build(BuildContext context) =>
-      ExcludeSemantics(child: CustomPaint(size: Size.fromHeight(height), painter: _CityPainter()));
+  Widget build(BuildContext context) => ExcludeSemantics(
+    child: CustomPaint(size: Size.fromHeight(height), painter: _CityPainter()),
+  );
 }
 
 class _CityPainter extends CustomPainter {
@@ -31,27 +32,39 @@ class _CityPainter extends CustomPainter {
     // Immeubles en arrière-plan (menthe pâle)
     final far = Paint()..color = const Color(0xFFCDEBDC);
     final farBuildings = [
-      [0.00, 0.42, 0.10], [0.09, 0.30, 0.07], [0.17, 0.48, 0.08], [0.27, 0.36, 0.06],
-      [0.34, 0.22, 0.09], [0.45, 0.40, 0.07], [0.60, 0.33, 0.08], [0.70, 0.46, 0.06],
-      [0.78, 0.38, 0.09], [0.89, 0.28, 0.11],
+      [0.00, 0.42, 0.10],
+      [0.09, 0.30, 0.07],
+      [0.17, 0.48, 0.08],
+      [0.27, 0.36, 0.06],
+      [0.34, 0.22, 0.09],
+      [0.45, 0.40, 0.07],
+      [0.60, 0.33, 0.08],
+      [0.70, 0.46, 0.06],
+      [0.78, 0.38, 0.09],
+      [0.89, 0.28, 0.11],
     ];
     for (final b in farBuildings) {
-      canvas.drawRRect(
-        RRect.fromLTRBR(w * b[0], h * b[1], w * (b[0] + b[2]), ground, const Radius.circular(3)),
-        far,
-      );
+      canvas.drawRRect(RRect.fromLTRBR(w * b[0], h * b[1], w * (b[0] + b[2]), ground, const Radius.circular(3)), far);
     }
 
     // Immeubles au premier plan, avec fenêtres
     final colors = [AppColors.leaf, const Color(0xFF7FD3A8), const Color(0xFFF6C177), const Color(0xFF9FDDBE)];
     final nearBuildings = [
-      [0.04, 0.56, 0.11], [0.19, 0.50, 0.09], [0.31, 0.62, 0.12], [0.50, 0.54, 0.10],
-      [0.64, 0.60, 0.08], [0.76, 0.52, 0.10], [0.90, 0.64, 0.09],
+      [0.04, 0.56, 0.11],
+      [0.19, 0.50, 0.09],
+      [0.31, 0.62, 0.12],
+      [0.50, 0.54, 0.10],
+      [0.64, 0.60, 0.08],
+      [0.76, 0.52, 0.10],
+      [0.90, 0.64, 0.09],
     ];
     for (var i = 0; i < nearBuildings.length; i++) {
       final b = nearBuildings[i];
       final rect = Rect.fromLTRB(w * b[0], h * b[1], w * (b[0] + b[2]), ground);
-      canvas.drawRRect(RRect.fromRectAndRadius(rect, const Radius.circular(4)), Paint()..color = colors[i % colors.length]);
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(rect, const Radius.circular(4)),
+        Paint()..color = colors[i % colors.length],
+      );
       _windows(canvas, rect);
     }
 
@@ -72,7 +85,13 @@ class _CityPainter extends CustomPainter {
     canvas.drawLine(Offset(trunkX + h * 0.02, h * 0.47), Offset(trunkX + h * 0.12, h * 0.38), branch);
     canvas.drawLine(Offset(trunkX, h * 0.46), Offset(trunkX, h * 0.34), branch);
     final crown = Paint()..color = AppColors.greenDark;
-    for (final c in [[-0.15, 0.37, 0.05], [-0.07, 0.33, 0.06], [0.0, 0.31, 0.065], [0.07, 0.33, 0.06], [0.15, 0.37, 0.05]]) {
+    for (final c in [
+      [-0.15, 0.37, 0.05],
+      [-0.07, 0.33, 0.06],
+      [0.0, 0.31, 0.065],
+      [0.07, 0.33, 0.06],
+      [0.15, 0.37, 0.05],
+    ]) {
       canvas.drawOval(
         Rect.fromCenter(center: Offset(trunkX + h * c[0], h * c[1]), width: h * c[2] * 2.6, height: h * c[2] * 1.5),
         crown,

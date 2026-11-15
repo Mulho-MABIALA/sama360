@@ -23,13 +23,7 @@ class CartLine {
 }
 
 class CartState {
-  const CartState({
-    this.lines = const {},
-    this.customer,
-    this.mode = PaymentMode.cash,
-    this.deposit = 0,
-    this.saleId,
-  });
+  const CartState({this.lines = const {}, this.customer, this.mode = PaymentMode.cash, this.deposit = 0, this.saleId});
 
   final Map<String, CartLine> lines; // par productId, dans l'ordre d'ajout
   final Contact? customer;
@@ -71,7 +65,9 @@ List<({PayMethod method, int amount})> paymentsFor(int total, PaymentMode mode, 
 String? checkoutBlocker(CartState cart) {
   if (cart.isEmpty) return 'Ajoutez au moins un article';
   if (cart.mode == PaymentMode.credit && cart.customer == null) return 'Choisissez le client pour une vente à crédit';
-  if (cart.mode == PaymentMode.credit && cart.deposit >= cart.total) return "L'acompte couvre tout : choisissez Espèces";
+  if (cart.mode == PaymentMode.credit && cart.deposit >= cart.total) {
+    return "L'acompte couvre tout : choisissez Espèces";
+  }
   return null;
 }
 

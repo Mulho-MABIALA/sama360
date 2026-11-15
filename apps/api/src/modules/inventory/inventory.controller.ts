@@ -66,13 +66,23 @@ export class InventoryController {
       const warehouseId = await this.inventory.defaultWarehouse(tx, t.businessId);
       const search = q.search ? `%${q.search}%` : null;
       const res = await tx.execute(sql`
-        SELECT p.id, p.name, p.sku, p.price, p.cost, p.low_stock_threshold, coalesce(sl.on_hand, 0) AS on_hand
+        SELECT p.id, p.name, p.sku, p.price, p.cost, p.low_stock_threshold, p.image_file_ids[1] AS image_file_id,
+               coalesce(sl.on_hand, 0) AS on_hand
         FROM catalog.products p
         LEFT JOIN inventory.stock_levels sl ON sl.product_id = p.id AND sl.warehouse_id = ${warehouseId}
         WHERE p.deleted_at IS NULL AND p.track_stock
           AND (${search}::text IS NULL OR p.name ILIKE ${search})
         ORDER BY p.name`);
-      type Row = { id: string; name: string; sku: string | null; price: string; cost: string; low_stock_threshold: number; on_hand: string };
+      type Row = {
+        id: string;
+        name: string;
+        sku: string | null;
+        price: string;
+        cost: string;
+        low_stock_threshold: number;
+        image_file_id: string | null;
+        on_hand: string;
+      };
       const items = (res.rows as Row[])
         .map((r) => {
           const qty = Number(r.on_hand);
@@ -81,6 +91,7 @@ export class InventoryController {
             productId: r.id,
             name: r.name,
             sku: r.sku,
+            imageFileId: r.image_file_id,
             price: Number(r.price),
             cost,
             threshold: r.low_stock_threshold,

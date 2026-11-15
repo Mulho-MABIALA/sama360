@@ -58,6 +58,8 @@ Points importants :
   si le réseau coupe et que l'on réessaie, le serveur reconnaît la vente au lieu d'en créer une deuxième.
 - **Session** : quand le jeton expire, un seul rafraîchissement est fait même si plusieurs écrans
   chargent en même temps (le serveur coupe la session si un jeton est réutilisé).
+- **Photos produit** : prises ou choisies sur le téléphone, réduites à 1080 px et compressées avant l'envoi
+  (rapide même en 3G). Affichées dans la caisse et le stock ; initiales du produit si pas de photo.
 - **Droits** : l'accueil masque les bénéfices aux caissiers, le stock masque les modifications
   à ceux qui n'ont pas `inventory:write`.
 

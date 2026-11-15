@@ -43,6 +43,14 @@ void main() {
     });
   });
 
+  test("photo produit lue depuis la réponse de l'API", () {
+    final p = Product.fromJson({
+      'id': 'p', 'name': 'Savon', 'price': 1500, 'cost': 800, 'imageFileIds': ['f1'],
+    });
+    expect(p.imageFileId, 'f1');
+    expect(Product.fromJson({'id': 'p', 'name': 'Savon', 'price': 1500, 'cost': 800, 'imageFileIds': []}).imageFileId, isNull);
+  });
+
   test('permissions identiques au serveur', () {
     expect(hasPermission(['*'], 'reports:read'), isTrue);
     expect(hasPermission(['sales:*'], 'sales:void'), isTrue);
