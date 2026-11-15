@@ -23,7 +23,7 @@ cp apps/api/.env.example apps/api/.env   # puis renseigner les URL Neon et les s
 docker compose -f infra/docker-compose.yml up -d redis
 pnpm db:migrate                          # crée les schémas core, contacts, catalog
 pnpm dev                                 # API sur http://localhost:3000
-pnpm --filter @sama360/api worker:dev    # dans un 2e terminal : relais outbox + abonnés
+pnpm worker                             # dans un 2e terminal : relais outbox + abonnés
 ```
 
 En développement, le code OTP s'affiche dans les logs de l'API (`OTP_PROVIDER=console`).

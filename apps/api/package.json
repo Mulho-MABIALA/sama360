@@ -3,12 +3,12 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "build": "tsc -p tsconfig.build.json",
-    "typecheck": "tsc -p tsconfig.json --noEmit",
-    "dev": "tsc-watch -p tsconfig.build.json --onSuccess \"node dist/main.js\"",
+    "build": "pnpm --filter @sama360/contracts build && tsc -p tsconfig.build.json",
+    "typecheck": "pnpm --filter @sama360/contracts build && tsc -p tsconfig.json --noEmit",
+    "dev": "pnpm --filter @sama360/contracts build && tsc-watch -p tsconfig.build.json --onSuccess \"node dist/main.js\"",
     "start": "node dist/main.js",
     "worker": "node dist/worker.js",
-    "worker:dev": "tsc-watch -p tsconfig.build.json --onSuccess \"node dist/worker.js\"",
+    "worker:dev": "pnpm --filter @sama360/contracts build && tsc-watch -p tsconfig.build.json --onSuccess \"node dist/worker.js\"",
     "db:migrate": "tsx src/shared/db/migrate.ts",
     "test": "jest --config jest.config.js",
     "test:e2e": "jest --config test/jest-e2e.config.js --runInBand"
