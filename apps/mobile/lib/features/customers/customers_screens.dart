@@ -5,6 +5,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/format.dart';
+import '../../core/glass.dart';
 import '../../core/models.dart';
 import '../../core/providers.dart';
 import '../../core/theme.dart';
@@ -19,7 +20,7 @@ class DebtorsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final debtors = ref.watch(debtorsProvider);
-    return Scaffold(
+    return AuroraScaffold(
       appBar: AppBar(
         title: const Text('Carnet de crédit', style: TextStyle(fontWeight: FontWeight.w800)),
         actions: [
@@ -51,24 +52,39 @@ class DebtorsScreen extends ConsumerWidget {
             child: ListView(
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
               children: [
-                Container(
-                  padding: const EdgeInsets.all(18),
-                  decoration: BoxDecoration(color: AppColors.ink, borderRadius: BorderRadius.circular(22)),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text('Total à encaisser', style: TextStyle(color: Colors.white70, fontSize: 12)),
-                      Text(
-                        money(total),
-                        style: const TextStyle(color: AppColors.saffron, fontSize: 26, fontWeight: FontWeight.w800),
+                // Carte émeraude en verre, avec reflet miroir
+                Sheen(
+                  radius: 26,
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(26),
+                    child: AuroraBackground(
+                      tone: AuroraTone.deep,
+                      child: Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(20),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text('Total à encaisser', style: TextStyle(color: Color(0xFFCDE9DD), fontSize: 12.5)),
+                            Text(
+                              money(total),
+                              style: const TextStyle(
+                                color: Color(0xFFFFC28F),
+                                fontSize: 30,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: -0.6,
+                              ),
+                            ),
+                            Text(
+                              list.isEmpty
+                                  ? 'Aucun client ne vous doit d’argent'
+                                  : '${list.length} client(s) vous doivent de l’argent',
+                              style: const TextStyle(color: Color(0xFFCDE9DD), fontSize: 12.5),
+                            ),
+                          ],
+                        ),
                       ),
-                      Text(
-                        list.isEmpty
-                            ? 'Aucun client ne vous doit d’argent'
-                            : '${list.length} client(s) vous doivent de l’argent',
-                        style: const TextStyle(color: Colors.white70, fontSize: 12),
-                      ),
-                    ],
+                    ),
                   ),
                 ),
                 const SizedBox(height: 14),
@@ -110,7 +126,7 @@ class LedgerScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final ledger = ref.watch(ledgerProvider(customerId));
     final business = ref.watch(authProvider).value?.business?.name ?? '';
-    return Scaffold(
+    return AuroraScaffold(
       appBar: AppBar(
         title: const Text('Fiche client', style: TextStyle(fontWeight: FontWeight.w800)),
       ),

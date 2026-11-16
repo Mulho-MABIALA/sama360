@@ -22,8 +22,16 @@ class _SignedOut extends AuthController {
 }
 
 Future<void> _shot(WidgetTester tester, String name) async {
-  await tester.pumpAndSettle();
-  await expectLater(find.byType(MaterialApp), matchesGoldenFile('screenshots/$name.png'));
+  debugDisableShadows = false; // ombres floues réelles, comme sur le téléphone
+  try {
+    for (final r in tester.allRenderObjects) {
+      r.markNeedsPaint();
+    }
+    await tester.pumpAndSettle();
+    await expectLater(find.byType(MaterialApp), matchesGoldenFile('screenshots/$name.png'));
+  } finally {
+    debugDisableShadows = true;
+  }
 }
 
 void main() {

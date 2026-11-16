@@ -305,7 +305,13 @@ class SaleResult {
 
 /// Ligne de ticket.
 class ReceiptLine {
-  const ReceiptLine({required this.name, required this.quantity, required this.unitPrice, this.discount = 0, required this.total});
+  const ReceiptLine({
+    required this.name,
+    required this.quantity,
+    required this.unitPrice,
+    this.discount = 0,
+    required this.total,
+  });
   final String name;
   final double quantity;
   final int unitPrice;

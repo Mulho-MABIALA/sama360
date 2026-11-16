@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../../core/format.dart';
+import '../../core/glass.dart';
 import '../../core/providers.dart';
 import '../../core/theme.dart';
 import '../../core/widgets.dart';
@@ -14,42 +15,51 @@ class AppShell extends StatelessWidget {
   final StatefulNavigationShell shell;
 
   @override
-  Widget build(BuildContext context) => Scaffold(
+  Widget build(BuildContext context) => AuroraScaffold(
+    // Les pages passent sous la barre : le verre floute leur fond.
+    extendBody: true,
+    padBottom: false,
     body: shell,
-    bottomNavigationBar: DecoratedBox(
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-        boxShadow: [BoxShadow(color: Color(0x1413241C), blurRadius: 24, offset: Offset(0, -4))],
-      ),
-      child: ClipRRect(
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-        child: NavigationBar(
-          selectedIndex: shell.currentIndex,
-          onDestinationSelected: (i) => shell.goBranch(i, initialLocation: i == shell.currentIndex),
-          destinations: const [
-            NavigationDestination(
-              icon: Icon(Icons.home_outlined),
-              selectedIcon: Icon(Icons.home_rounded),
-              label: 'Accueil',
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.point_of_sale_outlined),
-              selectedIcon: Icon(Icons.point_of_sale),
-              label: 'Caisse',
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.inventory_2_outlined),
-              selectedIcon: Icon(Icons.inventory_2),
-              label: 'Stock',
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.menu_book_outlined),
-              selectedIcon: Icon(Icons.menu_book),
-              label: 'Crédits',
-            ),
-            NavigationDestination(icon: Icon(Icons.person_outline), selectedIcon: Icon(Icons.person), label: 'Compte'),
-          ],
+    // Barre flottante en verre dépoli.
+    bottomNavigationBar: SafeArea(
+      top: false,
+      minimum: const EdgeInsets.only(bottom: 10),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(14, 6, 14, 0),
+        child: Glass(
+          radius: 30,
+          blur: 24,
+          child: NavigationBar(
+            selectedIndex: shell.currentIndex,
+            onDestinationSelected: (i) => shell.goBranch(i, initialLocation: i == shell.currentIndex),
+            destinations: const [
+              NavigationDestination(
+                icon: Icon(Icons.home_outlined),
+                selectedIcon: Icon(Icons.home_rounded),
+                label: 'Accueil',
+              ),
+              NavigationDestination(
+                icon: Icon(Icons.point_of_sale_outlined),
+                selectedIcon: Icon(Icons.point_of_sale),
+                label: 'Caisse',
+              ),
+              NavigationDestination(
+                icon: Icon(Icons.inventory_2_outlined),
+                selectedIcon: Icon(Icons.inventory_2),
+                label: 'Stock',
+              ),
+              NavigationDestination(
+                icon: Icon(Icons.menu_book_outlined),
+                selectedIcon: Icon(Icons.menu_book),
+                label: 'Crédits',
+              ),
+              NavigationDestination(
+                icon: Icon(Icons.person_outline),
+                selectedIcon: Icon(Icons.person),
+                label: 'Compte',
+              ),
+            ],
+          ),
         ),
       ),
     ),
@@ -63,17 +73,31 @@ class SplashScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final auth = ref.watch(authProvider);
-    return Scaffold(
+    return AuroraScaffold(
+      tone: AuroraTone.deep,
       body: Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const SamaLogo(size: 36),
-            const SizedBox(height: 24),
+            const MirrorReflection(size: 84, child: BrandMark(size: 84)),
+            const SizedBox(height: 8),
+            const SamaLogo(size: 36, onDark: true),
+            const SizedBox(height: 6),
+            const Text('Un seul compte. Plusieurs services.', style: TextStyle(color: Color(0xFFCDE9DD))),
+            const SizedBox(height: 28),
             if (auth.hasError)
-              ErrorPanel(message: errorMessage(auth.error!), onRetry: () => ref.read(authProvider.notifier).reload())
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: Glass(
+                  padding: const EdgeInsets.all(16),
+                  child: ErrorPanel(
+                    message: errorMessage(auth.error!),
+                    onRetry: () => ref.read(authProvider.notifier).reload(),
+                  ),
+                ),
+              )
             else
-              const CircularProgressIndicator(),
+              const CircularProgressIndicator(color: AppColors.glow),
           ],
         ),
       ),
@@ -89,7 +113,7 @@ class AccountScreen extends ConsumerWidget {
     final auth = ref.watch(authProvider).value;
     final me = auth?.me;
     final business = ref.watch(currentBusinessProvider).value;
-    return Scaffold(
+    return AuroraScaffold(
       appBar: AppBar(
         title: const Text('Compte', style: TextStyle(fontWeight: FontWeight.w800)),
       ),

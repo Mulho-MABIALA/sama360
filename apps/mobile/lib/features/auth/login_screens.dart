@@ -7,6 +7,7 @@ import 'package:material_ui/material_ui.dart';
 
 import '../../core/api/api_client.dart';
 import '../../core/format.dart';
+import '../../core/glass.dart';
 import '../../core/theme.dart';
 import '../../core/widgets.dart';
 import 'auth_controller.dart';
@@ -56,42 +57,80 @@ class _PhoneScreenState extends ConsumerState<PhoneScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(24, 48, 24, 24),
-          children: [
-            const SamaLogo(size: 34),
-            const SizedBox(height: 8),
-            const Text('Un seul compte. Plusieurs services.', style: TextStyle(color: AppColors.muted, fontSize: 15)),
-            const SizedBox(height: 48),
-            const Text('Votre numéro de téléphone', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800)),
-            const SizedBox(height: 6),
-            const Text('Nous vous envoyons un code de connexion par SMS.', style: TextStyle(color: AppColors.muted)),
-            const SizedBox(height: 20),
-            TextField(
-              key: const Key('phone'),
-              controller: _phone,
-              keyboardType: TextInputType.phone,
-              autofocus: true,
-              inputFormatters: [
-                FilteringTextInputFormatter.allow(RegExp(r'[\d ]')),
-                LengthLimitingTextInputFormatter(14),
-              ],
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700, letterSpacing: 0.5),
-              decoration: InputDecoration(
-                labelText: 'Numéro',
-                hintText: '77 123 45 67',
-                prefixText: '+221  ',
-                errorText: _error,
-                errorMaxLines: 3,
+    final top = MediaQuery.paddingOf(context).top;
+    return AuroraScaffold(
+      body: ListView(
+        padding: EdgeInsets.zero,
+        children: [
+          // En-tête émeraude : logo brillant posé sur un miroir.
+          ClipRRect(
+            borderRadius: const BorderRadius.vertical(bottom: Radius.circular(40)),
+            child: AuroraBackground(
+              tone: AuroraTone.deep,
+              child: Padding(
+                padding: EdgeInsets.fromLTRB(24, top + 36, 24, 64),
+                child: const Column(
+                  children: [
+                    MirrorReflection(size: 76, child: BrandMark(size: 76)),
+                    SizedBox(height: 6),
+                    SamaLogo(size: 34, onDark: true),
+                    SizedBox(height: 6),
+                    Text(
+                      'Un seul compte. Plusieurs services.',
+                      style: TextStyle(color: Color(0xFFCDE9DD), fontSize: 15),
+                    ),
+                  ],
+                ),
               ),
-              onSubmitted: (_) => _submit(),
             ),
-            const SizedBox(height: 20),
-            BusyButton(label: 'Recevoir le code', busy: _busy, onPressed: _submit),
-          ],
-        ),
+          ),
+          Transform.translate(
+            offset: const Offset(0, -36),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 18),
+              child: Glass(
+                radius: 28,
+                padding: const EdgeInsets.fromLTRB(20, 22, 20, 20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const Text(
+                      'Votre numéro de téléphone',
+                      style: TextStyle(fontSize: 21, fontWeight: FontWeight.w800),
+                    ),
+                    const SizedBox(height: 6),
+                    const Text(
+                      'Nous vous envoyons un code de connexion par SMS.',
+                      style: TextStyle(color: AppColors.muted),
+                    ),
+                    const SizedBox(height: 20),
+                    TextField(
+                      key: const Key('phone'),
+                      controller: _phone,
+                      keyboardType: TextInputType.phone,
+                      autofocus: true,
+                      inputFormatters: [
+                        FilteringTextInputFormatter.allow(RegExp(r'[\d ]')),
+                        LengthLimitingTextInputFormatter(14),
+                      ],
+                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700, letterSpacing: 0.5),
+                      decoration: InputDecoration(
+                        labelText: 'Numéro',
+                        hintText: '77 123 45 67',
+                        prefixText: '+221  ',
+                        errorText: _error,
+                        errorMaxLines: 3,
+                      ),
+                      onSubmitted: (_) => _submit(),
+                    ),
+                    const SizedBox(height: 18),
+                    BusyButton(label: 'Recevoir le code', busy: _busy, onPressed: _submit),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -168,7 +207,7 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return AuroraScaffold(
       appBar: AppBar(),
       body: SafeArea(
         child: ListView(
@@ -236,7 +275,7 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return AuroraScaffold(
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.fromLTRB(24, 48, 24, 24),

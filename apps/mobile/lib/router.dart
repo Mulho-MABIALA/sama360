@@ -55,7 +55,10 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (_, s) => LedgerScreen(customerId: s.pathParameters['id']!),
       ),
       GoRoute(path: '/sales', builder: (_, _) => const SalesHistoryScreen()),
-      GoRoute(path: '/sales/:id', builder: (_, s) => ReceiptScreen(saleId: s.pathParameters['id']!)),
+      GoRoute(
+        path: '/sales/:id',
+        builder: (_, s) => ReceiptScreen(saleId: s.pathParameters['id']!),
+      ),
       StatefulShellRoute.indexedStack(
         builder: (_, _, shell) => AppShell(shell: shell),
         branches: [

@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 
+import '../../core/glass.dart';
+
 import '../../core/theme.dart';
 import '../../core/widgets.dart';
 
@@ -119,7 +121,11 @@ class _PromoCarouselState extends ConsumerState<PromoCarousel> {
     _timer = Timer.periodic(widget.interval, (_) {
       final count = ref.read(promosProvider).length;
       if (!mounted || count < 2 || !_controller.hasClients) return;
-      _controller.animateToPage((_index + 1) % count, duration: const Duration(milliseconds: 450), curve: Curves.easeOutCubic);
+      _controller.animateToPage(
+        (_index + 1) % count,
+        duration: const Duration(milliseconds: 450),
+        curve: Curves.easeOutCubic,
+      );
     });
   }
 
@@ -172,7 +178,8 @@ class _PromoCarouselState extends ConsumerState<PromoCarousel> {
                 selected: i == _index,
                 label: 'Bannière ${i + 1} sur ${slides.length}',
                 child: GestureDetector(
-                  onTap: () => _controller.animateToPage(i, duration: const Duration(milliseconds: 350), curve: Curves.easeOut),
+                  onTap: () =>
+                      _controller.animateToPage(i, duration: const Duration(milliseconds: 350), curve: Curves.easeOut),
                   behavior: HitTestBehavior.opaque,
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 6),
@@ -207,79 +214,115 @@ class _Slide extends StatelessWidget {
     button: true,
     label: '${slide.title}. ${slide.body} ${slide.cta}',
     excludeSemantics: true,
-    child: Material(
-      color: Colors.transparent,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(20),
-        onTap: onTap,
-        child: Ink(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(20),
-            gradient: LinearGradient(colors: slide.colors, begin: Alignment.topLeft, end: Alignment.bottomRight),
-          ),
-          child: Stack(
-            children: [
-              // Illustration à droite : cercles décoratifs + grande icône
-              Positioned(
-                right: -26,
-                top: -18,
-                child: Container(
-                  width: 150,
-                  height: 150,
-                  decoration: BoxDecoration(shape: BoxShape.circle, color: Colors.white.withValues(alpha: 0.35)),
-                ),
-              ),
-              Positioned(
-                right: 18,
-                bottom: 18,
-                child: Container(
-                  width: 84,
-                  height: 84,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: Colors.white.withValues(alpha: 0.75),
-                    boxShadow: [BoxShadow(color: slide.iconColor.withValues(alpha: 0.18), blurRadius: 18, offset: const Offset(0, 6))],
+    child: Sheen(
+      radius: 22,
+      period: const Duration(seconds: 7),
+      strength: 0.4,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(22),
+          onTap: onTap,
+          child: Ink(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(22),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.8), width: 1.2),
+              gradient: LinearGradient(colors: slide.colors, begin: Alignment.topLeft, end: Alignment.bottomRight),
+            ),
+            child: Stack(
+              children: [
+                // Illustration à droite : cercles décoratifs + grande icône
+                Positioned(
+                  right: -26,
+                  top: -18,
+                  child: Container(
+                    width: 150,
+                    height: 150,
+                    decoration: BoxDecoration(shape: BoxShape.circle, color: Colors.white.withValues(alpha: 0.35)),
                   ),
-                  child: Icon(slide.icon, size: 42, color: slide.iconColor),
                 ),
-              ),
-              Positioned(left: 18, top: 16, child: _Dots(color: slide.ink.withValues(alpha: 0.35))),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(18, 30, 116, 14),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      slide.tag,
-                      style: TextStyle(color: slide.ink, fontSize: 10.5, fontWeight: FontWeight.w800, letterSpacing: 1.2),
+                Positioned(
+                  right: 18,
+                  bottom: 18,
+                  child: Container(
+                    width: 84,
+                    height: 84,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: Colors.white.withValues(alpha: 0.75),
+                      boxShadow: [
+                        BoxShadow(
+                          color: slide.iconColor.withValues(alpha: 0.18),
+                          blurRadius: 18,
+                          offset: const Offset(0, 6),
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: 2),
-                    Text(
-                      slide.title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(color: slide.ink, fontSize: 18, fontWeight: FontWeight.w800, height: 1.15),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      slide.body,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(color: slide.ink, fontSize: 12.5, height: 1.3),
-                    ),
-                    const SizedBox(height: 10),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                      decoration: BoxDecoration(color: slide.ink, borderRadius: BorderRadius.circular(20)),
-                      child: Text(
-                        slide.cta,
-                        style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w800),
+                    child: Icon(slide.icon, size: 42, color: slide.iconColor),
+                  ),
+                ),
+                Positioned(left: 18, top: 16, child: _Dots(color: slide.ink.withValues(alpha: 0.35))),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(18, 30, 116, 14),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        slide.tag,
+                        style: TextStyle(
+                          color: slide.ink,
+                          fontSize: 10.5,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 1.2,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        slide.title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(color: slide.ink, fontSize: 18, fontWeight: FontWeight.w800, height: 1.15),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        slide.body,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(color: slide.ink, fontSize: 12.5, height: 1.3),
+                      ),
+                      const SizedBox(height: 10),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        decoration: BoxDecoration(color: slide.ink, borderRadius: BorderRadius.circular(20)),
+                        child: Text(
+                          slide.cta,
+                          style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w800),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                // Reflet miroir sur le haut de la bannière
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  top: 0,
+                  height: 70,
+                  child: IgnorePointer(
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        borderRadius: const BorderRadius.vertical(top: Radius.circular(22)),
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [Colors.white.withValues(alpha: 0.45), Colors.white.withValues(alpha: 0)],
+                        ),
                       ),
                     ),
-                  ],
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

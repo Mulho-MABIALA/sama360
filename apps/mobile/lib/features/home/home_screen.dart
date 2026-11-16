@@ -4,12 +4,12 @@ import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../../core/format.dart';
+import '../../core/glass.dart';
 import '../../core/models.dart';
 import '../../core/providers.dart';
 import '../../core/theme.dart';
 import '../../core/widgets.dart';
 import '../auth/auth_controller.dart';
-import 'city_illustration.dart';
 import 'promo_carousel.dart';
 
 class _Service {
@@ -63,7 +63,7 @@ class HomeScreen extends ConsumerWidget {
       }
     }
 
-    return Scaffold(
+    return AuroraScaffold(
       body: RefreshIndicator(
         onRefresh: () async {
           refreshBusinessData(ref);
@@ -72,31 +72,37 @@ class HomeScreen extends ConsumerWidget {
         child: ListView(
           padding: EdgeInsets.zero,
           children: [
-            _Hero(name: auth?.me?.fullName, business: auth?.business?.name),
+            _Hero(
+              name: auth?.me?.fullName,
+              business: auth?.business?.name,
+              card: _CashCard(showFigures: canReports, onExpense: () => _addExpense(context, ref)),
+            ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 14, 16, 24),
+              padding: const EdgeInsets.fromLTRB(16, 40, 16, 24),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  _CashCard(showFigures: canReports, onExpense: () => _addExpense(context, ref)),
-                  if (lowStock > 0) ...[const SizedBox(height: 12), _LowStockBanner(count: lowStock)],
-                  const SizedBox(height: 14),
+                  if (lowStock > 0) ...[_LowStockBanner(count: lowStock), const SizedBox(height: 18)],
+                  const _SectionTitle('Vos services'),
+                  const SizedBox(height: 10),
                   GridView.count(
                     crossAxisCount: 4,
                     shrinkWrap: true,
                     physics: const NeverScrollableScrollPhysics(),
-                    mainAxisSpacing: 10,
+                    mainAxisSpacing: 12,
                     crossAxisSpacing: 10,
-                    childAspectRatio: 0.82,
+                    childAspectRatio: 0.78,
                     children: [
                       for (final s in _mainServices) _ServiceTile(service: s, onTap: () => open(s)),
                       _ServiceTile(
-                        service: const _Service('Plus', Icons.apps_rounded, Color(0xFF0A8453)),
+                        service: const _Service('Plus', Icons.apps_rounded, Color(0xFF13241C)),
                         onTap: () => _showMore(context, open),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 22),
+                  const _SectionTitle('À la une'),
+                  const SizedBox(height: 10),
                   const PromoCarousel(),
                 ],
               ),
@@ -125,9 +131,9 @@ class HomeScreen extends ConsumerWidget {
             crossAxisCount: 4,
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
-            mainAxisSpacing: 10,
+            mainAxisSpacing: 12,
             crossAxisSpacing: 10,
-            childAspectRatio: 0.82,
+            childAspectRatio: 0.78,
             children: [
               for (final s in _moreServices)
                 _ServiceTile(
@@ -159,153 +165,135 @@ class HomeScreen extends ConsumerWidget {
   }
 }
 
-/// Logo : pastille dégradée + mot « Sama360 ».
-class _Brand extends StatelessWidget {
-  const _Brand();
+class _SectionTitle extends StatelessWidget {
+  const _SectionTitle(this.text);
+  final String text;
   @override
-  Widget build(BuildContext context) => Row(
-    mainAxisSize: MainAxisSize.min,
-    children: [
-      Container(
-        width: 30,
-        height: 30,
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            colors: [AppColors.leaf, AppColors.green],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-          borderRadius: BorderRadius.circular(10),
-        ),
-        child: const Text(
-          'S',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 17),
-        ),
-      ),
-      const SizedBox(width: 8),
-      const SamaLogo(size: 22),
-    ],
+  Widget build(BuildContext context) => Semantics(
+    header: true,
+    child: Text(text, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800, letterSpacing: -0.2)),
   );
 }
 
-/// En-tête : dégradé clair, logo, entreprise, avatar, illustration, recherche qui chevauche.
+/// En-tête émeraude : aurora, silhouette de Dakar, salutation, caisse du jour en verre
+/// et barre de recherche qui chevauche le bas.
 class _Hero extends StatelessWidget {
-  const _Hero({this.name, this.business});
+  const _Hero({this.name, this.business, required this.card});
   final String? name;
   final String? business;
+  final Widget card;
 
   @override
   Widget build(BuildContext context) {
     final top = MediaQuery.paddingOf(context).top;
+    const onDarkMuted = Color(0xFFCDE9DD);
     return Stack(
       clipBehavior: Clip.none,
       children: [
-        Container(
-          padding: EdgeInsets.only(top: top + 12),
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [Color(0xFFD3F0E1), Color(0xFFEAF8F0), AppColors.ground],
-            ),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Row(
-                  children: [
-                    const _Brand(),
-                    const Spacer(),
-                    IconButton.filledTonal(
-                      tooltip: 'Notifications',
-                      style: IconButton.styleFrom(backgroundColor: Colors.white.withValues(alpha: 0.8)),
-                      onPressed: () => showInfo(context, 'Notifications bientôt disponibles'),
-                      icon: const Icon(Icons.notifications_none_rounded, color: AppColors.ink),
-                    ),
-                    const SizedBox(width: 6),
-                    InkWell(
-                      customBorder: const CircleBorder(),
-                      onTap: () => context.go('/account'),
-                      child: Container(
-                        padding: const EdgeInsets.all(2),
-                        decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
-                        child: Avatar(name: name, size: 38),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
-                child: Align(
-                  alignment: Alignment.centerLeft,
-                  child: Material(
-                    color: Colors.white.withValues(alpha: 0.85),
-                    shape: const StadiumBorder(),
-                    child: InkWell(
-                      customBorder: const StadiumBorder(),
-                      onTap: () => context.push('/business'),
-                      child: Padding(
-                        padding: const EdgeInsets.fromLTRB(12, 6, 8, 6),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(Icons.storefront_rounded, size: 16, color: AppColors.green),
-                            const SizedBox(width: 6),
-                            ConstrainedBox(
-                              constraints: const BoxConstraints(maxWidth: 220),
-                              child: Text(
-                                business ?? '',
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
+        ClipRRect(
+          borderRadius: const BorderRadius.vertical(bottom: Radius.circular(36)),
+          child: AuroraBackground(
+            tone: AuroraTone.deep,
+            child: Stack(
+              children: [
+                const Positioned(right: -70, top: -40, child: _Orbits(size: 260)),
+                Padding(
+                  padding: EdgeInsets.fromLTRB(16, top + 12, 16, 50),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Row(
+                        children: [
+                          const BrandMark(size: 34),
+                          const SizedBox(width: 9),
+                          const SamaLogo(size: 22, onDark: true),
+                          const Spacer(),
+                          _GlassIcon(
+                            tooltip: 'Notifications',
+                            icon: Icons.notifications_none_rounded,
+                            onTap: () => showInfo(context, 'Notifications bientôt disponibles'),
+                          ),
+                          const SizedBox(width: 8),
+                          InkWell(
+                            customBorder: const CircleBorder(),
+                            onTap: () => context.go('/account'),
+                            child: Container(
+                              padding: const EdgeInsets.all(2.5),
+                              decoration: const BoxDecoration(
+                                shape: BoxShape.circle,
+                                gradient: LinearGradient(colors: [AppColors.glow, Color(0xFFFFC08A)]),
                               ),
+                              child: Avatar(name: name, size: 38),
                             ),
-                            const Icon(Icons.expand_more_rounded, size: 18),
-                          ],
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 18),
+                      Text(
+                        name == null ? 'Bonjour' : 'Bonjour, ${firstName(name!)}',
+                        style: const TextStyle(color: onDarkMuted, fontSize: 14, fontWeight: FontWeight.w600),
+                      ),
+                      const SizedBox(height: 6),
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: Glass(
+                          tone: GlassTone.dark,
+                          radius: 30,
+                          blur: 12,
+                          shadow: false,
+                          onTap: () => context.push('/business'),
+                          padding: const EdgeInsets.fromLTRB(12, 7, 8, 7),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.storefront_rounded, size: 17, color: AppColors.glow),
+                              const SizedBox(width: 7),
+                              ConstrainedBox(
+                                constraints: const BoxConstraints(maxWidth: 220),
+                                child: Text(
+                                  business ?? '',
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w800,
+                                    fontSize: 15,
+                                  ),
+                                ),
+                              ),
+                              const Icon(Icons.expand_more_rounded, size: 19, color: Colors.white),
+                            ],
+                          ),
                         ),
                       ),
-                    ),
+                      const SizedBox(height: 16),
+                      card,
+                    ],
                   ),
                 ),
-              ),
-              const SizedBox(height: 4),
-              const CityIllustration(height: 132),
-              const SizedBox(height: 22),
-            ],
+              ],
+            ),
           ),
         ),
         Positioned(
           left: 16,
           right: 16,
-          bottom: -6,
-          child: Material(
-            color: Colors.white,
-            elevation: 0,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-              side: const BorderSide(color: AppColors.line),
-            ),
-            child: InkWell(
-              borderRadius: BorderRadius.circular(16),
-              onTap: () => context.go('/pos'),
-              child: const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 14, vertical: 13),
-                child: Row(
-                  children: [
-                    Icon(Icons.search_rounded, color: AppColors.ink),
-                    SizedBox(width: 10),
-                    Expanded(
-                      child: Text(
-                        'Rechercher un produit, un service…',
-                        style: TextStyle(color: AppColors.muted, fontSize: 14),
-                      ),
-                    ),
-                  ],
+          bottom: -27,
+          child: Glass(
+            radius: 20,
+            onTap: () => context.go('/pos'),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
+            child: const Row(
+              children: [
+                Icon(Icons.search_rounded, color: AppColors.green),
+                SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'Rechercher un produit, un service…',
+                    style: TextStyle(color: AppColors.muted, fontSize: 14),
+                  ),
                 ),
-              ),
+                Icon(Icons.qr_code_scanner_rounded, color: AppColors.ink, size: 20),
+              ],
             ),
           ),
         ),
@@ -314,11 +302,75 @@ class _Hero extends StatelessWidget {
   }
 }
 
-/// Carte « Caisse du jour », façon portefeuille : montant + actions rondes.
+class _GlassIcon extends StatelessWidget {
+  const _GlassIcon({required this.tooltip, required this.icon, required this.onTap});
+  final String tooltip;
+  final IconData icon;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => Tooltip(
+    message: tooltip,
+    child: Semantics(
+      button: true,
+      label: tooltip,
+      excludeSemantics: true,
+      child: Glass(
+        tone: GlassTone.dark,
+        radius: 22,
+        blur: 10,
+        shadow: false,
+        onTap: onTap,
+        child: SizedBox(width: 44, height: 44, child: Icon(icon, color: Colors.white, size: 22)),
+      ),
+    ),
+  );
+}
+
+/// Anneaux lumineux « 360 » en filigrane dans l'en-tête.
+class _Orbits extends StatelessWidget {
+  const _Orbits({required this.size});
+  final double size;
+  @override
+  Widget build(BuildContext context) => ExcludeSemantics(
+    child: CustomPaint(size: Size.square(size), painter: _OrbitsPainter()),
+  );
+}
+
+class _OrbitsPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final c = size.center(Offset.zero);
+    final r = size.width / 2;
+    for (final (f, a) in const [(1.0, 0.07), (0.74, 0.10), (0.48, 0.13)]) {
+      canvas.drawCircle(
+        c,
+        r * f,
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1.2
+          ..color = Colors.white.withValues(alpha: a),
+      );
+    }
+    // Petites « planètes » lumineuses sur les orbites
+    for (final (f, angle, d) in const [(1.0, 2.5, 7.0), (0.74, 3.6, 5.0), (0.48, 1.9, 4.0)]) {
+      final p = c + Offset.fromDirection(angle, r * f);
+      canvas.drawCircle(p, d * 2.4, Paint()..color = AppColors.glow.withValues(alpha: 0.18));
+      canvas.drawCircle(p, d, Paint()..color = AppColors.glow.withValues(alpha: 0.9));
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
+/// Carte « Caisse du jour » en verre sombre, avec reflet miroir qui la traverse.
 class _CashCard extends ConsumerWidget {
   const _CashCard({required this.showFigures, required this.onExpense});
   final bool showFigures;
   final VoidCallback onExpense;
+
+  static const _muted = Color(0xFFCDE9DD);
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -329,114 +381,132 @@ class _CashCard extends ConsumerWidget {
         const SizedBox(width: 12),
         _RoundAction(icon: Icons.menu_book_rounded, label: 'Crédits', onTap: () => context.go('/customers')),
         const SizedBox(width: 12),
-        _RoundAction(icon: Icons.more_horiz_rounded, label: 'Dépense', onTap: onExpense),
+        _RoundAction(icon: Icons.south_west_rounded, label: 'Dépense', onTap: onExpense),
       ],
     );
 
-    return Container(
-      padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: AppColors.line),
-        gradient: const LinearGradient(
-          begin: Alignment.topRight,
-          end: Alignment.bottomLeft,
-          colors: [Colors.white, Colors.white, Color(0xFFE2F6EB)],
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              const Icon(Icons.point_of_sale_rounded, size: 18, color: AppColors.green),
-              const SizedBox(width: 6),
-              const Text(
-                'Caisse du jour',
-                style: TextStyle(fontWeight: FontWeight.w800, color: AppColors.green),
-              ),
-              const Spacer(),
-              Text(shortDate(DateTime.now()), style: const TextStyle(fontSize: 12, color: AppColors.muted)),
-            ],
-          ),
-          const SizedBox(height: 10),
-          if (!showFigures)
+    return Sheen(
+      radius: 28,
+      child: Glass(
+        tone: GlassTone.dark,
+        radius: 28,
+        padding: const EdgeInsets.fromLTRB(18, 16, 18, 16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
             Row(
               children: [
-                const Expanded(
-                  child: Text('Prêt à encaisser ?', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+                Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(color: AppColors.glow.withValues(alpha: 0.18), shape: BoxShape.circle),
+                  child: const Icon(Icons.point_of_sale_rounded, size: 15, color: AppColors.glow),
                 ),
-                actions,
+                const SizedBox(width: 8),
+                const Text(
+                  'Caisse du jour',
+                  style: TextStyle(fontWeight: FontWeight.w800, color: Colors.white),
+                ),
+                const Spacer(),
+                Text(shortDate(DateTime.now()), style: const TextStyle(fontSize: 12, color: _muted)),
               ],
-            )
-          else
-            AsyncView<DaySummary>(
-              value: ref.watch(summaryProvider),
-              onRetry: () => ref.invalidate(summaryProvider),
-              loading: const SizedBox(height: 96, child: Center(child: CircularProgressIndicator())),
-              data: (s) => Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            FittedBox(
-                              fit: BoxFit.scaleDown,
-                              alignment: Alignment.centerLeft,
-                              child: Text.rich(
-                                TextSpan(
-                                  children: [
-                                    TextSpan(text: moneyShort(s.revenue).replaceAll(' F', '')),
-                                    const TextSpan(
-                                      text: ' F',
-                                      style: TextStyle(fontSize: 16, color: AppColors.muted),
-                                    ),
-                                  ],
-                                ),
-                                style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w800, letterSpacing: -0.5),
-                              ),
-                            ),
-                            Text(
-                              '${s.salesCount} vente${s.salesCount > 1 ? 's' : ''} aujourd’hui',
-                              style: const TextStyle(fontSize: 12, color: AppColors.muted),
-                            ),
-                          ],
-                        ),
-                      ),
-                      actions,
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _Figure(label: 'Bénéfice', value: moneyShort(s.netProfit)),
-                      ),
-                      Container(width: 1, height: 28, color: AppColors.line),
-                      Expanded(
-                        child: _Figure(
-                          label: 'À encaisser',
-                          value: moneyShort(s.receivables),
-                          color: const Color(0xFFB54A00),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
             ),
-        ],
+            const SizedBox(height: 12),
+            if (!showFigures)
+              Row(
+                children: [
+                  const Expanded(
+                    child: Text(
+                      'Prêt à encaisser ?',
+                      style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: Colors.white),
+                    ),
+                  ),
+                  actions,
+                ],
+              )
+            else
+              AsyncView<DaySummary>(
+                value: ref.watch(summaryProvider),
+                onRetry: () => ref.invalidate(summaryProvider),
+                loading: const SizedBox(
+                  height: 96,
+                  child: Center(child: CircularProgressIndicator(color: AppColors.glow)),
+                ),
+                data: (s) => Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              FittedBox(
+                                fit: BoxFit.scaleDown,
+                                alignment: Alignment.centerLeft,
+                                child: Text.rich(
+                                  TextSpan(
+                                    children: [
+                                      TextSpan(text: moneyShort(s.revenue).replaceAll(' F', '')),
+                                      const TextSpan(
+                                        text: ' F',
+                                        style: TextStyle(fontSize: 17, color: _muted),
+                                      ),
+                                    ],
+                                  ),
+                                  style: const TextStyle(
+                                    fontSize: 32,
+                                    fontWeight: FontWeight.w800,
+                                    letterSpacing: -0.8,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              ),
+                              Text(
+                                '${s.salesCount} vente${s.salesCount > 1 ? 's' : ''} aujourd’hui',
+                                style: const TextStyle(fontSize: 12.5, color: _muted),
+                              ),
+                            ],
+                          ),
+                        ),
+                        actions,
+                      ],
+                    ),
+                    const SizedBox(height: 14),
+                    Container(
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.14),
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: _Figure(label: 'Bénéfice', value: moneyShort(s.netProfit), color: AppColors.glow),
+                          ),
+                          Container(width: 1, height: 28, color: Colors.white.withValues(alpha: 0.18)),
+                          Expanded(
+                            child: _Figure(
+                              label: 'À encaisser',
+                              value: moneyShort(s.receivables),
+                              color: const Color(0xFFFFC28F),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }
 }
 
 class _Figure extends StatelessWidget {
-  const _Figure({required this.label, required this.value, this.color = AppColors.ink});
+  const _Figure({required this.label, required this.value, required this.color});
   final String label;
   final String value;
   final Color color;
@@ -448,12 +518,12 @@ class _Figure extends StatelessWidget {
       children: [
         Text(
           label,
-          style: const TextStyle(fontSize: 11, color: AppColors.muted, fontWeight: FontWeight.w600),
+          style: const TextStyle(fontSize: 11.5, color: _CashCard._muted, fontWeight: FontWeight.w600),
         ),
         const SizedBox(height: 2),
         Text(
           value,
-          style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: color),
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: color),
         ),
       ],
     ),
@@ -477,18 +547,37 @@ class _RoundAction extends StatelessWidget {
       child: Column(
         children: [
           Container(
-            width: 44,
-            height: 44,
+            width: 46,
+            height: 46,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: filled ? AppColors.green : Colors.white,
-              border: filled ? null : Border.all(color: AppColors.line),
+              gradient: filled
+                  ? const LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [Color(0xFFB4F8D6), AppColors.glow, Color(0xFF34C987)],
+                    )
+                  : null,
+              color: filled ? null : Colors.white.withValues(alpha: 0.14),
+              border: Border.all(color: Colors.white.withValues(alpha: filled ? 0.7 : 0.3)),
+              boxShadow: filled
+                  ? [
+                      BoxShadow(
+                        color: AppColors.glow.withValues(alpha: 0.45),
+                        blurRadius: 16,
+                        offset: const Offset(0, 5),
+                      ),
+                    ]
+                  : null,
             ),
-            child: Icon(icon, size: 22, color: filled ? Colors.white : AppColors.ink),
+            child: Icon(icon, size: 23, color: filled ? AppColors.deep : Colors.white),
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 5),
           ExcludeSemantics(
-            child: Text(label, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700)),
+            child: Text(
+              label,
+              style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: Colors.white),
+            ),
           ),
         ],
       ),
@@ -501,112 +590,84 @@ class _LowStockBanner extends StatelessWidget {
   final int count;
 
   @override
-  Widget build(BuildContext context) => Material(
-    color: AppColors.warnBg,
-    shape: RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(14),
-      side: const BorderSide(color: AppColors.warnLine),
-    ),
-    child: InkWell(
-      borderRadius: BorderRadius.circular(14),
-      onTap: () => context.go('/stock?low=1'),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
-        child: Row(
-          children: [
-            const Icon(Icons.warning_amber_rounded, color: AppColors.warn, size: 20),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Text(
-                count == 1 ? '1 produit en stock bas' : '$count produits en stock bas',
-                style: const TextStyle(color: AppColors.warnText, fontWeight: FontWeight.w700),
-              ),
-            ),
-            const Text(
-              'Voir',
-              style: TextStyle(color: AppColors.warnText, fontWeight: FontWeight.w700),
-            ),
-          ],
+  Widget build(BuildContext context) => Glass(
+    radius: 18,
+    tint: AppColors.saffron,
+    onTap: () => context.go('/stock?low=1'),
+    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+    child: Row(
+      children: [
+        const GlossyOrb(icon: Icons.warning_amber_rounded, color: Color(0xFFE08A12), size: 34),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Text(
+            count == 1 ? '1 produit en stock bas' : '$count produits en stock bas',
+            style: const TextStyle(color: AppColors.warnText, fontWeight: FontWeight.w800),
+          ),
         ),
-      ),
+        const Text(
+          'Voir',
+          style: TextStyle(color: AppColors.warnText, fontWeight: FontWeight.w800),
+        ),
+        const Icon(Icons.chevron_right_rounded, color: AppColors.warnText),
+      ],
     ),
   );
 }
 
-/// Tuile de service : carte blanche, pastille d'icône colorée, libellé.
+/// Tuile de service : verre givré, pastille brillante, libellé.
 class _ServiceTile extends StatelessWidget {
   const _ServiceTile({required this.service, required this.onTap});
   final _Service service;
   final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context) {
-    final c = service.color;
-    return Semantics(
-      button: true,
-      label: service.soon ? '${service.name}, bientôt disponible' : service.name,
-      child: Material(
-        color: Colors.white,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(18),
-          side: const BorderSide(color: AppColors.line),
-        ),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(18),
-          onTap: onTap,
-          child: Stack(
-            children: [
-              Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      width: 46,
-                      height: 46,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        gradient: LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: [c.withValues(alpha: 0.10), c.withValues(alpha: 0.24)],
-                        ),
-                      ),
-                      child: Icon(service.icon, color: c, size: 24),
-                    ),
-                    const SizedBox(height: 8),
-                    ExcludeSemantics(
-                      child: Text(
-                        service.name,
-                        textAlign: TextAlign.center,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              if (service.soon)
-                Positioned(
-                  top: 6,
-                  right: 6,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-                    decoration: BoxDecoration(color: AppColors.ink, borderRadius: BorderRadius.circular(6)),
-                    child: const ExcludeSemantics(
-                      child: Text(
-                        'Bientôt',
-                        style: TextStyle(color: Colors.white, fontSize: 8.5, fontWeight: FontWeight.w700),
-                      ),
-                    ),
+  Widget build(BuildContext context) => Semantics(
+    button: true,
+    label: service.soon ? '${service.name}, bientôt disponible' : service.name,
+    excludeSemantics: true,
+    child: Glass(
+      radius: 22,
+      blur: 14,
+      onTap: onTap,
+      child: Stack(
+        children: [
+          Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                GlossyOrb(icon: service.icon, color: service.color, size: 46),
+                const SizedBox(height: 9),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 2),
+                  child: Text(
+                    service.name,
+                    textAlign: TextAlign.center,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
                   ),
                 ),
-            ],
+              ],
+            ),
           ),
-        ),
+          if (service.soon)
+            Positioned(
+              top: 6,
+              right: 6,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                decoration: BoxDecoration(color: AppColors.ink, borderRadius: BorderRadius.circular(6)),
+                child: const Text(
+                  'Bientôt',
+                  style: TextStyle(color: Colors.white, fontSize: 8.5, fontWeight: FontWeight.w700),
+                ),
+              ),
+            ),
+        ],
       ),
-    );
-  }
+    ),
+  );
 }
 
 const _expenseCategories = ['Transport', 'Loyer', 'Électricité', 'Salaire', 'Achat divers', 'Autre'];

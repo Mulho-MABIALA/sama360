@@ -7,6 +7,7 @@ import 'package:printing/printing.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/format.dart';
+import '../../core/glass.dart';
 import '../../core/models.dart';
 import '../../core/providers.dart';
 import '../../core/theme.dart';
@@ -20,11 +21,8 @@ class ReceiptActions {
   Future<bool> openWhatsApp(Uri uri) => launchUrl(uri, mode: LaunchMode.externalApplication);
   Future<void> sharePdf(List<int> bytes, String filename) =>
       Printing.sharePdf(bytes: Uint8List.fromList(bytes), filename: filename);
-  Future<void> printPdf(List<int> bytes, String name) => Printing.layoutPdf(
-    name: name,
-    format: PdfPageFormat.roll80,
-    onLayout: (_) async => Uint8List.fromList(bytes),
-  );
+  Future<void> printPdf(List<int> bytes, String name) =>
+      Printing.layoutPdf(name: name, format: PdfPageFormat.roll80, onLayout: (_) async => Uint8List.fromList(bytes));
 }
 
 final receiptActionsProvider = Provider<ReceiptActions>((ref) => const ReceiptActions());
@@ -62,8 +60,10 @@ class _ReceiptScreenState extends ConsumerState<ReceiptScreen> {
     final business = ref.watch(currentBusinessProvider);
     final actions = ref.read(receiptActionsProvider);
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('Reçu', style: TextStyle(fontWeight: FontWeight.w800))),
+    return AuroraScaffold(
+      appBar: AppBar(
+        title: const Text('Reçu', style: TextStyle(fontWeight: FontWeight.w800)),
+      ),
       body: AsyncView<SaleDetail>(
         value: sale,
         onRetry: () => ref.invalidate(saleProvider(widget.saleId)),
@@ -123,44 +123,46 @@ class _ActionsBar extends StatelessWidget {
   Widget build(BuildContext context) {
     Widget spinner(Color c) =>
         SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2.2, color: c));
-    return Container(
-      padding: EdgeInsets.fromLTRB(16, 12, 16, 12 + MediaQuery.paddingOf(context).bottom),
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
-        boxShadow: [BoxShadow(color: Color(0x1413241C), blurRadius: 20, offset: Offset(0, -6))],
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          FilledButton.icon(
-            style: FilledButton.styleFrom(backgroundColor: AppColors.whatsapp, foregroundColor: const Color(0xFF08361A)),
-            onPressed: busy == null ? onWhatsApp : null,
-            icon: busy == 'whatsapp' ? spinner(const Color(0xFF08361A)) : const Icon(Icons.chat_rounded),
-            label: Text(hasPhone ? 'Envoyer au client par WhatsApp' : 'Envoyer par WhatsApp'),
-          ),
-          const SizedBox(height: 10),
-          Row(
-            children: [
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: busy == null ? onShare : null,
-                  icon: busy == 'share' ? spinner(AppColors.green) : const Icon(Icons.ios_share_rounded),
-                  label: const Text('Partager le PDF'),
-                ),
+    return Padding(
+      padding: EdgeInsets.fromLTRB(10, 4, 10, 8 + MediaQuery.paddingOf(context).bottom),
+      child: Glass(
+        radius: 28,
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            FilledButton.icon(
+              style: FilledButton.styleFrom(
+                backgroundColor: AppColors.whatsapp,
+                foregroundColor: const Color(0xFF08361A),
               ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: busy == null ? onPrint : null,
-                  icon: busy == 'print' ? spinner(AppColors.green) : const Icon(Icons.print_rounded),
-                  label: const Text('Imprimer'),
+              onPressed: busy == null ? onWhatsApp : null,
+              icon: busy == 'whatsapp' ? spinner(const Color(0xFF08361A)) : const Icon(Icons.chat_rounded),
+              label: Text(hasPhone ? 'Envoyer au client par WhatsApp' : 'Envoyer par WhatsApp'),
+            ),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: busy == null ? onShare : null,
+                    icon: busy == 'share' ? spinner(AppColors.green) : const Icon(Icons.ios_share_rounded),
+                    label: const Text('Partager le PDF'),
+                  ),
                 ),
-              ),
-            ],
-          ),
-        ],
+                const SizedBox(width: 10),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: busy == null ? onPrint : null,
+                    icon: busy == 'print' ? spinner(AppColors.green) : const Icon(Icons.print_rounded),
+                    label: const Text('Imprimer'),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -207,10 +209,18 @@ class ReceiptPaper extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Text(b.name, textAlign: TextAlign.center, style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w800)),
+              Text(
+                b.name,
+                textAlign: TextAlign.center,
+                style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w800),
+              ),
               for (final c in contact) Text(c, textAlign: TextAlign.center, style: small),
               const _Dashed(),
-              Text('REÇU ${s.number}', textAlign: TextAlign.center, style: const TextStyle(fontWeight: FontWeight.w800)),
+              Text(
+                'REÇU ${s.number}',
+                textAlign: TextAlign.center,
+                style: const TextStyle(fontWeight: FontWeight.w800),
+              ),
               Text(receiptDate(s.soldAt), textAlign: TextAlign.center, style: small),
               const SizedBox(height: 8),
               if (s.cashierName != null) row('Vendeur', s.cashierName!, style: small),
@@ -242,8 +252,16 @@ class ReceiptPaper extends StatelessWidget {
                   ),
                 ),
               const _Dashed(),
-              const Text('Merci de votre confiance !', textAlign: TextAlign.center, style: TextStyle(fontWeight: FontWeight.w800)),
-              const Text('Reçu émis avec Sama360', textAlign: TextAlign.center, style: TextStyle(fontSize: 11, color: AppColors.muted)),
+              const Text(
+                'Merci de votre confiance !',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontWeight: FontWeight.w800),
+              ),
+              const Text(
+                'Reçu émis avec Sama360',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 11, color: AppColors.muted),
+              ),
             ],
           ),
         ),
@@ -261,7 +279,12 @@ class ReceiptPaper extends StatelessWidget {
                     ),
                     child: const Text(
                       'VENTE ANNULÉE',
-                      style: TextStyle(color: AppColors.danger, fontSize: 24, fontWeight: FontWeight.w900, letterSpacing: 1),
+                      style: TextStyle(
+                        color: AppColors.danger,
+                        fontSize: 24,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 1,
+                      ),
                     ),
                   ),
                 ),

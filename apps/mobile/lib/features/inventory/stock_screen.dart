@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../../core/format.dart';
+import '../../core/glass.dart';
 import '../../core/models.dart';
 import '../../core/providers.dart';
 import '../../core/theme.dart';
@@ -33,7 +34,7 @@ class _StockScreenState extends ConsumerState<StockScreen> {
     final canWrite = ref.can('inventory:write');
     final canCatalog = ref.can('catalog:write');
 
-    return Scaffold(
+    return AuroraScaffold(
       appBar: AppBar(
         title: const Text('Stock', style: TextStyle(fontWeight: FontWeight.w800)),
       ),

@@ -18,6 +18,9 @@ void main() {
     expect(find.text('12 ventes aujourd’hui'), findsOneWidget);
     expect(find.text('2 produits en stock bas'), findsOneWidget);
     expect(find.text('Bientôt'), findsNWidgets(3)); // Factures, Boutique, Paiements
+    await tester.scrollUntilVisible(find.text('Plus'), 200, scrollable: find.byType(Scrollable).first);
+    await tester.drag(find.byType(Scrollable).first, const Offset(0, -120)); // au-dessus de la barre flottante
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Plus'));
     await tester.pumpAndSettle();
     expect(find.text('Tous les services'), findsOneWidget);

@@ -85,11 +85,18 @@ class StatTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.all(12),
+    padding: const EdgeInsets.all(14),
     decoration: BoxDecoration(
-      color: warn ? AppColors.warnBg : Colors.white,
-      border: Border.all(color: warn ? AppColors.warnLine : AppColors.line),
-      borderRadius: BorderRadius.circular(14),
+      gradient: LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: warn
+            ? const [Color(0xFFFFF4E2), Color(0xEBFDEACC)]
+            : [Colors.white.withValues(alpha: 0.9), Colors.white.withValues(alpha: 0.62)],
+      ),
+      border: Border.all(color: warn ? AppColors.warnLine : AppColors.glassLine, width: 1.2),
+      borderRadius: BorderRadius.circular(18),
+      boxShadow: const [BoxShadow(color: Color(0x140B3D2E), blurRadius: 18, offset: Offset(0, 8))],
     ),
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -126,8 +133,8 @@ class Pill extends StatelessWidget {
     selected: selected,
     button: true,
     child: Material(
-      color: selected ? AppColors.ink : Colors.white,
-      shape: StadiumBorder(side: BorderSide(color: selected ? AppColors.ink : AppColors.line)),
+      color: selected ? AppColors.ink : Colors.white.withValues(alpha: 0.72),
+      shape: StadiumBorder(side: BorderSide(color: selected ? AppColors.ink : AppColors.glassLine, width: 1.2)),
       child: InkWell(
         customBorder: const StadiumBorder(),
         onTap: onTap,
@@ -162,8 +169,9 @@ void showInfo(BuildContext context, String message) {
 
 /// Logo texte « Sama360 ».
 class SamaLogo extends StatelessWidget {
-  const SamaLogo({super.key, this.size = 30});
+  const SamaLogo({super.key, this.size = 30, this.onDark = false});
   final double size;
+  final bool onDark;
 
   @override
   Widget build(BuildContext context) => Text.rich(
@@ -171,11 +179,15 @@ class SamaLogo extends StatelessWidget {
       children: [
         TextSpan(
           text: 'Sama',
-          style: TextStyle(color: AppColors.ink, fontSize: size, fontWeight: FontWeight.w800),
+          style: TextStyle(color: onDark ? Colors.white : AppColors.ink, fontSize: size, fontWeight: FontWeight.w800),
         ),
         TextSpan(
           text: '360',
-          style: TextStyle(color: AppColors.green, fontSize: size, fontWeight: FontWeight.w800),
+          style: TextStyle(
+            color: onDark ? AppColors.glow : AppColors.green,
+            fontSize: size,
+            fontWeight: FontWeight.w800,
+          ),
         ),
       ],
     ),

@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 
+import '../../core/glass.dart';
 import '../../core/theme.dart';
 import '../../core/widgets.dart';
 import '../auth/auth_controller.dart';
@@ -60,7 +61,7 @@ class _BusinessScreenState extends ConsumerState<BusinessScreen> {
     final list = auth?.me?.businesses ?? const [];
     final showForm = _creating || list.isEmpty;
 
-    return Scaffold(
+    return AuroraScaffold(
       appBar: AppBar(
         title: Text(
           list.isEmpty ? 'Votre activité' : 'Mes entreprises',

@@ -5,6 +5,7 @@ import 'package:material_ui/material_ui.dart';
 
 import '../../core/api/api_client.dart';
 import '../../core/format.dart';
+import '../../core/glass.dart';
 import '../../core/models.dart';
 import '../../core/providers.dart';
 import '../../core/theme.dart';
@@ -107,7 +108,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
     final onHand = {for (final s in stock?.items ?? const <StockItem>[]) s.productId: s};
     final cart = ref.watch(cartProvider);
 
-    return Scaffold(
+    return AuroraScaffold(
       appBar: AppBar(
         title: const Text('Nouvelle vente', style: TextStyle(fontWeight: FontWeight.w800)),
         actions: [
@@ -223,13 +224,15 @@ class _ProductCard extends StatelessWidget {
     final inCart = quantity > 0;
     final low = stock?.low ?? false;
     return Material(
-      color: Colors.white,
+      color: Colors.white.withValues(alpha: inCart ? 0.92 : 0.74),
+      shadowColor: const Color(0x330B3D2E),
+      elevation: inCart ? 6 : 0,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: inCart ? AppColors.green : AppColors.line, width: inCart ? 2 : 1),
+        borderRadius: BorderRadius.circular(20),
+        side: BorderSide(color: inCart ? AppColors.green : AppColors.glassLine, width: inCart ? 2 : 1.2),
       ),
       child: InkWell(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(20),
         onTap: onAdd,
         onLongPress: inCart ? onRemove : null,
         child: Padding(
@@ -303,86 +306,86 @@ class _CheckoutPanel extends ConsumerWidget {
     final credit = cart.mode == PaymentMode.credit;
     final articles = qty(cart.itemCount);
 
-    return Container(
-      padding: EdgeInsets.fromLTRB(16, 14, 16, 14 + MediaQuery.paddingOf(context).bottom),
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
-        boxShadow: [BoxShadow(color: Color(0x1014201C), blurRadius: 20, offset: Offset(0, -6))],
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    InkWell(
-                      onTap: () async {
-                        final c = await pickCustomer(context);
-                        if (c != null) ctrl.setCustomer(c);
-                      },
-                      child: Text(
-                        cart.customer == null
-                            ? '$articles article(s) · Choisir un client'
-                            : '$articles article(s) · ${cart.customer!.name}',
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: AppColors.muted,
-                          decoration: TextDecoration.underline,
+    // Panneau du panier : carte flottante en verre.
+    return Padding(
+      padding: EdgeInsets.fromLTRB(10, 4, 10, 8 + MediaQuery.paddingOf(context).bottom),
+      child: Glass(
+        radius: 28,
+        padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      InkWell(
+                        onTap: () async {
+                          final c = await pickCustomer(context);
+                          if (c != null) ctrl.setCustomer(c);
+                        },
+                        child: Text(
+                          cart.customer == null
+                              ? '$articles article(s) · Choisir un client'
+                              : '$articles article(s) · ${cart.customer!.name}',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: AppColors.muted,
+                            decoration: TextDecoration.underline,
+                          ),
                         ),
                       ),
-                    ),
-                    Text(money(cart.total), style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800)),
-                  ],
+                      Text(money(cart.total), style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800)),
+                    ],
+                  ),
                 ),
-              ),
-              if (!cart.isEmpty) TextButton(onPressed: ctrl.clear, child: const Text('Vider')),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Row(
-            children: [
-              for (final m in PaymentMode.values) ...[
-                Expanded(
-                  child: _ModeButton(mode: m, selected: cart.mode == m, onTap: () => ctrl.setMode(m)),
-                ),
-                if (m != PaymentMode.values.last) const SizedBox(width: 8),
+                if (!cart.isEmpty) TextButton(onPressed: ctrl.clear, child: const Text('Vider')),
               ],
-            ],
-          ),
-          if (credit) ...[
-            const SizedBox(height: 10),
-            TextField(
-              key: const Key('deposit'),
-              keyboardType: TextInputType.number,
-              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-              decoration: const InputDecoration(
-                labelText: 'Acompte payé en espèces (facultatif)',
-                suffixText: 'FCFA',
-                isDense: true,
-              ),
-              onChanged: (v) => ctrl.setDeposit(int.tryParse(v) ?? 0),
             ),
-            if (cart.total > 0)
-              Padding(
-                padding: const EdgeInsets.only(top: 6),
-                child: Text(
-                  'Reste à crédit : ${money((cart.total - cart.deposit).clamp(0, cart.total))}',
-                  style: const TextStyle(color: AppColors.warn, fontWeight: FontWeight.w700, fontSize: 13),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                for (final m in PaymentMode.values) ...[
+                  Expanded(
+                    child: _ModeButton(mode: m, selected: cart.mode == m, onTap: () => ctrl.setMode(m)),
+                  ),
+                  if (m != PaymentMode.values.last) const SizedBox(width: 8),
+                ],
+              ],
+            ),
+            if (credit) ...[
+              const SizedBox(height: 10),
+              TextField(
+                key: const Key('deposit'),
+                keyboardType: TextInputType.number,
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                decoration: const InputDecoration(
+                  labelText: 'Acompte payé en espèces (facultatif)',
+                  suffixText: 'FCFA',
+                  isDense: true,
                 ),
+                onChanged: (v) => ctrl.setDeposit(int.tryParse(v) ?? 0),
               ),
+              if (cart.total > 0)
+                Padding(
+                  padding: const EdgeInsets.only(top: 6),
+                  child: Text(
+                    'Reste à crédit : ${money((cart.total - cart.deposit).clamp(0, cart.total))}',
+                    style: const TextStyle(color: AppColors.warnText, fontWeight: FontWeight.w700, fontSize: 13),
+                  ),
+                ),
+            ],
+            const SizedBox(height: 12),
+            BusyButton(
+              label: cart.isEmpty ? 'Encaisser' : (credit ? 'Valider à crédit' : 'Encaisser ${money(cart.total)}'),
+              busy: busy,
+              onPressed: cart.isEmpty ? null : onCheckout,
+            ),
           ],
-          const SizedBox(height: 12),
-          BusyButton(
-            label: cart.isEmpty ? 'Encaisser' : (credit ? 'Valider à crédit' : 'Encaisser ${money(cart.total)}'),
-            busy: busy,
-            onPressed: cart.isEmpty ? null : onCheckout,
-          ),
-        ],
+        ),
       ),
     );
   }

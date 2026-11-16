@@ -24,6 +24,11 @@ abstract final class AppColors {
   static const warn = Color(0xFFB25E00);
   static const danger = Color(0xFFB42318);
   static const whatsapp = Color(0xFF25D366);
+
+  // Thème verre / aurora
+  static const glow = Color(0xFF7DF0B5); // menthe lumineuse (sur fond sombre)
+  static const deep = Color(0xFF052E24); // émeraude profond
+  static const glassLine = Color(0xB3FFFFFF);
 }
 
 abstract final class AppTheme {
@@ -42,12 +47,12 @@ abstract final class AppTheme {
     final text = googleFonts ? GoogleFonts.plusJakartaSansTextTheme(base.textTheme) : base.textTheme;
     final border = OutlineInputBorder(
       borderRadius: BorderRadius.circular(14),
-      borderSide: const BorderSide(color: AppColors.line),
+      borderSide: const BorderSide(color: AppColors.glassLine, width: 1.2),
     );
     return base.copyWith(
       textTheme: text.apply(bodyColor: AppColors.ink, displayColor: AppColors.ink),
       appBarTheme: const AppBarTheme(
-        backgroundColor: AppColors.ground,
+        backgroundColor: Colors.transparent,
         foregroundColor: AppColors.ink,
         elevation: 0,
         scrolledUnderElevation: 0,
@@ -55,7 +60,7 @@ abstract final class AppTheme {
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: Colors.white,
+        fillColor: Colors.white.withValues(alpha: 0.82),
         border: border,
         enabledBorder: border,
         focusedBorder: border.copyWith(borderSide: const BorderSide(color: AppColors.green, width: 2)),
@@ -73,8 +78,9 @@ abstract final class AppTheme {
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
           foregroundColor: AppColors.ink,
+          backgroundColor: Colors.white.withValues(alpha: 0.7),
           minimumSize: const Size.fromHeight(48),
-          side: const BorderSide(color: AppColors.line),
+          side: const BorderSide(color: AppColors.glassLine, width: 1.2),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
           textStyle: text.labelLarge?.copyWith(fontWeight: FontWeight.w700),
         ),
@@ -83,19 +89,43 @@ abstract final class AppTheme {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         side: const BorderSide(color: AppColors.line),
       ),
+      // Cartes « verre givré » : voile blanc translucide et liseré lumineux.
       cardTheme: CardThemeData(
-        color: Colors.white,
+        color: Colors.white.withValues(alpha: 0.74),
+        shadowColor: const Color(0x260B3D2E),
         elevation: 0,
         margin: EdgeInsets.zero,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-          side: const BorderSide(color: AppColors.line),
+          borderRadius: BorderRadius.circular(20),
+          side: const BorderSide(color: AppColors.glassLine, width: 1.2),
         ),
       ),
-      navigationBarTheme: const NavigationBarThemeData(
-        backgroundColor: Colors.white,
-        indicatorColor: AppColors.greenSoft,
-        height: 68,
+      navigationBarTheme: NavigationBarThemeData(
+        backgroundColor: Colors.transparent,
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
+        indicatorColor: AppColors.green.withValues(alpha: 0.13),
+        height: 64,
+        labelTextStyle: WidgetStateProperty.resolveWith(
+          (s) => TextStyle(
+            fontSize: 11.5,
+            fontWeight: s.contains(WidgetState.selected) ? FontWeight.w800 : FontWeight.w600,
+            color: s.contains(WidgetState.selected) ? AppColors.green : AppColors.muted,
+          ),
+        ),
+        iconTheme: WidgetStateProperty.resolveWith(
+          (s) => IconThemeData(color: s.contains(WidgetState.selected) ? AppColors.green : AppColors.muted),
+        ),
+      ),
+      bottomSheetTheme: const BottomSheetThemeData(
+        backgroundColor: Color(0xFFF7FBF9),
+        surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(30))),
+      ),
+      dialogTheme: DialogThemeData(
+        backgroundColor: const Color(0xFFF7FBF9),
+        surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
       ),
       snackBarTheme: const SnackBarThemeData(behavior: SnackBarBehavior.floating),
     );

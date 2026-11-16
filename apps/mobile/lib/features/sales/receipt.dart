@@ -87,7 +87,11 @@ Future<List<int>> buildReceiptPdf(SaleDetail s, CurrentBusiness b, {ReceiptFonts
       build: (_) => pw.Column(
         crossAxisAlignment: pw.CrossAxisAlignment.stretch,
         children: [
-          pw.Text(b.name, textAlign: pw.TextAlign.center, style: pw.TextStyle(font: f.bold, fontSize: 13)),
+          pw.Text(
+            b.name,
+            textAlign: pw.TextAlign.center,
+            style: pw.TextStyle(font: f.bold, fontSize: 13),
+          ),
           for (final line in [
             [b.address, b.city].whereType<String>().where((x) => x.isNotEmpty).join(', '),
             if (b.phone != null) 'Tél. ${b.phone}',

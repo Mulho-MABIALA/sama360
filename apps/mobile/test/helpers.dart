@@ -8,6 +8,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:sama360/core/api/api_client.dart';
 import 'package:sama360/core/api/session_store.dart';
+import 'package:sama360/core/glass.dart';
 import 'package:sama360/core/models.dart';
 import 'package:sama360/core/providers.dart';
 import 'package:sama360/core/repositories.dart';
@@ -197,6 +198,7 @@ Future<(ProviderContainer, FakeRepo)> pumpSama(
   String location = '/',
   List<Override> overrides = const [],
 }) async {
+  Motion.enabled = false; // animations d'ambiance infinies : incompatibles avec pumpAndSettle
   await initializeDateFormatting('fr');
   final repo = FakeRepo();
   final container = ProviderContainer(
@@ -221,6 +223,7 @@ GoRouter routerOf(ProviderContainer c) => c.read(routerProvider);
 
 /// Polices réelles (Roboto + icônes Material) pour des captures lisibles.
 Future<void> loadTestFonts() async {
+  Motion.enabled = false;
   final dir = '${Platform.environment['FLUTTER_ROOT'] ?? '/opt/flutter'}/bin/cache/artifacts/material_fonts';
   Future<void> load(String family, List<String> files) async {
     final loader = FontLoader(family);

@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../../core/format.dart';
+import '../../core/glass.dart';
 import '../../core/models.dart';
 import '../../core/providers.dart';
 import '../../core/theme.dart';
@@ -16,8 +17,10 @@ class SalesHistoryScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final sales = ref.watch(salesTodayProvider);
-    return Scaffold(
-      appBar: AppBar(title: const Text("Ventes d'aujourd'hui", style: TextStyle(fontWeight: FontWeight.w800))),
+    return AuroraScaffold(
+      appBar: AppBar(
+        title: const Text("Ventes d'aujourd'hui", style: TextStyle(fontWeight: FontWeight.w800)),
+      ),
       body: AsyncView<List<SaleSummary>>(
         value: sales,
         onRetry: () => ref.invalidate(salesTodayProvider),
@@ -31,9 +34,13 @@ class SalesHistoryScreen extends ConsumerWidget {
               children: [
                 Row(
                   children: [
-                    Expanded(child: StatTile(label: 'Ventes', value: '${done.length}')),
+                    Expanded(
+                      child: StatTile(label: 'Ventes', value: '${done.length}'),
+                    ),
                     const SizedBox(width: 8),
-                    Expanded(child: StatTile(label: "Chiffre d'affaires", value: moneyShort(total))),
+                    Expanded(
+                      child: StatTile(label: "Chiffre d'affaires", value: moneyShort(total)),
+                    ),
                   ],
                 ),
                 const SizedBox(height: 12),
@@ -86,7 +93,14 @@ class SalesHistoryScreen extends ConsumerWidget {
                               ),
                             ),
                             if (s.due > 0 && s.status != 'voided')
-                              Text('Crédit ${moneyShort(s.due)}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.warnText)),
+                              Text(
+                                'Crédit ${moneyShort(s.due)}',
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w700,
+                                  color: AppColors.warnText,
+                                ),
+                              ),
                           ],
                         ),
                         onTap: () => context.push('/sales/${s.id}'),
