@@ -99,6 +99,33 @@ final membersProvider = FutureProvider<List<Member>>((ref) {
   return ref.watch(repoProvider).members();
 });
 
+final invoicingSummaryProvider = FutureProvider<InvoicingSummary>((ref) {
+  ref.watch(businessIdProvider);
+  return ref.watch(repoProvider).invoicingSummary();
+});
+
+/// Liste par type et filtre : (type, statut(s), en retard).
+final documentsProvider = FutureProvider.family<List<DocSummary>, ({DocKind kind, String? status, bool overdue})>((
+  ref,
+  f,
+) {
+  ref.watch(businessIdProvider);
+  return ref.watch(repoProvider).documents(kind: f.kind, status: f.status, overdue: f.overdue);
+});
+
+final documentProvider = FutureProvider.family<DocDetail, String>((ref, id) {
+  ref.watch(businessIdProvider);
+  return ref.watch(repoProvider).document(id);
+});
+
+/// Après une action sur un devis / une facture.
+void refreshInvoicing(WidgetRef ref) {
+  ref.invalidate(invoicingSummaryProvider);
+  ref.invalidate(documentsProvider);
+  ref.invalidate(documentProvider);
+  ref.invalidate(stockRawProvider);
+}
+
 /// Après une vente, un remboursement ou une entrée de stock : rafraîchit ce qui en dépend.
 void refreshBusinessData(WidgetRef ref) {
   ref.invalidate(summaryProvider);

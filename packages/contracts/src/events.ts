@@ -69,6 +69,18 @@ export type CustomerRepaymentRecorded = DomainEvent<
   { entryId: string; customerId: string; amount: number; method: string }
 >;
 
+/** Facture émise : la marchandise sort du stock. */
+export type InvoiceIssued = DomainEvent<
+  'invoice.issued',
+  { invoiceId: string; number: string; customerId: string; warehouseId: string; items: SaleLine[]; total: number }
+>;
+
+/** Facture annulée : la marchandise revient en stock. */
+export type InvoiceCancelled = DomainEvent<
+  'invoice.cancelled',
+  { invoiceId: string; number: string; warehouseId: string; items: SaleLine[] }
+>;
+
 export type StockLow = DomainEvent<
   'stock.low',
   { productId: string; warehouseId: string; name: string; onHand: number; threshold: number }
@@ -88,6 +100,8 @@ export interface EventMap {
   'sale.completed': SaleCompleted;
   'sale.voided': SaleVoided;
   'customer.repayment_recorded': CustomerRepaymentRecorded;
+  'invoice.issued': InvoiceIssued;
+  'invoice.cancelled': InvoiceCancelled;
   'stock.low': StockLow;
   'expense.recorded': ExpenseRecorded;
 }

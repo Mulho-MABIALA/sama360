@@ -30,7 +30,7 @@ const _mainServices = [
   _Service('Stock', Icons.inventory_2_rounded, Color(0xFFD9822B), route: '/stock'),
   _Service('Crédits', Icons.menu_book_rounded, Color(0xFF2F6FDB), route: '/customers'),
   _Service('Dépenses', Icons.account_balance_wallet_rounded, Color(0xFFE0533D), route: 'expense'),
-  _Service('Factures', Icons.receipt_long_rounded, Color(0xFF7A5AF8), soon: true),
+  _Service('Factures', Icons.receipt_long_rounded, Color(0xFF7A5AF8), route: '/invoices'),
   _Service('Boutique', Icons.storefront_rounded, Color(0xFF0E9384), soon: true),
 ];
 
@@ -65,8 +65,8 @@ class HomeScreen extends ConsumerWidget {
         showInfo(context, '${s.name} arrive bientôt sur Sama360');
       } else if (s.route == 'expense') {
         _addExpense(context, ref);
-      } else if (s.route == '/team') {
-        context.push('/team');
+      } else if (s.route == '/team' || s.route == '/invoices') {
+        context.push(s.route!);
       } else {
         context.go(s.route!);
       }

@@ -269,4 +269,137 @@ class SamaRepository {
       api.patch<void>('/v1/members/$id', data: {'roleKey': ?role?.api, 'status': ?status});
 
   Future<void> removeMember(String id) => api.delete<void>('/v1/members/$id');
+
+  // ---------- Factures et devis ----------
+  static String _day(DateTime d) =>
+      '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+
+  /// Corps d'un devis / d'une facture.
+  static Map<String, dynamic> documentBody({
+    required String customerId,
+    required List<DocLineDraft> lines,
+    int discount = 0,
+    DateTime? issueDate,
+    DateTime? dueDate,
+    bool clearDueDate = false,
+    String? note,
+  }) => {
+    'customerId': customerId,
+    'lines': [for (final l in lines) l.toJson()],
+    'discount': discount,
+    if (issueDate != null) 'issueDate': _day(issueDate),
+    if (dueDate != null) 'dueDate': _day(dueDate) else if (clearDueDate) 'dueDate': null,
+    'note': (note ?? '').trim().isEmpty ? null : note!.trim(),
+  };
+
+  Future<InvoicingSummary> invoicingSummary() async =>
+      InvoicingSummary.fromJson(await _cachedGet<Map<String, dynamic>>('/v1/invoicing/summary'));
+
+  Future<List<DocSummary>> documents({
+    required DocKind kind,
+    String? status,
+    bool overdue = false,
+    String? search,
+  }) async {
+    final r = await _cachedGet<Map<String, dynamic>>(
+      '/v1/invoicing/documents',
+      query: {
+        'kind': kind.api,
+        'status': status,
+        'overdue': overdue ? 'true' : null,
+        'search': (search ?? '').isEmpty ? null : search,
+        'limit': 100,
+      },
+    );
+    return (r['data'] as List).map((e) => DocSummary.fromJson(e as Map<String, dynamic>)).toList();
+  }
+
+  Future<DocDetail> document(String id) async =>
+      DocDetail.fromJson(await _cachedGet<Map<String, dynamic>>('/v1/invoicing/documents/$id'));
+
+  Future<DocDetail> createDocument({
+    required String id,
+    required DocKind kind,
+    required Map<String, dynamic> body,
+  }) async => DocDetail.fromJson(
+    await api.post<Map<String, dynamic>>('/v1/invoicing/documents', data: {...body, 'id': id, 'kind': kind.api}),
+  );
+
+  Future<DocDetail> updateQuote(String id, Map<String, dynamic> body) async =>
+      DocDetail.fromJson(await api.patch<Map<String, dynamic>>('/v1/invoicing/documents/$id', data: body));
+
+  /// accept, decline, reopen
+  Future<DocDetail> quoteAction(String id, String action) async =>
+      DocDetail.fromJson(await api.post<Map<String, dynamic>>('/v1/invoicing/documents/$id/$action'));
+
+  Future<DocDetail> convertQuote(String id, {DateTime? dueDate}) async => DocDetail.fromJson(
+    await api.post<Map<String, dynamic>>(
+      '/v1/invoicing/documents/$id/convert',
+      data: {if (dueDate != null) 'dueDate': _day(dueDate)},
+    ),
+  );
+
+  Future<DocDetail> payInvoice(
+    String id, {
+    required String paymentId,
+    required int amount,
+    required PayMethod method,
+    String? reference,
+  }) async => DocDetail.fromJson(
+    await api.post<Map<String, dynamic>>(
+      '/v1/invoicing/documents/$id/payments',
+      data: {
+        'id': paymentId,
+        'amount': amount,
+        'method': method.api,
+        if ((reference ?? '').trim().isNotEmpty) 'reference': reference!.trim(),
+      },
+    ),
+  );
+
+  Future<DocDetail> cancelInvoice(String id, String reason) async => DocDetail.fromJson(
+    await api.post<Map<String, dynamic>>('/v1/invoicing/documents/$id/cancel', data: {'reason': reason}),
+  );
+}
+
+/// Ligne en cours de saisie dans l'éditeur.
+class DocLineDraft {
+  const DocLineDraft({
+    this.productId,
+    required this.name,
+    this.description,
+    required this.quantity,
+    required this.unitPrice,
+  });
+  final String? productId;
+  final String name;
+  final String? description;
+  final double quantity;
+  final int unitPrice;
+
+  int get total => (quantity * unitPrice).round();
+
+  DocLineDraft copyWith({double? quantity, int? unitPrice, String? name, String? description}) => DocLineDraft(
+    productId: productId,
+    name: name ?? this.name,
+    description: description ?? this.description,
+    quantity: quantity ?? this.quantity,
+    unitPrice: unitPrice ?? this.unitPrice,
+  );
+
+  factory DocLineDraft.fromLine(DocLine l) => DocLineDraft(
+    productId: l.productId,
+    name: l.name,
+    description: l.description,
+    quantity: l.quantity,
+    unitPrice: l.unitPrice,
+  );
+
+  Map<String, dynamic> toJson() => {
+    if (productId != null) 'productId': productId,
+    'name': name,
+    if ((description ?? '').trim().isNotEmpty) 'description': description!.trim(),
+    'quantity': quantity,
+    'unitPrice': unitPrice,
+  };
 }

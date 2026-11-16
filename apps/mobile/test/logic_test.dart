@@ -45,10 +45,17 @@ void main() {
 
   test("photo produit lue depuis la réponse de l'API", () {
     final p = Product.fromJson({
-      'id': 'p', 'name': 'Savon', 'price': 1500, 'cost': 800, 'imageFileIds': ['f1'],
+      'id': 'p',
+      'name': 'Savon',
+      'price': 1500,
+      'cost': 800,
+      'imageFileIds': ['f1'],
     });
     expect(p.imageFileId, 'f1');
-    expect(Product.fromJson({'id': 'p', 'name': 'Savon', 'price': 1500, 'cost': 800, 'imageFileIds': []}).imageFileId, isNull);
+    expect(
+      Product.fromJson({'id': 'p', 'name': 'Savon', 'price': 1500, 'cost': 800, 'imageFileIds': []}).imageFileId,
+      isNull,
+    );
   });
 
   test('permissions identiques au serveur', () {
@@ -96,8 +103,14 @@ void main() {
       final line = {'p2': const CartLine(_p2, 5)};
       expect(checkoutBlocker(const CartState()), contains('article'));
       expect(checkoutBlocker(CartState(lines: line, mode: PaymentMode.credit)), contains('client'));
-      expect(checkoutBlocker(CartState(lines: line, mode: PaymentMode.credit, customer: customer, deposit: 20000)), contains('Espèces'));
-      expect(checkoutBlocker(CartState(lines: line, mode: PaymentMode.credit, customer: customer, deposit: 5000)), isNull);
+      expect(
+        checkoutBlocker(CartState(lines: line, mode: PaymentMode.credit, customer: customer, deposit: 20000)),
+        contains('Espèces'),
+      );
+      expect(
+        checkoutBlocker(CartState(lines: line, mode: PaymentMode.credit, customer: customer, deposit: 5000)),
+        isNull,
+      );
       expect(checkoutBlocker(CartState(lines: line)), isNull);
     });
   });
@@ -115,11 +128,24 @@ void main() {
       expect(authRedirect(s(const AuthState()), '/otp'), isNull);
     });
     test('profil incomplet puis entreprise manquante', () {
-      expect(authRedirect(s(const AuthState(me: Me(id: 'u', phone: '+221'))), '/'), '/profile');
+      expect(
+        authRedirect(
+          s(
+            const AuthState(
+              me: Me(id: 'u', phone: '+221'),
+            ),
+          ),
+          '/',
+        ),
+        '/profile',
+      );
       expect(authRedirect(s(const AuthState(me: _me)), '/'), '/business');
     });
     test('prêt → accueil, et le changement d’entreprise reste possible', () {
-      const ready = AuthState(me: Me(id: 'u', phone: '+221', fullName: 'Awa', businesses: [link]), businessId: 'b');
+      const ready = AuthState(
+        me: Me(id: 'u', phone: '+221', fullName: 'Awa', businesses: [link]),
+        businessId: 'b',
+      );
       expect(authRedirect(s(ready), '/login'), '/');
       expect(authRedirect(s(ready), '/splash'), '/');
       expect(authRedirect(s(ready), '/pos'), isNull);

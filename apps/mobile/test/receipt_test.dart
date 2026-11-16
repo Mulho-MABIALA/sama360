@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:pdf/pdf.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:sama360/core/models.dart';
 import 'package:sama360/features/sales/receipt.dart';
@@ -27,7 +28,8 @@ class RecordingActions extends ReceiptActions {
   }
 
   @override
-  Future<void> printPdf(List<int> bytes, String name) async => printed = bytes;
+  Future<void> printPdf(List<int> bytes, String name, {PdfPageFormat format = PdfPageFormat.roll80}) async =>
+      printed = bytes;
 }
 
 void main() {
@@ -91,7 +93,16 @@ void main() {
       expect(s.lines.single.quantity, 1.5);
       expect(s.payments.single.amount, 600);
       expect(s.customer!.name, 'Fatou');
-      expect(SaleSummary.fromJson({'id': 'x', 'number': 'n', 'total': 900, 'paid': 500, 'soldAt': '2026-11-16T09:00:00Z'}).due, 400);
+      expect(
+        SaleSummary.fromJson({
+          'id': 'x',
+          'number': 'n',
+          'total': 900,
+          'paid': 500,
+          'soldAt': '2026-11-16T09:00:00Z',
+        }).due,
+        400,
+      );
     });
   });
 
@@ -143,4 +154,3 @@ void main() {
     expect(find.byTooltip("Ventes d'aujourd'hui"), findsOneWidget);
   });
 }
-

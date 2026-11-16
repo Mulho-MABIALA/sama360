@@ -33,7 +33,9 @@ const demoMe = Me(
   phone: '+221771234567',
   fullName: 'Awa Diallo',
   createdAt: null,
-  businesses: [BusinessLink(id: 'b1', name: 'Awa Beauté', category: 'boutique', role: 'owner', roleName: 'Propriétaire')],
+  businesses: [
+    BusinessLink(id: 'b1', name: 'Awa Beauté', category: 'boutique', role: 'owner', roleName: 'Propriétaire'),
+  ],
 );
 const demoProducts = [
   Product(id: 'p1', name: 'Beurre de karité 250 g', price: 3500, cost: 2000, categoryId: 'c1'),
@@ -84,7 +86,10 @@ class FakeRepo extends SamaRepository {
   @override
   Future<CurrentBusiness> currentBusiness() async => demoBusiness;
   @override
-  Future<List<Category>> categories() async => const [Category(id: 'c1', name: 'Soins'), Category(id: 'c2', name: 'Cheveux & parfums')];
+  Future<List<Category>> categories() async => const [
+    Category(id: 'c1', name: 'Soins'),
+    Category(id: 'c2', name: 'Cheveux & parfums'),
+  ];
   @override
   Future<List<Product>> products({String? search, String? categoryId}) async => demoProducts;
   @override
@@ -118,8 +123,20 @@ class FakeRepo extends SamaRepository {
 
   @override
   Future<List<Debtor>> debtors() async => [
-    Debtor(customerId: 'k1', name: 'Fatou Ndiaye', phone: '+221774120855', balance: 17500, firstDebtAt: DateTime(2026, 11, 2)),
-    Debtor(customerId: 'k2', name: 'Aminata Ba', phone: '+221765551234', balance: 10000, firstDebtAt: DateTime(2026, 11, 9)),
+    Debtor(
+      customerId: 'k1',
+      name: 'Fatou Ndiaye',
+      phone: '+221774120855',
+      balance: 17500,
+      firstDebtAt: DateTime(2026, 11, 2),
+    ),
+    Debtor(
+      customerId: 'k2',
+      name: 'Aminata Ba',
+      phone: '+221765551234',
+      balance: 10000,
+      firstDebtAt: DateTime(2026, 11, 9),
+    ),
     Debtor(customerId: 'k3', name: 'Mariama Sow', balance: 6500, firstDebtAt: DateTime(2026, 11, 12)),
   ];
 
@@ -162,9 +179,33 @@ class FakeRepo extends SamaRepository {
 
   // ---------- Équipe ----------
   final team = <Member>[
-    const Member(id: 'm1', userId: 'u1', phone: '+221771234567', fullName: 'Awa Diallo', role: 'owner', roleName: 'Propriétaire', status: 'active'),
-    const Member(id: 'm2', userId: 'u2', phone: '+221781112233', fullName: 'Moussa Fall', role: 'cashier', roleName: 'Vendeur / caissier', status: 'active'),
-    const Member(id: 'm3', userId: 'u4', phone: '+221765550000', fullName: 'Fatou Sarr', role: 'manager', roleName: 'Gérant', status: 'invited'),
+    const Member(
+      id: 'm1',
+      userId: 'u1',
+      phone: '+221771234567',
+      fullName: 'Awa Diallo',
+      role: 'owner',
+      roleName: 'Propriétaire',
+      status: 'active',
+    ),
+    const Member(
+      id: 'm2',
+      userId: 'u2',
+      phone: '+221781112233',
+      fullName: 'Moussa Fall',
+      role: 'cashier',
+      roleName: 'Vendeur / caissier',
+      status: 'active',
+    ),
+    const Member(
+      id: 'm3',
+      userId: 'u4',
+      phone: '+221765550000',
+      fullName: 'Fatou Sarr',
+      role: 'manager',
+      roleName: 'Gérant',
+      status: 'invited',
+    ),
   ];
   final invites = <({String phone, String? fullName, TeamRole role})>[];
 
@@ -178,7 +219,15 @@ class FakeRepo extends SamaRepository {
     }
     invites.add((phone: phone, fullName: fullName, role: role));
     team.add(
-      Member(id: 'm${team.length + 1}', userId: 'new', phone: phone, fullName: fullName, role: role.api, roleName: role.label, status: 'invited'),
+      Member(
+        id: 'm${team.length + 1}',
+        userId: 'new',
+        phone: phone,
+        fullName: fullName,
+        role: role.api,
+        roleName: role.label,
+        status: 'invited',
+      ),
     );
   }
 
@@ -202,6 +251,172 @@ class FakeRepo extends SamaRepository {
 
   @override
   Future<MyDay> myDay() async => const MyDay(salesCount: 3, revenue: 14500, collected: 14500);
+
+  // ---------- Factures et devis ----------
+  final docs = <String, DocDetail>{};
+  final docBodies = <String, Map<String, dynamic>>{};
+  final docActions = <String>[];
+  int _quoteN = 0;
+  int _invoiceN = 0;
+
+  DocDetail _build(
+    String id,
+    DocKind kind,
+    Map<String, dynamic> body, {
+    String? status,
+    int paid = 0,
+    List<DocPayment> payments = const [],
+    ({String id, String number})? related,
+    String? number,
+  }) {
+    final lines = [
+      for (final l in (body['lines'] as List).cast<Map<String, dynamic>>())
+        DocLine(
+          productId: l['productId'] as String?,
+          name: l['name'] as String,
+          description: l['description'] as String?,
+          quantity: (l['quantity'] as num).toDouble(),
+          unitPrice: (l['unitPrice'] as num).toInt(),
+          total: ((l['quantity'] as num) * (l['unitPrice'] as num)).round(),
+        ),
+    ];
+    final subtotal = lines.fold(0, (s, l) => s + l.total);
+    final discount = (body['discount'] as num?)?.toInt() ?? 0;
+    final total = subtotal - discount;
+    final year = DateTime.now().year;
+    return DocDetail(
+      id: id,
+      kind: kind,
+      number: number ?? (kind == DocKind.quote ? 'DEV-$year-000${++_quoteN}' : 'FAC-$year-000${++_invoiceN}'),
+      status:
+          status ?? (kind == DocKind.quote ? 'pending' : (paid >= total ? 'paid' : (paid > 0 ? 'partial' : 'unpaid'))),
+      customer: const Contact(id: 'c1', name: 'Hôtel Teranga', phone: '+221338200000'),
+      issueDate: DateTime(2026, 11, 16),
+      dueDate: body['dueDate'] == null ? null : DateTime.parse(body['dueDate'] as String),
+      subtotal: subtotal,
+      discount: discount,
+      total: total,
+      paid: paid,
+      due: total - paid,
+      note: body['note'] as String?,
+      lines: lines,
+      payments: payments,
+      related: related,
+    );
+  }
+
+  @override
+  Future<List<Contact>> customers({String? search}) async => const [
+    Contact(id: 'c1', name: 'Hôtel Teranga', phone: '+221338200000'),
+    Contact(id: 'k1', name: 'Fatou Ndiaye', phone: '+221774120855'),
+  ];
+
+  @override
+  Future<InvoicingSummary> invoicingSummary() async => const InvoicingSummary(
+    receivable: 95000,
+    openInvoices: 2,
+    overdue: 30000,
+    overdueInvoices: 1,
+    openQuotesTotal: 75000,
+    openQuotes: 1,
+    invoicedThisMonth: 185000,
+  );
+
+  @override
+  Future<List<DocSummary>> documents({
+    required DocKind kind,
+    String? status,
+    bool overdue = false,
+    String? search,
+  }) async => [
+    for (final d in docs.values.where((d) => d.kind == kind))
+      DocSummary(
+        id: d.id,
+        kind: d.kind,
+        number: d.number,
+        status: d.status,
+        customerName: d.customer.name,
+        issueDate: d.issueDate,
+        dueDate: d.dueDate,
+        total: d.total,
+        due: d.due,
+        overdue: d.overdue,
+      ),
+  ];
+
+  @override
+  Future<DocDetail> document(String id) async => docs[id]!;
+
+  @override
+  Future<DocDetail> createDocument({
+    required String id,
+    required DocKind kind,
+    required Map<String, dynamic> body,
+  }) async {
+    docBodies[id] = body;
+    return docs[id] ??= _build(id, kind, body);
+  }
+
+  @override
+  Future<DocDetail> updateQuote(String id, Map<String, dynamic> body) async {
+    docBodies[id] = body;
+    return docs[id] = _build(id, DocKind.quote, body, number: docs[id]!.number);
+  }
+
+  @override
+  Future<DocDetail> quoteAction(String id, String action) async {
+    docActions.add('$action $id');
+    final d = docs[id]!;
+    final status = {'accept': 'accepted', 'decline': 'declined', 'reopen': 'pending'}[action]!;
+    return docs[id] = _build(id, DocKind.quote, docBodies[id]!, status: status, number: d.number);
+  }
+
+  @override
+  Future<DocDetail> convertQuote(String id, {DateTime? dueDate}) async {
+    final q = docs[id]!;
+    final invId = 'inv-$id';
+    final inv = docs[invId] ??= _build(invId, DocKind.invoice, docBodies[id]!, related: (id: q.id, number: q.number));
+    docBodies[invId] = docBodies[id]!;
+    docs[id] = _build(
+      id,
+      DocKind.quote,
+      docBodies[id]!,
+      status: 'invoiced',
+      number: q.number,
+      related: (id: inv.id, number: inv.number),
+    );
+    return inv;
+  }
+
+  @override
+  Future<DocDetail> payInvoice(
+    String id, {
+    required String paymentId,
+    required int amount,
+    required PayMethod method,
+    String? reference,
+  }) async {
+    final d = docs[id]!;
+    final paid = d.paid + amount;
+    return docs[id] = _build(
+      id,
+      DocKind.invoice,
+      docBodies[id]!,
+      paid: paid,
+      number: d.number,
+      related: d.related,
+      payments: [
+        ...d.payments,
+        DocPayment(method: method, amount: amount, reference: reference, paidAt: DateTime(2026, 11, 16)),
+      ],
+    );
+  }
+
+  @override
+  Future<DocDetail> cancelInvoice(String id, String reason) async {
+    final d = docs[id]!;
+    return docs[id] = _build(id, DocKind.invoice, docBodies[id]!, status: 'cancelled', number: d.number);
+  }
 
   // ---------- Profil ----------
   Me profile = demoMe;
@@ -251,9 +466,31 @@ class FakeRepo extends SamaRepository {
 
   @override
   Future<List<SaleSummary>> salesOfDay([DateTime? day, bool mine = false]) async => [
-    SaleSummary(id: 's2', number: 'VEN-2026-0042', status: 'completed', customerName: 'Aminata Ba', total: 9000, due: 4000, soldAt: DateTime(2026, 11, 16, 11, 20)),
-    SaleSummary(id: 'voided', number: 'VEN-2026-0041', status: 'voided', total: 3500, due: 0, soldAt: DateTime(2026, 11, 16, 10, 5)),
-    SaleSummary(id: 's1', number: 'VEN-2026-0040', status: 'completed', total: 11600, due: 0, soldAt: DateTime(2026, 11, 16, 9, 42)),
+    SaleSummary(
+      id: 's2',
+      number: 'VEN-2026-0042',
+      status: 'completed',
+      customerName: 'Aminata Ba',
+      total: 9000,
+      due: 4000,
+      soldAt: DateTime(2026, 11, 16, 11, 20),
+    ),
+    SaleSummary(
+      id: 'voided',
+      number: 'VEN-2026-0041',
+      status: 'voided',
+      total: 3500,
+      due: 0,
+      soldAt: DateTime(2026, 11, 16, 10, 5),
+    ),
+    SaleSummary(
+      id: 's1',
+      number: 'VEN-2026-0040',
+      status: 'completed',
+      total: 11600,
+      due: 0,
+      soldAt: DateTime(2026, 11, 16, 9, 42),
+    ),
   ];
 }
 

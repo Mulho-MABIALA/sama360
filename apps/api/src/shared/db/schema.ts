@@ -353,3 +353,70 @@ export const files = core.table('files', {
   createdBy: uuid('created_by'),
   createdAt: ts('created_at').notNull().defaultNow(),
 });
+
+// ---------- invoicing ----------
+export const invoicingSchema = pgSchema('invoicing');
+
+export const invoiceSequences = invoicingSchema.table(
+  'sequences',
+  {
+    businessId: uuid('business_id').notNull(),
+    key: varchar('key', { length: 20 }).notNull(),
+    year: integer('year').notNull(),
+    lastValue: integer('last_value').notNull().default(0),
+  },
+  (t) => [primaryKey({ columns: [t.businessId, t.key, t.year] })],
+);
+
+export type DocumentKind = 'quote' | 'invoice';
+export type DocumentStatus = 'pending' | 'accepted' | 'declined' | 'invoiced' | 'unpaid' | 'partial' | 'paid' | 'cancelled';
+
+export const documents = invoicingSchema.table('documents', {
+  id: uuid('id').primaryKey(),
+  businessId: uuid('business_id').notNull(),
+  kind: varchar('kind', { length: 10 }).$type<DocumentKind>().notNull(),
+  number: varchar('number', { length: 30 }).notNull(),
+  status: varchar('status', { length: 12 }).$type<DocumentStatus>().notNull(),
+  customerId: uuid('customer_id').notNull(),
+  issueDate: date('issue_date', { mode: 'string' }).notNull(),
+  dueDate: date('due_date', { mode: 'string' }),
+  subtotal: money('subtotal').notNull(),
+  discount: money('discount').notNull().default(0),
+  total: money('total').notNull(),
+  paid: money('paid').notNull().default(0),
+  note: text('note'),
+  warehouseId: uuid('warehouse_id'),
+  sourceId: uuid('source_id'),
+  createdBy: uuid('created_by').notNull(),
+  createdAt: ts('created_at').notNull().defaultNow(),
+  updatedAt: ts('updated_at').notNull().defaultNow(),
+  cancelledAt: ts('cancelled_at'),
+  cancelReason: text('cancel_reason'),
+});
+
+export const documentLines = invoicingSchema.table('document_lines', {
+  id: uuid('id').primaryKey(),
+  businessId: uuid('business_id').notNull(),
+  documentId: uuid('document_id').notNull(),
+  position: integer('position').notNull(),
+  productId: uuid('product_id'),
+  name: varchar('name', { length: 160 }).notNull(),
+  description: varchar('description', { length: 500 }),
+  quantity: qty('quantity').notNull(),
+  unitPrice: money('unit_price').notNull(),
+  unitCost: money('unit_cost').notNull().default(0),
+  discount: money('discount').notNull().default(0),
+  total: money('total').notNull(),
+  trackStock: boolean('track_stock').notNull().default(false),
+});
+
+export const invoicePayments = invoicingSchema.table('payments', {
+  id: uuid('id').primaryKey(),
+  businessId: uuid('business_id').notNull(),
+  documentId: uuid('document_id').notNull(),
+  method: varchar('method', { length: 15 }).notNull(),
+  amount: money('amount').notNull(),
+  reference: varchar('reference', { length: 80 }),
+  paidAt: ts('paid_at').notNull(),
+  createdBy: uuid('created_by').notNull(),
+});

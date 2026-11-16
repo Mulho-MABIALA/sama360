@@ -24,6 +24,9 @@ export type ErrorCode =
   | 'REPAYMENT_EXCEEDS_BALANCE'
   | 'SALE_ALREADY_VOIDED'
   | 'PRODUCT_NOT_TRACKED'
+  | 'DOCUMENT_LOCKED'
+  | 'INVOICE_HAS_PAYMENTS'
+  | 'PAYMENT_EXCEEDS_DUE'
   | 'INTERNAL';
 
 export class AppError extends Error {

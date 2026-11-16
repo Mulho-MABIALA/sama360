@@ -21,8 +21,8 @@ class ReceiptActions {
   Future<bool> openWhatsApp(Uri uri) => launchUrl(uri, mode: LaunchMode.externalApplication);
   Future<void> sharePdf(List<int> bytes, String filename) =>
       Printing.sharePdf(bytes: Uint8List.fromList(bytes), filename: filename);
-  Future<void> printPdf(List<int> bytes, String name) =>
-      Printing.layoutPdf(name: name, format: PdfPageFormat.roll80, onLayout: (_) async => Uint8List.fromList(bytes));
+  Future<void> printPdf(List<int> bytes, String name, {PdfPageFormat format = PdfPageFormat.roll80}) =>
+      Printing.layoutPdf(name: name, format: format, onLayout: (_) async => Uint8List.fromList(bytes));
 }
 
 final receiptActionsProvider = Provider<ReceiptActions>((ref) => const ReceiptActions());

@@ -92,6 +92,13 @@ Toutes les erreurs : `{ "error": { "code", "message", "details?" } }`.
 | GET | `/v1/sales/summary` | `reports:read` — CA, coût, bénéfice, dépenses, encaissé, crédit, ventes par vendeur (`?from=&to=`) |
 | GET | `/v1/sales/my-day` | `sales:create` — ma journée de vendeur (nombre, montant) |
 | GET | `/v1/sales/debtors` | `sales:read` — clients qui doivent de l'argent |
+| GET / POST | `/v1/invoicing/documents` | `invoicing:read` / `invoicing:write` — devis (DEV-…) et factures (FAC-…), idempotent si `id` fourni |
+| GET / PATCH | `/v1/invoicing/documents/:id` | lecture ; modification d'un devis tant qu'il n'est pas facturé |
+| POST | `/v1/invoicing/documents/:id/accept` · `/decline` · `/reopen` | `invoicing:write` — réponse du client à un devis |
+| POST | `/v1/invoicing/documents/:id/convert` | `invoicing:write` — devis → facture (une seule fois) |
+| POST | `/v1/invoicing/documents/:id/payments` | `invoicing:write` — paiement (idempotent, sans dépasser le reste dû) |
+| POST | `/v1/invoicing/documents/:id/cancel` | `invoicing:write` — annule une facture sans paiement (retour en stock) |
+| GET | `/v1/invoicing/summary` | `invoicing:read` — à encaisser, en retard, devis en cours, facturé ce mois |
 | GET | `/v1/sales/customers/:id/ledger` | `sales:read` — carnet de crédit d'un client |
 | POST | `/v1/sales/customers/:id/repayments` | `sales:create` — remboursement |
 | GET / POST | `/v1/sales/expenses` | `reports:read` / `sales:create` |

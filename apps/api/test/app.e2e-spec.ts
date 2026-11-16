@@ -33,6 +33,7 @@ async function resetDatabase(url: string) {
   const c = new Client({ connectionString: url });
   await c.connect();
   await c.query(`
+    DROP SCHEMA IF EXISTS invoicing CASCADE;
     DROP SCHEMA IF EXISTS sales CASCADE;
     DROP SCHEMA IF EXISTS inventory CASCADE;
     DROP SCHEMA IF EXISTS catalog CASCADE;
@@ -646,6 +647,184 @@ describe('Socle Sama360 (e2e)', () => {
         ['sale', -2],
         ['purchase', 20],
       ]);
+    });
+  });
+
+  describe('Factures et devis', () => {
+    const A = () => auth(awa.accessToken, awaBiz);
+    const year = new Date().getUTCFullYear();
+    const daysFromNow = (n: number) => new Date(Date.now() + n * 86_400_000).toISOString().slice(0, 10);
+    let client: string;
+    let tissu: string;
+    let quoteId: string;
+    let invoiceId: string;
+    const stockOf = async (productId: string) =>
+      ((await http.get('/v1/inventory/stock').set(A()).expect(200)).body.items as { productId: string; onHand: number }[]).find(
+        (i) => i.productId === productId,
+      )!.onHand;
+
+    it('crée un devis : numéro, lignes du catalogue et libres, remise, validité 30 jours', async () => {
+      client = (await http.post('/v1/contacts').set(A()).send({ name: 'Hôtel Teranga', phone: '33 820 00 00' }).expect(201)).body.id;
+      tissu = (await http.post('/v1/catalog/products').set(A()).send({ name: 'Nappe brodée', price: 15000, cost: 9000 }).expect(201)).body.id;
+      await http.post('/v1/inventory/movements').set(A()).send({ productId: tissu, type: 'purchase', quantity: 20 }).expect(201);
+
+      const res = await http
+        .post('/v1/invoicing/documents')
+        .set(A())
+        .send({
+          kind: 'quote',
+          customerId: client,
+          lines: [
+            { productId: tissu, quantity: 4 },
+            { name: 'Livraison et pose', description: 'Plateau, Dakar', quantity: 1, unitPrice: 10000 },
+          ],
+          discount: 5000,
+          note: 'Livraison sous 72 h',
+        })
+        .expect(201);
+      quoteId = res.body.id;
+      expect(res.body).toMatchObject({
+        kind: 'quote',
+        number: `DEV-${year}-0001`,
+        status: 'pending',
+        subtotal: 70000,
+        discount: 5000,
+        total: 65000,
+        dueDate: daysFromNow(30),
+        customer: { name: 'Hôtel Teranga', phone: '+221338200000' },
+      });
+      expect(res.body.lines.map((l: { name: string; total: number }) => [l.name, l.total])).toEqual([
+        ['Nappe brodée', 60000],
+        ['Livraison et pose', 10000],
+      ]);
+      expect(res.body.lines[0].unitCost).toBeUndefined(); // le coût ne sort pas sur un document client
+    });
+
+    it('modifie le devis, l’accepte puis le transforme en facture (une seule fois)', async () => {
+      const upd = await http
+        .patch(`/v1/invoicing/documents/${quoteId}`)
+        .set(A())
+        .send({ customerId: client, lines: [{ productId: tissu, quantity: 5 }], discount: 0 })
+        .expect(200);
+      expect(upd.body).toMatchObject({ total: 75000, status: 'pending', number: `DEV-${year}-0001` });
+
+      await http.post(`/v1/invoicing/documents/${quoteId}/accept`).set(A()).expect(200);
+      const inv = await http
+        .post(`/v1/invoicing/documents/${quoteId}/convert`)
+        .set(A())
+        .send({ dueDate: daysFromNow(15) })
+        .expect(201);
+      invoiceId = inv.body.id;
+      expect(inv.body).toMatchObject({
+        kind: 'invoice',
+        number: `FAC-${year}-0001`,
+        status: 'unpaid',
+        total: 75000,
+        due: 75000,
+        quote: { id: quoteId, number: `DEV-${year}-0001` },
+      });
+      const again = await http.post(`/v1/invoicing/documents/${quoteId}/convert`).set(A()).send({}).expect(200);
+      expect(again.body.id).toBe(invoiceId);
+
+      const quote = (await http.get(`/v1/invoicing/documents/${quoteId}`).set(A()).expect(200)).body;
+      expect(quote).toMatchObject({ status: 'invoiced', invoice: { id: invoiceId } });
+      const locked = await http
+        .patch(`/v1/invoicing/documents/${quoteId}`)
+        .set(A())
+        .send({ customerId: client, lines: [{ productId: tissu, quantity: 1 }] })
+        .expect(409);
+      expect(locked.body.error.code).toBe('DOCUMENT_LOCKED');
+      await http
+        .patch(`/v1/invoicing/documents/${invoiceId}`)
+        .set(A())
+        .send({ customerId: client, lines: [{ productId: tissu, quantity: 1 }] })
+        .expect(409);
+
+      // La facture fait sortir la marchandise : 20 − 5
+      await relay.relayOnce();
+      await waitFor(() => stockOf(tissu), (q) => q === 15);
+    });
+
+    it('encaisse la facture en plusieurs fois, sans dépasser ni doubler', async () => {
+      const payId = '01937a00-0000-7000-8000-00000000f001';
+      const p1 = await http
+        .post(`/v1/invoicing/documents/${invoiceId}/payments`)
+        .set(A())
+        .send({ id: payId, amount: 30000, method: 'wave', reference: 'WV-123' })
+        .expect(201);
+      expect(p1.body).toMatchObject({ status: 'partial', paid: 30000, due: 45000 });
+      const dup = await http
+        .post(`/v1/invoicing/documents/${invoiceId}/payments`)
+        .set(A())
+        .send({ id: payId, amount: 30000, method: 'wave' })
+        .expect(200);
+      expect(dup.body.paid).toBe(30000);
+
+      const over = await http
+        .post(`/v1/invoicing/documents/${invoiceId}/payments`)
+        .set(A())
+        .send({ amount: 50000, method: 'cash' })
+        .expect(422);
+      expect(over.body.error).toMatchObject({ code: 'PAYMENT_EXCEEDS_DUE', details: { due: 45000 } });
+
+      const full = await http
+        .post(`/v1/invoicing/documents/${invoiceId}/payments`)
+        .set(A())
+        .send({ amount: 45000, method: 'transfer' })
+        .expect(201);
+      expect(full.body).toMatchObject({ status: 'paid', due: 0 });
+      expect(full.body.payments).toHaveLength(2);
+
+      const cancel = await http.post(`/v1/invoicing/documents/${invoiceId}/cancel`).set(A()).send({ reason: 'erreur' }).expect(409);
+      expect(cancel.body.error.code).toBe('INVOICE_HAS_PAYMENTS');
+    });
+
+    it('facture directe en retard, résumé, recherche, puis annulation avec retour en stock', async () => {
+      const late = await http
+        .post('/v1/invoicing/documents')
+        .set(A())
+        .send({
+          kind: 'invoice',
+          customerId: client,
+          issueDate: daysFromNow(-20),
+          dueDate: daysFromNow(-5),
+          lines: [{ productId: tissu, quantity: 2 }],
+        })
+        .expect(201);
+      expect(late.body).toMatchObject({ number: `FAC-${year}-0002`, status: 'unpaid', overdue: true, total: 30000 });
+
+      const summary = (await http.get('/v1/invoicing/summary').set(A()).expect(200)).body;
+      expect(summary).toMatchObject({ receivable: 30000, openInvoices: 1, overdue: 30000, overdueInvoices: 1, openQuotes: 0 });
+
+      const overdue = (await http.get('/v1/invoicing/documents?overdue=true').set(A()).expect(200)).body.data;
+      expect(overdue.map((d: { id: string }) => d.id)).toEqual([late.body.id]);
+      const found = (await http.get('/v1/invoicing/documents?kind=quote&search=teranga').set(A()).expect(200)).body.data;
+      expect(found.map((d: { number: string }) => d.number)).toEqual([`DEV-${year}-0001`]);
+
+      await relay.relayOnce();
+      await waitFor(() => stockOf(tissu), (q) => q === 13);
+      const cancelled = await http
+        .post(`/v1/invoicing/documents/${late.body.id}/cancel`)
+        .set(A())
+        .send({ reason: 'Commande annulée par le client' })
+        .expect(200);
+      expect(cancelled.body).toMatchObject({ status: 'cancelled', cancelReason: 'Commande annulée par le client' });
+      await relay.relayOnce();
+      await waitFor(() => stockOf(tissu), (q) => q === 15);
+      await http.post(`/v1/invoicing/documents/${late.body.id}/payments`).set(A()).send({ amount: 100, method: 'cash' }).expect(409);
+    });
+
+    it('droits et isolation : le caissier consulte sans facturer, un autre commerçant ne voit rien', async () => {
+      await http.get('/v1/invoicing/documents').set(auth(cashierToken, awaBiz)).expect(200);
+      const denied = await http
+        .post('/v1/invoicing/documents')
+        .set(auth(cashierToken, awaBiz))
+        .send({ kind: 'quote', customerId: client, lines: [{ name: 'x', quantity: 1, unitPrice: 1 }] })
+        .expect(403);
+      expect(denied.body.error.code).toBe('INSUFFICIENT_PERMISSION');
+      await http.get(`/v1/invoicing/documents/${invoiceId}`).set(auth(moussa.accessToken, moussaBiz)).expect(404);
+      const other = (await http.get('/v1/invoicing/documents').set(auth(moussa.accessToken, moussaBiz)).expect(200)).body.data;
+      expect(other).toEqual([]);
     });
   });
 

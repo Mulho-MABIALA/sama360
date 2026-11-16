@@ -155,8 +155,9 @@ void main() {
       return container;
     }
 
-    Future<CheckoutOutcome> sell(String id, {int qty = 1, DateTime? at}) =>
-        c.read(pendingSalesProvider.notifier).checkout(
+    Future<CheckoutOutcome> sell(String id, {int qty = 1, DateTime? at}) => c
+        .read(pendingSalesProvider.notifier)
+        .checkout(
           id: id,
           businessId: 'b1',
           lines: [(product: demoProducts[0], quantity: qty.toDouble())],
@@ -228,7 +229,10 @@ void main() {
       repo.offline = true;
       await sell('a1');
       final report = await c.read(pendingSalesProvider.notifier).sync();
-      expect(report, isA<SyncReport>().having((r) => r.offline, 'hors ligne', isTrue).having((r) => r.sent, 'envoyées', 0));
+      expect(
+        report,
+        isA<SyncReport>().having((r) => r.offline, 'hors ligne', isTrue).having((r) => r.sent, 'envoyées', 0),
+      );
       expect(c.read(pendingSalesProvider), hasLength(1));
     });
 

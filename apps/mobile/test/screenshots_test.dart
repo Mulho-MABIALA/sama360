@@ -134,13 +134,15 @@ void main() {
     final (c, repo) = await pumpSama(tester, location: '/pos');
     repo.offline = true;
     for (final (id, p, q) in [('o1', demoProducts[0], 2.0), ('o2', demoProducts[2], 1.0)]) {
-      await c.read(pendingSalesProvider.notifier).checkout(
-        id: id,
-        businessId: 'b1',
-        lines: [(product: p, quantity: q)],
-        payments: [(method: PayMethod.cash, amount: (p.price * q).round())],
-        total: (p.price * q).round(),
-      );
+      await c
+          .read(pendingSalesProvider.notifier)
+          .checkout(
+            id: id,
+            businessId: 'b1',
+            lines: [(product: p, quantity: q)],
+            payments: [(method: PayMethod.cash, amount: (p.price * q).round())],
+            total: (p.price * q).round(),
+          );
     }
     c.read(apiClientProvider).online.value = false; // le client a constaté la coupure
     await tester.pumpAndSettle();
@@ -189,5 +191,69 @@ void main() {
     await pumpSama(tester);
     await tester.drag(find.byType(Scrollable).first, const Offset(0, -900));
     await _shot(tester, '11c_vendeurs_du_jour');
+  });
+
+  Future<FakeRepo> seedDocs(FakeRepo repo) async {
+    Map<String, dynamic> body(List<Map<String, Object>> lines, {int discount = 0, String? due, String? note}) => {
+      'customerId': 'c1',
+      'lines': lines,
+      'discount': discount,
+      'dueDate': ?due,
+      'note': ?note,
+    };
+    await repo.createDocument(
+      id: 'q1',
+      kind: DocKind.quote,
+      body: body(
+        [
+          {'name': 'Nappe brodée', 'quantity': 4, 'unitPrice': 15000},
+          {'name': 'Livraison et pose', 'description': 'Plateau, Dakar', 'quantity': 1, 'unitPrice': 20000},
+        ],
+        discount: 5000,
+        due: '2026-12-16',
+        note: 'Livraison sous 72 h',
+      ),
+    );
+    await repo.quoteAction('q1', 'accept');
+    final inv = await repo.convertQuote('q1');
+    await repo.payInvoice(inv.id, paymentId: 'p1', amount: 30000, method: PayMethod.wave, reference: 'WV-123');
+    await repo.createDocument(
+      id: 'f2',
+      kind: DocKind.invoice,
+      body: body([
+        {'name': 'Couture tenue de cérémonie', 'quantity': 2, 'unitPrice': 25000},
+      ], due: '2026-11-30'),
+    );
+    return repo;
+  }
+
+  testWidgets('factures : liste', (tester) async {
+    phoneSize(tester);
+    final repo = await seedDocs(FakeRepo());
+    await pumpSama(tester, location: '/invoices', repo: repo);
+    await _shot(tester, '12_factures');
+  });
+
+  testWidgets('factures : détail', (tester) async {
+    phoneSize(tester);
+    final repo = await seedDocs(FakeRepo());
+    await pumpSama(tester, location: '/invoices/inv-q1', repo: repo);
+    await _shot(tester, '12b_facture');
+  });
+
+  testWidgets('factures : éditeur', (tester) async {
+    phoneSize(tester);
+    await pumpSama(tester, location: '/invoices/new?kind=quote');
+    await tester.tap(find.text('Choisir le client'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Hôtel Teranga'));
+    await tester.pumpAndSettle();
+    for (final name in ['Beurre de karité 250 g', 'Savon noir', 'Savon noir']) {
+      await tester.tap(find.text('Produit'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(name).last);
+      await tester.pumpAndSettle();
+    }
+    await _shot(tester, '12c_devis_editeur');
   });
 }

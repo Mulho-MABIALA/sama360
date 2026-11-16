@@ -8,6 +8,10 @@ import 'features/business/business_screen.dart';
 import 'features/customers/customers_screens.dart';
 import 'features/home/home_screen.dart';
 import 'features/inventory/stock_screen.dart';
+import 'core/models.dart';
+import 'features/invoicing/document_editor.dart';
+import 'features/invoicing/document_screen.dart';
+import 'features/invoicing/invoices_screen.dart';
 import 'features/profile/profile_screen.dart';
 import 'features/sales/pos_screen.dart';
 import 'features/team/team_screen.dart';
@@ -58,6 +62,22 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(path: '/account', builder: (_, _) => const ProfileScreen()),
       GoRoute(path: '/team', builder: (_, _) => const TeamScreen()),
+      GoRoute(
+        path: '/invoices',
+        builder: (_, s) => InvoicesScreen(initialKind: DocKind.fromApi(s.uri.queryParameters['kind'] ?? 'invoice')),
+      ),
+      GoRoute(
+        path: '/invoices/new',
+        builder: (_, s) => DocumentEditorScreen(kind: DocKind.fromApi(s.uri.queryParameters['kind'])),
+      ),
+      GoRoute(
+        path: '/invoices/:id',
+        builder: (_, s) => DocumentScreen(id: s.pathParameters['id']!),
+      ),
+      GoRoute(
+        path: '/invoices/:id/edit',
+        builder: (_, s) => DocumentEditorScreen(kind: DocKind.quote, editId: s.pathParameters['id']),
+      ),
       GoRoute(path: '/sales', builder: (_, _) => const SalesHistoryScreen()),
       GoRoute(
         path: '/sales/:id',

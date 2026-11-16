@@ -328,16 +328,20 @@ class Member {
 }
 
 class Contact {
-  const Contact({required this.id, required this.name, this.phone, this.balance = 0});
+  const Contact({required this.id, required this.name, this.phone, this.balance = 0, this.email, this.address});
   final String id;
   final String name;
   final String? phone;
   final int balance;
+  final String? email;
+  final String? address;
 
   factory Contact.fromJson(Map<String, dynamic> j) => Contact(
     id: j['id'] as String,
     name: j['name'] as String,
     phone: j['phone'] as String?,
+    email: j['email'] as String?,
+    address: j['address'] as String?,
     balance: _int(j['balance']),
   );
 }
@@ -538,11 +542,229 @@ enum PayMethod {
   wave('wave', 'Wave'),
   orangeMoney('orange_money', 'Orange Money'),
   freeMoney('free_money', 'Free Money'),
-  card('card', 'Carte');
+  card('card', 'Carte'),
+  // Factures uniquement
+  transfer('transfer', 'Virement'),
+  cheque('cheque', 'Chèque');
 
   const PayMethod(this.api, this.label);
   final String api;
   final String label;
 
   static PayMethod? fromApi(String? v) => PayMethod.values.where((m) => m.api == v).firstOrNull;
+}
+
+// ---------- Factures et devis ----------
+
+enum DocKind {
+  quote('quote', 'Devis'),
+  invoice('invoice', 'Facture');
+
+  const DocKind(this.api, this.label);
+  final String api;
+  final String label;
+
+  static DocKind fromApi(String? v) => v == 'quote' ? DocKind.quote : DocKind.invoice;
+}
+
+/// Libellé lisible d'un statut de devis ou de facture.
+String docStatusLabel(String status, {bool overdue = false}) {
+  if (overdue) return 'En retard';
+  return switch (status) {
+    'pending' => 'En attente',
+    'accepted' => 'Accepté',
+    'declined' => 'Refusé',
+    'invoiced' => 'Facturé',
+    'unpaid' => 'À payer',
+    'partial' => 'Payé en partie',
+    'paid' => 'Payée',
+    'cancelled' => 'Annulée',
+    _ => status,
+  };
+}
+
+/// Ligne de la liste des devis / factures.
+class DocSummary {
+  const DocSummary({
+    required this.id,
+    required this.kind,
+    required this.number,
+    required this.status,
+    required this.customerName,
+    required this.issueDate,
+    this.dueDate,
+    required this.total,
+    required this.due,
+    this.overdue = false,
+  });
+  final String id;
+  final DocKind kind;
+  final String number;
+  final String status;
+  final String customerName;
+  final DateTime issueDate;
+  final DateTime? dueDate;
+  final int total;
+  final int due;
+  final bool overdue;
+
+  factory DocSummary.fromJson(Map<String, dynamic> j) => DocSummary(
+    id: j['id'] as String,
+    kind: DocKind.fromApi(j['kind'] as String?),
+    number: j['number'] as String,
+    status: j['status'] as String,
+    customerName: j['customerName'] as String? ?? '',
+    issueDate: _date(j['issueDate']) ?? DateTime.now(),
+    dueDate: _date(j['dueDate']),
+    total: _int(j['total']),
+    due: _int(j['due']),
+    overdue: j['overdue'] as bool? ?? false,
+  );
+}
+
+class DocLine {
+  const DocLine({
+    this.productId,
+    required this.name,
+    this.description,
+    required this.quantity,
+    required this.unitPrice,
+    this.discount = 0,
+    required this.total,
+  });
+  final String? productId;
+  final String name;
+  final String? description;
+  final double quantity;
+  final int unitPrice;
+  final int discount;
+  final int total;
+
+  factory DocLine.fromJson(Map<String, dynamic> j) => DocLine(
+    productId: j['productId'] as String?,
+    name: j['name'] as String,
+    description: j['description'] as String?,
+    quantity: _num(j['quantity']),
+    unitPrice: _int(j['unitPrice']),
+    discount: _int(j['discount']),
+    total: _int(j['total']),
+  );
+}
+
+class DocPayment {
+  const DocPayment({required this.method, required this.amount, this.reference, required this.paidAt});
+  final PayMethod? method;
+  final int amount;
+  final String? reference;
+  final DateTime paidAt;
+
+  factory DocPayment.fromJson(Map<String, dynamic> j) => DocPayment(
+    method: PayMethod.fromApi(j['method'] as String?),
+    amount: _int(j['amount']),
+    reference: j['reference'] as String?,
+    paidAt: _date(j['paidAt']) ?? DateTime.now(),
+  );
+}
+
+/// Devis ou facture complet (GET /v1/invoicing/documents/:id).
+class DocDetail {
+  const DocDetail({
+    required this.id,
+    required this.kind,
+    required this.number,
+    required this.status,
+    required this.customer,
+    required this.issueDate,
+    this.dueDate,
+    required this.subtotal,
+    required this.discount,
+    required this.total,
+    required this.paid,
+    required this.due,
+    this.overdue = false,
+    this.note,
+    this.cancelReason,
+    this.createdByName,
+    this.related,
+    required this.lines,
+    required this.payments,
+  });
+  final String id;
+  final DocKind kind;
+  final String number;
+  final String status;
+  final Contact customer;
+  final DateTime issueDate;
+  final DateTime? dueDate;
+  final int subtotal;
+  final int discount;
+  final int total;
+  final int paid;
+  final int due;
+  final bool overdue;
+  final String? note;
+  final String? cancelReason;
+  final String? createdByName;
+
+  /// Devis → facture créée ; facture → devis d'origine.
+  final ({String id, String number})? related;
+  final List<DocLine> lines;
+  final List<DocPayment> payments;
+
+  bool get isQuote => kind == DocKind.quote;
+  bool get cancelled => status == 'cancelled';
+
+  factory DocDetail.fromJson(Map<String, dynamic> j) {
+    final rel = (j['invoice'] ?? j['quote']) as Map<String, dynamic>?;
+    return DocDetail(
+      id: j['id'] as String,
+      kind: DocKind.fromApi(j['kind'] as String?),
+      number: j['number'] as String,
+      status: j['status'] as String,
+      customer: Contact.fromJson(j['customer'] as Map<String, dynamic>),
+      issueDate: _date(j['issueDate']) ?? DateTime.now(),
+      dueDate: _date(j['dueDate']),
+      subtotal: _int(j['subtotal']),
+      discount: _int(j['discount']),
+      total: _int(j['total']),
+      paid: _int(j['paid']),
+      due: _int(j['due']),
+      overdue: j['overdue'] as bool? ?? false,
+      note: j['note'] as String?,
+      cancelReason: j['cancelReason'] as String?,
+      createdByName: j['createdByName'] as String?,
+      related: rel == null ? null : (id: rel['id'] as String, number: rel['number'] as String),
+      lines: [for (final l in (j['lines'] as List?) ?? const []) DocLine.fromJson(l as Map<String, dynamic>)],
+      payments: [for (final p in (j['payments'] as List?) ?? const []) DocPayment.fromJson(p as Map<String, dynamic>)],
+    );
+  }
+}
+
+class InvoicingSummary {
+  const InvoicingSummary({
+    required this.receivable,
+    required this.openInvoices,
+    required this.overdue,
+    required this.overdueInvoices,
+    required this.openQuotesTotal,
+    required this.openQuotes,
+    required this.invoicedThisMonth,
+  });
+  final int receivable;
+  final int openInvoices;
+  final int overdue;
+  final int overdueInvoices;
+  final int openQuotesTotal;
+  final int openQuotes;
+  final int invoicedThisMonth;
+
+  factory InvoicingSummary.fromJson(Map<String, dynamic> j) => InvoicingSummary(
+    receivable: _int(j['receivable']),
+    openInvoices: _int(j['openInvoices']),
+    overdue: _int(j['overdue']),
+    overdueInvoices: _int(j['overdueInvoices']),
+    openQuotesTotal: _int(j['openQuotesTotal']),
+    openQuotes: _int(j['openQuotes']),
+    invoicedThisMonth: _int(j['invoicedThisMonth']),
+  );
 }

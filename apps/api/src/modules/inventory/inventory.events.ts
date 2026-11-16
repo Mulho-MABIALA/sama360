@@ -1,5 +1,12 @@
 import { Injectable } from '@nestjs/common';
-import type { BusinessCreated, SaleCompleted, SaleLine, SaleVoided } from '@sama360/contracts';
+import type {
+  BusinessCreated,
+  InvoiceCancelled,
+  InvoiceIssued,
+  SaleCompleted,
+  SaleLine,
+  SaleVoided,
+} from '@sama360/contracts';
 import type { Tx } from '../../shared/db/db.service';
 import { OnDomainEvent } from '../../shared/events/on-domain-event.decorator';
 import { InventoryService } from './inventory.service';
@@ -60,6 +67,45 @@ export class InventoryEventHandlers {
         unitCost: line.unitCost,
         refType: 'sale_void',
         refId: event.payload.saleId,
+        note: `Annulation ${event.payload.number}`,
+        createdBy: event.actorId ?? null,
+      });
+    }
+  }
+
+  /** Une facture émise fait sortir la marchandise (vente sur facture). */
+  @OnDomainEvent('invoice.issued')
+  async decrementOnInvoice(event: InvoiceIssued, tx: Tx): Promise<void> {
+    for (const [productId, line] of quantitiesByProduct(event.payload.items)) {
+      await this.inventory.applyMovement(tx, {
+        businessId: event.businessId,
+        productId,
+        warehouseId: event.payload.warehouseId,
+        type: 'sale',
+        quantity: -line.quantity,
+        unitCost: line.unitCost,
+        refType: 'invoice',
+        refId: event.payload.invoiceId,
+        note: event.payload.number,
+        createdBy: event.actorId ?? null,
+        occurredAt: new Date(event.occurredAt),
+      });
+    }
+  }
+
+  /** Facture annulée : retour en stock. */
+  @OnDomainEvent('invoice.cancelled')
+  async restockOnInvoiceCancel(event: InvoiceCancelled, tx: Tx): Promise<void> {
+    for (const [productId, line] of quantitiesByProduct(event.payload.items)) {
+      await this.inventory.applyMovement(tx, {
+        businessId: event.businessId,
+        productId,
+        warehouseId: event.payload.warehouseId,
+        type: 'return',
+        quantity: line.quantity,
+        unitCost: line.unitCost,
+        refType: 'invoice_cancel',
+        refId: event.payload.invoiceId,
         note: `Annulation ${event.payload.number}`,
         createdBy: event.actorId ?? null,
       });
