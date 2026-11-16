@@ -171,6 +171,44 @@ class SamaRepository {
         await api.upload<Map<String, dynamic>>('/v1/catalog/products/$productId/image', bytes, filename: filename),
       );
 
+  Future<Product> product(String id) async =>
+      Product.fromJson(await _cachedGet<Map<String, dynamic>>('/v1/catalog/products/$id'));
+
+  /// Produit par code-barres ou référence (scan) ; null si inconnu.
+  Future<Product?> productByCode(String code) async {
+    try {
+      return Product.fromJson(
+        await api.get<Map<String, dynamic>>('/v1/catalog/products/by-code/${Uri.encodeComponent(code)}'),
+      );
+    } on ApiException catch (e) {
+      if (e.status == 404) return null;
+      if (!e.isNetwork) rethrow;
+      // Hors ligne : recherche dans le dernier catalogue connu
+      final saved = _fromCache<Map<String, dynamic>>('/v1/catalog/products', query: {'limit': 100});
+      if (saved == null) rethrow;
+      return (saved['data'] as List)
+          .map((e) => Product.fromJson(e as Map<String, dynamic>))
+          .where((p) => p.barcode == code || p.sku == code)
+          .firstOrNull;
+    }
+  }
+
+  Future<Product> saveProduct(ProductDraft d, {String? id}) async => Product.fromJson(
+    id == null
+        ? await api.post<Map<String, dynamic>>('/v1/catalog/products', data: d.toJson())
+        : await api.patch<Map<String, dynamic>>('/v1/catalog/products/$id', data: d.toJson()),
+  );
+
+  Future<void> deleteProduct(String id) => api.delete<void>('/v1/catalog/products/$id');
+
+  Future<Category> createCategory(String name) async =>
+      Category.fromJson(await api.post<Map<String, dynamic>>('/v1/catalog/categories', data: {'name': name.trim()}));
+
+  Future<void> renameCategory(String id, String name) =>
+      api.patch<void>('/v1/catalog/categories/$id', data: {'name': name.trim()});
+
+  Future<void> deleteCategory(String id) => api.delete<void>('/v1/catalog/categories/$id');
+
   Future<void> deleteProductImage(String productId) => api.delete<void>('/v1/catalog/products/$productId/image');
 
   /// Adresse publique d'un fichier (photo de produit).

@@ -891,6 +891,97 @@ describe('Socle Sama360 (e2e)', () => {
     });
   });
 
+  describe('Fiche produit et catégories', () => {
+    const A = () => auth(awa.accessToken, awaBiz);
+    let riz: string;
+    let cat: string;
+
+    it('catégories : création, doublon refusé, renommage, nombre de produits, suppression', async () => {
+      cat = (await http.post('/v1/catalog/categories').set(A()).send({ name: 'Épicerie' }).expect(201)).body.id;
+      const dup = await http.post('/v1/catalog/categories').set(A()).send({ name: 'épicerie' }).expect(409);
+      expect(dup.body.error.message).toBe('Cette catégorie existe déjà');
+
+      riz = (
+        await http
+          .post('/v1/catalog/products')
+          .set(A())
+          .send({
+            name: 'Riz parfumé 5 kg',
+            price: 5000,
+            cost: 4000,
+            unit: 'sac',
+            categoryId: cat,
+            barcode: '6111234567890',
+            sku: 'RIZ-5',
+            lowStockThreshold: 3,
+            wholesalePrice: 4600,
+            wholesaleMinQty: 10,
+          })
+          .expect(201)
+      ).body.id;
+
+      const renamed = await http.patch(`/v1/catalog/categories/${cat}`).set(A()).send({ name: 'Alimentation' }).expect(200);
+      expect(renamed.body.name).toBe('Alimentation');
+      const list = (await http.get('/v1/catalog/categories').set(A()).expect(200)).body as { id: string; productCount: number }[];
+      expect(list.find((c) => c.id === cat)?.productCount).toBe(1);
+
+      const tmp = (await http.post('/v1/catalog/categories').set(A()).send({ name: 'Temporaire' }).expect(201)).body.id;
+      await http.delete(`/v1/catalog/categories/${tmp}`).set(A()).expect(204);
+      await http.delete(`/v1/catalog/categories/${tmp}`).set(A()).expect(404);
+    });
+
+    it('codes : recherche par code-barres ou référence, doublon refusé avec le nom du produit', async () => {
+      expect((await http.get('/v1/catalog/products/by-code/6111234567890').set(A()).expect(200)).body.id).toBe(riz);
+      expect((await http.get('/v1/catalog/products/by-code/RIZ-5').set(A()).expect(200)).body.id).toBe(riz);
+      const missing = await http.get('/v1/catalog/products/by-code/000').set(A()).expect(404);
+      expect(missing.body.error.message).toBe('Aucun produit avec le code 000');
+
+      const dup = await http
+        .post('/v1/catalog/products')
+        .set(A())
+        .send({ name: 'Autre riz', price: 4500, barcode: '6111234567890' })
+        .expect(409);
+      expect(dup.body.error.message).toBe('Ce code-barres est déjà utilisé par « Riz parfumé 5 kg »');
+      // Le produit garde son propre code en modification
+      await http.patch(`/v1/catalog/products/${riz}`).set(A()).send({ barcode: '6111234567890', price: 5200 }).expect(200);
+    });
+
+    it('prix de gros : appliqué en caisse dès la quantité minimale', async () => {
+      const small = await http
+        .post('/v1/sales')
+        .set(A())
+        .send({ items: [{ productId: riz, quantity: 2 }], payments: [{ method: 'cash', amount: 10400 }] })
+        .expect(201);
+      expect(small.body.total).toBe(10400);
+      const bulk = await http
+        .post('/v1/sales')
+        .set(A())
+        .send({ items: [{ productId: riz, quantity: 10 }], payments: [{ method: 'cash', amount: 46000 }] })
+        .expect(201);
+      expect(bulk.body.total).toBe(46000);
+
+      const bad = await http.patch(`/v1/catalog/products/${riz}`).set(A()).send({ wholesalePrice: 6000 }).expect(422);
+      expect(bad.body.error.message).toBe('Le prix de gros doit être inférieur au prix normal');
+      await http.patch(`/v1/catalog/products/${riz}`).set(A()).send({ wholesaleMinQty: null }).expect(422);
+      const cleared = await http
+        .patch(`/v1/catalog/products/${riz}`)
+        .set(A())
+        .send({ wholesalePrice: null, wholesaleMinQty: null })
+        .expect(200);
+      expect(cleared.body).toMatchObject({ wholesalePrice: null, wholesaleMinQty: null });
+    });
+
+    it('un produit supprimé libère son code-barres', async () => {
+      await http.delete(`/v1/catalog/products/${riz}`).set(A()).expect(204);
+      await http.get('/v1/catalog/products/by-code/6111234567890').set(A()).expect(404);
+      await http
+        .post('/v1/catalog/products')
+        .set(A())
+        .send({ name: 'Riz parfumé 5 kg (nouveau)', price: 5000, barcode: '6111234567890' })
+        .expect(201);
+    });
+  });
+
   describe('Photos produit', () => {
     // PNG 1×1 valide et en-tête JPEG minimal
     const png = Buffer.from(

@@ -39,7 +39,16 @@ const demoMe = Me(
 );
 const demoProducts = [
   Product(id: 'p1', name: 'Beurre de karité 250 g', price: 3500, cost: 2000, categoryId: 'c1'),
-  Product(id: 'p2', name: 'Savon noir', price: 1500, cost: 800, categoryId: 'c1'),
+  Product(
+    id: 'p2',
+    name: 'Savon noir',
+    price: 1500,
+    cost: 800,
+    categoryId: 'c1',
+    barcode: '6001234567891',
+    wholesalePrice: 1200,
+    wholesaleMinQty: 10,
+  ),
   Product(id: 'p3', name: 'Huile de coco 500 ml', price: 4000, cost: 2600, categoryId: 'c1', lowStockThreshold: 5),
   Product(id: 'p4', name: 'Crème éclaircissante bio', price: 6500, cost: 4000, categoryId: 'c2'),
   Product(id: 'p5', name: 'Shampoing aloe vera', price: 2800, cost: 2000, categoryId: 'c2'),
@@ -76,6 +85,49 @@ class FakeRepo extends SamaRepository {
     createdProducts.add(name);
     return Product(id: 'new-${createdProducts.length}', name: name, price: price, cost: cost);
   }
+
+  final savedDrafts = <(String?, ProductDraft)>[];
+  final deletedProducts = <String>[];
+  final categoryOps = <String>[];
+
+  @override
+  Future<Product> saveProduct(ProductDraft d, {String? id}) async {
+    savedDrafts.add((id, d));
+    if (d.barcode == '0000000000000') {
+      throw const ApiException('CONFLICT', 'Ce code-barres est déjà utilisé par « Savon noir »', status: 409);
+    }
+    if (id == null) createdProducts.add(d.name);
+    return Product(
+      id: id ?? 'new-${createdProducts.length}',
+      name: d.name,
+      price: d.price,
+      cost: d.cost,
+      barcode: d.barcode,
+      wholesalePrice: d.wholesalePrice,
+      wholesaleMinQty: d.wholesaleMinQty,
+    );
+  }
+
+  @override
+  Future<Product> product(String id) async => demoProducts.firstWhere((p) => p.id == id);
+
+  @override
+  Future<Product?> productByCode(String code) async => demoProducts.where((p) => p.barcode == code).firstOrNull;
+
+  @override
+  Future<void> deleteProduct(String id) async => deletedProducts.add(id);
+
+  @override
+  Future<Category> createCategory(String name) async {
+    categoryOps.add('create $name');
+    return Category(id: 'cat-${categoryOps.length}', name: name);
+  }
+
+  @override
+  Future<void> renameCategory(String id, String name) async => categoryOps.add('rename $id $name');
+
+  @override
+  Future<void> deleteCategory(String id) async => categoryOps.add('delete $id');
 
   @override
   Future<Product> uploadProductImage(String productId, List<int> bytes, {String filename = 'photo.jpg'}) async {
@@ -114,8 +166,8 @@ class FakeRepo extends SamaRepository {
   Future<List<int>?> fileBytes(String fileId) async => null;
   @override
   Future<List<Category>> categories() async => const [
-    Category(id: 'c1', name: 'Soins'),
-    Category(id: 'c2', name: 'Cheveux & parfums'),
+    Category(id: 'c1', name: 'Soins', productCount: 3),
+    Category(id: 'c2', name: 'Cheveux & parfums', productCount: 3),
   ];
   @override
   Future<List<Product>> products({String? search, String? categoryId}) async => demoProducts;
@@ -306,7 +358,9 @@ class FakeRepo extends SamaRepository {
       'series': [
         for (var i = 0; i < (days > 62 ? 12 : days); i++)
           {
-            'period': days > 62 ? d(DateTime(from.year, from.month + i)).substring(0, 7) : d(from.add(Duration(days: i))),
+            'period': days > 62
+                ? d(DateTime(from.year, from.month + i)).substring(0, 7)
+                : d(from.add(Duration(days: i))),
             'salesCount': 6 + (i * 7) % 9,
             'revenue': 42000 + ((i * 37) % 11) * 9000,
             'grossProfit': 15000 + ((i * 37) % 11) * 3200,

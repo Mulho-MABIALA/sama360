@@ -105,6 +105,11 @@ final reportProvider = FutureProvider.family<ReportOverview, ({DateTime from, Da
   return ref.watch(repoProvider).report(p.from, p.to);
 });
 
+final productProvider = FutureProvider.family<Product, String>((ref, id) {
+  ref.watch(businessIdProvider);
+  return ref.watch(repoProvider).product(id);
+});
+
 final invoicingSummaryProvider = FutureProvider<InvoicingSummary>((ref) {
   ref.watch(businessIdProvider);
   return ref.watch(repoProvider).invoicingSummary();

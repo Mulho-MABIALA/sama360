@@ -49,3 +49,19 @@ describe('saleDate (ventes hors ligne)', () => {
     expect(() => saleDate(new Date('2026-07-01T10:00:00Z'), now)).toThrow('trop ancienne');
   });
 });
+
+import { catalogUnitPrice } from './pricing';
+
+describe('prix de gros', () => {
+  const sac = { price: 1000, wholesalePrice: 850, wholesaleMinQty: 10 };
+  it('prix normal sous le seuil, prix de gros à partir du seuil', () => {
+    expect(catalogUnitPrice(sac, 9)).toBe(1000);
+    expect(catalogUnitPrice(sac, 10)).toBe(850);
+    expect(catalogUnitPrice(sac, 25)).toBe(850);
+  });
+  it('le prix saisi en caisse l’emporte ; sans prix de gros, prix normal', () => {
+    expect(catalogUnitPrice(sac, 50, 900)).toBe(900);
+    expect(catalogUnitPrice({ price: 500 }, 100)).toBe(500);
+    expect(catalogUnitPrice({ price: 500, wholesalePrice: null, wholesaleMinQty: null }, 100)).toBe(500);
+  });
+});

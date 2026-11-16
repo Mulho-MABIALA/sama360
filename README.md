@@ -83,6 +83,8 @@ Toutes les erreurs : `{ "error": { "code", "message", "details?" } }`.
 | GET / POST | `/v1/contacts` | `contacts:read` / `contacts:write` |
 | GET / PATCH / DELETE | `/v1/contacts/:id` | idem |
 | GET / POST | `/v1/catalog/categories` | `catalog:read` / `catalog:write` |
+| GET | `/v1/catalog/products/by-code/:code` | `catalog:read` — produit par code-barres ou référence (scan) |
+| PATCH / DELETE | `/v1/catalog/categories/:id` | `catalog:write` — renommer, supprimer (les produits restent, sans catégorie) |
 | GET / POST | `/v1/catalog/products` | idem (`?search=&categoryId=&cursor=&limit=`) |
 | GET / PATCH / DELETE | `/v1/catalog/products/:id` | idem |
 | POST / DELETE | `/v1/catalog/products/:id/image` | `catalog:write` — photo (multipart, champ `file`, JPEG/PNG/WebP, 5 Mo max) |

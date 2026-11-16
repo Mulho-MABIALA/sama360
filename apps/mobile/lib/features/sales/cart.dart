@@ -19,7 +19,11 @@ class CartLine {
   const CartLine(this.product, this.quantity);
   final Product product;
   final double quantity;
-  int get total => (product.price * quantity).round();
+
+  /// Prix unitaire appliqué (prix de gros dès la quantité minimale, comme le serveur).
+  int get unitPrice => product.unitPriceFor(quantity);
+  bool get wholesale => unitPrice != product.price;
+  int get total => (unitPrice * quantity).round();
 }
 
 class CartState {

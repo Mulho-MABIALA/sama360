@@ -343,94 +343,188 @@ void main() {
     timeout: const Timeout(Duration(minutes: 1)),
   );
 
-  test('factures réelles : devis, facture, paiements, stock', () async {
-    final store = MemorySessionStore();
-    final client = ApiClient(baseUrl: _api!, store: store);
-    final repo = SamaRepository(client);
-    final phone = '+22177${Random().nextInt(9000000) + 1000000}';
-    await repo.requestOtp(phone);
-    final t = await repo.verifyOtp(phone, await _otpFor(phone));
-    await store.save(Session(accessToken: t.access, refreshToken: t.refresh));
-    await repo.updateName('Mame Diarra');
-    client.businessId = await repo.createBusiness(name: 'Diarra Couture test', category: 'atelier', city: 'Dakar');
-    final tissu = await repo.createProduct(name: 'Bazin 3 m', price: 15000, cost: 9000);
-    await repo.addStock(tissu.id, 10);
-    final hotel = await repo.createCustomer(name: 'Hôtel Teranga', phone: '33 820 00 00');
+  test(
+    'factures réelles : devis, facture, paiements, stock',
+    () async {
+      final store = MemorySessionStore();
+      final client = ApiClient(baseUrl: _api!, store: store);
+      final repo = SamaRepository(client);
+      final phone = '+22177${Random().nextInt(9000000) + 1000000}';
+      await repo.requestOtp(phone);
+      final t = await repo.verifyOtp(phone, await _otpFor(phone));
+      await store.save(Session(accessToken: t.access, refreshToken: t.refresh));
+      await repo.updateName('Mame Diarra');
+      client.businessId = await repo.createBusiness(name: 'Diarra Couture test', category: 'atelier', city: 'Dakar');
+      final tissu = await repo.createProduct(name: 'Bazin 3 m', price: 15000, cost: 9000);
+      await repo.addStock(tissu.id, 10);
+      final hotel = await repo.createCustomer(name: 'Hôtel Teranga', phone: '33 820 00 00');
 
-    final quoteId = const Uuid().v7();
-    final now = DateTime.now();
-    final body = SamaRepository.documentBody(
-      customerId: hotel.id,
-      lines: [
-        DocLineDraft(productId: tissu.id, name: tissu.name, quantity: 4, unitPrice: tissu.price),
-        const DocLineDraft(name: 'Confection', description: '4 tenues', quantity: 4, unitPrice: 10000),
-      ],
-      discount: 5000,
-      issueDate: DateTime(now.year, now.month, now.day),
-      dueDate: DateTime(now.year, now.month, now.day).add(const Duration(days: 30)),
-      note: 'Livraison samedi',
-    );
-    final quote = await repo.createDocument(id: quoteId, kind: DocKind.quote, body: body);
-    expect(quote.number, 'DEV-${now.year}-0001');
-    expect(quote.total, 95000);
-    expect((await repo.createDocument(id: quoteId, kind: DocKind.quote, body: body)).id, quoteId); // renvoi sans doublon
-
-    expect((await repo.quoteAction(quoteId, 'accept')).status, 'accepted');
-    final invoice = await repo.convertQuote(quoteId);
-    expect(invoice.number, 'FAC-${now.year}-0001');
-    expect(invoice.related!.number, quote.number);
-    expect(invoice.status, 'unpaid');
-
-    final payId = const Uuid().v7();
-    var paid = await repo.payInvoice(invoice.id, paymentId: payId, amount: 50000, method: PayMethod.wave, reference: 'WV-1');
-    expect((paid.status, paid.due), ('partial', 45000));
-    paid = await repo.payInvoice(invoice.id, paymentId: payId, amount: 50000, method: PayMethod.wave); // même paiement renvoyé
-    expect(paid.paid, 50000);
-
-    final summary = await repo.invoicingSummary();
-    expect(summary.receivable, 45000);
-    expect(summary.openInvoices, 1);
-    expect((await repo.documents(kind: DocKind.invoice)).single.status, 'partial');
-
-    // La facture fait sortir 4 bazins du stock (via le worker)
-    final stock = await _eventually(repo.stock, (s) => s.items.single.onHand == 6);
-    expect(stock.items.single.onHand, 6);
-
-    paid = await repo.payInvoice(invoice.id, paymentId: const Uuid().v7(), amount: 45000, method: PayMethod.transfer);
-    expect(paid.status, 'paid');
-    await expectLater(
-      repo.cancelInvoice(invoice.id, 'test'),
-      throwsA(isA<ApiException>().having((e) => e.code, 'code', 'INVOICE_HAS_PAYMENTS')),
-    );
-  }, skip: skip, timeout: const Timeout(Duration(minutes: 1)));
-
-  test('rapport réel : totaux et série cohérents avec les ventes', () async {
-    final store = MemorySessionStore();
-    final client = ApiClient(baseUrl: _api!, store: store);
-    final repo = SamaRepository(client);
-    final phone = '+22177${Random().nextInt(9000000) + 1000000}';
-    await repo.requestOtp(phone);
-    final t = await repo.verifyOtp(phone, await _otpFor(phone));
-    await store.save(Session(accessToken: t.access, refreshToken: t.refresh));
-    await repo.updateName('Coumba Ndoye');
-    client.businessId = await repo.createBusiness(name: 'Coumba Épices test', category: 'boutique', city: 'Dakar');
-    final poivre = await repo.createProduct(name: 'Poivre de Selim', price: 1500, cost: 900);
-    await repo.addStock(poivre.id, 50);
-    for (final (q, m) in [(2.0, PayMethod.cash), (4.0, PayMethod.wave), (1.0, PayMethod.cash)]) {
-      await repo.createSale(
-        id: const Uuid().v7(),
-        items: [(productId: poivre.id, quantity: q)],
-        payments: [(method: m, amount: (1500 * q).round())],
+      final quoteId = const Uuid().v7();
+      final now = DateTime.now();
+      final body = SamaRepository.documentBody(
+        customerId: hotel.id,
+        lines: [
+          DocLineDraft(productId: tissu.id, name: tissu.name, quantity: 4, unitPrice: tissu.price),
+          const DocLineDraft(name: 'Confection', description: '4 tenues', quantity: 4, unitPrice: 10000),
+        ],
+        discount: 5000,
+        issueDate: DateTime(now.year, now.month, now.day),
+        dueDate: DateTime(now.year, now.month, now.day).add(const Duration(days: 30)),
+        note: 'Livraison samedi',
       );
-    }
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-    final r = await repo.report(today.subtract(const Duration(days: 6)), today);
-    expect((r.salesCount, r.revenue, r.cost, r.grossProfit), (3, 10500, 6300, 4200));
-    expect(r.series, hasLength(7));
-    expect(r.series.last.revenue, 10500);
-    expect(r.byMethod.map((m) => (m.method, m.amount)), [(PayMethod.wave, 6000), (PayMethod.cash, 4500)]);
-    expect(r.topProducts.single.quantity, 7);
-    expect(r.revenueChange, isNull); // rien la semaine d'avant
-  }, skip: skip, timeout: const Timeout(Duration(minutes: 1)));
+      final quote = await repo.createDocument(id: quoteId, kind: DocKind.quote, body: body);
+      expect(quote.number, 'DEV-${now.year}-0001');
+      expect(quote.total, 95000);
+      expect(
+        (await repo.createDocument(id: quoteId, kind: DocKind.quote, body: body)).id,
+        quoteId,
+      ); // renvoi sans doublon
+
+      expect((await repo.quoteAction(quoteId, 'accept')).status, 'accepted');
+      final invoice = await repo.convertQuote(quoteId);
+      expect(invoice.number, 'FAC-${now.year}-0001');
+      expect(invoice.related!.number, quote.number);
+      expect(invoice.status, 'unpaid');
+
+      final payId = const Uuid().v7();
+      var paid = await repo.payInvoice(
+        invoice.id,
+        paymentId: payId,
+        amount: 50000,
+        method: PayMethod.wave,
+        reference: 'WV-1',
+      );
+      expect((paid.status, paid.due), ('partial', 45000));
+      paid = await repo.payInvoice(
+        invoice.id,
+        paymentId: payId,
+        amount: 50000,
+        method: PayMethod.wave,
+      ); // même paiement renvoyé
+      expect(paid.paid, 50000);
+
+      final summary = await repo.invoicingSummary();
+      expect(summary.receivable, 45000);
+      expect(summary.openInvoices, 1);
+      expect((await repo.documents(kind: DocKind.invoice)).single.status, 'partial');
+
+      // La facture fait sortir 4 bazins du stock (via le worker)
+      final stock = await _eventually(repo.stock, (s) => s.items.single.onHand == 6);
+      expect(stock.items.single.onHand, 6);
+
+      paid = await repo.payInvoice(invoice.id, paymentId: const Uuid().v7(), amount: 45000, method: PayMethod.transfer);
+      expect(paid.status, 'paid');
+      await expectLater(
+        repo.cancelInvoice(invoice.id, 'test'),
+        throwsA(isA<ApiException>().having((e) => e.code, 'code', 'INVOICE_HAS_PAYMENTS')),
+      );
+    },
+    skip: skip,
+    timeout: const Timeout(Duration(minutes: 1)),
+  );
+
+  test(
+    'rapport réel : totaux et série cohérents avec les ventes',
+    () async {
+      final store = MemorySessionStore();
+      final client = ApiClient(baseUrl: _api!, store: store);
+      final repo = SamaRepository(client);
+      final phone = '+22177${Random().nextInt(9000000) + 1000000}';
+      await repo.requestOtp(phone);
+      final t = await repo.verifyOtp(phone, await _otpFor(phone));
+      await store.save(Session(accessToken: t.access, refreshToken: t.refresh));
+      await repo.updateName('Coumba Ndoye');
+      client.businessId = await repo.createBusiness(name: 'Coumba Épices test', category: 'boutique', city: 'Dakar');
+      final poivre = await repo.createProduct(name: 'Poivre de Selim', price: 1500, cost: 900);
+      await repo.addStock(poivre.id, 50);
+      for (final (q, m) in [(2.0, PayMethod.cash), (4.0, PayMethod.wave), (1.0, PayMethod.cash)]) {
+        await repo.createSale(
+          id: const Uuid().v7(),
+          items: [(productId: poivre.id, quantity: q)],
+          payments: [(method: m, amount: (1500 * q).round())],
+        );
+      }
+      final now = DateTime.now();
+      final today = DateTime(now.year, now.month, now.day);
+      final r = await repo.report(today.subtract(const Duration(days: 6)), today);
+      expect((r.salesCount, r.revenue, r.cost, r.grossProfit), (3, 10500, 6300, 4200));
+      expect(r.series, hasLength(7));
+      expect(r.series.last.revenue, 10500);
+      expect(r.byMethod.map((m) => (m.method, m.amount)), [(PayMethod.wave, 6000), (PayMethod.cash, 4500)]);
+      expect(r.topProducts.single.quantity, 7);
+      expect(r.revenueChange, isNull); // rien la semaine d'avant
+    },
+    skip: skip,
+    timeout: const Timeout(Duration(minutes: 1)),
+  );
+
+  test(
+    'catalogue réel : fiche complète, code-barres, prix de gros en caisse, catégories',
+    () async {
+      final store = MemorySessionStore();
+      final client = ApiClient(baseUrl: _api!, store: store);
+      final repo = SamaRepository(client);
+      final phone = '+22177${Random().nextInt(9000000) + 1000000}';
+      await repo.requestOtp(phone);
+      final t = await repo.verifyOtp(phone, await _otpFor(phone));
+      await store.save(Session(accessToken: t.access, refreshToken: t.refresh));
+      await repo.updateName('Modou Sow');
+      client.businessId = await repo.createBusiness(name: 'Sow Alimentation test', category: 'boutique', city: 'Thiès');
+
+      final cat = await repo.createCategory('Céréales');
+      final riz = await repo.saveProduct(
+        ProductDraft(
+          name: 'Riz brisé 25 kg',
+          price: 12500,
+          cost: 11000,
+          unit: 'sac',
+          categoryId: cat.id,
+          barcode: '6111000000017',
+          wholesalePrice: 12000,
+          wholesaleMinQty: 5,
+        ),
+      );
+      expect((riz.unit, riz.hasWholesale), ('sac', true));
+      expect((await repo.productByCode('6111000000017'))!.id, riz.id);
+      expect(await repo.productByCode('999'), isNull);
+      await expectLater(
+        repo.saveProduct(const ProductDraft(name: 'Doublon', price: 100, barcode: '6111000000017')),
+        throwsA(isA<ApiException>().having((e) => e.message, 'message', contains('Riz brisé 25 kg'))),
+      );
+      expect((await repo.categories()).single.productCount, 1);
+
+      await repo.addStock(riz.id, 20);
+      final small = await repo.createSale(
+        id: const Uuid().v7(),
+        items: [(productId: riz.id, quantity: 2.0)],
+        payments: [(method: PayMethod.cash, amount: 25000)],
+      );
+      final bulk = await repo.createSale(
+        id: const Uuid().v7(),
+        items: [(productId: riz.id, quantity: 5.0)],
+        payments: [(method: PayMethod.cash, amount: 60000)],
+      );
+      expect((small.total, bulk.total), (25000, 60000)); // 5 sacs au prix de gros
+      expect(riz.unitPriceFor(5) * 5, bulk.total); // même calcul côté app
+
+      final updated = await repo.saveProduct(
+        ProductDraft(
+          name: 'Riz brisé 25 kg',
+          price: 13000,
+          cost: 11000,
+          unit: 'sac',
+          categoryId: cat.id,
+          barcode: '6111000000017',
+        ),
+        id: riz.id,
+      );
+      expect((updated.price, updated.hasWholesale), (13000, false));
+      await repo.deleteCategory(cat.id);
+      expect((await repo.product(riz.id)).categoryId, isNull);
+      await repo.deleteProduct(riz.id);
+      expect(await repo.productByCode('6111000000017'), isNull);
+    },
+    skip: skip,
+    timeout: const Timeout(Duration(minutes: 1)),
+  );
 }

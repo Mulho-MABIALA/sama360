@@ -1,5 +1,6 @@
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../../core/format.dart';
@@ -37,6 +38,13 @@ class _StockScreenState extends ConsumerState<StockScreen> {
     return AuroraScaffold(
       appBar: AppBar(
         title: const Text('Stock', style: TextStyle(fontWeight: FontWeight.w800)),
+        actions: [
+          IconButton(
+            tooltip: 'Catégories',
+            onPressed: () => context.push('/categories'),
+            icon: const Icon(Icons.label_outline_rounded),
+          ),
+        ],
       ),
       floatingActionButton: canCatalog
           ? FloatingActionButton.extended(
@@ -131,19 +139,7 @@ class _StockScreenState extends ConsumerState<StockScreen> {
     }
   }
 
-  Future<void> _openNewProduct(BuildContext context) async {
-    final done = await showModalBottomSheet<bool>(
-      useRootNavigator: true,
-      context: context,
-      isScrollControlled: true,
-      showDragHandle: true,
-      builder: (_) => const _NewProductSheet(),
-    );
-    if (done == true && context.mounted) {
-      refreshBusinessData(ref);
-      showInfo(context, 'Produit ajouté');
-    }
-  }
+  Future<void> _openNewProduct(BuildContext context) => context.push('/products/new');
 }
 
 class _StockRow extends StatelessWidget {
@@ -283,13 +279,25 @@ class _StockEntrySheetState extends ConsumerState<_StockEntrySheet> {
           ],
         ),
         if (ref.can('catalog:write'))
-          Align(
-            alignment: Alignment.centerLeft,
-            child: TextButton.icon(
-              onPressed: _busy ? null : _changePhoto,
-              icon: const Icon(Icons.add_a_photo_outlined, size: 18),
-              label: Text(widget.item.imageFileId == null ? 'Ajouter une photo' : 'Changer la photo'),
-            ),
+          Wrap(
+            spacing: 4,
+            children: [
+              TextButton.icon(
+                onPressed: _busy ? null : _changePhoto,
+                icon: const Icon(Icons.add_a_photo_outlined, size: 18),
+                label: Text(widget.item.imageFileId == null ? 'Ajouter une photo' : 'Changer la photo'),
+              ),
+              TextButton.icon(
+                onPressed: _busy
+                    ? null
+                    : () {
+                        Navigator.pop(context);
+                        GoRouter.of(context).push('/products/${widget.item.productId}');
+                      },
+                icon: const Icon(Icons.edit_note_rounded, size: 20),
+                label: const Text('Modifier la fiche'),
+              ),
+            ],
           ),
         const SizedBox(height: 16),
         TextField(
@@ -310,151 +318,4 @@ class _StockEntrySheetState extends ConsumerState<_StockEntrySheet> {
       ],
     ),
   );
-}
-
-class _NewProductSheet extends ConsumerStatefulWidget {
-  const _NewProductSheet();
-  @override
-  ConsumerState<_NewProductSheet> createState() => _NewProductSheetState();
-}
-
-class _NewProductSheetState extends ConsumerState<_NewProductSheet> {
-  final _name = TextEditingController();
-  final _price = TextEditingController();
-  final _cost = TextEditingController();
-  final _initial = TextEditingController();
-  final _threshold = TextEditingController(text: '5');
-  String? _categoryId;
-  PickedPhoto? _photo;
-  bool _busy = false;
-  String? _error;
-
-  @override
-  void dispose() {
-    for (final c in [_name, _price, _cost, _initial, _threshold]) {
-      c.dispose();
-    }
-    super.dispose();
-  }
-
-  Future<void> _save() async {
-    final price = _parseInt(_price.text);
-    if (_name.text.trim().isEmpty || price == null) {
-      setState(() => _error = 'Le nom et le prix de vente sont obligatoires');
-      return;
-    }
-    setState(() {
-      _busy = true;
-      _error = null;
-    });
-    final repo = ref.read(repoProvider);
-    try {
-      final p = await repo.createProduct(
-        name: _name.text.trim(),
-        price: price,
-        cost: _parseInt(_cost.text) ?? 0,
-        categoryId: _categoryId,
-        lowStockThreshold: _parseInt(_threshold.text) ?? 5,
-      );
-      final initial = double.tryParse(_initial.text.replaceAll(',', '.')) ?? 0;
-      if (initial > 0) await repo.addStock(p.id, initial);
-      if (_photo != null) {
-        try {
-          await repo.uploadProductImage(p.id, _photo!.bytes, filename: _photo!.filename);
-        } catch (e) {
-          // Le produit est créé : on le signale sans bloquer, la photo pourra être ajoutée ensuite.
-          if (mounted) showError(context, 'Produit créé, mais la photo n’a pas pu être envoyée : ${errorMessage(e)}');
-        }
-      }
-      if (mounted) Navigator.pop(context, true);
-    } catch (e) {
-      setState(() {
-        _busy = false;
-        _error = errorMessage(e);
-      });
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final categories = ref.watch(categoriesProvider).value ?? const <Category>[];
-    Widget money(TextEditingController c, String label) => TextField(
-      controller: c,
-      keyboardType: TextInputType.number,
-      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-      decoration: InputDecoration(labelText: label, suffixText: 'F'),
-    );
-
-    return Padding(
-      padding: EdgeInsets.fromLTRB(20, 0, 20, 20 + MediaQuery.viewInsetsOf(context).bottom),
-      child: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            const Text('Nouveau produit', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
-            const SizedBox(height: 14),
-            PhotoField(photo: _photo, onChanged: (p) => setState(() => _photo = p)),
-            const SizedBox(height: 14),
-            TextField(
-              controller: _name,
-              autofocus: true,
-              textCapitalization: TextCapitalization.sentences,
-              decoration: const InputDecoration(labelText: 'Nom du produit'),
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(child: money(_price, 'Prix de vente')),
-                const SizedBox(width: 10),
-                Expanded(child: money(_cost, "Coût d'achat")),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _initial,
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                    decoration: const InputDecoration(labelText: 'Stock initial'),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: TextField(
-                    controller: _threshold,
-                    keyboardType: TextInputType.number,
-                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                    decoration: const InputDecoration(labelText: "Seuil d'alerte"),
-                  ),
-                ),
-              ],
-            ),
-            if (categories.isNotEmpty) ...[
-              const SizedBox(height: 12),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  for (final c in categories)
-                    Pill(
-                      label: c.name,
-                      selected: _categoryId == c.id,
-                      onTap: () => setState(() => _categoryId = _categoryId == c.id ? null : c.id),
-                    ),
-                ],
-              ),
-            ],
-            if (_error != null) ...[
-              const SizedBox(height: 10),
-              Text(_error!, style: const TextStyle(color: AppColors.danger)),
-            ],
-            const SizedBox(height: 16),
-            BusyButton(label: 'Enregistrer le produit', busy: _busy, onPressed: _save),
-          ],
-        ),
-      ),
-    );
-  }
 }

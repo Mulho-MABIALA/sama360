@@ -44,3 +44,17 @@ export function priceSale(lines: LineInput[], saleDiscount = 0): SaleTotals {
 export function grossMargin(total: number, costTotal: number): number {
   return total - costTotal;
 }
+
+/**
+ * Prix unitaire d'un produit du catalogue : le prix saisi s'il y en a un,
+ * sinon le prix de gros dès la quantité minimale, sinon le prix normal.
+ */
+export function catalogUnitPrice(
+  p: { price: number; wholesalePrice?: number | null; wholesaleMinQty?: number | null },
+  quantity: number,
+  explicit?: number,
+): number {
+  if (explicit !== undefined) return explicit;
+  if (p.wholesalePrice != null && p.wholesaleMinQty != null && quantity >= p.wholesaleMinQty) return p.wholesalePrice;
+  return p.price;
+}

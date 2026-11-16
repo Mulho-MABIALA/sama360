@@ -109,11 +109,16 @@ class CurrentBusiness {
 }
 
 class Category {
-  const Category({required this.id, required this.name});
+  const Category({required this.id, required this.name, this.productCount = 0});
   final String id;
   final String name;
-  factory Category.fromJson(Map<String, dynamic> j) => Category(id: j['id'] as String, name: j['name'] as String);
+  final int productCount;
+  factory Category.fromJson(Map<String, dynamic> j) =>
+      Category(id: j['id'] as String, name: j['name'] as String, productCount: _int(j['productCount']));
 }
+
+/// Unités proposées dans la fiche produit.
+const productUnits = ['pièce', 'kg', 'g', 'litre', 'mètre', 'paquet', 'sac', 'carton', 'boîte', 'sachet', 'heure'];
 
 class Product {
   const Product({
@@ -125,6 +130,12 @@ class Product {
     this.trackStock = true,
     this.lowStockThreshold = 5,
     this.imageFileId,
+    this.isService = false,
+    this.unit = 'pièce',
+    this.barcode,
+    this.sku,
+    this.wholesalePrice,
+    this.wholesaleMinQty,
   });
   final String id;
   final String name;
@@ -134,6 +145,22 @@ class Product {
   final bool trackStock;
   final int lowStockThreshold;
   final String? imageFileId; // photo principale (GET /v1/files/:id)
+  final bool isService;
+  final String unit;
+  final String? barcode;
+  final String? sku;
+
+  /// Prix de gros, à partir de [wholesaleMinQty] unités.
+  final int? wholesalePrice;
+  final double? wholesaleMinQty;
+
+  bool get hasWholesale => wholesalePrice != null && wholesaleMinQty != null;
+
+  /// Prix unitaire pour une quantité (même règle que le serveur).
+  int unitPriceFor(double quantity) => hasWholesale && quantity >= wholesaleMinQty! ? wholesalePrice! : price;
+
+  /// Marge en % du prix de vente.
+  int get marginPct => price == 0 ? 0 : (((price - cost) / price) * 100).round();
 
   factory Product.fromJson(Map<String, dynamic> j) => Product(
     id: j['id'] as String,
@@ -144,7 +171,58 @@ class Product {
     trackStock: j['trackStock'] as bool? ?? true,
     lowStockThreshold: _int(j['lowStockThreshold']),
     imageFileId: ((j['imageFileIds'] as List?) ?? const []).cast<String>().firstOrNull,
+    isService: j['type'] == 'service',
+    unit: j['unit'] as String? ?? 'pièce',
+    barcode: j['barcode'] as String?,
+    sku: j['sku'] as String?,
+    wholesalePrice: j['wholesalePrice'] == null ? null : _int(j['wholesalePrice']),
+    wholesaleMinQty: j['wholesaleMinQty'] == null ? null : _num(j['wholesaleMinQty']),
   );
+}
+
+/// Fiche produit en cours de saisie (création ou modification).
+class ProductDraft {
+  const ProductDraft({
+    required this.name,
+    required this.price,
+    this.cost = 0,
+    this.categoryId,
+    this.isService = false,
+    this.unit = 'pièce',
+    this.barcode,
+    this.sku,
+    this.trackStock = true,
+    this.lowStockThreshold = 5,
+    this.wholesalePrice,
+    this.wholesaleMinQty,
+  });
+  final String name;
+  final int price;
+  final int cost;
+  final String? categoryId;
+  final bool isService;
+  final String unit;
+  final String? barcode;
+  final String? sku;
+  final bool trackStock;
+  final int lowStockThreshold;
+  final int? wholesalePrice;
+  final double? wholesaleMinQty;
+
+  Map<String, dynamic> toJson() => {
+    'type': isService ? 'service' : 'product',
+    'name': name.trim(),
+    'price': price,
+    'cost': cost,
+    'categoryId': categoryId,
+    'unit': unit,
+    'barcode': (barcode ?? '').trim().isEmpty ? null : barcode!.trim(),
+    'sku': (sku ?? '').trim().isEmpty ? null : sku!.trim(),
+    'trackStock': !isService && trackStock,
+    'lowStockThreshold': lowStockThreshold,
+    'wholesalePrice': wholesalePrice,
+    'wholesaleMinQty': wholesaleMinQty,
+  };
 }
 
 class StockItem {

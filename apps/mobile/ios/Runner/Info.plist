@@ -3,7 +3,7 @@
 <plist version="1.0">
 <dict>
 	<key>NSCameraUsageDescription</key>
-	<string>Sama360 utilise l'appareil photo pour photographier vos produits.</string>
+	<string>Sama360 utilise l'appareil photo pour photographier vos produits et scanner les codes-barres.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Sama360 accède à vos photos pour ajouter l'image d'un produit.</string>
 	<key>CADisableMinimumFrameDurationOnPhone</key>

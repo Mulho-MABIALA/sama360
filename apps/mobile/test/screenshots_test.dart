@@ -269,4 +269,23 @@ void main() {
     await tester.drag(find.byType(Scrollable).last, const Offset(0, -900));
     await _shot(tester, '13b_rapports_bas');
   });
+
+  testWidgets('fiche produit', (tester) async {
+    phoneSize(tester);
+    await pumpSama(tester, location: '/products/p2');
+    await _shot(tester, '14_fiche_produit');
+  });
+
+  testWidgets('fiche produit (bas)', (tester) async {
+    phoneSize(tester);
+    await pumpSama(tester, location: '/products/p2');
+    await tester.drag(find.byType(Scrollable).first, const Offset(0, -700));
+    await _shot(tester, '14b_fiche_produit_bas');
+  });
+
+  testWidgets('catégories', (tester) async {
+    phoneSize(tester);
+    await pumpSama(tester, location: '/categories');
+    await _shot(tester, '14c_categories');
+  });
 }

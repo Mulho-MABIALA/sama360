@@ -14,6 +14,7 @@ import '../../core/widgets.dart';
 import '../catalog/product_photo.dart';
 import '../customers/customer_picker.dart';
 import '../offline/offline_ui.dart';
+import '../catalog/barcode_scanner.dart';
 import 'cart.dart';
 
 /// Caisse : produits à gauche/en haut, panier et encaissement en bas (maquette « Nouvelle vente »).
@@ -67,6 +68,45 @@ class _PosScreenState extends ConsumerState<PosScreen> {
         await _showSuccess(sale, cart.customer);
       case SaleQueued(:final pending):
         await _showQueued(pending);
+    }
+  }
+
+  /// Scan en caisse : le produit trouvé va au panier ; un code inconnu propose de créer la fiche.
+  Future<void> _scan() async {
+    final code = await ref.read(barcodeScannerProvider)(context);
+    if (code == null || !mounted) return;
+    Product? product;
+    try {
+      product = await ref.read(repoProvider).productByCode(code);
+    } catch (e) {
+      if (mounted) showError(context, e);
+      return;
+    }
+    if (!mounted) return;
+    if (product != null) {
+      HapticFeedback.mediumImpact();
+      ref.read(cartProvider.notifier).add(product);
+      showInfo(context, '${product.name} ajouté au panier');
+      return;
+    }
+    final create = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        icon: const Icon(Icons.qr_code_2_rounded, size: 40),
+        title: const Text('Produit inconnu'),
+        content: Text(
+          'Aucun produit n’a le code $code.${ref.can('catalog:write') ? ' Voulez-vous créer sa fiche ?' : ''}',
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Fermer')),
+          if (ref.can('catalog:write'))
+            TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Créer la fiche')),
+        ],
+      ),
+    );
+    if (create == true && mounted) {
+      final created = await context.push<Product>('/products/new?barcode=${Uri.encodeComponent(code)}');
+      if (created != null) ref.read(cartProvider.notifier).add(created);
     }
   }
 
@@ -160,10 +200,15 @@ class _PosScreenState extends ConsumerState<PosScreen> {
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
             child: TextField(
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 hintText: 'Rechercher un produit',
-                prefixIcon: Icon(Icons.search),
+                prefixIcon: const Icon(Icons.search),
                 isDense: true,
+                suffixIcon: IconButton(
+                  tooltip: 'Scanner un code-barres',
+                  onPressed: _scan,
+                  icon: const Icon(Icons.qr_code_scanner_rounded, color: AppColors.green),
+                ),
               ),
               onChanged: (v) => setState(() => _search = v.trim().toLowerCase()),
             ),
@@ -289,10 +334,28 @@ class _ProductCard extends StatelessWidget {
               Row(
                 children: [
                   Expanded(
-                    child: Text(
-                      moneyShort(product.price),
-                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
-                    ),
+                    child: product.unitPriceFor(quantity) != product.price
+                        // Prix de gros atteint
+                        ? Text.rich(
+                            TextSpan(
+                              children: [
+                                TextSpan(text: moneyShort(product.unitPriceFor(quantity))),
+                                const TextSpan(
+                                  text: '  gros',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: AppColors.greenDark,
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+                          )
+                        : Text(
+                            moneyShort(product.price),
+                            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+                          ),
                   ),
                   if (inCart)
                     Semantics(

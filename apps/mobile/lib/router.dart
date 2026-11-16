@@ -9,6 +9,8 @@ import 'features/customers/customers_screens.dart';
 import 'features/home/home_screen.dart';
 import 'features/inventory/stock_screen.dart';
 import 'core/models.dart';
+import 'features/catalog/categories_screen.dart';
+import 'features/catalog/product_editor.dart';
 import 'features/invoicing/document_editor.dart';
 import 'features/invoicing/document_screen.dart';
 import 'features/invoicing/invoices_screen.dart';
@@ -63,6 +65,15 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(path: '/account', builder: (_, _) => const ProfileScreen()),
       GoRoute(path: '/team', builder: (_, _) => const TeamScreen()),
+      GoRoute(path: '/categories', builder: (_, _) => const CategoriesScreen()),
+      GoRoute(
+        path: '/products/new',
+        builder: (_, s) => ProductEditorScreen(initialBarcode: s.uri.queryParameters['barcode']),
+      ),
+      GoRoute(
+        path: '/products/:id',
+        builder: (_, s) => ProductEditorScreen(productId: s.pathParameters['id']),
+      ),
       GoRoute(path: '/reports', builder: (_, _) => const ReportsScreen()),
       GoRoute(
         path: '/invoices',

@@ -114,9 +114,9 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Photo ajoutée'), findsOneWidget);
 
-    await tester.enterText(find.widgetWithText(TextField, 'Nom du produit'), 'Beurre de karité 500 g');
-    await tester.enterText(find.widgetWithText(TextField, 'Prix de vente'), '6000');
-    await tester.tap(find.text('Enregistrer le produit'));
+    await tester.enterText(find.byKey(const Key('pName')), 'Beurre de karité 500 g');
+    await tester.enterText(find.byKey(const Key('pPrice')), '6000');
+    await tester.tap(find.text('Ajouter le produit'));
     await tester.pumpAndSettle();
 
     expect(repo.createdProducts, ['Beurre de karité 500 g']);

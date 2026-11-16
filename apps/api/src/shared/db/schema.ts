@@ -22,6 +22,15 @@ import { sql } from 'drizzle-orm';
 const ts = (name: string) => timestamp(name, { withTimezone: true, mode: 'date' });
 const money = (name: string) => bigint(name, { mode: 'number' });
 
+// ---------- quantités (numeric(12,3) → number) ----------
+
+const qty = customType<{ data: number; driverData: string }>({
+  dataType: () => 'numeric(12,3)',
+  fromDriver: (v) => Number(v),
+  toDriver: (v) => String(v),
+});
+
+
 // ---------- core ----------
 export const core = pgSchema('core');
 
@@ -198,20 +207,14 @@ export const products = catalogSchema.table('products', {
   unit: varchar('unit', { length: 20 }).notNull().default('pièce'),
   trackStock: boolean('track_stock').notNull().default(true),
   lowStockThreshold: integer('low_stock_threshold').notNull().default(5),
+  wholesalePrice: money('wholesale_price'),
+  wholesaleMinQty: qty('wholesale_min_qty'),
   published: boolean('published').notNull().default(false),
   imageFileIds: uuid('image_file_ids').array().notNull().default([]),
   version: integer('version').notNull().default(1),
   createdAt: ts('created_at').notNull().defaultNow(),
   updatedAt: ts('updated_at').notNull().defaultNow(),
   deletedAt: ts('deleted_at'),
-});
-
-// ---------- quantités (numeric(12,3) → number) ----------
-
-const qty = customType<{ data: number; driverData: string }>({
-  dataType: () => 'numeric(12,3)',
-  fromDriver: (v) => Number(v),
-  toDriver: (v) => String(v),
 });
 
 // ---------- inventory ----------

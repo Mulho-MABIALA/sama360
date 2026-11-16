@@ -14,7 +14,7 @@ import { OutboxService } from '../../shared/events/outbox.service';
 import { AppError } from '../../shared/http/app-error';
 import { newId } from '../../shared/ids';
 import { InventoryService } from '../inventory/inventory.service';
-import { LineInput, priceSale, PricingError } from '../sales/pricing';
+import { catalogUnitPrice, LineInput, priceSale, PricingError } from '../sales/pricing';
 
 export interface DocumentLineInput {
   productId?: string | null;
@@ -430,6 +430,8 @@ export class InvoicingService {
             id: products.id,
             name: products.name,
             price: products.price,
+            wholesalePrice: products.wholesalePrice,
+            wholesaleMinQty: products.wholesaleMinQty,
             cost: products.cost,
             trackStock: products.trackStock,
           })
@@ -446,7 +448,7 @@ export class InvoicingService {
           name: l.name?.trim() || p.name,
           description: l.description ?? null,
           quantity: l.quantity,
-          unitPrice: l.unitPrice ?? p.price,
+          unitPrice: catalogUnitPrice(p, l.quantity, l.unitPrice),
           unitCost: p.cost,
           discount: l.discount ?? 0,
           trackStock: p.trackStock,

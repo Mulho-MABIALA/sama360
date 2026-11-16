@@ -16,7 +16,7 @@ import { OutboxService } from '../../shared/events/outbox.service';
 import { AppError } from '../../shared/http/app-error';
 import { newId } from '../../shared/ids';
 import { InventoryService } from '../inventory/inventory.service';
-import { LineInput, priceSale, PricingError } from './pricing';
+import { LineInput, priceSale, PricingError, catalogUnitPrice } from './pricing';
 
 export interface CreateSaleInput {
   id?: string; // id généré par le mobile : rend la création idempotente (hors ligne)
@@ -58,6 +58,8 @@ export class SalesService {
               id: products.id,
               name: products.name,
               price: products.price,
+              wholesalePrice: products.wholesalePrice,
+              wholesaleMinQty: products.wholesaleMinQty,
               cost: products.cost,
               trackStock: products.trackStock,
             })
@@ -74,7 +76,7 @@ export class SalesService {
             productId: p.id,
             name: p.name,
             quantity: it.quantity,
-            unitPrice: it.unitPrice ?? p.price,
+            unitPrice: catalogUnitPrice(p, it.quantity, it.unitPrice),
             unitCost: p.cost,
             discount: it.discount ?? 0,
             trackStock: p.trackStock,
