@@ -1858,3 +1858,230 @@ class ShopOrder {
     lines: ((j['lines'] as List?) ?? []).map((e) => ShopOrderLine.fromJson(e as Map<String, dynamic>)).toList(),
   );
 }
+
+// =====================================================================
+// Caisse : ouverture, mouvements, clôture (rapport Z)
+// =====================================================================
+
+/// Montants d'une session pour un moyen de paiement.
+class CashMethodLine {
+  const CashMethodLine({
+    required this.method,
+    this.opening = 0,
+    this.sales = 0,
+    this.repayments = 0,
+    this.invoices = 0,
+    this.expenses = 0,
+    this.suppliers = 0,
+    this.movementsIn = 0,
+    this.movementsOut = 0,
+    required this.expected,
+  });
+  final PayMethod method;
+  final int opening;
+  final int sales;
+  final int repayments;
+  final int invoices;
+  final int expenses;
+  final int suppliers;
+  final int movementsIn;
+  final int movementsOut;
+  final int expected;
+
+  /// Détail lisible : seulement les postes non nuls.
+  List<(String, int)> get breakdown => [
+    if (opening != 0) ('Fond de caisse', opening),
+    if (sales != 0) ('Ventes', sales),
+    if (repayments != 0) ('Remboursements de crédit', repayments),
+    if (invoices != 0) ('Factures encaissées', invoices),
+    if (movementsIn != 0) ('Entrées d’argent', movementsIn),
+    if (expenses != 0) ('Dépenses', -expenses),
+    if (suppliers != 0) ('Paiements fournisseurs', -suppliers),
+    if (movementsOut != 0) ('Sorties d’argent', -movementsOut),
+  ];
+
+  factory CashMethodLine.fromJson(Map<String, dynamic> j) => CashMethodLine(
+    method: PayMethod.fromApi(j['method'] as String?) ?? PayMethod.cash,
+    opening: _int(j['opening']),
+    sales: _int(j['sales']),
+    repayments: _int(j['repayments']),
+    invoices: _int(j['invoices']),
+    expenses: _int(j['expenses']),
+    suppliers: _int(j['suppliers']),
+    movementsIn: _int(j['movementsIn']),
+    movementsOut: _int(j['movementsOut']),
+    expected: _int(j['expected']),
+  );
+}
+
+class CashReport {
+  const CashReport({
+    this.salesCount = 0,
+    this.salesTotal = 0,
+    this.creditTotal = 0,
+    this.discountTotal = 0,
+    this.voidedCount = 0,
+    this.voidedTotal = 0,
+    this.methods = const [],
+    this.expectedTotal = 0,
+  });
+  final int salesCount;
+  final int salesTotal;
+  final int creditTotal;
+  final int discountTotal;
+  final int voidedCount;
+  final int voidedTotal;
+  final List<CashMethodLine> methods;
+  final int expectedTotal;
+
+  int get expectedCash => methods.where((m) => m.method == PayMethod.cash).firstOrNull?.expected ?? 0;
+
+  factory CashReport.fromJson(Map<String, dynamic> j) => CashReport(
+    salesCount: _int(j['salesCount']),
+    salesTotal: _int(j['salesTotal']),
+    creditTotal: _int(j['creditTotal']),
+    discountTotal: _int(j['discountTotal']),
+    voidedCount: _int(j['voidedCount']),
+    voidedTotal: _int(j['voidedTotal']),
+    methods: ((j['methods'] as List?) ?? []).map((e) => CashMethodLine.fromJson(e as Map<String, dynamic>)).toList(),
+    expectedTotal: _int(j['expectedTotal']),
+  );
+}
+
+/// Attendu, compté et écart d'un moyen de paiement à la clôture.
+class CashCountLine {
+  const CashCountLine({required this.method, required this.expected, required this.counted, required this.difference});
+  final PayMethod method;
+  final int expected;
+  final int counted;
+  final int difference;
+
+  factory CashCountLine.fromJson(Map<String, dynamic> j) => CashCountLine(
+    method: PayMethod.fromApi(j['method'] as String?) ?? PayMethod.cash,
+    expected: _int(j['expected']),
+    counted: _int(j['counted']),
+    difference: _int(j['difference']),
+  );
+}
+
+class CashMovement {
+  const CashMovement({
+    required this.id,
+    required this.isIn,
+    required this.amount,
+    required this.reason,
+    required this.createdAt,
+    this.createdByName,
+  });
+  final String id;
+  final bool isIn;
+  final int amount;
+  final String reason;
+  final DateTime createdAt;
+  final String? createdByName;
+
+  factory CashMovement.fromJson(Map<String, dynamic> j) => CashMovement(
+    id: j['id'] as String,
+    isIn: j['direction'] == 'in',
+    amount: _int(j['amount']),
+    reason: j['reason'] as String,
+    createdAt: _date(j['createdAt']) ?? DateTime.now(),
+    createdByName: j['createdByName'] as String?,
+  );
+}
+
+class CashSession {
+  const CashSession({
+    required this.id,
+    required this.number,
+    required this.open,
+    required this.userId,
+    this.userName,
+    this.openingFloat = 0,
+    this.openingNote,
+    required this.openedAt,
+    this.closedAt,
+    this.closedByName,
+    this.closingNote,
+    this.report = const CashReport(),
+    this.difference,
+    this.lines,
+    this.movements = const [],
+  });
+  final String id;
+  final String number;
+  final bool open;
+  final String userId;
+  final String? userName;
+  final int openingFloat;
+  final String? openingNote;
+  final DateTime openedAt;
+  final DateTime? closedAt;
+  final String? closedByName;
+  final String? closingNote;
+  final CashReport report;
+
+  /// Total compté − total attendu (clôturée seulement).
+  final int? difference;
+  final List<CashCountLine>? lines;
+  final List<CashMovement> movements;
+
+  factory CashSession.fromJson(Map<String, dynamic> j) => CashSession(
+    id: j['id'] as String,
+    number: j['number'] as String,
+    open: j['status'] == 'open',
+    userId: j['userId'] as String,
+    userName: j['userName'] as String?,
+    openingFloat: _int(j['openingFloat']),
+    openingNote: j['openingNote'] as String?,
+    openedAt: _date(j['openedAt']) ?? DateTime.now(),
+    closedAt: _date(j['closedAt']),
+    closedByName: j['closedByName'] as String?,
+    closingNote: j['closingNote'] as String?,
+    report: CashReport.fromJson((j['report'] as Map<String, dynamic>?) ?? const {}),
+    difference: j['difference'] == null ? null : _int(j['difference']),
+    lines: (j['lines'] as List?)?.map((e) => CashCountLine.fromJson(e as Map<String, dynamic>)).toList(),
+    movements: ((j['movements'] as List?) ?? []).map((e) => CashMovement.fromJson(e as Map<String, dynamic>)).toList(),
+  );
+}
+
+class CashSessionSummary {
+  const CashSessionSummary({
+    required this.id,
+    required this.number,
+    required this.open,
+    this.userName,
+    this.openingFloat = 0,
+    required this.openedAt,
+    this.closedAt,
+    this.salesTotal,
+    this.salesCount,
+    this.countedTotal,
+    this.difference,
+  });
+  final String id;
+  final String number;
+  final bool open;
+  final String? userName;
+  final int openingFloat;
+  final DateTime openedAt;
+  final DateTime? closedAt;
+  final int? salesTotal;
+  final int? salesCount;
+  final int? countedTotal;
+  final int? difference;
+
+  factory CashSessionSummary.fromJson(Map<String, dynamic> j) => CashSessionSummary(
+    id: j['id'] as String,
+    number: j['number'] as String,
+    open: j['status'] == 'open',
+    userName: j['userName'] as String?,
+    openingFloat: _int(j['openingFloat']),
+    openedAt: _date(j['openedAt']) ?? DateTime.now(),
+    closedAt: _date(j['closedAt']),
+    salesTotal: j['salesTotal'] == null ? null : _int(j['salesTotal']),
+    salesCount: j['salesCount'] == null ? null : _int(j['salesCount']),
+    countedTotal: j['countedTotal'] == null ? null : _int(j['countedTotal']),
+    difference: j['difference'] == null ? null : _int(j['difference']),
+  );
+}

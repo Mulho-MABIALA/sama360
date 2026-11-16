@@ -497,6 +497,52 @@ class SamaRepository {
     ),
   );
 
+  // ---------- Caisse ----------
+  /// Ma caisse ouverte (null si fermée).
+  Future<CashSession?> cashCurrent() async {
+    final r = await _cachedGet<Map<String, dynamic>>('/v1/cash/current');
+    final s = r['session'];
+    return s == null ? null : CashSession.fromJson(s as Map<String, dynamic>);
+  }
+
+  Future<CashSession> openCash({required int openingFloat, String? note}) async => CashSession.fromJson(
+    await api.post<Map<String, dynamic>>(
+      '/v1/cash/open',
+      data: {'openingFloat': openingFloat, 'note': (note ?? '').trim().isEmpty ? null : note!.trim()},
+    ),
+  );
+
+  Future<CashSession> cashMovement({required bool isIn, required int amount, required String reason}) async =>
+      CashSession.fromJson(
+        await api.post<Map<String, dynamic>>(
+          '/v1/cash/current/movements',
+          data: {'direction': isIn ? 'in' : 'out', 'amount': amount, 'reason': reason.trim()},
+        ),
+      );
+
+  /// Clôture ma caisse, ou celle d'un vendeur si [sessionId] est donné (gérant).
+  Future<CashSession> closeCash({
+    String? sessionId,
+    required Map<PayMethod, int> counted,
+    String? note,
+  }) async => CashSession.fromJson(
+    await api.post<Map<String, dynamic>>(
+      sessionId == null ? '/v1/cash/current/close' : '/v1/cash/sessions/$sessionId/close',
+      data: {
+        'counted': {for (final e in counted.entries) e.key.api: e.value},
+        'note': (note ?? '').trim().isEmpty ? null : note!.trim(),
+      },
+    ),
+  );
+
+  Future<List<CashSessionSummary>> cashSessions() async =>
+      ((await _cachedGet<Map<String, dynamic>>('/v1/cash/sessions', query: {'limit': 60}))['data'] as List)
+          .map((e) => CashSessionSummary.fromJson(e as Map<String, dynamic>))
+          .toList();
+
+  Future<CashSession> cashSession(String id) async =>
+      CashSession.fromJson(await _cachedGet<Map<String, dynamic>>('/v1/cash/sessions/$id'));
+
   // ---------- Équipe ----------
   Future<List<Member>> members() async =>
       (await _cachedGet<List<dynamic>>('/v1/members')).map((e) => Member.fromJson(e as Map<String, dynamic>)).toList();

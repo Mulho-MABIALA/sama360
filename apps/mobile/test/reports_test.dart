@@ -40,6 +40,8 @@ void main() {
   testWidgets('rapports : 7 jours par défaut, changement de période, détail d’une barre', (tester) async {
     phoneSize(tester);
     final (_, repo) = await pumpSama(tester);
+    await tester.ensureVisible(find.text('Rapports'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Rapports'));
     await tester.pumpAndSettle();
 

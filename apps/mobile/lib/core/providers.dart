@@ -141,6 +141,27 @@ void refreshShop(WidgetRef ref) {
   ref.invalidate(shopOrderProvider);
 }
 
+final cashCurrentProvider = FutureProvider<CashSession?>((ref) {
+  ref.watch(businessIdProvider);
+  return ref.watch(repoProvider).cashCurrent();
+});
+
+final cashSessionsProvider = FutureProvider<List<CashSessionSummary>>((ref) {
+  ref.watch(businessIdProvider);
+  return ref.watch(repoProvider).cashSessions();
+});
+
+final cashSessionProvider = FutureProvider.family<CashSession, String>((ref, id) {
+  ref.watch(businessIdProvider);
+  return ref.watch(repoProvider).cashSession(id);
+});
+
+void refreshCash(WidgetRef ref) {
+  ref.invalidate(cashCurrentProvider);
+  ref.invalidate(cashSessionsProvider);
+  ref.invalidate(cashSessionProvider);
+}
+
 final saleProvider = FutureProvider.family<SaleDetail, String>((ref, id) {
   ref.watch(businessIdProvider);
   return ref.watch(repoProvider).sale(id);
@@ -212,6 +233,7 @@ void refreshBusinessData(WidgetRef ref) {
   ref.invalidate(customerOverviewProvider);
   ref.invalidate(salesTodayProvider);
   ref.invalidate(myDayProvider);
+  ref.invalidate(cashCurrentProvider);
 }
 
 /// Message lisible pour l'utilisateur à partir de n'importe quelle erreur.

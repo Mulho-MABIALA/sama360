@@ -13,6 +13,7 @@ import '../auth/auth_controller.dart';
 import '../../core/offline/pending_sales.dart';
 import '../offline/offline_ui.dart';
 import '../profile/profile_screen.dart';
+import 'monument.dart';
 import 'promo_carousel.dart';
 
 class _Service {
@@ -43,7 +44,9 @@ const _purchasesService = _Service('Achats', Icons.local_shipping_rounded, Color
 const _paymentsService = _Service('Paiements', Icons.qr_code_2_rounded, Color(0xFF1D7AF0), soon: true);
 
 /// Services des vagues 2 et 3, listés derrière « Plus ».
+const _cashService = _Service('Caisse', Icons.point_of_sale_rounded, Color(0xFF13241C), route: '/cash');
 const _moreServices = [
+  _cashService,
   _purchasesService,
   _paymentsService,
   _shopService,
@@ -213,8 +216,8 @@ class _SectionTitle extends StatelessWidget {
   );
 }
 
-/// En-tête émeraude : aurora, silhouette de Dakar, salutation, caisse du jour en verre
-/// et barre de recherche qui chevauche le bas.
+/// En-tête : photo du monument du jour (repli : aurora émeraude), salutation,
+/// caisse du jour en verre et barre de recherche qui chevauche le bas.
 class _Hero extends StatelessWidget {
   const _Hero({this.name, this.business, required this.card});
   final String? name;
@@ -234,7 +237,7 @@ class _Hero extends StatelessWidget {
             tone: AuroraTone.deep,
             child: Stack(
               children: [
-                const Positioned(right: -70, top: -40, child: _Orbits(size: 260)),
+                const Positioned.fill(child: MonumentBackdrop()),
                 Padding(
                   padding: EdgeInsets.fromLTRB(16, top + 12, 16, 50),
                   child: Column(
@@ -267,9 +270,24 @@ class _Hero extends StatelessWidget {
                         ],
                       ),
                       const SizedBox(height: 18),
-                      Text(
-                        name == null ? 'Bonjour' : 'Bonjour, ${firstName(name!)}',
-                        style: const TextStyle(color: onDarkMuted, fontSize: 14, fontWeight: FontWeight.w600),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              name == null ? 'Bonjour' : 'Bonjour, ${firstName(name!)}',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: onDarkMuted,
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                                shadows: [Shadow(color: Color(0x99000000), blurRadius: 8)],
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          const MonumentChip(),
+                        ],
                       ),
                       const SizedBox(height: 6),
                       Align(
@@ -363,43 +381,6 @@ class _GlassIcon extends StatelessWidget {
       ),
     ),
   );
-}
-
-/// Anneaux lumineux « 360 » en filigrane dans l'en-tête.
-class _Orbits extends StatelessWidget {
-  const _Orbits({required this.size});
-  final double size;
-  @override
-  Widget build(BuildContext context) => ExcludeSemantics(
-    child: CustomPaint(size: Size.square(size), painter: _OrbitsPainter()),
-  );
-}
-
-class _OrbitsPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final c = size.center(Offset.zero);
-    final r = size.width / 2;
-    for (final (f, a) in const [(1.0, 0.07), (0.74, 0.10), (0.48, 0.13)]) {
-      canvas.drawCircle(
-        c,
-        r * f,
-        Paint()
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 1.2
-          ..color = Colors.white.withValues(alpha: a),
-      );
-    }
-    // Petites « planètes » lumineuses sur les orbites
-    for (final (f, angle, d) in const [(1.0, 2.5, 7.0), (0.74, 3.6, 5.0), (0.48, 1.9, 4.0)]) {
-      final p = c + Offset.fromDirection(angle, r * f);
-      canvas.drawCircle(p, d * 2.4, Paint()..color = AppColors.glow.withValues(alpha: 0.18));
-      canvas.drawCircle(p, d, Paint()..color = AppColors.glow.withValues(alpha: 0.9));
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
 /// Carte « Caisse du jour » en verre sombre, avec reflet miroir qui la traverse.

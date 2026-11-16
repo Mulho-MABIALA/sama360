@@ -188,6 +188,11 @@ class _PosScreenState extends ConsumerState<PosScreen> {
         title: const Text('Nouvelle vente', style: TextStyle(fontWeight: FontWeight.w800)),
         actions: [
           IconButton(
+            tooltip: 'Ma caisse',
+            onPressed: () => context.push('/cash'),
+            icon: const Icon(Icons.point_of_sale_rounded),
+          ),
+          IconButton(
             tooltip: "Ventes d'aujourd'hui",
             onPressed: () => context.push('/sales'),
             icon: const Icon(Icons.receipt_long_rounded),
@@ -197,6 +202,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
       body: Column(
         children: [
           const SyncBanner(padding: EdgeInsets.fromLTRB(16, 0, 16, 10)),
+          const _CashClosedBanner(),
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
             child: TextField(
@@ -512,6 +518,38 @@ class _CreditLimitHint extends StatelessWidget {
           color: over ? AppColors.danger : AppColors.muted,
           fontWeight: over ? FontWeight.w700 : FontWeight.w500,
           fontSize: 12.5,
+        ),
+      ),
+    );
+  }
+}
+
+/// Rappel discret : la caisse n'est pas ouverte (les ventes restent possibles).
+class _CashClosedBanner extends ConsumerWidget {
+  const _CashClosedBanner();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final closed = ref.watch(cashCurrentProvider).maybeWhen(data: (s) => s == null, orElse: () => false);
+    if (!closed) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+      child: Glass(
+        radius: 16,
+        onTap: () => context.push('/cash'),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        child: const Row(
+          children: [
+            Icon(Icons.lock_clock_rounded, size: 20, color: AppColors.warnText),
+            SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                'Caisse non ouverte : ouvrez-la pour suivre vos espèces',
+                style: TextStyle(color: AppColors.warnText, fontWeight: FontWeight.w700, fontSize: 13),
+              ),
+            ),
+            Text('Ouvrir', style: TextStyle(color: AppColors.green, fontWeight: FontWeight.w800)),
+          ],
         ),
       ),
     );

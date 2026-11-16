@@ -1,5 +1,7 @@
 import { Module } from '@nestjs/common';
 import { InventoryModule } from '../inventory/inventory.module';
+import { CashController } from './cash.controller';
+import { CashService } from './cash.service';
 import { CustomersController } from './customers.controller';
 import { CustomersService } from './customers.service';
 import { ReportsController } from './reports.controller';
@@ -8,8 +10,8 @@ import { SalesService } from './sales.service';
 
 @Module({
   imports: [InventoryModule],
-  controllers: [SalesController, ReportsController, CustomersController],
-  providers: [SalesService, CustomersService],
+  controllers: [SalesController, ReportsController, CustomersController, CashController],
+  providers: [SalesService, CustomersService, CashService],
   exports: [SalesService],
 })
 export class SalesModule {}

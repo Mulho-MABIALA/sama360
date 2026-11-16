@@ -123,6 +123,12 @@ Toutes les erreurs : `{ "error": { "code", "message", "details?" } }`.
 | POST | `/v1/invoicing/documents/:id/payments` | `invoicing:write` — paiement (idempotent, sans dépasser le reste dû) |
 | POST | `/v1/invoicing/documents/:id/cancel` | `invoicing:write` — annule une facture sans paiement (retour en stock) |
 | GET | `/v1/invoicing/summary` | `invoicing:read` — à encaisser, en retard, devis en cours, facturé ce mois |
+| GET | `/v1/cash/current` | `sales:create` — ma caisse ouverte (`session: null` sinon) avec l'attendu par moyen de paiement, en direct |
+| POST | `/v1/cash/open` | `sales:create` — ouvre la caisse (Z-AAAA-NNNN) avec un fond ; une seule caisse ouverte par vendeur |
+| POST | `/v1/cash/current/movements` | `sales:create` — entrée ou sortie d'espèces (refusée au-delà des espèces attendues) |
+| POST | `/v1/cash/current/close` | `sales:create` — clôture avec le comptage par moyen ; le rapport Z est figé |
+| POST | `/v1/cash/sessions/:id/close` | `sales:void` — un gérant clôture la caisse d'un vendeur |
+| GET | `/v1/cash/sessions` · `/v1/cash/sessions/:id` | `sales:create` — historique (le gérant voit toutes les caisses) et rapport Z |
 | GET | `/v1/sales/customers/:id/ledger` | `sales:read` — carnet de crédit d'un client |
 | POST | `/v1/sales/customers/:id/repayments` | `sales:create` — remboursement |
 | GET / POST | `/v1/sales/expenses` | `reports:read` / `sales:create` |

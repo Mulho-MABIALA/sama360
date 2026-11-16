@@ -5,6 +5,9 @@ import 'package:material_ui/material_ui.dart';
 import 'features/auth/auth_controller.dart';
 import 'features/auth/login_screens.dart';
 import 'features/business/business_screen.dart';
+import 'features/cash/cash_close_screen.dart';
+import 'features/cash/cash_screen.dart';
+import 'features/cash/cash_session_screen.dart';
 import 'features/customers/customer_editor.dart';
 import 'features/purchasing/purchase_editor.dart';
 import 'features/shop/shop_order_screen.dart';
@@ -66,6 +69,16 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(path: '/profile', builder: (_, _) => const ProfileSetupScreen()),
       GoRoute(path: '/business', builder: (_, _) => const BusinessScreen()),
+      GoRoute(path: '/cash', builder: (_, _) => const CashScreen()),
+      GoRoute(
+        path: '/cash/close',
+        builder: (_, s) => CashCloseScreen(sessionId: s.uri.queryParameters['session']),
+      ),
+      GoRoute(path: '/cash/history', builder: (_, _) => const CashHistoryScreen()),
+      GoRoute(
+        path: '/cash/sessions/:id',
+        builder: (_, s) => CashSessionScreen(sessionId: s.pathParameters['id']!),
+      ),
       GoRoute(path: '/shop', builder: (_, _) => const ShopScreen()),
       GoRoute(
         path: '/shop/settings',

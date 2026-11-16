@@ -18,6 +18,7 @@ process.env.STORAGE_DIR = require('node:path').join(require('node:os').tmpdir(),
 
 import { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
+import { ThrottlerStorage } from '@nestjs/throttler';
 import { sql } from 'drizzle-orm';
 import { Client } from 'pg';
 import request from 'supertest';
@@ -96,7 +97,12 @@ describe('Socle Sama360 (e2e)', () => {
 
   beforeAll(async () => {
     await resetDatabase(TEST_DB);
-    const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
+    // Le limiteur par adresse IP (10 codes/min) n'est pas testé ici : la suite se connecte des
+    // dizaines de fois en quelques secondes depuis la même adresse.
+    const moduleRef = await Test.createTestingModule({ imports: [AppModule] })
+      .overrideProvider(ThrottlerStorage)
+      .useValue({ increment: async () => ({ totalHits: 1, timeToExpire: 60, isBlocked: false, timeToBlockExpire: 0 }) })
+      .compile();
     app = moduleRef.createNestApplication();
     await app.init();
     http = request(app.getHttpServer());
@@ -1491,6 +1497,102 @@ describe('Socle Sama360 (e2e)', () => {
       await http.put('/v1/shop/settings').set(A()).send({ enabled: false }).expect(200);
       await http.get(pub()).expect(404);
       await http.put('/v1/shop/settings').set(A()).send({ enabled: true }).expect(200);
+    });
+  });
+
+  describe('Clôture de caisse', () => {
+    const A = () => auth(awa.accessToken, awaBiz);
+    let cashier: string;
+    let other: string;
+    let product: string;
+    let client: string;
+    let session: string;
+    const year = new Date().getUTCFullYear();
+    const C = () => auth(cashier, awaBiz);
+
+    beforeAll(async () => {
+      await http.post('/v1/members').set(A()).send({ phone: '+221770003322', fullName: 'Modou Gaye', roleKey: 'cashier' }).expect(201);
+      await http.post('/v1/members').set(A()).send({ phone: '+221770003311', fullName: 'Fama Ndao', roleKey: 'cashier' }).expect(201);
+      cashier = (await login('+221770003322')).accessToken;
+      other = (await login('+221770003311')).accessToken;
+      product = (await http.post('/v1/catalog/products').set(A()).send({ name: 'Thé Ataya', price: 5000, trackStock: false }).expect(201)).body.id;
+      client = (await http.post('/v1/contacts').set(A()).send({ name: 'Pape Diouf' }).expect(201)).body.id;
+    });
+
+    it('ouverture avec fond de caisse, une seule caisse ouverte par vendeur', async () => {
+      expect((await http.get('/v1/cash/current').set(C()).expect(200)).body.session).toBeNull();
+      await http.post('/v1/cash/current/movements').set(C()).send({ direction: 'in', amount: 100, reason: 'Monnaie' }).expect(409);
+      const opened = await http.post('/v1/cash/open').set(C()).send({ openingFloat: 10000, note: 'Monnaie du matin' }).expect(201);
+      session = opened.body.id;
+      expect(opened.body).toMatchObject({ number: `Z-${year}-0001`, status: 'open', openingFloat: 10000, userName: 'Modou Gaye' });
+      expect(opened.body.report.methods).toEqual([expect.objectContaining({ method: 'cash', expected: 10000 })]);
+      const again = await http.post('/v1/cash/open').set(C()).send({ openingFloat: 0 }).expect(409);
+      expect(again.body.error.message).toBe(`Votre caisse est déjà ouverte depuis Z-${year}-0001`);
+    });
+
+    it('attendu en direct : ventes, crédit, remboursements, dépenses, mouvements', async () => {
+      const sell = (body: Record<string, unknown>, token = cashier) => http.post('/v1/sales').set(auth(token, awaBiz)).send(body).expect(201);
+      await sell({
+        items: [{ productId: product, quantity: 2 }],
+        payments: [
+          { method: 'cash', amount: 6000 },
+          { method: 'wave', amount: 4000 },
+        ],
+      });
+      await sell({ customerId: client, items: [{ productId: product, quantity: 1 }], payments: [{ method: 'cash', amount: 1000 }] });
+      // Vente d'un autre vendeur : pas dans cette caisse
+      await sell({ items: [{ productId: product, quantity: 1 }], payments: [{ method: 'cash', amount: 5000 }] }, other);
+      await http.post(`/v1/sales/customers/${client}/repayments`).set(C()).send({ amount: 1500, method: 'orange_money' }).expect(201);
+      await http.post('/v1/sales/expenses').set(C()).send({ category: 'Transport', amount: 2000, method: 'cash' }).expect(201);
+
+      const tooMuch = await http.post('/v1/cash/current/movements').set(C()).send({ direction: 'out', amount: 50000, reason: 'Dépôt banque' }).expect(422);
+      expect(tooMuch.body.error.message).toBe('Il n’y a que 15 000 F en espèces dans la caisse');
+      await http.post('/v1/cash/current/movements').set(C()).send({ direction: 'out', amount: 3000, reason: 'Dépôt à la banque' }).expect(201);
+      const cur = (await http.post('/v1/cash/current/movements').set(C()).send({ direction: 'in', amount: 500, reason: 'Appoint du gérant' }).expect(201)).body;
+
+      expect(cur.report).toMatchObject({ salesCount: 2, salesTotal: 15000, creditTotal: 4000 });
+      const by = Object.fromEntries(cur.report.methods.map((m: { method: string; expected: number }) => [m.method, m.expected]));
+      expect(by).toEqual({ cash: 10000 + 6000 + 1000 - 2000 - 3000 + 500, wave: 4000, orange_money: 1500 });
+      expect(cur.movements.map((m: { direction: string; amount: number }) => [m.direction, m.amount])).toEqual([
+        ['out', 3000],
+        ['in', 500],
+      ]);
+    });
+
+    it('clôture : comptage, écarts, rapport Z figé ; droits', async () => {
+      // Un autre vendeur ne voit pas ma caisse, ne peut pas la clôturer
+      await http.get(`/v1/cash/sessions/${session}`).set(auth(other, awaBiz)).expect(403);
+      await http.post(`/v1/cash/sessions/${session}/close`).set(auth(other, awaBiz)).send({ counted: {} }).expect(403);
+
+      const closed = await http
+        .post('/v1/cash/current/close')
+        .set(C())
+        .send({ counted: { cash: 12000, wave: 4000 }, note: 'Manque 500 F' })
+        .expect(200);
+      expect(closed.body).toMatchObject({ status: 'closed', difference: -500, closingNote: 'Manque 500 F', closedByName: 'Modou Gaye' });
+      expect(closed.body.lines).toEqual([
+        { method: 'cash', expected: 12500, counted: 12000, difference: -500 },
+        { method: 'wave', expected: 4000, counted: 4000, difference: 0 },
+        { method: 'orange_money', expected: 1500, counted: 1500, difference: 0 },
+      ]);
+      await http.post('/v1/cash/current/close').set(C()).send({ counted: {} }).expect(409);
+      expect((await http.get('/v1/cash/current').set(C())).body.session).toBeNull();
+
+      // Une vente après la clôture ne change pas le rapport figé
+      await http.post('/v1/sales').set(C()).send({ items: [{ productId: product, quantity: 1 }], payments: [{ method: 'cash', amount: 5000 }] }).expect(201);
+      const z = (await http.get(`/v1/cash/sessions/${session}`).set(C()).expect(200)).body;
+      expect(z.report.salesTotal).toBe(15000);
+
+      const mine = (await http.get('/v1/cash/sessions').set(C()).expect(200)).body.data;
+      expect(mine).toEqual([expect.objectContaining({ id: session, salesTotal: 15000, countedTotal: 17500, difference: -500 })]);
+    });
+
+    it('le gérant voit toutes les caisses et clôture celle d’un vendeur parti', async () => {
+      const s2 = (await http.post('/v1/cash/open').set(auth(other, awaBiz)).send({ openingFloat: 5000 }).expect(201)).body.id;
+      const all = (await http.get('/v1/cash/sessions').set(A()).expect(200)).body.data;
+      expect(all.map((x: { userName: string }) => x.userName)).toEqual(expect.arrayContaining(['Modou Gaye', 'Fama Ndao']));
+      const z = await http.post(`/v1/cash/sessions/${s2}/close`).set(A()).send({ counted: { cash: 5000 } }).expect(200);
+      expect(z.body).toMatchObject({ status: 'closed', userName: 'Fama Ndao', closedByName: 'Awa Diallo', difference: 0 });
     });
   });
 

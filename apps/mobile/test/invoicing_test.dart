@@ -115,6 +115,8 @@ void main() {
     phoneSize(tester);
     final (_, repo) = await pumpSama(tester);
 
+    await tester.ensureVisible(find.text('Factures'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Factures'));
     await tester.pumpAndSettle();
     expect(find.text('À encaisser sur factures'), findsOneWidget);

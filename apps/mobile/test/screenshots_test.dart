@@ -14,6 +14,7 @@ import 'package:sama360/core/models.dart';
 import 'package:sama360/core/offline/pending_sales.dart';
 import 'package:sama360/core/providers.dart';
 import 'package:sama360/features/auth/auth_controller.dart';
+import 'package:sama360/features/home/monument.dart';
 import 'package:sama360/main.dart';
 
 import 'helpers.dart';
@@ -56,11 +57,20 @@ void main() {
     await _shot(tester, '1_connexion');
   });
 
-  testWidgets('accueil', (tester) async {
+  /// Accueil avec la photo du monument du jour réellement décodée.
+  Future<void> home(WidgetTester tester, DateTime day, String name) async {
     phoneSize(tester);
-    await pumpSama(tester);
-    await _shot(tester, '2_accueil');
-  });
+    await pumpSama(tester, overrides: [monumentDateProvider.overrideWithValue(day)]);
+    final ctx = tester.element(find.byType(MonumentBackdrop));
+    await tester.runAsync(() => precacheImage(AssetImage(monumentOfDay(day).asset), ctx));
+    await tester.pumpAndSettle();
+    await _shot(tester, name);
+  }
+
+  testWidgets('accueil', (tester) => home(tester, DateTime(2026, 11, 16), '2_accueil'));
+  testWidgets('accueil (Djenné)', (tester) => home(tester, DateTime(2026, 11, 17), '2c_accueil_djenne'));
+  testWidgets('accueil (Gizeh)', (tester) => home(tester, DateTime(2026, 11, 18), '2d_accueil_gizeh'));
+  testWidgets('accueil (Tour Eiffel)', (tester) => home(tester, DateTime(2026, 11, 19), '2e_accueil_eiffel'));
 
   testWidgets('accueil (bas, carrousel)', (tester) async {
     phoneSize(tester);
@@ -372,5 +382,27 @@ void main() {
     await tester.tap(find.byIcon(Icons.delete_outline_rounded));
     await tester.pumpAndSettle();
     await _shot(tester, '18_dialogue_boutons');
+  });
+
+  testWidgets('caisse ouverte', (tester) async {
+    phoneSize(tester);
+    await pumpSama(tester, location: '/cash');
+    await _shot(tester, '20_caisse_ouverte');
+  });
+
+  testWidgets('clôture de caisse', (tester) async {
+    phoneSize(tester);
+    await pumpSama(tester, location: '/cash/close?session=cs1');
+    await tester.enterText(find.byKey(const Key('count_cash')), '43000');
+    await tester.pumpAndSettle();
+    await tester.pump(const Duration(seconds: 6));
+    await tester.pumpAndSettle();
+    await _shot(tester, '21_cloture_caisse');
+  });
+
+  testWidgets('rapport Z', (tester) async {
+    phoneSize(tester);
+    await pumpSama(tester, location: '/cash/sessions/cs0');
+    await _shot(tester, '22_rapport_z');
   });
 }

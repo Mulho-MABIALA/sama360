@@ -706,6 +706,114 @@ class FakeRepo extends SamaRepository {
     return demoShopOrders.firstWhere((o) => o.id == id);
   }
 
+  // ---------- Caisse ----------
+  bool cashOpen = true;
+  final cashOpenings = <(int, String?)>[];
+  final cashMovements = <(bool, int, String)>[];
+  final cashClosings = <(String?, Map<PayMethod, int>, String?)>[];
+
+  static final demoCashSession = CashSession(
+    id: 'cs1',
+    number: 'Z-2026-0007',
+    open: true,
+    userId: 'u1',
+    userName: 'Awa Diallo',
+    openingFloat: 10000,
+    openedAt: DateTime(2026, 11, 16, 8, 12),
+    report: const CashReport(
+      salesCount: 14,
+      salesTotal: 86500,
+      creditTotal: 7500,
+      methods: [
+        CashMethodLine(
+          method: PayMethod.cash,
+          opening: 10000,
+          sales: 52000,
+          repayments: 5000,
+          expenses: 3500,
+          movementsOut: 20000,
+          expected: 43500,
+        ),
+        CashMethodLine(method: PayMethod.wave, sales: 21000, expected: 21000),
+        CashMethodLine(method: PayMethod.orangeMoney, sales: 6000, expected: 6000),
+      ],
+      expectedTotal: 70500,
+    ),
+    movements: [
+      CashMovement(id: 'm1', isIn: false, amount: 20000, reason: 'Dépôt à la banque', createdAt: DateTime(2026, 11, 16, 12, 40)),
+    ],
+  );
+
+  static final demoClosedSession = CashSession(
+    id: 'cs0',
+    number: 'Z-2026-0006',
+    open: false,
+    userId: 'u2',
+    userName: 'Moussa Sow',
+    openingFloat: 5000,
+    openedAt: DateTime(2026, 11, 15, 8, 30),
+    closedAt: DateTime(2026, 11, 15, 19, 5),
+    closedByName: 'Moussa Sow',
+    closingNote: 'Billet de 500 F déchiré',
+    report: const CashReport(
+      salesCount: 9,
+      salesTotal: 41000,
+      methods: [
+        CashMethodLine(method: PayMethod.cash, opening: 5000, sales: 29000, expected: 34000),
+        CashMethodLine(method: PayMethod.wave, sales: 12000, expected: 12000),
+      ],
+      expectedTotal: 46000,
+    ),
+    difference: -500,
+    lines: const [
+      CashCountLine(method: PayMethod.cash, expected: 34000, counted: 33500, difference: -500),
+      CashCountLine(method: PayMethod.wave, expected: 12000, counted: 12000, difference: 0),
+    ],
+  );
+
+  @override
+  Future<CashSession?> cashCurrent() async => cashOpen ? demoCashSession : null;
+
+  @override
+  Future<CashSession> openCash({required int openingFloat, String? note}) async {
+    cashOpenings.add((openingFloat, note));
+    cashOpen = true;
+    return demoCashSession;
+  }
+
+  @override
+  Future<CashSession> cashMovement({required bool isIn, required int amount, required String reason}) async {
+    cashMovements.add((isIn, amount, reason));
+    return demoCashSession;
+  }
+
+  @override
+  Future<CashSession> closeCash({String? sessionId, required Map<PayMethod, int> counted, String? note}) async {
+    cashClosings.add((sessionId, counted, note));
+    cashOpen = false;
+    return demoClosedSession;
+  }
+
+  @override
+  Future<List<CashSessionSummary>> cashSessions() async => [
+    CashSessionSummary(id: 'cs1', number: 'Z-2026-0007', open: true, userName: 'Awa Diallo', openedAt: DateTime(2026, 11, 16, 8, 12)),
+    CashSessionSummary(
+      id: 'cs0',
+      number: 'Z-2026-0006',
+      open: false,
+      userName: 'Moussa Sow',
+      openedAt: DateTime(2026, 11, 15, 8, 30),
+      closedAt: DateTime(2026, 11, 15, 19, 5),
+      salesTotal: 41000,
+      salesCount: 9,
+      countedTotal: 45500,
+      difference: -500,
+    ),
+  ];
+
+  @override
+  Future<CashSession> cashSession(String id) async => id == 'cs0' ? demoClosedSession : demoCashSession;
+
   /// Vrai : simule une coupure réseau (toutes les ventes échouent sans réponse).
   bool offline = false;
 

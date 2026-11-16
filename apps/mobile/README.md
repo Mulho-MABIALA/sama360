@@ -63,6 +63,14 @@ Points importants :
 - **Droits** : l'accueil masque les bénéfices aux caissiers, le stock masque les modifications
   à ceux qui n'ont pas `inventory:write`.
 
+## Monument du jour
+
+L'en-tête de l'accueil affiche chaque jour la photo d'un monument (31 photos, majorité africaine),
+embarquée dans l'app pour fonctionner hors ligne : `assets/monuments/`, liste dans
+`lib/features/home/monuments_data.dart`. Les photos viennent de Wikimedia Commons sous licence libre
+(CC0, CC BY, CC BY-SA, domaine public) ; un appui sur le nom du monument affiche l'auteur et la licence,
+comme l'exigent ces licences.
+
 ## Tests
 
 ```bash
