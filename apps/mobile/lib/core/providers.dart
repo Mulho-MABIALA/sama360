@@ -82,9 +82,21 @@ final saleProvider = FutureProvider.family<SaleDetail, String>((ref, id) {
   return ref.watch(repoProvider).sale(id);
 });
 
-final salesTodayProvider = FutureProvider<List<SaleSummary>>((ref) {
+/// Ventes du jour : toutes pour qui voit les rapports, sinon seulement les miennes.
+final salesTodayProvider = FutureProvider<List<SaleSummary>>((ref) async {
   ref.watch(businessIdProvider);
-  return ref.watch(repoProvider).salesOfDay();
+  final b = await ref.watch(currentBusinessProvider.future);
+  return ref.watch(repoProvider).salesOfDay(null, !hasPermission(b.permissions, 'reports:read'));
+});
+
+final myDayProvider = FutureProvider<MyDay>((ref) {
+  ref.watch(businessIdProvider);
+  return ref.watch(repoProvider).myDay();
+});
+
+final membersProvider = FutureProvider<List<Member>>((ref) {
+  ref.watch(businessIdProvider);
+  return ref.watch(repoProvider).members();
 });
 
 /// Après une vente, un remboursement ou une entrée de stock : rafraîchit ce qui en dépend.
@@ -95,6 +107,7 @@ void refreshBusinessData(WidgetRef ref) {
   ref.invalidate(debtorsProvider);
   ref.invalidate(ledgerProvider);
   ref.invalidate(salesTodayProvider);
+  ref.invalidate(myDayProvider);
 }
 
 /// Message lisible pour l'utilisateur à partir de n'importe quelle erreur.

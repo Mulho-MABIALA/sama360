@@ -197,14 +197,21 @@ class SamaRepository {
       SaleDetail.fromJson(await _cachedGet<Map<String, dynamic>>('/v1/sales/$id'));
 
   /// Ventes d'une journée (aujourd'hui par défaut), les plus récentes d'abord.
-  Future<List<SaleSummary>> salesOfDay([DateTime? day]) async {
+  /// [mine] : seulement les ventes du vendeur connecté.
+  Future<List<SaleSummary>> salesOfDay([DateTime? day, bool mine = false]) async {
     final d = (day ?? DateTime.now()).toUtc().toIso8601String().substring(0, 10);
-    final r = await _cachedGet<Map<String, dynamic>>('/v1/sales', query: {'from': d, 'to': d, 'limit': 100});
+    final r = await _cachedGet<Map<String, dynamic>>(
+      '/v1/sales',
+      query: {'from': d, 'to': d, 'limit': 100, 'mine': mine ? 'true' : null},
+    );
     return (r['data'] as List).map((e) => SaleSummary.fromJson(e as Map<String, dynamic>)).toList();
   }
 
   Future<DaySummary> todaySummary() async =>
       DaySummary.fromJson(await _cachedGet<Map<String, dynamic>>('/v1/sales/summary'));
+
+  /// Ma journée de vendeur.
+  Future<MyDay> myDay() async => MyDay.fromJson(await _cachedGet<Map<String, dynamic>>('/v1/sales/my-day'));
 
   Future<void> addExpense({required String category, required int amount}) =>
       api.post<void>('/v1/sales/expenses', data: {'category': category, 'amount': amount, 'method': 'cash'});
@@ -250,4 +257,16 @@ class SamaRepository {
     );
     return (r['balance'] as num).toInt();
   }
+
+  // ---------- Équipe ----------
+  Future<List<Member>> members() async =>
+      (await _cachedGet<List<dynamic>>('/v1/members')).map((e) => Member.fromJson(e as Map<String, dynamic>)).toList();
+
+  Future<void> inviteMember({required String phone, String? fullName, required TeamRole role}) =>
+      api.post<void>('/v1/members', data: {'phone': phone, 'fullName': ?fullName, 'roleKey': role.api});
+
+  Future<void> updateMember(String id, {TeamRole? role, String? status}) =>
+      api.patch<void>('/v1/members/$id', data: {'roleKey': ?role?.api, 'status': ?status});
+
+  Future<void> removeMember(String id) => api.delete<void>('/v1/members/$id');
 }

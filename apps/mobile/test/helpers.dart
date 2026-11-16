@@ -109,6 +109,11 @@ class FakeRepo extends SamaRepository {
     expenses: 2000,
     collected: 52500,
     receivables: 34000,
+    bySeller: [
+      SellerStat(userId: 'u1', name: 'Awa Diallo', salesCount: 7, revenue: 52000),
+      SellerStat(userId: 'u2', name: 'Moussa Fall', salesCount: 4, revenue: 28500),
+      SellerStat(userId: 'u3', name: '+221770000099', salesCount: 1, revenue: 6000),
+    ],
   );
 
   @override
@@ -154,6 +159,49 @@ class FakeRepo extends SamaRepository {
     final paid = (body['payments'] as List).cast<Map>().fold<int>(0, (s, p) => s + (p['amount'] as num).toInt());
     return SaleResult(id: id, number: 'VEN-2026-000$saleCounter', total: total, paid: paid, due: total - paid);
   }
+
+  // ---------- Équipe ----------
+  final team = <Member>[
+    const Member(id: 'm1', userId: 'u1', phone: '+221771234567', fullName: 'Awa Diallo', role: 'owner', roleName: 'Propriétaire', status: 'active'),
+    const Member(id: 'm2', userId: 'u2', phone: '+221781112233', fullName: 'Moussa Fall', role: 'cashier', roleName: 'Vendeur / caissier', status: 'active'),
+    const Member(id: 'm3', userId: 'u4', phone: '+221765550000', fullName: 'Fatou Sarr', role: 'manager', roleName: 'Gérant', status: 'invited'),
+  ];
+  final invites = <({String phone, String? fullName, TeamRole role})>[];
+
+  @override
+  Future<List<Member>> members() async => List.of(team);
+
+  @override
+  Future<void> inviteMember({required String phone, String? fullName, required TeamRole role}) async {
+    if (team.any((m) => m.phone == phone)) {
+      throw const ApiException('CONFLICT', 'Cette personne est déjà membre de l’entreprise', status: 409);
+    }
+    invites.add((phone: phone, fullName: fullName, role: role));
+    team.add(
+      Member(id: 'm${team.length + 1}', userId: 'new', phone: phone, fullName: fullName, role: role.api, roleName: role.label, status: 'invited'),
+    );
+  }
+
+  @override
+  Future<void> updateMember(String id, {TeamRole? role, String? status}) async {
+    final i = team.indexWhere((m) => m.id == id);
+    final m = team[i];
+    team[i] = Member(
+      id: m.id,
+      userId: m.userId,
+      phone: m.phone,
+      fullName: m.fullName,
+      role: role?.api ?? m.role,
+      roleName: role?.label ?? m.roleName,
+      status: status ?? m.status,
+    );
+  }
+
+  @override
+  Future<void> removeMember(String id) async => team.removeWhere((m) => m.id == id);
+
+  @override
+  Future<MyDay> myDay() async => const MyDay(salesCount: 3, revenue: 14500, collected: 14500);
 
   // ---------- Profil ----------
   Me profile = demoMe;
@@ -202,7 +250,7 @@ class FakeRepo extends SamaRepository {
   Future<SaleDetail> sale(String id) async => id == 'voided' ? demoVoidedSale : demoSale;
 
   @override
-  Future<List<SaleSummary>> salesOfDay([DateTime? day]) async => [
+  Future<List<SaleSummary>> salesOfDay([DateTime? day, bool mine = false]) async => [
     SaleSummary(id: 's2', number: 'VEN-2026-0042', status: 'completed', customerName: 'Aminata Ba', total: 9000, due: 4000, soldAt: DateTime(2026, 11, 16, 11, 20)),
     SaleSummary(id: 'voided', number: 'VEN-2026-0041', status: 'voided', total: 3500, due: 0, soldAt: DateTime(2026, 11, 16, 10, 5)),
     SaleSummary(id: 's1', number: 'VEN-2026-0040', status: 'completed', total: 11600, due: 0, soldAt: DateTime(2026, 11, 16, 9, 42)),
@@ -252,10 +300,11 @@ Future<(ProviderContainer, FakeRepo)> pumpSama(
   WidgetTester tester, {
   String location = '/',
   List<Override> overrides = const [],
+  FakeRepo? repo,
 }) async {
   Motion.enabled = false; // animations d'ambiance infinies : incompatibles avec pumpAndSettle
   await initializeDateFormatting('fr');
-  final repo = FakeRepo();
+  repo ??= FakeRepo();
   final container = ProviderContainer(
     overrides: [
       sessionStoreProvider.overrideWithValue(MemorySessionStore()),

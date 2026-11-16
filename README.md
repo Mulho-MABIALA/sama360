@@ -78,7 +78,7 @@ Toutes les erreurs : `{ "error": { "code", "message", "details?" } }`.
 | GET / PATCH | `/v1/business` | `business:read` / `business:update` |
 | GET | `/v1/roles` | connecté |
 | GET / POST | `/v1/members` | `members:read` / `members:invite` |
-| PATCH | `/v1/members/:id` | `members:manage` |
+| PATCH / DELETE | `/v1/members/:id` | `members:manage` — rôle, suspension, retrait |
 | GET / POST | `/v1/contacts` | `contacts:read` / `contacts:write` |
 | GET / PATCH / DELETE | `/v1/contacts/:id` | idem |
 | GET / POST | `/v1/catalog/categories` | `catalog:read` / `catalog:write` |
@@ -87,9 +87,10 @@ Toutes les erreurs : `{ "error": { "code", "message", "details?" } }`.
 | POST / DELETE | `/v1/catalog/products/:id/image` | `catalog:write` — photo (multipart, champ `file`, JPEG/PNG/WebP, 5 Mo max) |
 | GET | `/v1/files/:id` | public — sert une photo (cache long, l'identifiant change à chaque nouvelle photo) |
 | POST | `/v1/sales` | `sales:create` — encaisser (idempotent si `id` fourni par le mobile) |
-| GET | `/v1/sales` · `/v1/sales/:id` | `sales:read` (`?from=&to=&customerId=&status=`) |
+| GET | `/v1/sales` · `/v1/sales/:id` | `sales:read` (`?from=&to=&customerId=&cashierId=&mine=true&status=`) |
 | POST | `/v1/sales/:id/void` | `sales:void` — annule : stock remis, dette annulée |
-| GET | `/v1/sales/summary` | `reports:read` — CA, coût, bénéfice, dépenses, encaissé, crédit (`?from=&to=`) |
+| GET | `/v1/sales/summary` | `reports:read` — CA, coût, bénéfice, dépenses, encaissé, crédit, ventes par vendeur (`?from=&to=`) |
+| GET | `/v1/sales/my-day` | `sales:create` — ma journée de vendeur (nombre, montant) |
 | GET | `/v1/sales/debtors` | `sales:read` — clients qui doivent de l'argent |
 | GET | `/v1/sales/customers/:id/ledger` | `sales:read` — carnet de crédit d'un client |
 | POST | `/v1/sales/customers/:id/repayments` | `sales:create` — remboursement |

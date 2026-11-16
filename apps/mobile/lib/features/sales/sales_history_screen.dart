@@ -21,13 +21,18 @@ class SalesHistoryScreen extends ConsumerWidget {
     final sales = ref.watch(salesTodayProvider);
     return AuroraScaffold(
       appBar: AppBar(
-        title: const Text("Ventes d'aujourd'hui", style: TextStyle(fontWeight: FontWeight.w800)),
+        title: Text(
+          ref.can('reports:read') ? "Ventes d'aujourd'hui" : 'Mes ventes du jour',
+          style: const TextStyle(fontWeight: FontWeight.w800),
+        ),
       ),
       body: AsyncView<List<SaleSummary>>(
         value: sales,
         onRetry: () => ref.invalidate(salesTodayProvider),
         data: (list) {
           final done = list.where((s) => s.status == 'completed');
+          // Plusieurs vendeurs aujourd'hui : on indique qui a fait chaque vente
+          final showSeller = list.map((s) => s.cashierName).whereType<String>().toSet().length > 1;
           final total = done.fold(0, (sum, s) => sum + s.total);
           return RefreshIndicator(
             onRefresh: () async => ref.invalidate(salesTodayProvider),
@@ -79,6 +84,7 @@ class SalesHistoryScreen extends ConsumerWidget {
                           [
                             DateFormat('HH:mm', 'fr').format(s.soldAt.toLocal()),
                             if (s.customerName != null) s.customerName!,
+                            if (showSeller && s.cashierName != null) 'par ${firstName(s.cashierName!)}',
                             if (s.status == 'voided') 'Annulée',
                           ].join(' · '),
                         ),

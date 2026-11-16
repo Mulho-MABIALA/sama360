@@ -10,6 +10,7 @@ import 'features/home/home_screen.dart';
 import 'features/inventory/stock_screen.dart';
 import 'features/profile/profile_screen.dart';
 import 'features/sales/pos_screen.dart';
+import 'features/team/team_screen.dart';
 import 'features/sales/receipt_screen.dart';
 import 'features/sales/sales_history_screen.dart';
 import 'features/shell/shell.dart';
@@ -56,6 +57,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (_, s) => LedgerScreen(customerId: s.pathParameters['id']!),
       ),
       GoRoute(path: '/account', builder: (_, _) => const ProfileScreen()),
+      GoRoute(path: '/team', builder: (_, _) => const TeamScreen()),
       GoRoute(path: '/sales', builder: (_, _) => const SalesHistoryScreen()),
       GoRoute(
         path: '/sales/:id',

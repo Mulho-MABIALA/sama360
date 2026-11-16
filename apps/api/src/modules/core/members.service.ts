@@ -25,6 +25,7 @@ export class MembersService {
         userId: users.id,
         phone: users.phone,
         fullName: users.fullName,
+        avatarFileId: users.avatarFileId,
         createdAt: memberships.createdAt,
       })
       .from(memberships)
@@ -114,6 +115,32 @@ export class MembersService {
         data: input,
       });
       return updated;
+    });
+  }
+
+  /** Retire un membre de l'entreprise (son compte et ses ventes passées restent). */
+  async remove(businessId: string, actorId: string, membershipId: string) {
+    return this.dbs.transaction(async (tx) => {
+      const [m] = await tx
+        .select({ id: memberships.id, roleId: memberships.roleId, userId: memberships.userId })
+        .from(memberships)
+        .where(and(eq(memberships.id, membershipId), eq(memberships.businessId, businessId)))
+        .limit(1);
+      if (!m) throw AppError.notFound('Membre');
+      if (m.roleId === SYSTEM_ROLE_IDS.owner) throw AppError.forbidden('Le propriétaire ne peut pas être retiré');
+      if (m.userId === actorId) throw AppError.forbidden('Vous ne pouvez pas vous retirer vous-même');
+
+      await tx.delete(memberships).where(eq(memberships.id, membershipId));
+      await tx.insert(auditLogs).values({
+        id: newId(),
+        businessId,
+        actorId,
+        action: 'member.removed',
+        entityType: 'membership',
+        entityId: membershipId,
+        data: { userId: m.userId },
+      });
+      return { id: membershipId, removed: true };
     });
   }
 }

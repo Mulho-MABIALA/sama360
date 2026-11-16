@@ -229,4 +229,55 @@ void main() {
     );
     expect((await repo.salesOfDay()).where((x) => x.id == saleId), hasLength(1));
   }, skip: skip, timeout: const Timeout(Duration(minutes: 1)));
+
+  test('équipe réelle : invitation d’un vendeur, ventes par vendeur, retrait', () async {
+    Future<(ApiClient, SamaRepository)> signIn(String phone, String name) async {
+      final store = MemorySessionStore();
+      final client = ApiClient(baseUrl: _api!, store: store);
+      final repo = SamaRepository(client);
+      await repo.requestOtp(phone);
+      final t = await repo.verifyOtp(phone, await _otpFor(phone));
+      await store.save(Session(accessToken: t.access, refreshToken: t.refresh));
+      await repo.updateName(name);
+      return (client, repo);
+    }
+
+    final ownerPhone = '+22177${Random().nextInt(9000000) + 1000000}';
+    final sellerPhone = '+22170${Random().nextInt(9000000) + 1000000}';
+    final (ownerApi, owner) = await signIn(ownerPhone, 'Khady Diop');
+    ownerApi.businessId = await owner.createBusiness(name: 'Khady Mode test', category: 'boutique', city: 'Dakar');
+    final pagne = await owner.createProduct(name: 'Pagne wax', price: 6000, cost: 3500);
+    await owner.addStock(pagne.id, 10);
+
+    // Invitation du vendeur (numéro saisi sans indicatif, comme dans l'app)
+    await owner.inviteMember(phone: sellerPhone, fullName: 'Ibou Ndiaye', role: TeamRole.cashier);
+    var team = await owner.members();
+    expect(team.firstWhere((m) => m.phone == sellerPhone).status, 'invited');
+
+    // Première connexion du vendeur : l'adhésion s'active
+    final (sellerApi, seller) = await signIn(sellerPhone, 'Ibou Ndiaye');
+    sellerApi.businessId = ownerApi.businessId;
+    final sellerBiz = await seller.currentBusiness();
+    expect(sellerBiz.role, 'cashier');
+    team = await owner.members();
+    expect(team.firstWhere((m) => m.phone == sellerPhone).status, 'active');
+
+    // Chacun vend
+    await owner.createSale(id: const Uuid().v7(), items: [(productId: pagne.id, quantity: 1.0)], payments: [(method: PayMethod.cash, amount: 6000)]);
+    await seller.createSale(id: const Uuid().v7(), items: [(productId: pagne.id, quantity: 2.0)], payments: [(method: PayMethod.wave, amount: 12000)]);
+
+    final summary = await owner.todaySummary();
+    expect(summary.bySeller.map((v) => (v.name, v.salesCount, v.revenue)), [('Ibou Ndiaye', 1, 12000), ('Khady Diop', 1, 6000)]);
+    final my = await seller.myDay();
+    expect((my.salesCount, my.revenue), (1, 12000));
+    expect((await seller.salesOfDay(null, true)).single.cashierName, 'Ibou Ndiaye');
+    await expectLater(seller.todaySummary(), throwsA(isA<ApiException>().having((e) => e.status, 'statut', 403)));
+    await expectLater(seller.members(), throwsA(isA<ApiException>().having((e) => e.status, 'statut', 403)));
+
+    // Retrait : le vendeur n'a plus accès, ses ventes restent
+    final member = team.firstWhere((m) => m.phone == sellerPhone);
+    await owner.removeMember(member.id);
+    await expectLater(seller.currentBusiness(), throwsA(isA<ApiException>().having((e) => e.status, 'statut', 403)));
+    expect((await owner.todaySummary()).salesCount, 2);
+  }, skip: skip, timeout: const Timeout(Duration(minutes: 1)));
 }

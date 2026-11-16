@@ -214,6 +214,7 @@ class DaySummary {
     required this.expenses,
     required this.collected,
     required this.receivables,
+    this.bySeller = const [],
   });
   final int salesCount;
   final int revenue;
@@ -223,6 +224,9 @@ class DaySummary {
   final int collected;
   final int receivables;
 
+  /// Ventes du jour par vendeur, du plus gros chiffre au plus petit.
+  final List<SellerStat> bySeller;
+
   factory DaySummary.fromJson(Map<String, dynamic> j) => DaySummary(
     salesCount: _int(j['salesCount']),
     revenue: _int(j['revenue']),
@@ -231,6 +235,95 @@ class DaySummary {
     expenses: _int(j['expenses']),
     collected: _int(j['collected']),
     receivables: _int(j['receivables']),
+    bySeller: [for (final v in (j['bySeller'] as List?) ?? const []) SellerStat.fromJson(v as Map<String, dynamic>)],
+  );
+}
+
+class SellerStat {
+  const SellerStat({
+    required this.userId,
+    required this.name,
+    this.avatarFileId,
+    required this.salesCount,
+    required this.revenue,
+  });
+  final String userId;
+  final String name;
+  final String? avatarFileId;
+  final int salesCount;
+  final int revenue;
+
+  factory SellerStat.fromJson(Map<String, dynamic> j) => SellerStat(
+    userId: j['userId'] as String,
+    name: j['name'] as String? ?? '',
+    avatarFileId: j['avatarFileId'] as String?,
+    salesCount: _int(j['salesCount']),
+    revenue: _int(j['revenue']),
+  );
+}
+
+/// « Ma journée » du vendeur connecté (sans coûts ni bénéfices).
+class MyDay {
+  const MyDay({required this.salesCount, required this.revenue, required this.collected});
+  final int salesCount;
+  final int revenue;
+  final int collected;
+
+  factory MyDay.fromJson(Map<String, dynamic> j) =>
+      MyDay(salesCount: _int(j['salesCount']), revenue: _int(j['revenue']), collected: _int(j['collected']));
+}
+
+/// Rôles proposés à l'invitation (le propriétaire ne s'invite pas).
+enum TeamRole {
+  manager('manager', 'Gérant', 'Gère tout sauf l’abonnement : ventes, stock, clients, rapports, invitations.'),
+  cashier(
+    'cashier',
+    'Vendeur / caissier',
+    'Vend et encaisse, voit le stock et les clients. Ne voit pas les bénéfices.',
+  ),
+  accountant('accountant', 'Comptable', 'Consulte les ventes, les rapports et les factures. Ne vend pas.');
+
+  const TeamRole(this.api, this.label, this.description);
+  final String api;
+  final String label;
+  final String description;
+
+  static TeamRole? fromApi(String? v) => TeamRole.values.where((r) => r.api == v).firstOrNull;
+}
+
+/// Membre de l'équipe (adhésion à l'entreprise).
+class Member {
+  const Member({
+    required this.id,
+    required this.userId,
+    required this.phone,
+    this.fullName,
+    required this.role,
+    required this.roleName,
+    required this.status,
+    this.avatarFileId,
+  });
+  final String id;
+  final String userId;
+  final String phone;
+  final String? fullName;
+  final String role;
+  final String roleName;
+  final String status; // active, invited, suspended
+  final String? avatarFileId;
+
+  bool get isOwner => role == 'owner';
+  String get displayName => (fullName ?? '').trim().isEmpty ? phone : fullName!;
+
+  factory Member.fromJson(Map<String, dynamic> j) => Member(
+    id: j['id'] as String,
+    userId: j['userId'] as String,
+    phone: j['phone'] as String,
+    fullName: j['fullName'] as String?,
+    role: j['role'] as String,
+    roleName: j['roleName'] as String? ?? j['role'] as String,
+    status: j['status'] as String? ?? 'active',
+    avatarFileId: j['avatarFileId'] as String?,
   );
 }
 
@@ -412,6 +505,7 @@ class SaleSummary {
     required this.number,
     required this.status,
     this.customerName,
+    this.cashierName,
     required this.total,
     required this.due,
     required this.soldAt,
@@ -420,6 +514,7 @@ class SaleSummary {
   final String number;
   final String status;
   final String? customerName;
+  final String? cashierName;
   final int total;
   final int due;
   final DateTime soldAt;
@@ -429,6 +524,7 @@ class SaleSummary {
     number: j['number'] as String,
     status: j['status'] as String? ?? 'completed',
     customerName: j['customerName'] as String?,
+    cashierName: j['cashierName'] as String?,
     total: _int(j['total']),
     // La liste renvoie « paid » ; le détail renvoie aussi « due ».
     due: j['due'] != null ? _int(j['due']) : _int(j['total']) - _int(j['paid']),

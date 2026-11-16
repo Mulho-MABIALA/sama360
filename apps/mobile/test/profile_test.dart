@@ -77,7 +77,8 @@ void main() {
   testWidgets('déconnecter tous les appareils', (tester) async {
     phoneSize(tester);
     final (c, repo) = await pumpSama(tester, location: '/account');
-    await tester.scrollUntilVisible(find.text('Déconnecter tous les appareils'), 200, scrollable: find.byType(Scrollable).first);
+    await tester.ensureVisible(find.text('Déconnecter tous les appareils'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Déconnecter tous les appareils'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Tout déconnecter'));

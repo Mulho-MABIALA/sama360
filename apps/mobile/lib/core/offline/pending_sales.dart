@@ -247,6 +247,7 @@ class PendingSalesController extends Notifier<List<PendingSale>> {
     ref.invalidate(debtorsProvider);
     ref.invalidate(ledgerProvider);
     ref.invalidate(salesTodayProvider);
+    ref.invalidate(myDayProvider);
   }
 }
 

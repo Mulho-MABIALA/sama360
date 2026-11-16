@@ -166,4 +166,28 @@ void main() {
     await tester.tap(find.byTooltip("Ventes d'aujourd'hui"));
     await _shot(tester, '10c_hors_ligne_historique');
   });
+
+  testWidgets('équipe', (tester) async {
+    phoneSize(tester);
+    await pumpSama(tester, location: '/team');
+    await _shot(tester, '11_equipe');
+  });
+
+  testWidgets('équipe : invitation', (tester) async {
+    phoneSize(tester);
+    await pumpSama(tester, location: '/team');
+    await tester.tap(find.text('Inviter'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const Key('invitePhone')), '70 123 45 67');
+    await tester.enterText(find.byKey(const Key('inviteName')), 'Ibou Ndiaye');
+    FocusManager.instance.primaryFocus?.unfocus();
+    await _shot(tester, '11b_equipe_invitation');
+  });
+
+  testWidgets('accueil : vendeurs du jour', (tester) async {
+    phoneSize(tester);
+    await pumpSama(tester);
+    await tester.drag(find.byType(Scrollable).first, const Offset(0, -900));
+    await _shot(tester, '11c_vendeurs_du_jour');
+  });
 }

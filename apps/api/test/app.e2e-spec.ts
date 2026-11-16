@@ -351,6 +351,22 @@ describe('Socle Sama360 (e2e)', () => {
       const blocked = await http.get('/v1/catalog/products').set(auth(moussa.accessToken, awaBiz)).expect(403);
       expect(blocked.body.error.code).toBe('NOT_A_MEMBER');
     });
+
+    it('retire un membre (pas le propriétaire) et liste l’équipe avec les photos', async () => {
+      const A = auth(awa.accessToken, awaBiz);
+      const inv = await http.post('/v1/members').set(A).send({ phone: '77 000 00 77', roleKey: 'accountant' }).expect(201);
+      const list = (await http.get('/v1/members').set(A).expect(200)).body as { id: string; role: string }[];
+      expect(list.find((m) => m.id === inv.body.id)).toMatchObject({ role: 'accountant', avatarFileId: null });
+
+      await http.delete(`/v1/members/${inv.body.id}`).set(A).expect(200);
+      const after = (await http.get('/v1/members').set(A)).body as { id: string; role: string }[];
+      expect(after.some((m) => m.id === inv.body.id)).toBe(false);
+      await http.delete(`/v1/members/${inv.body.id}`).set(A).expect(404);
+
+      const owner = after.find((m) => m.role === 'owner')!;
+      const res = await http.delete(`/v1/members/${owner.id}`).set(A).expect(403);
+      expect(res.body.error.message).toContain('propriétaire');
+    });
   });
 
   describe('Ventes et stock', () => {
@@ -597,6 +613,24 @@ describe('Socle Sama360 (e2e)', () => {
         .send({ ...body, id: undefined, soldAt: new Date(Date.now() - 100 * 24 * 3600 * 1000).toISOString() })
         .expect(422);
       expect(tooOld.body.error.message).toContain('trop ancienne');
+    });
+
+    it('ventes par vendeur : classement du gérant, « ma journée » du vendeur', async () => {
+      const s = (await http.get('/v1/sales/summary').set(A()).expect(200)).body;
+      expect(s.bySeller).toEqual([
+        expect.objectContaining({ name: 'Awa Diallo', salesCount: 1, revenue: 11600 }),
+        expect.objectContaining({ name: CAISSIER, salesCount: 1, revenue: 100 }),
+      ]);
+
+      const C = auth(cashier.accessToken, awaBiz);
+      const mine = await http.get('/v1/sales/my-day').set(C).expect(200);
+      expect(mine.body).toMatchObject({ salesCount: 1, revenue: 100, collected: 100 });
+
+      const list = (await http.get('/v1/sales?mine=true').set(C).expect(200)).body.data;
+      expect(list).toHaveLength(1);
+      expect(list[0]).toMatchObject({ total: 100, cashierName: CAISSIER });
+      const all = (await http.get('/v1/sales').set(A()).expect(200)).body.data as { cashierName: string }[];
+      expect(new Set(all.map((x) => x.cashierName))).toEqual(new Set(['Awa Diallo', CAISSIER]));
     });
 
     it('ajuste le stock par inventaire physique', async () => {

@@ -80,10 +80,13 @@ class Avatar extends StatelessWidget {
       height: size,
       alignment: Alignment.center,
       decoration: BoxDecoration(color: bg, shape: BoxShape.circle),
-      child: Text(
-        initials(name),
-        style: TextStyle(color: fg, fontWeight: FontWeight.w800, fontSize: size * 0.36),
-      ),
+      // Pas de nom (ou seulement un numéro) : silhouette plutôt que « + » ou « ? »
+      child: RegExp(r'[A-Za-zÀ-ÿ]').hasMatch(name ?? '')
+          ? Text(
+              initials(name),
+              style: TextStyle(color: fg, fontWeight: FontWeight.w800, fontSize: size * 0.36),
+            )
+          : Icon(Icons.person_rounded, color: fg, size: size * 0.56),
     );
     if (imageUrl == null) return letters;
     return ClipOval(

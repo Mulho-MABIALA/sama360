@@ -5,7 +5,7 @@ import { z } from 'zod';
 import { AuthUser, TenantContext } from '../../shared/auth/auth.types';
 import { CurrentTenant, CurrentUser, RequireModule, RequirePermission } from '../../shared/auth/decorators';
 import { DbService } from '../../shared/db/db.service';
-import { contacts, customerLedger, expenses, sales } from '../../shared/db/schema';
+import { contacts, customerLedger, expenses, sales, users } from '../../shared/db/schema';
 import { AppError } from '../../shared/http/app-error';
 import { PageQuery, parse } from '../../shared/http/zod';
 import { SalesService } from './sales.service';
@@ -52,6 +52,9 @@ const ListSales = PageQuery.extend({
   from: day.optional(),
   to: day.optional(),
   customerId: z.string().uuid().optional(),
+  cashierId: z.string().uuid().optional(),
+  /** « true » : seulement mes ventes (vendeur connecté). */
+  mine: z.enum(['true', 'false']).optional(),
   status: z.enum(['completed', 'voided']).optional(),
 });
 const Period = z.object({ from: day.optional(), to: day.optional() });
@@ -85,10 +88,12 @@ export class SalesController {
 
   @Get()
   @RequirePermission('sales:read')
-  list(@CurrentTenant() t: TenantContext, @Query() query: unknown) {
+  list(@CurrentTenant() t: TenantContext, @CurrentUser() user: AuthUser, @Query() query: unknown) {
     const q = parse(ListSales, query);
     return this.dbs.withTenant(t.businessId, async (tx) => {
       const where: SQL[] = [];
+      if (q.cashierId) where.push(eq(sales.cashierId, q.cashierId));
+      if (q.mine === 'true') where.push(eq(sales.cashierId, user.id));
       if (q.from) where.push(gte(sales.soldAt, startOf(q.from)));
       if (q.to) where.push(lt(sales.soldAt, endOf(q.to)));
       if (q.customerId) where.push(eq(sales.customerId, q.customerId));
@@ -101,12 +106,15 @@ export class SalesController {
           status: sales.status,
           customerId: sales.customerId,
           customerName: contacts.name,
+          cashierId: sales.cashierId,
+          cashierName: sql<string | null>`coalesce(${users.fullName}, ${users.phone})`,
           total: sales.total,
           paid: sales.paid,
           soldAt: sales.soldAt,
         })
         .from(sales)
         .leftJoin(contacts, eq(contacts.id, sales.customerId))
+        .leftJoin(users, eq(users.id, sales.cashierId))
         .where(where.length ? and(...where) : undefined)
         .orderBy(desc(sales.id))
         .limit(q.limit + 1);
@@ -160,6 +168,16 @@ export class SalesController {
           GROUP BY i.product_id, i.name ORDER BY revenue DESC LIMIT 5`)
       ).rows as { product_id: string | null; name: string; quantity: string; revenue: string }[];
 
+      // Ventes par vendeur (le nom, à défaut le numéro de téléphone)
+      const sellers = (
+        await tx.execute(sql`
+          SELECT s.cashier_id, coalesce(u.full_name, u.phone) AS name, u.avatar_file_id,
+                 count(*)::int AS count, coalesce(sum(s.total), 0)::bigint AS revenue
+          FROM sales.sales s JOIN core.users u ON u.id = s.cashier_id
+          WHERE s.status = 'completed' AND s.sold_at >= ${start} AND s.sold_at < ${end}
+          GROUP BY s.cashier_id, u.full_name, u.phone, u.avatar_file_id ORDER BY revenue DESC`)
+      ).rows as { cashier_id: string; name: string; avatar_file_id: string | null; count: number; revenue: string }[];
+
       const receivables = (
         await tx.execute(sql`SELECT coalesce(sum(amount), 0)::bigint AS total FROM sales.customer_ledger`)
       ).rows[0] as { total: string };
@@ -179,12 +197,42 @@ export class SalesController {
         onCredit: Number(totals.on_credit),
         receivables: Number(receivables.total), // total dû par tous les clients, toutes périodes
         byMethod: byMethod.map((m) => ({ method: m.method, amount: Number(m.amount) })),
+        bySeller: sellers.map((v) => ({
+          userId: v.cashier_id,
+          name: v.name,
+          avatarFileId: v.avatar_file_id,
+          salesCount: Number(v.count),
+          revenue: Number(v.revenue),
+        })),
         topProducts: top.map((p) => ({
           productId: p.product_id,
           name: p.name,
           quantity: Number(p.quantity),
           revenue: Number(p.revenue),
         })),
+      };
+    });
+  }
+
+  /** Ma journée de vendeur : nombre de ventes et montant (sans coûts ni bénéfices). */
+  @Get('my-day')
+  @RequirePermission('sales:create')
+  myDay(@CurrentTenant() t: TenantContext, @CurrentUser() user: AuthUser) {
+    const [start, end] = [startOf(today()), endOf(today())];
+    return this.dbs.withTenant(t.businessId, async (tx) => {
+      const row = (
+        await tx.execute(sql`
+          SELECT count(*)::int AS count,
+                 coalesce(sum(total), 0)::bigint AS revenue,
+                 coalesce(sum(paid), 0)::bigint AS collected
+          FROM sales.sales
+          WHERE status = 'completed' AND cashier_id = ${user.id} AND sold_at >= ${start} AND sold_at < ${end}`)
+      ).rows[0] as { count: number; revenue: string; collected: string };
+      return {
+        date: today(),
+        salesCount: Number(row.count),
+        revenue: Number(row.revenue),
+        collected: Number(row.collected),
       };
     });
   }

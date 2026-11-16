@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, ParseUUIDPipe, Patch, Post } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, ParseUUIDPipe, Patch, Post } from '@nestjs/common';
 import { z } from 'zod';
 import { AuthUser, TenantContext } from '../../shared/auth/auth.types';
 import { CurrentTenant, CurrentUser, RequirePermission } from '../../shared/auth/decorators';
@@ -89,5 +89,15 @@ export class CoreController {
     @Body() body: unknown,
   ) {
     return this.members.update(tenant.businessId, user.id, id, parse(UpdateMember, body));
+  }
+
+  @Delete('members/:id')
+  @RequirePermission('members:manage')
+  removeMember(
+    @CurrentTenant() tenant: TenantContext,
+    @CurrentUser() user: AuthUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.members.remove(tenant.businessId, user.id, id);
   }
 }

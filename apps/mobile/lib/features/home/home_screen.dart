@@ -32,11 +32,15 @@ const _mainServices = [
   _Service('Dépenses', Icons.account_balance_wallet_rounded, Color(0xFFE0533D), route: 'expense'),
   _Service('Factures', Icons.receipt_long_rounded, Color(0xFF7A5AF8), soon: true),
   _Service('Boutique', Icons.storefront_rounded, Color(0xFF0E9384), soon: true),
-  _Service('Paiements', Icons.qr_code_2_rounded, Color(0xFF1D7AF0), soon: true),
 ];
+
+/// 7e tuile : l'équipe pour qui peut la voir, sinon les paiements (bientôt).
+const _teamService = _Service('Équipe', Icons.groups_rounded, Color(0xFFDB2777), route: '/team');
+const _paymentsService = _Service('Paiements', Icons.qr_code_2_rounded, Color(0xFF1D7AF0), soon: true);
 
 /// Services des vagues 2 et 3, listés derrière « Plus ».
 const _moreServices = [
+  _paymentsService,
   _Service('Documents', Icons.folder_rounded, Color(0xFF6B7280), soon: true),
   _Service('Livraison', Icons.local_shipping_rounded, Color(0xFFD9822B), soon: true),
   _Service('Réservation', Icons.event_available_rounded, Color(0xFF2F6FDB), soon: true),
@@ -61,6 +65,8 @@ class HomeScreen extends ConsumerWidget {
         showInfo(context, '${s.name} arrive bientôt sur Sama360');
       } else if (s.route == 'expense') {
         _addExpense(context, ref);
+      } else if (s.route == '/team') {
+        context.push('/team');
       } else {
         context.go(s.route!);
       }
@@ -97,13 +103,18 @@ class HomeScreen extends ConsumerWidget {
                     crossAxisSpacing: 10,
                     childAspectRatio: 0.78,
                     children: [
-                      for (final s in _mainServices) _ServiceTile(service: s, onTap: () => open(s)),
+                      for (final s in [
+                        ..._mainServices,
+                        if (ref.can('members:read')) _teamService else _paymentsService,
+                      ])
+                        _ServiceTile(service: s, onTap: () => open(s)),
                       _ServiceTile(
                         service: const _Service('Plus', Icons.apps_rounded, Color(0xFF13241C)),
                         onTap: () => _showMore(context, open),
                       ),
                     ],
                   ),
+                  if (canReports) const _SellersOfDay(),
                   const SizedBox(height: 22),
                   const _SectionTitle('À la une'),
                   const SizedBox(height: 10),
@@ -416,13 +427,41 @@ class _CashCard extends ConsumerWidget {
             ),
             const SizedBox(height: 12),
             if (!showFigures)
+              // Vendeur : sa propre journée, sans coûts ni bénéfices
               Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  const Expanded(
-                    child: Text(
-                      'Prêt à encaisser ?',
-                      style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: Colors.white),
-                    ),
+                  Expanded(
+                    child: switch (ref.watch(myDayProvider)) {
+                      AsyncData(:final value) => Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text('Mes ventes', style: TextStyle(fontSize: 12.5, color: _muted)),
+                          FittedBox(
+                            fit: BoxFit.scaleDown,
+                            alignment: Alignment.centerLeft,
+                            child: Text(
+                              moneyShort(value.revenue),
+                              style: const TextStyle(
+                                fontSize: 30,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: -0.8,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ),
+                          Text(
+                            '${value.salesCount} vente${value.salesCount > 1 ? 's' : ''} aujourd’hui',
+                            style: const TextStyle(fontSize: 12.5, color: _muted),
+                          ),
+                          const _PendingNote(),
+                        ],
+                      ),
+                      _ => const Text(
+                        'Prêt à encaisser ?',
+                        style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: Colors.white),
+                      ),
+                    },
                   ),
                   actions,
                 ],
@@ -505,6 +544,102 @@ class _CashCard extends ConsumerWidget {
               ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Classement des vendeurs du jour (dès qu'au moins deux personnes ont vendu).
+class _SellersOfDay extends ConsumerWidget {
+  const _SellersOfDay();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final sellers = ref.watch(summaryProvider).value?.bySeller ?? const [];
+    if (sellers.length < 2) return const SizedBox.shrink();
+    final best = sellers.first.revenue == 0 ? 1 : sellers.first.revenue;
+    final repo = ref.read(repoProvider);
+    return Padding(
+      padding: const EdgeInsets.only(top: 22),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              const Expanded(child: _SectionTitle('Vendeurs du jour')),
+              TextButton(onPressed: () => context.push('/team'), child: const Text('Équipe')),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Glass(
+            radius: 22,
+            padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+            child: Column(
+              children: [
+                for (final (i, v) in sellers.take(4).indexed)
+                  Padding(
+                    padding: EdgeInsets.only(top: i == 0 ? 0 : 12),
+                    child: Row(
+                      children: [
+                        Stack(
+                          clipBehavior: Clip.none,
+                          children: [
+                            Avatar(
+                              name: v.name,
+                              size: 40,
+                              imageUrl: v.avatarFileId == null ? null : repo.fileUrl(v.avatarFileId!),
+                            ),
+                            if (i == 0)
+                              const Positioned(
+                                right: -4,
+                                top: -6,
+                                child: Icon(Icons.emoji_events_rounded, size: 18, color: AppColors.saffron),
+                              ),
+                          ],
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      v.name.startsWith('+221') ? '+221 ${displayPhone(v.name)}' : v.name,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(fontWeight: FontWeight.w800),
+                                    ),
+                                  ),
+                                  Text(moneyShort(v.revenue), style: const TextStyle(fontWeight: FontWeight.w800)),
+                                ],
+                              ),
+                              const SizedBox(height: 5),
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(4),
+                                child: LinearProgressIndicator(
+                                  value: v.revenue / best,
+                                  minHeight: 6,
+                                  backgroundColor: AppColors.line,
+                                  color: i == 0 ? AppColors.green : AppColors.leaf.withValues(alpha: 0.7),
+                                ),
+                              ),
+                              const SizedBox(height: 3),
+                              Text(
+                                '${v.salesCount} vente${v.salesCount > 1 ? 's' : ''}',
+                                style: const TextStyle(fontSize: 12, color: AppColors.muted),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

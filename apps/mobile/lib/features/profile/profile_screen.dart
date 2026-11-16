@@ -251,6 +251,15 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                           value: 'sama360.com/${business.slug}',
                           hint: 'Bientôt disponible',
                         ),
+                      if (ref.can('members:read'))
+                        _Row(
+                          icon: Icons.groups_rounded,
+                          color: const Color(0xFFDB2777),
+                          label: 'Équipe',
+                          value: 'Mon équipe',
+                          hint: ref.can('members:invite') ? 'Inviter un vendeur ou un gérant' : null,
+                          onTap: () => context.push('/team'),
+                        ),
                       if ((me.businesses.length) > 1)
                         _Row(
                           icon: Icons.business_center_rounded,
