@@ -83,8 +83,35 @@ class FakeRepo extends SamaRepository {
     return Product(id: productId, name: 'x', price: 0, cost: 0, imageFileId: 'f-$productId');
   }
 
+  /// Logo de l'entreprise (null : pas de logo).
+  String? logoFileId;
+  int logoUploads = 0;
+
   @override
-  Future<CurrentBusiness> currentBusiness() async => demoBusiness;
+  Future<CurrentBusiness> currentBusiness() async => logoFileId == null
+      ? demoBusiness
+      : CurrentBusiness(
+          id: demoBusiness.id,
+          name: demoBusiness.name,
+          slug: demoBusiness.slug,
+          city: demoBusiness.city,
+          phone: demoBusiness.phone,
+          address: demoBusiness.address,
+          logoFileId: logoFileId,
+          role: demoBusiness.role,
+          permissions: demoBusiness.permissions,
+          modules: demoBusiness.modules,
+        );
+
+  @override
+  Future<void> uploadBusinessLogo(List<int> bytes, {String filename = 'logo.png'}) async =>
+      logoFileId = 'logo-${++logoUploads}';
+
+  @override
+  Future<void> deleteBusinessLogo() async => logoFileId = null;
+
+  @override
+  Future<List<int>?> fileBytes(String fileId) async => null;
   @override
   Future<List<Category>> categories() async => const [
     Category(id: 'c1', name: 'Soins'),

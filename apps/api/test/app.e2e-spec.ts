@@ -650,6 +650,38 @@ describe('Socle Sama360 (e2e)', () => {
     });
   });
 
+  describe('Logo de l’entreprise', () => {
+    const png = Buffer.from(
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
+      'base64',
+    );
+    it('ajoute, remplace et retire le logo ; réservé au propriétaire ou gérant', async () => {
+      const A = auth(awa.accessToken, awaBiz);
+      const first = await http.post('/v1/business/logo').set(A).attach('file', png, { filename: 'logo.png' }).expect(201);
+      expect((await http.get('/v1/business').set(A).expect(200)).body.business.logoFileId).toBe(first.body.logoFileId);
+      await http.get(`/v1/files/${first.body.logoFileId}`).expect(200);
+
+      const second = await http.post('/v1/business/logo').set(A).attach('file', png, { filename: 'logo.png' }).expect(201);
+      expect(second.body.logoFileId).not.toBe(first.body.logoFileId);
+      await http.get(`/v1/files/${first.body.logoFileId}`).expect(404);
+
+      await http
+        .post('/v1/business/logo')
+        .set(auth(cashierToken, awaBiz))
+        .attach('file', png, { filename: 'logo.png' })
+        .expect(403);
+      await http
+        .post('/v1/business/logo')
+        .set(A)
+        .attach('file', Buffer.from('<svg/>'), { filename: 'x.png' })
+        .expect(422);
+
+      await http.delete('/v1/business/logo').set(A).expect(200);
+      expect((await http.get('/v1/business').set(A).expect(200)).body.business.logoFileId).toBeNull();
+      await http.get(`/v1/files/${second.body.logoFileId}`).expect(404);
+    });
+  });
+
   describe('Factures et devis', () => {
     const A = () => auth(awa.accessToken, awaBiz);
     const year = new Date().getUTCFullYear();

@@ -1,7 +1,20 @@
-import { Body, Controller, Delete, Get, Param, ParseUUIDPipe, Patch, Post } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  ParseUUIDPipe,
+  Patch,
+  Post,
+  UploadedFile,
+  UseInterceptors,
+} from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { z } from 'zod';
 import { AuthUser, TenantContext } from '../../shared/auth/auth.types';
 import { CurrentTenant, CurrentUser, RequirePermission } from '../../shared/auth/decorators';
+import { env } from '../../shared/config/env';
 import { AppError } from '../../shared/http/app-error';
 import { parse } from '../../shared/http/zod';
 import { normalizePhone } from '../../shared/phone';
@@ -52,6 +65,29 @@ export class CoreController {
   async current(@CurrentTenant() tenant: TenantContext) {
     const data = await this.businesses.getCurrent(tenant.businessId);
     return { ...data, me: { role: tenant.roleKey, permissions: tenant.permissions } };
+  }
+
+  /** Logo de l'entreprise (JPEG, PNG ou WebP), affiché sur les factures et devis. */
+  @Post('business/logo')
+  @RequirePermission('business:update')
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 20 * 1024 * 1024, files: 1 } }))
+  setLogo(
+    @CurrentTenant() tenant: TenantContext,
+    @CurrentUser() user: AuthUser,
+    @UploadedFile() file?: { buffer: Buffer; size: number },
+  ) {
+    if (!file?.buffer?.length) throw new AppError('VALIDATION_FAILED', 'Ajoutez une image (champ « file »)', 422);
+    const maxMb = env().MAX_UPLOAD_MB;
+    if (file.size > maxMb * 1024 * 1024) {
+      throw new AppError('PAYLOAD_TOO_LARGE', `Image trop lourde (maximum ${maxMb} Mo)`, 413);
+    }
+    return this.businesses.setLogo(tenant.businessId, user.id, file.buffer);
+  }
+
+  @Delete('business/logo')
+  @RequirePermission('business:update')
+  removeLogo(@CurrentTenant() tenant: TenantContext) {
+    return this.businesses.removeLogo(tenant.businessId);
   }
 
   @Patch('business')

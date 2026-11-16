@@ -11,6 +11,7 @@ import '../../core/providers.dart';
 import '../../core/theme.dart';
 import '../../core/widgets.dart';
 import '../auth/auth_controller.dart';
+import '../business/business_logo.dart';
 import '../catalog/product_photo.dart';
 import '../offline/offline_ui.dart';
 
@@ -243,6 +244,44 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                         ),
                         onTap: () => context.push('/business'),
                       ),
+                      if (business != null && ref.can('business:update'))
+                        InkWell(
+                          borderRadius: BorderRadius.circular(16),
+                          onTap: () => changeBusinessLogo(context, ref, business),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+                            child: Row(
+                              children: [
+                                BusinessLogo(business: business, size: 38, radius: 12),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      const Text(
+                                        'Logo',
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color: AppColors.muted,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                      Text(
+                                        business.logoFileId == null ? 'Ajouter un logo' : 'Changer le logo',
+                                        style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+                                      ),
+                                      const Text(
+                                        'Affiché sur vos factures et devis',
+                                        style: TextStyle(fontSize: 11.5, color: AppColors.muted),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const Icon(Icons.chevron_right_rounded, color: AppColors.muted),
+                              ],
+                            ),
+                          ),
+                        ),
                       if (business != null)
                         _Row(
                           icon: Icons.language_rounded,

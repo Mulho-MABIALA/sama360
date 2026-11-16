@@ -9,6 +9,7 @@ import '../../core/models.dart';
 import '../../core/providers.dart';
 import '../../core/theme.dart';
 import '../../core/widgets.dart';
+import '../business/business_logo.dart';
 
 /// Couleurs d'un statut (fond, texte) — contrastes ≥ 4,5:1.
 (Color, Color) docStatusColors(String status, {bool overdue = false}) {
@@ -153,6 +154,7 @@ class _InvoicesScreenState extends ConsumerState<InvoicesScreen> {
           padding: const EdgeInsets.fromLTRB(16, 0, 16, 100),
           children: [
             if (summary != null) _SummaryCard(summary: summary),
+            const AddLogoHint(),
             const SizedBox(height: 14),
             // Factures | Devis
             Glass(

@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:dio/dio.dart' show Options, ResponseType;
+
 import 'api/api_client.dart';
 import 'models.dart';
 import 'offline/kv_store.dart';
@@ -91,6 +93,29 @@ class SamaRepository {
 
   Future<CurrentBusiness> currentBusiness() async =>
       CurrentBusiness.fromJson(await _cachedGet<Map<String, dynamic>>('/v1/business'));
+
+  /// Logo de l'entreprise (factures, devis, reçus).
+  Future<void> uploadBusinessLogo(List<int> bytes, {String filename = 'logo.png'}) =>
+      api.upload<void>('/v1/business/logo', bytes, filename: filename);
+
+  Future<void> deleteBusinessLogo() => api.delete<void>('/v1/business/logo');
+
+  final _fileCache = <String, List<int>>{};
+
+  /// Octets d'un fichier public (logo pour les PDF), gardés en mémoire.
+  Future<List<int>?> fileBytes(String fileId) async {
+    final hit = _fileCache[fileId];
+    if (hit != null) return hit;
+    try {
+      final r = await api.dio.get<List<int>>(
+        '/v1/files/$fileId',
+        options: Options(responseType: ResponseType.bytes, extra: {'public': true}),
+      );
+      return _fileCache[fileId] = r.data!;
+    } catch (_) {
+      return null; // hors ligne : document sans logo
+    }
+  }
 
   // ---------- Catalogue ----------
   Future<List<Category>> categories() async => (await _cachedGet<List<dynamic>>(

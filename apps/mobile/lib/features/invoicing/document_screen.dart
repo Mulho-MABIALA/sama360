@@ -13,6 +13,7 @@ import '../../core/providers.dart';
 import '../../core/theme.dart';
 import '../../core/widgets.dart';
 import '../sales/receipt_screen.dart' show receiptActionsProvider, whatsAppUri;
+import '../business/business_logo.dart';
 import 'invoice_pdf.dart';
 import 'invoices_screen.dart' show DocStatusPill;
 
@@ -36,6 +37,12 @@ class _DocumentScreenState extends ConsumerState<DocumentScreen> {
     } finally {
       if (mounted) setState(() => _busy = null);
     }
+  }
+
+  /// PDF avec le logo de l'entreprise s'il est disponible.
+  Future<List<int>> _pdf(DocDetail d, CurrentBusiness b) async {
+    final logo = b.logoFileId == null ? null : await ref.read(repoProvider).fileBytes(b.logoFileId!);
+    return buildDocumentPdf(d, b, logo: logo);
   }
 
   Future<void> _action(DocDetail d, String action, String done) => _run(action, () async {
@@ -133,6 +140,7 @@ class _DocumentScreenState extends ConsumerState<DocumentScreen> {
                     _StatusBanner(doc: d),
                     const SizedBox(height: 12),
                     DocumentPaper(doc: d, business: b),
+                    const AddLogoHint(),
                     if (d.related != null) ...[
                       const SizedBox(height: 12),
                       Glass(
@@ -188,7 +196,7 @@ class _DocumentScreenState extends ConsumerState<DocumentScreen> {
                               label: 'PDF',
                               busy: _busy == 'pdf',
                               onTap: () => _run('pdf', () async {
-                                await actions.sharePdf(await buildDocumentPdf(d, b), docFileName(d));
+                                await actions.sharePdf(await _pdf(d, b), docFileName(d));
                               }),
                             ),
                           ),

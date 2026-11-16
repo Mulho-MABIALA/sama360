@@ -72,6 +72,7 @@ Toutes les erreurs : `{ "error": { "code", "message", "details?" } }`.
 | POST | `/v1/auth/refresh` | public — rotation du jeton de rafraîchissement |
 | POST | `/v1/auth/logout` | public |
 | GET / PATCH | `/v1/me` | connecté — profil + entreprises |
+| POST / DELETE | `/v1/business/logo` | `business:update` — logo de l'entreprise (factures, devis) |
 | POST / DELETE | `/v1/me/avatar` | connecté — photo de profil (multipart, champ `file`) |
 | POST | `/v1/me/logout-all` | connecté — déconnecte tous les appareils |
 | POST | `/v1/businesses` | connecté — crée une entreprise (devient propriétaire) |

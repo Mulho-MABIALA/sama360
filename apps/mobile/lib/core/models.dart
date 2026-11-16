@@ -69,6 +69,7 @@ class CurrentBusiness {
     this.phone,
     this.address,
     this.ninea,
+    this.logoFileId,
     required this.role,
     required this.permissions,
     required this.modules,
@@ -80,6 +81,7 @@ class CurrentBusiness {
   final String? phone;
   final String? address;
   final String? ninea;
+  final String? logoFileId;
   final String role;
   final List<String> permissions;
   final List<String> modules;
@@ -95,6 +97,7 @@ class CurrentBusiness {
       phone: b['phone'] as String?,
       address: b['address'] as String?,
       ninea: b['ninea'] as String?,
+      logoFileId: b['logoFileId'] as String?,
       role: me['role'] as String,
       permissions: List<String>.from(me['permissions'] as List),
       modules: ((j['modules'] as List?) ?? const [])

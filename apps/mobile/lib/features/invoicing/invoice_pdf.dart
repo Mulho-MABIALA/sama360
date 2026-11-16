@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:intl/intl.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
@@ -55,7 +57,7 @@ String prettyPhone(String e164) {
 String docFileName(DocDetail d) => '${d.isQuote ? 'Devis' : 'Facture'}-${d.number}.pdf';
 
 /// Devis / facture au format A4.
-Future<List<int>> buildDocumentPdf(DocDetail d, CurrentBusiness b, {ReceiptFonts? fonts}) async {
+Future<List<int>> buildDocumentPdf(DocDetail d, CurrentBusiness b, {ReceiptFonts? fonts, List<int>? logo}) async {
   final f = fonts ?? await ReceiptFonts.load();
   const green = PdfColor.fromInt(0xFF097E4F);
   const ink = PdfColor.fromInt(0xFF13241C);
@@ -82,6 +84,15 @@ Future<List<int>> buildDocumentPdf(DocDetail d, CurrentBusiness b, {ReceiptFonts
     if (b.ninea != null) 'NINEA ${b.ninea}',
   ].where((x) => x.isNotEmpty);
 
+  pw.ImageProvider? logoImage;
+  if (logo != null && logo.isNotEmpty) {
+    try {
+      logoImage = pw.MemoryImage(Uint8List.fromList(logo));
+    } catch (_) {
+      logoImage = null; // image illisible : document sans logo
+    }
+  }
+
   final doc = pw.Document(title: '${d.kind.label} ${d.number}', author: b.name, creator: 'Sama360');
   doc.addPage(
     pw.MultiPage(
@@ -98,6 +109,13 @@ Future<List<int>> buildDocumentPdf(DocDetail d, CurrentBusiness b, {ReceiptFonts
         pw.Row(
           crossAxisAlignment: pw.CrossAxisAlignment.start,
           children: [
+            if (logoImage != null)
+              pw.Container(
+                width: 64,
+                height: 64,
+                margin: const pw.EdgeInsets.only(right: 12),
+                child: pw.Image(logoImage, fit: pw.BoxFit.contain),
+              ),
             pw.Expanded(
               child: pw.Column(
                 crossAxisAlignment: pw.CrossAxisAlignment.start,

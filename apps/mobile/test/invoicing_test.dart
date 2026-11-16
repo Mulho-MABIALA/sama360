@@ -5,6 +5,7 @@ import 'package:intl/date_symbol_data_local.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:sama360/core/models.dart';
 import 'package:sama360/core/repositories.dart';
+import 'package:sama360/features/catalog/product_photo.dart';
 import 'package:sama360/features/invoicing/invoice_pdf.dart';
 import 'package:sama360/features/sales/receipt.dart';
 
@@ -67,6 +68,21 @@ void main() {
       final bytes = await buildDocumentPdf(sampleInvoice(), demoBusiness, fonts: await ReceiptFonts.load());
       expect(ascii.decode(bytes.sublist(0, 5)), '%PDF-');
       expect(bytes.length, greaterThan(3000));
+    });
+
+    test('PDF A4 avec le logo de l’entreprise', () async {
+      final png = base64Decode(
+        'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
+      );
+      final fonts = await ReceiptFonts.load();
+      final without = await buildDocumentPdf(sampleInvoice(), demoBusiness, fonts: fonts);
+      final withLogo = await buildDocumentPdf(sampleInvoice(), demoBusiness, fonts: fonts, logo: png);
+      expect(ascii.decode(withLogo.sublist(0, 5)), '%PDF-');
+      expect(latin1.decode(withLogo), contains('/Subtype/Image'));
+      expect(latin1.decode(without), isNot(contains('/Subtype/Image')));
+      // Une image illisible ne bloque pas le document
+      final broken = await buildDocumentPdf(sampleInvoice(), demoBusiness, fonts: fonts, logo: [1, 2, 3]);
+      expect(ascii.decode(broken.sublist(0, 5)), '%PDF-');
     });
 
     test('corps envoyé à l’API', () {
@@ -185,5 +201,25 @@ void main() {
     await tester.pumpAndSettle();
     expect(repo.docs['f9']!.status, 'cancelled');
     expect(find.text('Annulée'), findsOneWidget);
+  });
+
+  testWidgets('logo : ajouté depuis le profil, proposé sur les factures', (tester) async {
+    phoneSize(tester);
+    final png = base64Decode(
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
+    );
+    final (_, repo) = await pumpSama(
+      tester,
+      location: '/invoices',
+      overrides: [photoPickerProvider.overrideWithValue((_) async => PickedPhoto(png, 'logo.png'))],
+    );
+    expect(find.text('Ajoutez votre logo'), findsOneWidget);
+    await tester.tap(find.text('Ajoutez votre logo'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Choisir dans la galerie'));
+    await tester.pumpAndSettle();
+    expect(repo.logoFileId, 'logo-1');
+    expect(find.text('Logo enregistré'), findsOneWidget);
+    expect(find.text('Ajoutez votre logo'), findsNothing);
   });
 }

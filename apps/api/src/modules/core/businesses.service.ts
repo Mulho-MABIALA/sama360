@@ -6,6 +6,7 @@ import { businesses, memberships, moduleActivations, roles, subscriptions } from
 import { OutboxService } from '../../shared/events/outbox.service';
 import { AppError } from '../../shared/http/app-error';
 import { newId } from '../../shared/ids';
+import { FilesService } from '../files/files.service';
 import { SYSTEM_ROLE_IDS } from './roles';
 import { slugify } from './slug';
 
@@ -23,6 +24,7 @@ export class BusinessesService {
   constructor(
     private readonly dbs: DbService,
     private readonly outbox: OutboxService,
+    private readonly files: FilesService,
   ) {}
 
   /**
@@ -96,6 +98,38 @@ export class BusinessesService {
       .where(eq(businesses.id, businessId))
       .returning();
     return { business };
+  }
+
+  /** Logo de l'entreprise (en-tête des factures, devis et reçus) : remplace l'ancien. */
+  async setLogo(businessId: string, userId: string, data: Buffer) {
+    return this.dbs.withTenant(businessId, async (tx) => {
+      const [before] = await tx
+        .select({ logoFileId: businesses.logoFileId })
+        .from(businesses)
+        .where(eq(businesses.id, businessId))
+        .for('update')
+        .limit(1);
+      if (!before) throw AppError.notFound('Entreprise');
+      const saved = await this.files.saveImage(tx, { businessId, kind: 'logo', data, createdBy: userId });
+      await tx.update(businesses).set({ logoFileId: saved.id, updatedAt: new Date() }).where(eq(businesses.id, businessId));
+      if (before.logoFileId) await this.files.remove(tx, before.logoFileId);
+      return { logoFileId: saved.id };
+    });
+  }
+
+  async removeLogo(businessId: string) {
+    return this.dbs.withTenant(businessId, async (tx) => {
+      const [before] = await tx
+        .select({ logoFileId: businesses.logoFileId })
+        .from(businesses)
+        .where(eq(businesses.id, businessId))
+        .for('update')
+        .limit(1);
+      if (!before) throw AppError.notFound('Entreprise');
+      await tx.update(businesses).set({ logoFileId: null, updatedAt: new Date() }).where(eq(businesses.id, businessId));
+      if (before.logoFileId) await this.files.remove(tx, before.logoFileId);
+      return { logoFileId: null };
+    });
   }
 
   async systemRoles() {
