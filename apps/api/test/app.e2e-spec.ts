@@ -573,6 +573,32 @@ describe('Socle Sama360 (e2e)', () => {
       expect(summary).toMatchObject({ salesCount: 2, revenue: 11700 }); // 11 600 + 100 (vente annulée exclue)
     });
 
+    it('enregistre une vente faite hors ligne à sa vraie date, une seule fois', async () => {
+      const id = '01937a00-0000-7000-8000-00000000a001';
+      const soldAt = new Date(Date.now() - 2 * 24 * 3600 * 1000).toISOString();
+      const body = {
+        id,
+        soldAt,
+        items: [{ name: 'Retouche', quantity: 1, unitPrice: 500 }],
+        payments: [{ method: 'cash', amount: 500 }],
+      };
+      const first = await http.post('/v1/sales').set(A()).send(body).expect(201);
+      expect(first.body.soldAt).toBe(soldAt);
+      // Le téléphone renvoie la vente (réseau coupé pendant la réponse) : même vente
+      const again = await http.post('/v1/sales').set(A()).send(body).expect(200);
+      expect(again.body.number).toBe(first.body.number);
+      // Elle ne compte pas dans le résumé d'aujourd'hui
+      const today = (await http.get('/v1/sales/summary').set(A()).expect(200)).body;
+      expect(today).toMatchObject({ salesCount: 2, revenue: 11700 });
+
+      const tooOld = await http
+        .post('/v1/sales')
+        .set(A())
+        .send({ ...body, id: undefined, soldAt: new Date(Date.now() - 100 * 24 * 3600 * 1000).toISOString() })
+        .expect(422);
+      expect(tooOld.body.error.message).toContain('trop ancienne');
+    });
+
     it('ajuste le stock par inventaire physique', async () => {
       const res = await http
         .post('/v1/inventory/counts')

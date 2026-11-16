@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../../core/glass.dart';
+import '../offline/offline_ui.dart';
 import '../../core/providers.dart';
 import '../../core/theme.dart';
 import '../../core/widgets.dart';
@@ -18,7 +19,7 @@ class AppShell extends StatelessWidget {
     // Les pages passent sous la barre : le verre floute leur fond.
     extendBody: true,
     padBottom: false,
-    body: shell,
+    body: SyncScheduler(child: shell),
     // Barre flottante en verre dépoli.
     bottomNavigationBar: SafeArea(
       top: false,

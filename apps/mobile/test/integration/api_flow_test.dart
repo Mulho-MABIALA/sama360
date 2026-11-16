@@ -10,10 +10,14 @@ import 'dart:io';
 import 'dart:math';
 
 import 'package:dio/dio.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sama360/core/api/api_client.dart';
 import 'package:sama360/core/api/session_store.dart';
 import 'package:sama360/core/models.dart';
+import 'package:sama360/core/offline/kv_store.dart';
+import 'package:sama360/core/offline/pending_sales.dart';
+import 'package:sama360/core/providers.dart';
 import 'package:sama360/core/repositories.dart';
 import 'package:uuid/uuid.dart';
 
@@ -159,5 +163,70 @@ void main() {
     expect(expired, isFalse);
     expect((await store.read())!.refreshToken, isNot(t.refresh)); // jeton renouvelé une fois
     expect((await repo.me()).fullName, 'Moussa Fall'); // la nouvelle session fonctionne
+  }, skip: skip, timeout: const Timeout(Duration(minutes: 1)));
+
+  test('hors ligne réel : lecture depuis le cache, vente gardée puis envoyée au retour du réseau', () async {
+    final store = MemorySessionStore();
+    final client = ApiClient(baseUrl: _api!, store: store);
+    final cache = MemoryStore();
+    final repo = SamaRepository(client, cache: cache);
+    final phone = '+22176${Random().nextInt(9000000) + 1000000}';
+    await repo.requestOtp(phone);
+    final t = await repo.verifyOtp(phone, await _otpFor(phone));
+    await store.save(Session(accessToken: t.access, refreshToken: t.refresh));
+    await repo.updateName('Fatou Sarr');
+    client.businessId = await repo.createBusiness(name: 'Fatou Tissus test', category: 'boutique', city: 'Thiès');
+    final bazin = await repo.createProduct(name: 'Bazin riche 1 m', price: 5000, cost: 3000);
+    await repo.addStock(bazin.id, 10);
+    await _eventually(repo.stock, (s) => s.items.any((i) => i.productId == bazin.id && i.onHand == 10));
+    await repo.products(); // l'app a chargé la caisse une fois avec du réseau
+
+    // Coupure : l'API n'est plus joignable
+    client.dio.options.baseUrl = 'http://127.0.0.1:9';
+    expect((await repo.products()).single.name, 'Bazin riche 1 m');
+    expect(client.online.value, isFalse);
+
+    final container = ProviderContainer(
+      overrides: [
+        sessionStoreProvider.overrideWithValue(store),
+        keyValueStoreProvider.overrideWithValue(MemoryStore()),
+        repoProvider.overrideWithValue(repo),
+      ],
+    );
+    addTearDown(container.dispose);
+    final soldAt = DateTime.now().subtract(const Duration(minutes: 20));
+    final saleId = const Uuid().v7();
+    final outcome = await container.read(pendingSalesProvider.notifier).checkout(
+      id: saleId,
+      businessId: client.businessId!,
+      lines: [(product: bazin, quantity: 2.0)],
+      payments: [(method: PayMethod.cash, amount: 10000)],
+      total: 10000,
+      now: soldAt,
+    );
+    expect(outcome, isA<SaleQueued>());
+
+    // Retour du réseau
+    client.dio.options.baseUrl = _api!;
+    final report = await container.read(pendingSalesProvider.notifier).sync();
+    expect(report.sent, 1);
+    expect(container.read(pendingSalesProvider), isEmpty);
+
+    final sale = await repo.sale(saleId);
+    expect(sale.total, 10000);
+    expect(sale.soldAt.toUtc().difference(soldAt.toUtc()).inSeconds.abs(), lessThan(1)); // heure du téléphone gardée
+    final stock = await _eventually(repo.stock, (s) => s.items.single.onHand == 8);
+    expect(stock.items.single.onHand, 8);
+
+    // Renvoi (réponse perdue) : toujours une seule vente
+    await container.read(pendingSalesProvider.notifier).checkout(
+      id: saleId,
+      businessId: client.businessId!,
+      lines: [(product: bazin, quantity: 2.0)],
+      payments: [(method: PayMethod.cash, amount: 10000)],
+      total: 10000,
+      now: soldAt,
+    );
+    expect((await repo.salesOfDay()).where((x) => x.id == saleId), hasLength(1));
   }, skip: skip, timeout: const Timeout(Duration(minutes: 1)));
 }

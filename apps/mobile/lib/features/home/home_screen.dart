@@ -10,6 +10,8 @@ import '../../core/providers.dart';
 import '../../core/theme.dart';
 import '../../core/widgets.dart';
 import '../auth/auth_controller.dart';
+import '../../core/offline/pending_sales.dart';
+import '../offline/offline_ui.dart';
 import '../profile/profile_screen.dart';
 import 'promo_carousel.dart';
 
@@ -83,6 +85,7 @@ class HomeScreen extends ConsumerWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
+                  const SyncBanner(padding: EdgeInsets.only(bottom: 14)),
                   if (lowStock > 0) ...[_LowStockBanner(count: lowStock), const SizedBox(height: 18)],
                   const _SectionTitle('Vos services'),
                   const SizedBox(height: 10),
@@ -467,6 +470,7 @@ class _CashCard extends ConsumerWidget {
                                 '${s.salesCount} vente${s.salesCount > 1 ? 's' : ''} aujourd’hui',
                                 style: const TextStyle(fontSize: 12.5, color: _muted),
                               ),
+                              const _PendingNote(),
                             ],
                           ),
                         ),
@@ -501,6 +505,33 @@ class _CashCard extends ConsumerWidget {
               ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// « + 7 500 F en attente d'envoi » : ventes faites hors ligne, pas encore dans le total du serveur.
+class _PendingNote extends ConsumerWidget {
+  const _PendingNote();
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final waiting = ref.watch(pendingForBusinessProvider).where((p) => !p.failed);
+    if (waiting.isEmpty) return const SizedBox.shrink();
+    final total = waiting.fold(0, (s, p) => s + p.total);
+    return Padding(
+      padding: const EdgeInsets.only(top: 4),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.cloud_upload_rounded, size: 14, color: Color(0xFFFFC28F)),
+          const SizedBox(width: 4),
+          Flexible(
+            child: Text(
+              '+ ${moneyShort(total)} en attente d’envoi',
+              style: const TextStyle(fontSize: 12, color: Color(0xFFFFC28F), fontWeight: FontWeight.w700),
+            ),
+          ),
+        ],
       ),
     );
   }

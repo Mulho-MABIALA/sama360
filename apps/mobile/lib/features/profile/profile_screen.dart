@@ -12,6 +12,7 @@ import '../../core/theme.dart';
 import '../../core/widgets.dart';
 import '../auth/auth_controller.dart';
 import '../catalog/product_photo.dart';
+import '../offline/offline_ui.dart';
 
 /// Version affichée dans « À propos » (même valeur que pubspec.yaml).
 const appVersion = '1.0.0';
@@ -118,9 +119,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Déconnecter tous les appareils ?'),
-        content: const Text(
+        content: Text(
           'Vous serez déconnecté de ce téléphone et de tous les autres. '
-          'Il faudra recevoir un nouveau code pour vous reconnecter.',
+          'Il faudra recevoir un nouveau code pour vous reconnecter.'
+          '${unsentSalesCount(ref) > 0 ? '\n\nLes ventes pas encore envoyées depuis ce téléphone seront perdues.' : ''}',
         ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Annuler')),
@@ -141,10 +143,19 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   }
 
   Future<void> _signOut() async {
+    final unsent = unsentSalesCount(ref);
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Se déconnecter ?'),
+        content: unsent == 0
+            ? null
+            : Text(
+                unsent == 1
+                    ? 'Attention : 1 vente n’a pas encore été envoyée. Elle sera perdue si vous vous déconnectez.'
+                    : 'Attention : $unsent ventes n’ont pas encore été envoyées. Elles seront perdues si vous vous déconnectez.',
+                style: const TextStyle(color: AppColors.danger),
+              ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Annuler')),
           TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Déconnexion')),

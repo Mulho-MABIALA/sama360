@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/api/api_client.dart';
 import '../../core/api/session_store.dart';
 import '../../core/models.dart';
+import '../../core/offline/pending_sales.dart';
 import '../../core/providers.dart';
 
 class AuthState {
@@ -78,6 +79,7 @@ class AuthController extends AsyncNotifier<AuthState> {
   /// Déconnecte tous les appareils (celui-ci compris).
   Future<void> signOutEverywhere() async {
     await ref.read(repoProvider).logoutAll();
+    await ref.read(pendingSalesProvider.notifier).clear();
     await _clearLocal();
   }
 
@@ -99,6 +101,8 @@ class AuthController extends AsyncNotifier<AuthState> {
   }
 
   Future<void> signOut() async {
+    // Les ventes pas encore envoyées sont abandonnées (l'écran prévient avant).
+    await ref.read(pendingSalesProvider.notifier).clear();
     final session = await _store.read();
     if (session != null) {
       try {
@@ -115,6 +119,7 @@ class AuthController extends AsyncNotifier<AuthState> {
 
   Future<void> _clearLocal() async {
     await _store.clear();
+    await ref.read(repoProvider).clearCache();
     _api.businessId = null;
     state = const AsyncData(AuthState());
   }

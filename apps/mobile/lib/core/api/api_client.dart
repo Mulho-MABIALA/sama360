@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart' show ValueNotifier;
 
 import 'session_store.dart';
 
@@ -13,6 +14,9 @@ class ApiException implements Exception {
   final Object? details;
 
   static const network = 'NETWORK';
+
+  /// Pas de réponse du serveur (pas de réseau, délai dépassé) : on peut réessayer plus tard.
+  bool get isNetwork => code == network;
 
   /// Valeur numérique d'un détail, ex. remainingAttempts.
   int? detailInt(String key) {
@@ -52,12 +56,16 @@ class ApiClient {
   /// Entreprise courante, envoyée dans X-Business-Id.
   String? businessId;
 
+  /// Faux dès qu'une requête échoue faute de réseau, vrai à la première réponse du serveur.
+  final online = ValueNotifier<bool>(true);
+
   Future<Session?>? _refreshing;
 
   Future<void> _onRequest(RequestOptions o, RequestInterceptorHandler h) async {
     final s = await store.read();
     if (s != null && o.extra['public'] != true) o.headers['Authorization'] = 'Bearer ${s.accessToken}';
-    if (businessId != null && o.extra['noBusiness'] != true) o.headers['X-Business-Id'] = businessId;
+    // Une requête peut viser une autre entreprise (ex. vente hors ligne envoyée plus tard).
+    if (businessId != null && o.extra['noBusiness'] != true) o.headers.putIfAbsent('X-Business-Id', () => businessId);
     h.next(o);
   }
 
@@ -115,11 +123,11 @@ class ApiClient {
   Future<T> get<T>(String path, {Map<String, dynamic>? query}) =>
       _wrap(() => dio.get<T>(path, queryParameters: _clean(query)));
 
-  Future<T> post<T>(String path, {Object? data, bool public = false}) => _wrap(
+  Future<T> post<T>(String path, {Object? data, bool public = false, String? businessId}) => _wrap(
     () => dio.post<T>(
       path,
       data: data ?? const {},
-      options: Options(extra: {'public': public}),
+      options: Options(extra: {'public': public}, headers: businessId == null ? null : {'X-Business-Id': businessId}),
     ),
   );
 
@@ -138,9 +146,13 @@ class ApiClient {
 
   Future<T> _wrap<T>(Future<Response<T>> Function() call) async {
     try {
-      return (await call()).data as T;
+      final data = (await call()).data as T;
+      online.value = true;
+      return data;
     } on DioException catch (e) {
-      throw toApiException(e);
+      final err = toApiException(e);
+      online.value = !err.isNetwork;
+      throw err;
     }
   }
 

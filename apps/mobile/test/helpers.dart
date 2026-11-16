@@ -58,7 +58,7 @@ StockItem _stock(Product p, double onHand) => StockItem(
 class FakeRepo extends SamaRepository {
   FakeRepo() : super(ApiClient(baseUrl: 'http://localhost', store: MemorySessionStore()));
 
-  final sales = <Map<String, Object?>>[];
+  final sales = <Map<String, dynamic>>[];
   final createdProducts = <String>[];
   final uploads = <String, int>{}; // productId → taille de la photo envoyée
   int saleCounter = 0;
@@ -130,17 +130,28 @@ class FakeRepo extends SamaRepository {
     ],
   );
 
+  /// Vrai : simule une coupure réseau (toutes les ventes échouent sans réponse).
+  bool offline = false;
+
+  /// Identifiants de vente qui seront refusés par le « serveur ».
+  final rejectIds = <String>{};
+
   @override
-  Future<SaleResult> createSale({
-    required String id,
-    String? customerId,
-    required List<({String productId, double quantity})> items,
-    required List<({PayMethod method, int amount})> payments,
-  }) async {
-    sales.add({'id': id, 'customerId': customerId, 'items': items, 'payments': payments});
-    saleCounter++;
-    final total = items.fold<int>(0, (s, i) => s + (demoProducts.firstWhere((p) => p.id == i.productId).price * i.quantity).round());
-    final paid = payments.fold<int>(0, (s, p) => s + p.amount);
+  Future<SaleResult> postSale(Map<String, dynamic> body, {String? businessId}) async {
+    if (offline) throw const ApiException(ApiException.network, 'Connexion impossible au serveur.');
+    final id = body['id'] as String;
+    if (rejectIds.contains(id)) throw const ApiException('NOT_FOUND', 'Produit introuvable (ligne 1)', status: 404);
+    final existing = sales.indexWhere((x) => x['id'] == id);
+    if (existing < 0) {
+      sales.add(body);
+      saleCounter++;
+    }
+    final items = (body['items'] as List).cast<Map>();
+    final total = items.fold<int>(
+      0,
+      (s, i) => s + (demoProducts.firstWhere((p) => p.id == i['productId']).price * (i['quantity'] as num)).round(),
+    );
+    final paid = (body['payments'] as List).cast<Map>().fold<int>(0, (s, p) => s + (p['amount'] as num).toInt());
     return SaleResult(id: id, number: 'VEN-2026-000$saleCounter', total: total, paid: paid, due: total - paid);
   }
 

@@ -30,3 +30,22 @@ describe('priceSale', () => {
     expect(() => priceSale([line()], 7001)).toThrow(/Remise/);
   });
 });
+
+import { saleDate } from './sales.service';
+
+describe('saleDate (ventes hors ligne)', () => {
+  const now = new Date('2026-11-16T10:00:00Z');
+  it('garde la date du téléphone', () => {
+    const d = new Date('2026-11-15T18:30:00Z');
+    expect(saleDate(d, now)).toEqual(d);
+  });
+  it('ramène une horloge en avance à maintenant', () => {
+    expect(saleDate(new Date('2026-11-17T10:00:00Z'), now)).toEqual(now);
+  });
+  it('sans date : maintenant', () => {
+    expect(saleDate(undefined, now)).toEqual(now);
+  });
+  it('refuse une vente de plus de 90 jours', () => {
+    expect(() => saleDate(new Date('2026-07-01T10:00:00Z'), now)).toThrow('trop ancienne');
+  });
+});

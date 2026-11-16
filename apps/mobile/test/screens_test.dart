@@ -3,7 +3,6 @@ import 'dart:ui' show Tristate;
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
-import 'package:sama360/core/models.dart';
 import 'package:sama360/features/catalog/product_photo.dart';
 
 import 'helpers.dart';
@@ -47,7 +46,9 @@ void main() {
     expect(repo.sales, hasLength(1));
     final sale = repo.sales.single;
     expect(sale['id'], matches(RegExp(r'^[0-9a-f-]{36}$')));
-    expect(sale['payments'], [(method: PayMethod.cash, amount: 11000)]);
+    expect(sale['payments'], [
+      {'method': 'cash', 'amount': 11000},
+    ]);
 
     await tester.tap(find.widgetWithText(OutlinedButton, 'Nouvelle vente'));
     await tester.pumpAndSettle();

@@ -1,10 +1,50 @@
+import 'dart:async';
+import 'dart:convert';
+
 import 'api/api_client.dart';
 import 'models.dart';
+import 'offline/kv_store.dart';
 
 /// Toutes les routes de l'API utilisées par l'app, regroupées et typées.
+///
+/// Hors ligne : les lectures principales gardent leur dernière réponse dans [cache]
+/// et la renvoient quand le serveur est injoignable (l'app reste utilisable au marché).
 class SamaRepository {
-  SamaRepository(this.api);
+  SamaRepository(this.api, {KeyValueStore? cache}) : cache = cache ?? MemoryStore();
   final ApiClient api;
+  final KeyValueStore cache;
+
+  static const cachePrefix = 'cache:v1:';
+
+  /// Clé de cache : par entreprise (ou par utilisateur), chemin et paramètres triés.
+  String cacheKey(String path, {Map<String, dynamic>? query, bool user = false}) {
+    final q = (query?.entries.where((e) => e.value != null).toList() ?? [])..sort((a, b) => a.key.compareTo(b.key));
+    final qs = q.map((e) => '${e.key}=${e.value}').join('&');
+    return '$cachePrefix${user ? 'user' : (api.businessId ?? '-')}:$path${qs.isEmpty ? '' : '?$qs'}';
+  }
+
+  /// Lecture avec repli sur la dernière réponse connue si le réseau manque.
+  Future<T> _cachedGet<T>(String path, {Map<String, dynamic>? query, bool user = false}) async {
+    final key = cacheKey(path, query: query, user: user);
+    try {
+      final data = await api.get<T>(path, query: query);
+      unawaited(cache.setString(key, jsonEncode(data)));
+      return data;
+    } on ApiException catch (e) {
+      if (!e.isNetwork) rethrow;
+      final saved = _fromCache<T>(path, query: query, user: user);
+      if (saved == null) rethrow;
+      return saved;
+    }
+  }
+
+  T? _fromCache<T>(String path, {Map<String, dynamic>? query, bool user = false}) {
+    final saved = cache.getString(cacheKey(path, query: query, user: user));
+    return saved == null ? null : jsonDecode(saved) as T;
+  }
+
+  /// Efface les données gardées pour le hors ligne (déconnexion).
+  Future<void> clearCache() => cache.removePrefix(cachePrefix);
 
   // ---------- Authentification ----------
   Future<String> requestOtp(String phone) async {
@@ -24,7 +64,7 @@ class SamaRepository {
   Future<void> logout(String refreshToken) =>
       api.post<void>('/v1/auth/logout', data: {'refreshToken': refreshToken}, public: true);
 
-  Future<Me> me() async => Me.fromJson(await api.get<Map<String, dynamic>>('/v1/me'));
+  Future<Me> me() async => Me.fromJson(await _cachedGet<Map<String, dynamic>>('/v1/me', user: true));
 
   Future<void> updateName(String fullName) => api.patch<void>('/v1/me', data: {'fullName': fullName});
 
@@ -50,19 +90,35 @@ class SamaRepository {
   }
 
   Future<CurrentBusiness> currentBusiness() async =>
-      CurrentBusiness.fromJson(await api.get<Map<String, dynamic>>('/v1/business'));
+      CurrentBusiness.fromJson(await _cachedGet<Map<String, dynamic>>('/v1/business'));
 
   // ---------- Catalogue ----------
-  Future<List<Category>> categories() async => (await api.get<List<dynamic>>(
+  Future<List<Category>> categories() async => (await _cachedGet<List<dynamic>>(
     '/v1/catalog/categories',
   )).map((e) => Category.fromJson(e as Map<String, dynamic>)).toList();
 
   Future<List<Product>> products({String? search, String? categoryId}) async {
-    final r = await api.get<Map<String, dynamic>>(
-      '/v1/catalog/products',
-      query: {'limit': 100, 'search': search, 'categoryId': categoryId},
-    );
-    return (r['data'] as List).map((e) => Product.fromJson(e as Map<String, dynamic>)).toList();
+    const path = '/v1/catalog/products';
+    const all = {'limit': 100};
+    List<Product> parse(Map<String, dynamic> r) =>
+        (r['data'] as List).map((e) => Product.fromJson(e as Map<String, dynamic>)).toList();
+    if (search == null && categoryId == null) return parse(await _cachedGet<Map<String, dynamic>>(path, query: all));
+    try {
+      return parse(
+        await api.get<Map<String, dynamic>>(path, query: {...all, 'search': search, 'categoryId': categoryId}),
+      );
+    } on ApiException catch (e) {
+      // Hors ligne : recherche dans le dernier catalogue connu
+      final saved = e.isNetwork ? _fromCache<Map<String, dynamic>>(path, query: all) : null;
+      if (saved == null) rethrow;
+      final q = search?.toLowerCase();
+      return parse(saved)
+          .where(
+            (p) =>
+                (categoryId == null || p.categoryId == categoryId) && (q == null || p.name.toLowerCase().contains(q)),
+          )
+          .toList();
+    }
   }
 
   Future<Product> createProduct({
@@ -97,7 +153,7 @@ class SamaRepository {
 
   // ---------- Stock ----------
   Future<StockOverview> stock({bool lowOnly = false}) async => StockOverview.fromJson(
-    await api.get<Map<String, dynamic>>('/v1/inventory/stock', query: {'lowOnly': lowOnly ? 'true' : null}),
+    await _cachedGet<Map<String, dynamic>>('/v1/inventory/stock', query: {'lowOnly': lowOnly ? 'true' : null}),
   );
 
   Future<void> addStock(String productId, double quantity, {int? unitCost}) => api.post<void>(
@@ -106,60 +162,86 @@ class SamaRepository {
   );
 
   // ---------- Ventes ----------
+  /// Corps de POST /v1/sales. L'identifiant vient du téléphone : renvoyer la même vente
+  /// (hors ligne, réseau coupé pendant la réponse) ne crée jamais de doublon.
+  static Map<String, dynamic> saleBody({
+    required String id,
+    String? customerId,
+    required List<({String productId, double quantity})> items,
+    required List<({PayMethod method, int amount})> payments,
+    DateTime? soldAt,
+  }) => {
+    'id': id,
+    'customerId': ?customerId,
+    'items': [
+      for (final i in items) {'productId': i.productId, 'quantity': i.quantity},
+    ],
+    'payments': [
+      for (final p in payments) {'method': p.method.api, 'amount': p.amount},
+    ],
+    if (soldAt != null) 'soldAt': soldAt.toUtc().toIso8601String(),
+  };
+
   Future<SaleResult> createSale({
     required String id,
     String? customerId,
     required List<({String productId, double quantity})> items,
     required List<({PayMethod method, int amount})> payments,
-  }) async => SaleResult.fromJson(
-    await api.post<Map<String, dynamic>>(
-      '/v1/sales',
-      data: {
-        'id': id,
-        'customerId': ?customerId,
-        'items': [
-          for (final i in items) {'productId': i.productId, 'quantity': i.quantity},
-        ],
-        'payments': [
-          for (final p in payments) {'method': p.method.api, 'amount': p.amount},
-        ],
-      },
-    ),
-  );
+  }) => postSale(saleBody(id: id, customerId: customerId, items: items, payments: payments));
 
-  Future<SaleDetail> sale(String id) async => SaleDetail.fromJson(await api.get<Map<String, dynamic>>('/v1/sales/$id'));
+  /// Envoie une vente déjà préparée, éventuellement pour une autre entreprise que la courante.
+  Future<SaleResult> postSale(Map<String, dynamic> body, {String? businessId}) async =>
+      SaleResult.fromJson(await api.post<Map<String, dynamic>>('/v1/sales', data: body, businessId: businessId));
+
+  Future<SaleDetail> sale(String id) async =>
+      SaleDetail.fromJson(await _cachedGet<Map<String, dynamic>>('/v1/sales/$id'));
 
   /// Ventes d'une journée (aujourd'hui par défaut), les plus récentes d'abord.
   Future<List<SaleSummary>> salesOfDay([DateTime? day]) async {
     final d = (day ?? DateTime.now()).toUtc().toIso8601String().substring(0, 10);
-    final r = await api.get<Map<String, dynamic>>('/v1/sales', query: {'from': d, 'to': d, 'limit': 100});
+    final r = await _cachedGet<Map<String, dynamic>>('/v1/sales', query: {'from': d, 'to': d, 'limit': 100});
     return (r['data'] as List).map((e) => SaleSummary.fromJson(e as Map<String, dynamic>)).toList();
   }
 
   Future<DaySummary> todaySummary() async =>
-      DaySummary.fromJson(await api.get<Map<String, dynamic>>('/v1/sales/summary'));
+      DaySummary.fromJson(await _cachedGet<Map<String, dynamic>>('/v1/sales/summary'));
 
   Future<void> addExpense({required String category, required int amount}) =>
       api.post<void>('/v1/sales/expenses', data: {'category': category, 'amount': amount, 'method': 'cash'});
 
   // ---------- Clients et carnet de crédit ----------
   Future<List<Contact>> customers({String? search}) async {
-    final r = await api.get<Map<String, dynamic>>(
-      '/v1/contacts',
-      query: {'limit': 100, 'search': search, 'type': 'customer'},
-    );
-    return (r['data'] as List).map((e) => Contact.fromJson(e as Map<String, dynamic>)).toList();
+    const path = '/v1/contacts';
+    const all = {'limit': 100, 'type': 'customer'};
+    List<Contact> parse(Map<String, dynamic> r) =>
+        (r['data'] as List).map((e) => Contact.fromJson(e as Map<String, dynamic>)).toList();
+    if (search == null || search.isEmpty) return parse(await _cachedGet<Map<String, dynamic>>(path, query: all));
+    try {
+      return parse(await api.get<Map<String, dynamic>>(path, query: {...all, 'search': search}));
+    } on ApiException catch (e) {
+      final saved = e.isNetwork ? _fromCache<Map<String, dynamic>>(path, query: all) : null;
+      if (saved == null) rethrow;
+      final q = search.toLowerCase();
+      final digits = search.replaceAll(RegExp(r'\D'), '');
+      return parse(saved)
+          .where(
+            (c) =>
+                c.name.toLowerCase().contains(q) ||
+                (digits.length >= 3 && (c.phone ?? '').replaceAll(RegExp(r'\D'), '').contains(digits)),
+          )
+          .toList();
+    }
   }
 
   Future<Contact> createCustomer({required String name, String? phone}) async =>
       Contact.fromJson(await api.post<Map<String, dynamic>>('/v1/contacts', data: {'name': name, 'phone': ?phone}));
 
-  Future<List<Debtor>> debtors() async => (await api.get<List<dynamic>>(
+  Future<List<Debtor>> debtors() async => (await _cachedGet<List<dynamic>>(
     '/v1/sales/debtors',
   )).map((e) => Debtor.fromJson(e as Map<String, dynamic>)).toList();
 
   Future<Ledger> ledger(String customerId) async =>
-      Ledger.fromJson(await api.get<Map<String, dynamic>>('/v1/sales/customers/$customerId/ledger'));
+      Ledger.fromJson(await _cachedGet<Map<String, dynamic>>('/v1/sales/customers/$customerId/ledger'));
 
   Future<int> repay(String customerId, int amount, PayMethod method) async {
     final r = await api.post<Map<String, dynamic>>(

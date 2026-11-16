@@ -6,9 +6,11 @@ import 'package:material_ui/material_ui.dart';
 import '../../core/format.dart';
 import '../../core/glass.dart';
 import '../../core/models.dart';
+import '../../core/offline/pending_sales.dart';
 import '../../core/providers.dart';
 import '../../core/theme.dart';
 import '../../core/widgets.dart';
+import '../offline/offline_ui.dart';
 
 /// Ventes du jour : retrouver une vente et renvoyer son reçu.
 class SalesHistoryScreen extends ConsumerWidget {
@@ -44,7 +46,8 @@ class SalesHistoryScreen extends ConsumerWidget {
                   ],
                 ),
                 const SizedBox(height: 12),
-                if (list.isEmpty)
+                const PendingSalesSection(),
+                if (list.isEmpty && ref.watch(pendingForBusinessProvider).isEmpty)
                   const Padding(
                     padding: EdgeInsets.all(32),
                     child: Text(

@@ -81,3 +81,17 @@ SAMA_SCREENSHOTS=1 flutter test test/screenshots_test.dart --update-goldens
 - Mode hors ligne (base locale + synchronisation `/v1/sync`).
 - Impression / partage du reçu après une vente.
 - Factures et devis PDF, paiements Wave / Orange Money en ligne.
+
+## Mode hors ligne
+
+- **Lecture** : les dernières réponses de l'API (profil, entreprise, catalogue, stock, clients,
+  résumé du jour, ventes du jour, carnet de crédit) sont gardées sur le téléphone et réutilisées
+  quand le serveur est injoignable. La recherche de produits et de clients fonctionne dans ces données.
+- **Ventes** : sans réseau, l'encaissement est gardé dans une file sur le téléphone
+  (`core/offline/pending_sales.dart`), avec l'heure de la vente. La file part toute seule
+  (toutes les 30 s, au retour de l'app au premier plan, ou via « Envoyer »), dans l'ordre.
+  Chaque vente garde son identifiant : un renvoi ne crée jamais de doublon côté serveur.
+- **Refus du serveur** (produit supprimé…) : la vente est mise de côté « à vérifier » dans
+  l'historique, avec le motif ; on peut la renvoyer ou la supprimer.
+- Le stock affiché retire les ventes pas encore envoyées.
+- La déconnexion efface le cache et prévient s'il reste des ventes non envoyées.

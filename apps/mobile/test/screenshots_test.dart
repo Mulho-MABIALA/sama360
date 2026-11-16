@@ -10,6 +10,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:sama360/core/api/session_store.dart';
+import 'package:sama360/core/models.dart';
+import 'package:sama360/core/offline/pending_sales.dart';
 import 'package:sama360/core/providers.dart';
 import 'package:sama360/features/auth/auth_controller.dart';
 import 'package:sama360/main.dart';
@@ -126,5 +128,42 @@ void main() {
     await pumpSama(tester, location: '/account');
     await tester.drag(find.byType(Scrollable).first, const Offset(0, -700));
     await _shot(tester, '8b_profil_bas');
+  });
+
+  Future<void> offlineSales(WidgetTester tester) async {
+    final (c, repo) = await pumpSama(tester, location: '/pos');
+    repo.offline = true;
+    for (final (id, p, q) in [('o1', demoProducts[0], 2.0), ('o2', demoProducts[2], 1.0)]) {
+      await c.read(pendingSalesProvider.notifier).checkout(
+        id: id,
+        businessId: 'b1',
+        lines: [(product: p, quantity: q)],
+        payments: [(method: PayMethod.cash, amount: (p.price * q).round())],
+        total: (p.price * q).round(),
+      );
+    }
+    c.read(apiClientProvider).online.value = false; // le client a constaté la coupure
+    await tester.pumpAndSettle();
+  }
+
+  testWidgets('hors ligne : caisse', (tester) async {
+    phoneSize(tester);
+    await offlineSales(tester);
+    await _shot(tester, '10_hors_ligne_caisse');
+  });
+
+  testWidgets('hors ligne : accueil', (tester) async {
+    phoneSize(tester);
+    await offlineSales(tester);
+    await tester.tap(find.text('Accueil'));
+    await tester.pumpAndSettle();
+    await _shot(tester, '10b_hors_ligne_accueil');
+  });
+
+  testWidgets('hors ligne : historique', (tester) async {
+    phoneSize(tester);
+    await offlineSales(tester);
+    await tester.tap(find.byTooltip("Ventes d'aujourd'hui"));
+    await _shot(tester, '10c_hors_ligne_historique');
   });
 }

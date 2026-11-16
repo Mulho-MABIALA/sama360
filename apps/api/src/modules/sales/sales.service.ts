@@ -115,7 +115,7 @@ export class SalesService {
       }
 
       const id = input.id ?? newId();
-      const soldAt = input.soldAt ?? new Date();
+      const soldAt = saleDate(input.soldAt);
       const warehouseId = await this.inventory.defaultWarehouse(tx, businessId);
       const number = await this.nextNumber(tx, businessId, 'sale', 'VEN', soldAt.getUTCFullYear());
 
@@ -368,4 +368,21 @@ export class SalesService {
     const n = (res.rows[0] as { last_value: number }).last_value;
     return `${prefix}-${year}-${String(n).padStart(4, '0')}`;
   }
+}
+
+/** Ventes hors ligne : 90 jours maximum en arrière ; une horloge de téléphone en avance est ramenée à maintenant. */
+export const OFFLINE_MAX_AGE_DAYS = 90;
+
+export function saleDate(soldAt: Date | undefined, now = new Date()): Date {
+  if (!soldAt) return now;
+  if (soldAt.getTime() > now.getTime()) return now;
+  if (now.getTime() - soldAt.getTime() > OFFLINE_MAX_AGE_DAYS * 24 * 3600 * 1000) {
+    throw new AppError(
+      'VALIDATION_FAILED',
+      `Vente trop ancienne pour être enregistrée (plus de ${OFFLINE_MAX_AGE_DAYS} jours)`,
+      422,
+      { soldAt: soldAt.toISOString() },
+    );
+  }
+  return soldAt;
 }

@@ -176,6 +176,17 @@ class StockItem {
   );
 
   int get margin => price == 0 ? 0 : (((price - cost) / price) * 100).round();
+
+  StockItem copyWith({double? onHand, bool? low}) => StockItem(
+    productId: productId,
+    name: name,
+    price: price,
+    cost: cost,
+    threshold: threshold,
+    onHand: onHand ?? this.onHand,
+    low: low ?? this.low,
+    imageFileId: imageFileId,
+  );
 }
 
 class StockOverview {

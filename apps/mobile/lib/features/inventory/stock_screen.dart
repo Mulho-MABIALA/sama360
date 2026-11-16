@@ -49,14 +49,14 @@ class _StockScreenState extends ConsumerState<StockScreen> {
           : null,
       body: AsyncView<StockOverview>(
         value: stock,
-        onRetry: () => ref.invalidate(stockProvider),
+        onRetry: () => ref.invalidate(stockRawProvider),
         data: (s) {
           final items = s.items
               .where((i) => !_lowOnly || i.low)
               .where((i) => _search.isEmpty || i.name.toLowerCase().contains(_search))
               .toList();
           return RefreshIndicator(
-            onRefresh: () async => ref.invalidate(stockProvider),
+            onRefresh: () async => ref.invalidate(stockRawProvider),
             child: ListView(
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 96),
               children: [

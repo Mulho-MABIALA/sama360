@@ -7,11 +7,13 @@ import '../../core/api/api_client.dart';
 import '../../core/format.dart';
 import '../../core/glass.dart';
 import '../../core/models.dart';
+import '../../core/offline/pending_sales.dart';
 import '../../core/providers.dart';
 import '../../core/theme.dart';
 import '../../core/widgets.dart';
 import '../catalog/product_photo.dart';
 import '../customers/customer_picker.dart';
+import '../offline/offline_ui.dart';
 import 'cart.dart';
 
 /// Caisse : produits à gauche/en haut, panier et encaissement en bas (maquette « Nouvelle vente »).
@@ -31,20 +33,25 @@ class _PosScreenState extends ConsumerState<PosScreen> {
     final blocker = checkoutBlocker(cart);
     if (blocker != null) return showInfo(context, blocker);
 
+    final businessId = ref.read(businessIdProvider);
+    if (businessId == null) return;
     final id = ref.read(cartProvider.notifier).ensureSaleId();
     setState(() => _busy = true);
-    SaleResult sale;
+    CheckoutOutcome outcome;
     try {
-      sale = await ref
-          .read(repoProvider)
-          .createSale(
+      // Sans réseau, la vente est gardée sur le téléphone et partira toute seule plus tard.
+      outcome = await ref
+          .read(pendingSalesProvider.notifier)
+          .checkout(
             id: id,
-            customerId: cart.customer?.id,
-            items: [for (final l in cart.lines.values) (productId: l.product.id, quantity: l.quantity)],
+            businessId: businessId,
+            customer: cart.customer,
+            total: cart.total,
+            lines: [for (final l in cart.lines.values) (product: l.product, quantity: l.quantity)],
             payments: paymentsFor(cart.total, cart.mode, cart.deposit),
           );
     } on ApiException catch (e) {
-      // Réseau coupé : le panier et son identifiant sont gardés, un nouvel essai ne crée pas de doublon.
+      // Refus du serveur : le panier et son identifiant sont gardés pour corriger et réessayer.
       if (mounted) {
         setState(() => _busy = false);
         showError(context, e);
@@ -52,11 +59,39 @@ class _PosScreenState extends ConsumerState<PosScreen> {
       return;
     }
     ref.read(cartProvider.notifier).clear();
-    refreshBusinessData(ref);
+    if (outcome is SaleSent) refreshBusinessData(ref);
     if (!mounted) return;
     setState(() => _busy = false);
-    await _showSuccess(sale, cart.customer);
+    switch (outcome) {
+      case SaleSent(:final sale):
+        await _showSuccess(sale, cart.customer);
+      case SaleQueued(:final pending):
+        await _showQueued(pending);
+    }
   }
+
+  Future<void> _showQueued(PendingSale p) => showDialog<void>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      icon: const Icon(Icons.cloud_off_rounded, color: AppColors.warn, size: 46),
+      title: const Text('Vente gardée sur le téléphone'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(money(p.total), style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w800)),
+          const SizedBox(height: 10),
+          const Text(
+            'Pas de connexion pour l’instant. La vente est bien enregistrée sur ce téléphone '
+            'et sera envoyée automatiquement dès le retour du réseau.',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: AppColors.muted),
+          ),
+        ],
+      ),
+      actionsAlignment: MainAxisAlignment.center,
+      actions: [FilledButton(onPressed: () => Navigator.pop(ctx), child: const Text('Nouvelle vente'))],
+    ),
+  );
 
   Future<void> _showSuccess(SaleResult sale, Contact? customer) => showDialog<void>(
     context: context,
@@ -121,6 +156,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
       ),
       body: Column(
         children: [
+          const SyncBanner(padding: EdgeInsets.fromLTRB(16, 0, 16, 10)),
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
             child: TextField(

@@ -4,6 +4,7 @@ import 'api/api_client.dart';
 import 'api/session_store.dart';
 import 'config.dart';
 import 'models.dart';
+import 'offline/pending_sales.dart';
 import 'permissions.dart';
 import 'repositories.dart';
 import '../features/auth/auth_controller.dart';
@@ -20,7 +21,9 @@ final apiClientProvider = Provider<ApiClient>((ref) {
   return client;
 });
 
-final repoProvider = Provider<SamaRepository>((ref) => SamaRepository(ref.watch(apiClientProvider)));
+final repoProvider = Provider<SamaRepository>(
+  (ref) => SamaRepository(ref.watch(apiClientProvider), cache: ref.watch(keyValueStoreProvider)),
+);
 
 /// Entreprise sélectionnée : toutes les données en dépendent et se rechargent quand elle change.
 final businessIdProvider = Provider<String?>((ref) => ref.watch(authProvider).value?.businessId);
@@ -42,9 +45,16 @@ final summaryProvider = FutureProvider<DaySummary>((ref) {
   return ref.watch(repoProvider).todaySummary();
 });
 
-final stockProvider = FutureProvider<StockOverview>((ref) {
+/// Stock tel que le serveur le connaît.
+final stockRawProvider = FutureProvider<StockOverview>((ref) {
   ref.watch(businessIdProvider);
   return ref.watch(repoProvider).stock();
+});
+
+/// Stock affiché : celui du serveur moins les ventes faites hors ligne pas encore envoyées.
+final stockProvider = FutureProvider<StockOverview>((ref) async {
+  final pending = ref.watch(pendingForBusinessProvider);
+  return stockNetOfPending(await ref.watch(stockRawProvider.future), pending);
 });
 
 final categoriesProvider = FutureProvider<List<Category>>((ref) {
@@ -80,7 +90,7 @@ final salesTodayProvider = FutureProvider<List<SaleSummary>>((ref) {
 /// Après une vente, un remboursement ou une entrée de stock : rafraîchit ce qui en dépend.
 void refreshBusinessData(WidgetRef ref) {
   ref.invalidate(summaryProvider);
-  ref.invalidate(stockProvider);
+  ref.invalidate(stockRawProvider);
   ref.invalidate(productsProvider);
   ref.invalidate(debtorsProvider);
   ref.invalidate(ledgerProvider);
