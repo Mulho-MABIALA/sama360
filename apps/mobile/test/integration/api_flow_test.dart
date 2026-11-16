@@ -403,4 +403,34 @@ void main() {
       throwsA(isA<ApiException>().having((e) => e.code, 'code', 'INVOICE_HAS_PAYMENTS')),
     );
   }, skip: skip, timeout: const Timeout(Duration(minutes: 1)));
+
+  test('rapport réel : totaux et série cohérents avec les ventes', () async {
+    final store = MemorySessionStore();
+    final client = ApiClient(baseUrl: _api!, store: store);
+    final repo = SamaRepository(client);
+    final phone = '+22177${Random().nextInt(9000000) + 1000000}';
+    await repo.requestOtp(phone);
+    final t = await repo.verifyOtp(phone, await _otpFor(phone));
+    await store.save(Session(accessToken: t.access, refreshToken: t.refresh));
+    await repo.updateName('Coumba Ndoye');
+    client.businessId = await repo.createBusiness(name: 'Coumba Épices test', category: 'boutique', city: 'Dakar');
+    final poivre = await repo.createProduct(name: 'Poivre de Selim', price: 1500, cost: 900);
+    await repo.addStock(poivre.id, 50);
+    for (final (q, m) in [(2.0, PayMethod.cash), (4.0, PayMethod.wave), (1.0, PayMethod.cash)]) {
+      await repo.createSale(
+        id: const Uuid().v7(),
+        items: [(productId: poivre.id, quantity: q)],
+        payments: [(method: m, amount: (1500 * q).round())],
+      );
+    }
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final r = await repo.report(today.subtract(const Duration(days: 6)), today);
+    expect((r.salesCount, r.revenue, r.cost, r.grossProfit), (3, 10500, 6300, 4200));
+    expect(r.series, hasLength(7));
+    expect(r.series.last.revenue, 10500);
+    expect(r.byMethod.map((m) => (m.method, m.amount)), [(PayMethod.wave, 6000), (PayMethod.cash, 4500)]);
+    expect(r.topProducts.single.quantity, 7);
+    expect(r.revenueChange, isNull); // rien la semaine d'avant
+  }, skip: skip, timeout: const Timeout(Duration(minutes: 1)));
 }

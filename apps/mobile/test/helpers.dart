@@ -279,6 +279,63 @@ class FakeRepo extends SamaRepository {
   @override
   Future<MyDay> myDay() async => const MyDay(salesCount: 3, revenue: 14500, collected: 14500);
 
+  // ---------- Rapports ----------
+  final reportRequests = <(DateTime, DateTime)>[];
+
+  @override
+  Future<ReportOverview> report(DateTime from, DateTime to) async {
+    reportRequests.add((from, to));
+    final days = to.difference(from).inDays + 1;
+    String d(DateTime x) => x.toIso8601String().substring(0, 10);
+    return ReportOverview.fromJson({
+      'period': {'from': d(from), 'to': d(to), 'days': days, 'granularity': days > 62 ? 'month' : 'day'},
+      'previous': {'revenue': 412000},
+      'salesCount': 64,
+      'voidedCount': 2,
+      'revenue': 486500,
+      'cost': 301000,
+      'grossProfit': 185500,
+      'expenses': 42000,
+      'netProfit': 143500,
+      'collected': 452500,
+      'onCredit': 34000,
+      'discounts': 6500,
+      'averageBasket': 7602,
+      'marginRate': 38.1,
+      'change': {'revenue': 18.1, 'netProfit': 12.4, 'salesCount': -3.0},
+      'series': [
+        for (var i = 0; i < (days > 62 ? 12 : days); i++)
+          {
+            'period': days > 62 ? d(DateTime(from.year, from.month + i)).substring(0, 7) : d(from.add(Duration(days: i))),
+            'salesCount': 6 + (i * 7) % 9,
+            'revenue': 42000 + ((i * 37) % 11) * 9000,
+            'grossProfit': 15000 + ((i * 37) % 11) * 3200,
+          },
+      ],
+      'byMethod': [
+        {'method': 'cash', 'amount': 251000, 'salesCount': 38},
+        {'method': 'wave', 'amount': 146500, 'salesCount': 17},
+        {'method': 'orange_money', 'amount': 55000, 'salesCount': 7},
+      ],
+      'topProducts': [
+        {'name': 'Beurre de karité 250 g', 'quantity': 38, 'revenue': 133000, 'grossProfit': 57000},
+        {'name': 'Parfum Thiouraye', 'quantity': 19, 'revenue': 95000, 'grossProfit': 38000},
+        {'name': 'Huile de coco 500 ml', 'quantity': 21, 'revenue': 84000, 'grossProfit': 29400},
+        {'name': 'Savon noir', 'quantity': 44, 'revenue': 66000, 'grossProfit': 30800},
+      ],
+      'bySeller': [
+        {'userId': 'u1', 'name': 'Awa Diallo', 'salesCount': 39, 'revenue': 301500},
+        {'userId': 'u2', 'name': 'Moussa Fall', 'salesCount': 25, 'revenue': 185000},
+      ],
+      'expensesByCategory': [
+        {'category': 'loyer', 'amount': 25000, 'count': 1},
+        {'category': 'transport', 'amount': 12000, 'count': 6},
+        {'category': 'électricité', 'amount': 5000, 'count': 1},
+      ],
+      'invoices': {'invoiced': 185000, 'count': 3, 'received': 80000},
+    });
+  }
+
   // ---------- Factures et devis ----------
   final docs = <String, DocDetail>{};
   final docBodies = <String, Map<String, dynamic>>{};

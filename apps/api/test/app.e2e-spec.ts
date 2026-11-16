@@ -634,6 +634,37 @@ describe('Socle Sama360 (e2e)', () => {
       expect(new Set(all.map((x) => x.cashierName))).toEqual(new Set(['Awa Diallo', CAISSIER]));
     });
 
+    it('rapport sur 7 jours : totaux, série jour par jour, comparaison, droits', async () => {
+      const d = (n: number) => new Date(Date.now() + n * 86_400_000).toISOString().slice(0, 10);
+      const r = (await http.get(`/v1/reports/overview?from=${d(-6)}&to=${d(0)}`).set(A()).expect(200)).body;
+      // Aujourd'hui : 11 600 + 100 ; il y a 2 jours : 500 (vente hors ligne) ; la vente annulée ne compte pas
+      expect(r).toMatchObject({
+        period: { from: d(-6), to: d(0), days: 7, granularity: 'day' },
+        salesCount: 3,
+        voidedCount: 1,
+        revenue: 12200,
+        expenses: 2000,
+        averageBasket: Math.round(12200 / 3),
+        change: { revenue: null },
+      });
+      expect(r.grossProfit).toBe(r.revenue - r.cost);
+      expect(r.netProfit).toBe(r.grossProfit - 2000);
+      expect(r.series).toHaveLength(7);
+      expect(r.series.map((p: { revenue: number }) => p.revenue)).toEqual([0, 0, 0, 0, 500, 0, 11700]);
+      expect(r.byMethod).toEqual([{ method: 'cash', amount: 12200, salesCount: 3 }]);
+      expect(r.topProducts[0]).toMatchObject({ name: 'Beurre de karité 250 g', quantity: 2 });
+      expect(r.bySeller.map((v: { salesCount: number }) => v.salesCount)).toEqual([2, 1]);
+      expect(r.expensesByCategory).toEqual([{ category: 'transport', amount: 2000, count: 1 }]);
+
+      // Hier seul : la vente hors ligne n'y est pas, et aujourd'hui est comparé à hier
+      const today = (await http.get(`/v1/reports/overview?from=${d(0)}&to=${d(0)}`).set(A()).expect(200)).body;
+      expect(today.previous).toMatchObject({ from: d(-1), to: d(-1), revenue: 0 });
+
+      await http.get(`/v1/reports/overview?from=${d(0)}&to=${d(-3)}`).set(A()).expect(422);
+      await http.get(`/v1/reports/overview?from=2020-01-01&to=${d(0)}`).set(A()).expect(422);
+      await http.get(`/v1/reports/overview?from=${d(-6)}&to=${d(0)}`).set(auth(cashier.accessToken, awaBiz)).expect(403);
+    });
+
     it('ajuste le stock par inventaire physique', async () => {
       const res = await http
         .post('/v1/inventory/counts')

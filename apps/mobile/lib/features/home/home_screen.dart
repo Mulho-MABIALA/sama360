@@ -31,8 +31,11 @@ const _mainServices = [
   _Service('Crédits', Icons.menu_book_rounded, Color(0xFF2F6FDB), route: '/customers'),
   _Service('Dépenses', Icons.account_balance_wallet_rounded, Color(0xFFE0533D), route: 'expense'),
   _Service('Factures', Icons.receipt_long_rounded, Color(0xFF7A5AF8), route: '/invoices'),
-  _Service('Boutique', Icons.storefront_rounded, Color(0xFF0E9384), soon: true),
 ];
+
+/// 6e tuile : les rapports pour qui peut les voir, sinon la boutique (bientôt).
+const _reportsService = _Service('Rapports', Icons.insights_rounded, Color(0xFF0E9384), route: '/reports');
+const _shopService = _Service('Boutique', Icons.storefront_rounded, Color(0xFF0E9384), soon: true);
 
 /// 7e tuile : l'équipe pour qui peut la voir, sinon les paiements (bientôt).
 const _teamService = _Service('Équipe', Icons.groups_rounded, Color(0xFFDB2777), route: '/team');
@@ -41,6 +44,7 @@ const _paymentsService = _Service('Paiements', Icons.qr_code_2_rounded, Color(0x
 /// Services des vagues 2 et 3, listés derrière « Plus ».
 const _moreServices = [
   _paymentsService,
+  _shopService,
   _Service('Documents', Icons.folder_rounded, Color(0xFF6B7280), soon: true),
   _Service('Livraison', Icons.local_shipping_rounded, Color(0xFFD9822B), soon: true),
   _Service('Réservation', Icons.event_available_rounded, Color(0xFF2F6FDB), soon: true),
@@ -60,12 +64,18 @@ class HomeScreen extends ConsumerWidget {
     final canStock = ref.can('inventory:read');
     final lowStock = canStock ? ref.watch(stockProvider).value?.lowStock ?? 0 : 0;
 
+    final shown = [
+      ..._mainServices,
+      if (canReports) _reportsService else _shopService,
+      if (ref.can('members:read')) _teamService else _paymentsService,
+    ];
+
     void open(_Service s) {
       if (s.soon) {
         showInfo(context, '${s.name} arrive bientôt sur Sama360');
       } else if (s.route == 'expense') {
         _addExpense(context, ref);
-      } else if (s.route == '/team' || s.route == '/invoices') {
+      } else if (s.route == '/team' || s.route == '/invoices' || s.route == '/reports') {
         context.push(s.route!);
       } else {
         context.go(s.route!);
@@ -103,14 +113,10 @@ class HomeScreen extends ConsumerWidget {
                     crossAxisSpacing: 10,
                     childAspectRatio: 0.78,
                     children: [
-                      for (final s in [
-                        ..._mainServices,
-                        if (ref.can('members:read')) _teamService else _paymentsService,
-                      ])
-                        _ServiceTile(service: s, onTap: () => open(s)),
+                      for (final s in shown) _ServiceTile(service: s, onTap: () => open(s)),
                       _ServiceTile(
                         service: const _Service('Plus', Icons.apps_rounded, Color(0xFF13241C)),
-                        onTap: () => _showMore(context, open),
+                        onTap: () => _showMore(context, open, shown),
                       ),
                     ],
                   ),
@@ -128,42 +134,45 @@ class HomeScreen extends ConsumerWidget {
     );
   }
 
-  Future<void> _showMore(BuildContext context, void Function(_Service) open) => showModalBottomSheet<void>(
-    useRootNavigator: true,
-    context: context,
-    showDragHandle: true,
-    builder: (ctx) => Padding(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text('Tous les services', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
-          const SizedBox(height: 4),
-          const Text('De nouveaux services arrivent régulièrement.', style: TextStyle(color: AppColors.muted)),
-          const SizedBox(height: 14),
-          GridView.count(
-            crossAxisCount: 4,
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            mainAxisSpacing: 12,
-            crossAxisSpacing: 10,
-            childAspectRatio: 0.78,
+  Future<void> _showMore(BuildContext context, void Function(_Service) open, List<_Service> shown) =>
+      showModalBottomSheet<void>(
+        useRootNavigator: true,
+        context: context,
+        isScrollControlled: true,
+        showDragHandle: true,
+        builder: (ctx) => SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              for (final s in _moreServices)
-                _ServiceTile(
-                  service: s,
-                  onTap: () {
-                    Navigator.pop(ctx);
-                    open(s);
-                  },
-                ),
+              const Text('Tous les services', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+              const SizedBox(height: 4),
+              const Text('De nouveaux services arrivent régulièrement.', style: TextStyle(color: AppColors.muted)),
+              const SizedBox(height: 14),
+              GridView.count(
+                crossAxisCount: 4,
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                mainAxisSpacing: 12,
+                crossAxisSpacing: 10,
+                childAspectRatio: 0.78,
+                children: [
+                  // Sans répéter les tuiles déjà sur l'accueil
+                  for (final s in _moreServices.where((m) => !shown.any((x) => x.name == m.name)))
+                    _ServiceTile(
+                      service: s,
+                      onTap: () {
+                        Navigator.pop(ctx);
+                        open(s);
+                      },
+                    ),
+                ],
+              ),
             ],
           ),
-        ],
-      ),
-    ),
-  );
+        ),
+      );
 
   Future<void> _addExpense(BuildContext context, WidgetRef ref) async {
     final saved = await showModalBottomSheet<bool>(

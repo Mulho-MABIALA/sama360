@@ -771,3 +771,146 @@ class InvoicingSummary {
     invoicedThisMonth: _int(j['invoicedThisMonth']),
   );
 }
+
+// ---------- Rapports ----------
+
+class ReportPoint {
+  const ReportPoint({required this.period, required this.salesCount, required this.revenue, required this.grossProfit});
+  final String period; // AAAA-MM-JJ ou AAAA-MM
+  final int salesCount;
+  final int revenue;
+  final int grossProfit;
+
+  factory ReportPoint.fromJson(Map<String, dynamic> j) => ReportPoint(
+    period: j['period'] as String,
+    salesCount: _int(j['salesCount']),
+    revenue: _int(j['revenue']),
+    grossProfit: _int(j['grossProfit']),
+  );
+}
+
+class ReportProduct {
+  const ReportProduct({required this.name, required this.quantity, required this.revenue, required this.grossProfit});
+  final String name;
+  final double quantity;
+  final int revenue;
+  final int grossProfit;
+
+  factory ReportProduct.fromJson(Map<String, dynamic> j) => ReportProduct(
+    name: j['name'] as String,
+    quantity: _num(j['quantity']),
+    revenue: _int(j['revenue']),
+    grossProfit: _int(j['grossProfit']),
+  );
+}
+
+/// Rapport d'une période (GET /v1/reports/overview).
+class ReportOverview {
+  const ReportOverview({
+    required this.from,
+    required this.to,
+    required this.days,
+    required this.byMonth,
+    required this.salesCount,
+    required this.voidedCount,
+    required this.revenue,
+    required this.cost,
+    required this.grossProfit,
+    required this.expenses,
+    required this.netProfit,
+    required this.collected,
+    required this.onCredit,
+    required this.discounts,
+    required this.averageBasket,
+    required this.marginRate,
+    required this.previousRevenue,
+    this.revenueChange,
+    this.profitChange,
+    this.salesChange,
+    required this.series,
+    required this.byMethod,
+    required this.topProducts,
+    required this.bySeller,
+    required this.expensesByCategory,
+    required this.invoiced,
+    required this.invoiceCount,
+    required this.invoicePayments,
+  });
+  final DateTime from;
+  final DateTime to;
+  final int days;
+  final bool byMonth;
+  final int salesCount;
+  final int voidedCount;
+  final int revenue;
+  final int cost;
+  final int grossProfit;
+  final int expenses;
+  final int netProfit;
+  final int collected;
+  final int onCredit;
+  final int discounts;
+  final int averageBasket;
+  final double marginRate;
+  final int previousRevenue;
+  final double? revenueChange;
+  final double? profitChange;
+  final double? salesChange;
+  final List<ReportPoint> series;
+  final List<({PayMethod? method, int amount, int salesCount})> byMethod;
+  final List<ReportProduct> topProducts;
+  final List<SellerStat> bySeller;
+  final List<({String category, int amount})> expensesByCategory;
+  final int invoiced;
+  final int invoiceCount;
+  final int invoicePayments;
+
+  factory ReportOverview.fromJson(Map<String, dynamic> j) {
+    final p = j['period'] as Map<String, dynamic>;
+    final c = (j['change'] as Map<String, dynamic>?) ?? const {};
+    final inv = (j['invoices'] as Map<String, dynamic>?) ?? const {};
+    double? pct(Object? v) => v == null ? null : (v as num).toDouble();
+    return ReportOverview(
+      from: DateTime.parse(p['from'] as String),
+      to: DateTime.parse(p['to'] as String),
+      days: _int(p['days']),
+      byMonth: p['granularity'] == 'month',
+      salesCount: _int(j['salesCount']),
+      voidedCount: _int(j['voidedCount']),
+      revenue: _int(j['revenue']),
+      cost: _int(j['cost']),
+      grossProfit: _int(j['grossProfit']),
+      expenses: _int(j['expenses']),
+      netProfit: _int(j['netProfit']),
+      collected: _int(j['collected']),
+      onCredit: _int(j['onCredit']),
+      discounts: _int(j['discounts']),
+      averageBasket: _int(j['averageBasket']),
+      marginRate: _num(j['marginRate']),
+      previousRevenue: _int((j['previous'] as Map?)?['revenue']),
+      revenueChange: pct(c['revenue']),
+      profitChange: pct(c['netProfit']),
+      salesChange: pct(c['salesCount']),
+      series: [for (final s in (j['series'] as List?) ?? const []) ReportPoint.fromJson(s as Map<String, dynamic>)],
+      byMethod: [
+        for (final m in (j['byMethod'] as List?) ?? const [])
+          (
+            method: PayMethod.fromApi((m as Map)['method'] as String?),
+            amount: _int(m['amount']),
+            salesCount: _int(m['salesCount']),
+          ),
+      ],
+      topProducts: [
+        for (final t in (j['topProducts'] as List?) ?? const []) ReportProduct.fromJson(t as Map<String, dynamic>),
+      ],
+      bySeller: [for (final v in (j['bySeller'] as List?) ?? const []) SellerStat.fromJson(v as Map<String, dynamic>)],
+      expensesByCategory: [
+        for (final e in (j['expensesByCategory'] as List?) ?? const [])
+          (category: (e as Map)['category'] as String, amount: _int(e['amount'])),
+      ],
+      invoiced: _int(inv['invoiced']),
+      invoiceCount: _int(inv['count']),
+      invoicePayments: _int(inv['received']),
+    );
+  }
+}

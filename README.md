@@ -91,6 +91,7 @@ Toutes les erreurs : `{ "error": { "code", "message", "details?" } }`.
 | GET | `/v1/sales` · `/v1/sales/:id` | `sales:read` (`?from=&to=&customerId=&cashierId=&mine=true&status=`) |
 | POST | `/v1/sales/:id/void` | `sales:void` — annule : stock remis, dette annulée |
 | GET | `/v1/sales/summary` | `reports:read` — CA, coût, bénéfice, dépenses, encaissé, crédit, ventes par vendeur (`?from=&to=`) |
+| GET | `/v1/reports/overview` | `reports:read` — rapport d'une période (`?from=&to=`, 400 jours max) : totaux, évolution vs période précédente, série jour/mois, moyens de paiement, top produits, vendeurs, dépenses, factures |
 | GET | `/v1/sales/my-day` | `sales:create` — ma journée de vendeur (nombre, montant) |
 | GET | `/v1/sales/debtors` | `sales:read` — clients qui doivent de l'argent |
 | GET / POST | `/v1/invoicing/documents` | `invoicing:read` / `invoicing:write` — devis (DEV-…) et factures (FAC-…), idempotent si `id` fourni |

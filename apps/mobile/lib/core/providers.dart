@@ -99,6 +99,12 @@ final membersProvider = FutureProvider<List<Member>>((ref) {
   return ref.watch(repoProvider).members();
 });
 
+/// Rapport d'une période (dates sans heure).
+final reportProvider = FutureProvider.family<ReportOverview, ({DateTime from, DateTime to})>((ref, p) {
+  ref.watch(businessIdProvider);
+  return ref.watch(repoProvider).report(p.from, p.to);
+});
+
 final invoicingSummaryProvider = FutureProvider<InvoicingSummary>((ref) {
   ref.watch(businessIdProvider);
   return ref.watch(repoProvider).invoicingSummary();

@@ -295,6 +295,11 @@ class SamaRepository {
 
   Future<void> removeMember(String id) => api.delete<void>('/v1/members/$id');
 
+  // ---------- Rapports ----------
+  Future<ReportOverview> report(DateTime from, DateTime to) async => ReportOverview.fromJson(
+    await _cachedGet<Map<String, dynamic>>('/v1/reports/overview', query: {'from': _day(from), 'to': _day(to)}),
+  );
+
   // ---------- Factures et devis ----------
   static String _day(DateTime d) =>
       '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';

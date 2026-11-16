@@ -16,7 +16,8 @@ void main() {
     expect(find.textContaining('86'), findsWidgets); // 86 500 F
     expect(find.text('12 ventes aujourd’hui'), findsOneWidget);
     expect(find.text('2 produits en stock bas'), findsOneWidget);
-    expect(find.text('Bientôt'), findsOneWidget); // Boutique
+    expect(find.text('Bientôt'), findsNothing); // le propriétaire voit Rapports et Équipe
+    expect(find.text('Rapports'), findsOneWidget);
     expect(find.text('Équipe'), findsWidgets); // le propriétaire voit son équipe
     await tester.scrollUntilVisible(find.text('Plus'), 200, scrollable: find.byType(Scrollable).first);
     await tester.drag(find.byType(Scrollable).first, const Offset(0, -120)); // au-dessus de la barre flottante

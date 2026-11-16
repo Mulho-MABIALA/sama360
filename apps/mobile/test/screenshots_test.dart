@@ -256,4 +256,17 @@ void main() {
     }
     await _shot(tester, '12c_devis_editeur');
   });
+
+  testWidgets('rapports', (tester) async {
+    phoneSize(tester);
+    await pumpSama(tester, location: '/reports');
+    await _shot(tester, '13_rapports');
+  });
+
+  testWidgets('rapports (bas)', (tester) async {
+    phoneSize(tester);
+    await pumpSama(tester, location: '/reports');
+    await tester.drag(find.byType(Scrollable).last, const Offset(0, -900));
+    await _shot(tester, '13b_rapports_bas');
+  });
 }
