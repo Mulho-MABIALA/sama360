@@ -39,13 +39,14 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Vente enregistrée'), findsOneWidget);
     expect(find.text('VEN-2026-0001'), findsOneWidget);
+    expect(find.text('Voir le reçu'), findsOneWidget);
 
     expect(repo.sales, hasLength(1));
     final sale = repo.sales.single;
     expect(sale['id'], matches(RegExp(r'^[0-9a-f-]{36}$')));
     expect(sale['payments'], [(method: PayMethod.cash, amount: 11000)]);
 
-    await tester.tap(find.widgetWithText(FilledButton, 'Nouvelle vente'));
+    await tester.tap(find.widgetWithText(OutlinedButton, 'Nouvelle vente'));
     await tester.pumpAndSettle();
     expect(find.text('Encaisser'), findsOneWidget); // panier vidé
   });

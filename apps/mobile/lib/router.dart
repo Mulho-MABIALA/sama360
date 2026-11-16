@@ -9,6 +9,8 @@ import 'features/customers/customers_screens.dart';
 import 'features/home/home_screen.dart';
 import 'features/inventory/stock_screen.dart';
 import 'features/sales/pos_screen.dart';
+import 'features/sales/receipt_screen.dart';
+import 'features/sales/sales_history_screen.dart';
 import 'features/shell/shell.dart';
 
 /// Où envoyer l'utilisateur selon l'état de sa session. Fonction pure, testée.
@@ -52,6 +54,8 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/customers/:id',
         builder: (_, s) => LedgerScreen(customerId: s.pathParameters['id']!),
       ),
+      GoRoute(path: '/sales', builder: (_, _) => const SalesHistoryScreen()),
+      GoRoute(path: '/sales/:id', builder: (_, s) => ReceiptScreen(saleId: s.pathParameters['id']!)),
       StatefulShellRoute.indexedStack(
         builder: (_, _, shell) => AppShell(shell: shell),
         branches: [

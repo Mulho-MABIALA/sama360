@@ -115,6 +115,15 @@ class SamaRepository {
     ),
   );
 
+  Future<SaleDetail> sale(String id) async => SaleDetail.fromJson(await api.get<Map<String, dynamic>>('/v1/sales/$id'));
+
+  /// Ventes d'une journée (aujourd'hui par défaut), les plus récentes d'abord.
+  Future<List<SaleSummary>> salesOfDay([DateTime? day]) async {
+    final d = (day ?? DateTime.now()).toUtc().toIso8601String().substring(0, 10);
+    final r = await api.get<Map<String, dynamic>>('/v1/sales', query: {'from': d, 'to': d, 'limit': 100});
+    return (r['data'] as List).map((e) => SaleSummary.fromJson(e as Map<String, dynamic>)).toList();
+  }
+
   Future<DaySummary> todaySummary() async =>
       DaySummary.fromJson(await api.get<Map<String, dynamic>>('/v1/sales/summary'));
 

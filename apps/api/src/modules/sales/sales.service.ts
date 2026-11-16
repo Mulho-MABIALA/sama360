@@ -1,5 +1,5 @@
 import { HttpStatus, Injectable } from '@nestjs/common';
-import { and, eq, inArray, isNull, sql } from 'drizzle-orm';
+import { and, asc, eq, inArray, isNull, sql } from 'drizzle-orm';
 import { DbService, Tx } from '../../shared/db/db.service';
 import {
   contacts,
@@ -10,6 +10,7 @@ import {
   saleItems,
   salePayments,
   sales,
+  users,
 } from '../../shared/db/schema';
 import { OutboxService } from '../../shared/events/outbox.service';
 import { AppError } from '../../shared/http/app-error';
@@ -325,13 +326,24 @@ export class SalesService {
   async findFull(tx: Tx, saleId: string) {
     const [sale] = await tx.select().from(sales).where(eq(sales.id, saleId)).limit(1);
     if (!sale) return null;
-    const [items, payments] = await Promise.all([
-      tx.select().from(saleItems).where(eq(saleItems.saleId, saleId)),
-      tx.select().from(salePayments).where(eq(salePayments.saleId, saleId)),
+    // Les ids UUID v7 suivent l'ordre de saisie : lignes et paiements dans l'ordre du ticket.
+    const [items, payments, customer, cashier] = await Promise.all([
+      tx.select().from(saleItems).where(eq(saleItems.saleId, saleId)).orderBy(asc(saleItems.id)),
+      tx.select().from(salePayments).where(eq(salePayments.saleId, saleId)).orderBy(asc(salePayments.id)),
+      sale.customerId
+        ? tx
+            .select({ id: contacts.id, name: contacts.name, phone: contacts.phone })
+            .from(contacts)
+            .where(eq(contacts.id, sale.customerId))
+            .limit(1)
+        : Promise.resolve([]),
+      tx.select({ fullName: users.fullName }).from(users).where(eq(users.id, sale.cashierId)).limit(1),
     ]);
     return {
       ...sale,
       due: sale.total - sale.paid,
+      customer: customer[0] ?? null,
+      cashierName: cashier[0]?.fullName ?? null,
       items: items.map(({ businessId: _b, saleId: _s, ...i }) => i),
       payments: payments.map(({ businessId: _b, saleId: _s, ...p }) => p),
     };

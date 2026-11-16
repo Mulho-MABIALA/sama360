@@ -52,6 +52,9 @@ class CurrentBusiness {
     required this.name,
     required this.slug,
     this.city,
+    this.phone,
+    this.address,
+    this.ninea,
     required this.role,
     required this.permissions,
     required this.modules,
@@ -60,6 +63,9 @@ class CurrentBusiness {
   final String name;
   final String slug;
   final String? city;
+  final String? phone;
+  final String? address;
+  final String? ninea;
   final String role;
   final List<String> permissions;
   final List<String> modules;
@@ -72,6 +78,9 @@ class CurrentBusiness {
       name: b['name'] as String,
       slug: b['slug'] as String,
       city: b['city'] as String?,
+      phone: b['phone'] as String?,
+      address: b['address'] as String?,
+      ninea: b['ninea'] as String?,
       role: me['role'] as String,
       permissions: List<String>.from(me['permissions'] as List),
       modules: ((j['modules'] as List?) ?? const [])
@@ -291,6 +300,108 @@ class SaleResult {
     total: _int(j['total']),
     paid: _int(j['paid']),
     due: _int(j['due']),
+  );
+}
+
+/// Ligne de ticket.
+class ReceiptLine {
+  const ReceiptLine({required this.name, required this.quantity, required this.unitPrice, this.discount = 0, required this.total});
+  final String name;
+  final double quantity;
+  final int unitPrice;
+  final int discount;
+  final int total;
+
+  factory ReceiptLine.fromJson(Map<String, dynamic> j) => ReceiptLine(
+    name: j['name'] as String,
+    quantity: _num(j['quantity']),
+    unitPrice: _int(j['unitPrice']),
+    discount: _int(j['discount']),
+    total: _int(j['total']),
+  );
+}
+
+/// Vente complète (GET /v1/sales/:id) : tout ce qu'il faut pour le reçu.
+class SaleDetail {
+  const SaleDetail({
+    required this.id,
+    required this.number,
+    required this.status,
+    required this.soldAt,
+    required this.subtotal,
+    required this.discount,
+    required this.total,
+    required this.paid,
+    required this.due,
+    required this.lines,
+    required this.payments,
+    this.customer,
+    this.cashierName,
+  });
+  final String id;
+  final String number;
+  final String status; // completed, voided
+  final DateTime soldAt;
+  final int subtotal;
+  final int discount;
+  final int total;
+  final int paid;
+  final int due;
+  final List<ReceiptLine> lines;
+  final List<({PayMethod? method, int amount})> payments;
+  final Contact? customer;
+  final String? cashierName;
+
+  bool get voided => status == 'voided';
+
+  factory SaleDetail.fromJson(Map<String, dynamic> j) => SaleDetail(
+    id: j['id'] as String,
+    number: j['number'] as String,
+    status: j['status'] as String? ?? 'completed',
+    soldAt: _date(j['soldAt']) ?? DateTime.now(),
+    subtotal: _int(j['subtotal']),
+    discount: _int(j['discount']),
+    total: _int(j['total']),
+    paid: _int(j['paid']),
+    due: _int(j['due']),
+    lines: ((j['items'] as List?) ?? const []).map((e) => ReceiptLine.fromJson(e as Map<String, dynamic>)).toList(),
+    payments: [
+      for (final p in (j['payments'] as List?) ?? const [])
+        (method: PayMethod.fromApi((p as Map)['method'] as String?), amount: _int(p['amount'])),
+    ],
+    customer: j['customer'] == null ? null : Contact.fromJson(j['customer'] as Map<String, dynamic>),
+    cashierName: j['cashierName'] as String?,
+  );
+}
+
+/// Ligne de l'historique des ventes (GET /v1/sales).
+class SaleSummary {
+  const SaleSummary({
+    required this.id,
+    required this.number,
+    required this.status,
+    this.customerName,
+    required this.total,
+    required this.due,
+    required this.soldAt,
+  });
+  final String id;
+  final String number;
+  final String status;
+  final String? customerName;
+  final int total;
+  final int due;
+  final DateTime soldAt;
+
+  factory SaleSummary.fromJson(Map<String, dynamic> j) => SaleSummary(
+    id: j['id'] as String,
+    number: j['number'] as String,
+    status: j['status'] as String? ?? 'completed',
+    customerName: j['customerName'] as String?,
+    total: _int(j['total']),
+    // La liste renvoie « paid » ; le détail renvoie aussi « due ».
+    due: j['due'] != null ? _int(j['due']) : _int(j['total']) - _int(j['paid']),
+    soldAt: _date(j['soldAt']) ?? DateTime.now(),
   );
 }
 

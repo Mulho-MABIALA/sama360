@@ -21,6 +21,8 @@ const demoBusiness = CurrentBusiness(
   name: 'Awa Beauté',
   slug: 'awa-beaute',
   city: 'Dakar',
+  phone: '+221 77 123 45 67',
+  address: 'Marché Sandaga',
   role: 'owner',
   permissions: ['*'],
   modules: ['sales', 'inventory'],
@@ -139,7 +141,50 @@ class FakeRepo extends SamaRepository {
     final paid = payments.fold<int>(0, (s, p) => s + p.amount);
     return SaleResult(id: id, number: 'VEN-2026-000$saleCounter', total: total, paid: paid, due: total - paid);
   }
+
+  @override
+  Future<SaleDetail> sale(String id) async => id == 'voided' ? demoVoidedSale : demoSale;
+
+  @override
+  Future<List<SaleSummary>> salesOfDay([DateTime? day]) async => [
+    SaleSummary(id: 's2', number: 'VEN-2026-0042', status: 'completed', customerName: 'Aminata Ba', total: 9000, due: 4000, soldAt: DateTime(2026, 11, 16, 11, 20)),
+    SaleSummary(id: 'voided', number: 'VEN-2026-0041', status: 'voided', total: 3500, due: 0, soldAt: DateTime(2026, 11, 16, 10, 5)),
+    SaleSummary(id: 's1', number: 'VEN-2026-0040', status: 'completed', total: 11600, due: 0, soldAt: DateTime(2026, 11, 16, 9, 42)),
+  ];
 }
+
+final demoSale = SaleDetail(
+  id: 's2',
+  number: 'VEN-2026-0042',
+  status: 'completed',
+  soldAt: DateTime(2026, 11, 16, 11, 20),
+  subtotal: 9500,
+  discount: 500,
+  total: 9000,
+  paid: 5000,
+  due: 4000,
+  lines: const [
+    ReceiptLine(name: 'Beurre de karité 250 g', quantity: 2, unitPrice: 3500, total: 7000),
+    ReceiptLine(name: 'Savon noir', quantity: 1, unitPrice: 2500, total: 2500),
+  ],
+  payments: const [(method: PayMethod.wave, amount: 5000)],
+  customer: const Contact(id: 'c1', name: 'Aminata Ba', phone: '+221765551234'),
+  cashierName: 'Awa Diallo',
+);
+
+final demoVoidedSale = SaleDetail(
+  id: 'voided',
+  number: 'VEN-2026-0041',
+  status: 'voided',
+  soldAt: DateTime(2026, 11, 16, 10, 5),
+  subtotal: 3500,
+  discount: 0,
+  total: 3500,
+  paid: 3500,
+  due: 0,
+  lines: const [ReceiptLine(name: 'Savon noir', quantity: 1, unitPrice: 3500, total: 3500)],
+  payments: const [(method: PayMethod.cash, amount: 3500)],
+);
 
 class FakeAuth extends AuthController {
   @override

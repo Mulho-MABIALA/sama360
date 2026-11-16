@@ -93,4 +93,16 @@ void main() {
     await tester.tap(find.text('Nouveau produit'));
     await _shot(tester, '7_nouveau_produit');
   });
+
+  testWidgets('reçu', (tester) async {
+    phoneSize(tester);
+    await pumpSama(tester, location: '/sales/s2');
+    await _shot(tester, '9_recu');
+  });
+
+  testWidgets('ventes du jour', (tester) async {
+    phoneSize(tester);
+    await pumpSama(tester, location: '/sales');
+    await _shot(tester, '9b_ventes_du_jour');
+  });
 }

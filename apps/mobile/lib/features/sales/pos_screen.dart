@@ -1,5 +1,6 @@
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../../core/api/api_client.dart';
@@ -77,7 +78,24 @@ class _PosScreenState extends ConsumerState<PosScreen> {
           ],
         ],
       ),
-      actions: [FilledButton(onPressed: () => Navigator.pop(ctx), child: const Text('Nouvelle vente'))],
+      actionsAlignment: MainAxisAlignment.center,
+      actions: [
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            FilledButton.icon(
+              onPressed: () {
+                Navigator.pop(ctx);
+                context.push('/sales/${sale.id}');
+              },
+              icon: const Icon(Icons.receipt_long_rounded),
+              label: const Text('Voir le reçu'),
+            ),
+            const SizedBox(height: 8),
+            OutlinedButton(onPressed: () => Navigator.pop(ctx), child: const Text('Nouvelle vente')),
+          ],
+        ),
+      ],
     ),
   );
 
@@ -92,6 +110,13 @@ class _PosScreenState extends ConsumerState<PosScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Nouvelle vente', style: TextStyle(fontWeight: FontWeight.w800)),
+        actions: [
+          IconButton(
+            tooltip: "Ventes d'aujourd'hui",
+            onPressed: () => context.push('/sales'),
+            icon: const Icon(Icons.receipt_long_rounded),
+          ),
+        ],
       ),
       body: Column(
         children: [

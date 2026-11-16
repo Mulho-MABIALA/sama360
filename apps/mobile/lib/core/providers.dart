@@ -67,6 +67,16 @@ final ledgerProvider = FutureProvider.family<Ledger, String>((ref, customerId) {
   return ref.watch(repoProvider).ledger(customerId);
 });
 
+final saleProvider = FutureProvider.family<SaleDetail, String>((ref, id) {
+  ref.watch(businessIdProvider);
+  return ref.watch(repoProvider).sale(id);
+});
+
+final salesTodayProvider = FutureProvider<List<SaleSummary>>((ref) {
+  ref.watch(businessIdProvider);
+  return ref.watch(repoProvider).salesOfDay();
+});
+
 /// Après une vente, un remboursement ou une entrée de stock : rafraîchit ce qui en dépend.
 void refreshBusinessData(WidgetRef ref) {
   ref.invalidate(summaryProvider);
@@ -74,6 +84,7 @@ void refreshBusinessData(WidgetRef ref) {
   ref.invalidate(productsProvider);
   ref.invalidate(debtorsProvider);
   ref.invalidate(ledgerProvider);
+  ref.invalidate(salesTodayProvider);
 }
 
 /// Message lisible pour l'utilisateur à partir de n'importe quelle erreur.

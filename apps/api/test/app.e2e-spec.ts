@@ -434,6 +434,12 @@ describe('Socle Sama360 (e2e)', () => {
         ['Huile de coco 500 ml', 4000],
       ]);
 
+      // Détail complet pour le reçu : client, vendeur, lignes dans l'ordre du ticket
+      const detail = await http.get(`/v1/sales/${cashSaleId}`).set(A()).expect(200);
+      expect(detail.body.customer).toEqual({ id: aminata, name: 'Aminata Ba', phone: '+221765551234' });
+      expect(detail.body.cashierName).toBe('Awa Diallo');
+      expect(detail.body.payments).toEqual([expect.objectContaining({ method: 'cash', amount: 11600 })]);
+
       // Renvoi du même id (mobile hors ligne qui resynchronise) : pas de doublon
       const again = await http.post('/v1/sales').set(A()).send(body).expect(200);
       expect(again.body.number).toBe(`VEN-${year}-0001`);

@@ -45,6 +45,8 @@ dependencies:
   material_ui: ^1.11.0
   url_launcher: ^6.3.3
   image_picker: ^1.2.4
+  printing: ^5.15.1
+  pdf: ^3.13.1
 
 dev_dependencies:
   flutter_test:
@@ -67,6 +69,10 @@ flutter:
   # included with your application, so that you can use the icons in
   # the material Icons class.
   uses-material-design: true
+
+  # Police embarquée dans les reçus PDF (accents) — Roboto, licence Apache 2.0
+  assets:
+    - assets/fonts/
 
   # To add assets to your application, add an assets section, like this:
   # assets:
