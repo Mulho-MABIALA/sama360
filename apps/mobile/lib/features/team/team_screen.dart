@@ -146,7 +146,7 @@ class TeamScreen extends ConsumerWidget {
                 label: const Text('Prévenir par WhatsApp'),
               ),
               const SizedBox(height: 8),
-              OutlinedButton(onPressed: () => Navigator.pop(ctx), child: const Text('Plus tard')),
+              CancelButton(label: 'Plus tard', onPressed: () => Navigator.pop(ctx)),
             ],
           ),
         ],
@@ -413,12 +413,8 @@ class _ManageSheetState extends ConsumerState<_ManageSheet> {
           'Cette personne n’aura plus accès à l’entreprise. Ses ventes passées restent enregistrées.',
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Annuler')),
-          TextButton(
-            style: TextButton.styleFrom(foregroundColor: AppColors.danger),
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Retirer'),
-          ),
+          CancelButton(onPressed: () => Navigator.pop(ctx, false)),
+          ConfirmButton(label: 'Retirer', onPressed: () => Navigator.pop(ctx, true)),
         ],
       ),
     );

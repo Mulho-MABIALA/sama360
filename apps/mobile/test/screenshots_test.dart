@@ -365,4 +365,12 @@ void main() {
     await pumpSama(tester, location: '/shop/settings');
     await _shot(tester, '17d_reglages_boutique');
   });
+
+  testWidgets('boîte de dialogue : annuler rouge, valider vert', (tester) async {
+    phoneSize(tester);
+    await pumpSama(tester, location: '/customers/c9/edit');
+    await tester.tap(find.byIcon(Icons.delete_outline_rounded));
+    await tester.pumpAndSettle();
+    await _shot(tester, '18_dialogue_boutons');
+  });
 }

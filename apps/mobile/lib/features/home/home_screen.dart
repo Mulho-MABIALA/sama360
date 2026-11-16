@@ -84,7 +84,11 @@ class HomeScreen extends ConsumerWidget {
         showInfo(context, '${s.name} arrive bientôt sur Sama360');
       } else if (s.route == 'expense') {
         _addExpense(context, ref);
-      } else if (s.route == '/team' || s.route == '/invoices' || s.route == '/reports' || s.route == '/purchases' || s.route == '/shop') {
+      } else if (s.route == '/team' ||
+          s.route == '/invoices' ||
+          s.route == '/reports' ||
+          s.route == '/purchases' ||
+          s.route == '/shop') {
         context.push(s.route!);
       } else {
         context.go(s.route!);
@@ -791,7 +795,10 @@ class _ShopOrdersBanner extends StatelessWidget {
             style: const TextStyle(color: AppColors.greenDark, fontWeight: FontWeight.w800),
           ),
         ),
-        const Text('Voir', style: TextStyle(color: AppColors.greenDark, fontWeight: FontWeight.w800)),
+        const Text(
+          'Voir',
+          style: TextStyle(color: AppColors.greenDark, fontWeight: FontWeight.w800),
+        ),
         const Icon(Icons.chevron_right_rounded, color: AppColors.greenDark),
       ],
     ),

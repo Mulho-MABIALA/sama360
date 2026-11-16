@@ -7,7 +7,6 @@ import '../../core/format.dart';
 import '../../core/glass.dart';
 import '../../core/models.dart';
 import '../../core/providers.dart';
-import '../../core/theme.dart';
 import '../../core/widgets.dart';
 
 /// Fiche client ou fournisseur ([supplier]) : création ([customerId] null) ou modification.
@@ -147,12 +146,8 @@ class _CustomerEditorScreenState extends ConsumerState<CustomerEditorScreen> {
               : 'Il disparaît de vos clients. Ses ventes et factures passées restent dans l’historique.',
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Annuler')),
-          TextButton(
-            style: TextButton.styleFrom(foregroundColor: AppColors.danger),
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Supprimer'),
-          ),
+          CancelButton(onPressed: () => Navigator.pop(ctx, false)),
+          ConfirmButton(label: 'Supprimer', onPressed: () => Navigator.pop(ctx, true)),
         ],
       ),
     );

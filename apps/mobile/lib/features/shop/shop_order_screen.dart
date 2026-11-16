@@ -101,11 +101,10 @@ class _ShopOrderScreenState extends ConsumerState<ShopOrderScreen> {
           decoration: const InputDecoration(labelText: 'Raison', hintText: 'Ex. produit épuisé, client injoignable'),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Retour')),
-          TextButton(
-            style: TextButton.styleFrom(foregroundColor: AppColors.danger),
+          CancelButton(label: 'Retour', onPressed: () => Navigator.pop(ctx)),
+          ConfirmButton(
+            label: 'Oui, annuler',
             onPressed: () => Navigator.pop(ctx, c.text.trim().isEmpty ? 'Annulée par la boutique' : c.text.trim()),
-            child: const Text('Annuler la commande'),
           ),
         ],
       ),
@@ -216,10 +215,9 @@ class _ShopOrderScreenState extends ConsumerState<ShopOrderScreen> {
                           onPressed: _busy ? null : () => _move(o, ShopOrderStatus.completed),
                           child: Text(o.delivery ? 'Déjà livrée et encaissée' : 'Déjà retirée et encaissée'),
                         ),
-                      TextButton(
-                        style: TextButton.styleFrom(foregroundColor: AppColors.danger),
+                      ConfirmButton(
+                        label: 'Annuler la commande',
                         onPressed: _busy ? null : () => _move(o, ShopOrderStatus.cancelled),
-                        child: const Text('Annuler la commande'),
                       ),
                     ],
                   ),

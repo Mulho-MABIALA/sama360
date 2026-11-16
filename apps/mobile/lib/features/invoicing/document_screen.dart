@@ -90,12 +90,8 @@ class _DocumentScreenState extends ConsumerState<DocumentScreen> {
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Retour')),
-          TextButton(
-            style: TextButton.styleFrom(foregroundColor: AppColors.danger),
-            onPressed: () => Navigator.pop(ctx, reason.text.trim().length >= 3),
-            child: const Text('Annuler la facture'),
-          ),
+          CancelButton(label: 'Retour', onPressed: () => Navigator.pop(ctx, false)),
+          ConfirmButton(label: 'Oui, annuler', onPressed: () => Navigator.pop(ctx, reason.text.trim().length >= 3)),
         ],
       ),
     );
@@ -278,11 +274,7 @@ class _DocumentScreenState extends ConsumerState<DocumentScreen> {
       BusyButton(label: 'Enregistrer un paiement', busy: false, onPressed: _busy == null ? () => _pay(d) : null),
       if (d.paid == 0) ...[
         const SizedBox(height: 6),
-        TextButton(
-          style: TextButton.styleFrom(foregroundColor: AppColors.danger),
-          onPressed: _busy == null ? () => _cancel(d) : null,
-          child: const Text('Annuler la facture'),
-        ),
+        CancelButton(label: 'Annuler la facture', onPressed: _busy == null ? () => _cancel(d) : null),
       ] else
         gap(),
     ];

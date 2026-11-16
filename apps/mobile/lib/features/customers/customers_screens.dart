@@ -18,7 +18,11 @@ import 'statement_pdf.dart';
 /// « aujourd'hui », « hier », « il y a 5 j »
 String sinceText(DateTime d, [DateTime? now]) {
   final n = now ?? DateTime.now();
-  final days = DateTime(n.year, n.month, n.day).difference(DateTime(d.toLocal().year, d.toLocal().month, d.toLocal().day)).inDays;
+  final days = DateTime(
+    n.year,
+    n.month,
+    n.day,
+  ).difference(DateTime(d.toLocal().year, d.toLocal().month, d.toLocal().day)).inDays;
   if (days <= 0) return 'aujourd’hui';
   if (days == 1) return 'hier';
   return 'il y a $days j';
@@ -108,7 +112,8 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
             initialValue: _sort,
             onSelected: (s) => setState(() => _sort = s),
             itemBuilder: (_) => [
-              for (final s in CustomerSort.values) CheckedPopupMenuItem(value: s, checked: s == _sort, child: Text(s.label)),
+              for (final s in CustomerSort.values)
+                CheckedPopupMenuItem(value: s, checked: s == _sort, child: Text(s.label)),
             ],
           ),
         ],
@@ -184,7 +189,10 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
                 return Column(
                   children: [
                     for (final c in l.data)
-                      Padding(padding: const EdgeInsets.only(bottom: 8), child: _CustomerTile(c: c)),
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: _CustomerTile(c: c),
+                      ),
                   ],
                 );
               },
@@ -472,15 +480,21 @@ class _CustomerScreenState extends ConsumerState<CustomerScreen> {
               const SizedBox(height: 14),
               Row(
                 children: [
-                  Expanded(child: StatTile(label: 'Total acheté', value: money(o.stats.totalSpent))),
+                  Expanded(
+                    child: StatTile(label: 'Total acheté', value: money(o.stats.totalSpent)),
+                  ),
                   const SizedBox(width: 10),
-                  Expanded(child: StatTile(label: 'Nombre d’achats', value: '${o.stats.salesCount}')),
+                  Expanded(
+                    child: StatTile(label: 'Nombre d’achats', value: '${o.stats.salesCount}'),
+                  ),
                 ],
               ),
               const SizedBox(height: 10),
               Row(
                 children: [
-                  Expanded(child: StatTile(label: 'Panier moyen', value: money(o.stats.averageBasket))),
+                  Expanded(
+                    child: StatTile(label: 'Panier moyen', value: money(o.stats.averageBasket)),
+                  ),
                   const SizedBox(width: 10),
                   Expanded(
                     child: StatTile(
@@ -530,7 +544,11 @@ class _CustomerScreenState extends ConsumerState<CustomerScreen> {
               const SizedBox(height: 18),
               Row(
                 children: [
-                  Pill(label: 'Carnet de crédit', selected: !_purchases, onTap: () => setState(() => _purchases = false)),
+                  Pill(
+                    label: 'Carnet de crédit',
+                    selected: !_purchases,
+                    onTap: () => setState(() => _purchases = false),
+                  ),
                   const SizedBox(width: 8),
                   Pill(label: 'Achats', selected: _purchases, onTap: () => setState(() => _purchases = true)),
                 ],
@@ -592,7 +610,11 @@ class _CustomerScreenState extends ConsumerState<CustomerScreen> {
                 ),
                 subtitle: Text(
                   '${dateTime(s.soldAt)} · ${s.itemCount} article${s.itemCount > 1 ? 's' : ''}'
-                  '${s.status == 'voided' ? ' · annulée' : s.due > 0 ? ' · ${moneyShort(s.due)} à crédit' : ''}',
+                  '${s.status == 'voided'
+                      ? ' · annulée'
+                      : s.due > 0
+                      ? ' · ${moneyShort(s.due)} à crédit'
+                      : ''}',
                   style: const TextStyle(fontSize: 12),
                 ),
                 trailing: Text(moneyShort(s.total), style: const TextStyle(fontWeight: FontWeight.w800)),
@@ -658,10 +680,13 @@ class _Header extends StatelessWidget {
             textAlign: TextAlign.center,
             style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w800),
           ),
-          if (c.phone != null)
-            Text('+221 ${displayPhone(c.phone!)}', style: const TextStyle(color: AppColors.muted)),
+          if (c.phone != null) Text('+221 ${displayPhone(c.phone!)}', style: const TextStyle(color: AppColors.muted)),
           if (c.address != null)
-            Text(c.address!, textAlign: TextAlign.center, style: const TextStyle(color: AppColors.muted, fontSize: 12.5)),
+            Text(
+              c.address!,
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: AppColors.muted, fontSize: 12.5),
+            ),
           if (o.stats.firstPurchaseAt != null)
             Padding(
               padding: const EdgeInsets.only(top: 2),
@@ -729,7 +754,9 @@ class _QuickAction extends StatelessWidget {
               child: Icon(icon, color: color, size: 22),
             ),
             const SizedBox(height: 4),
-            ExcludeSemantics(child: Text(label, style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600))),
+            ExcludeSemantics(
+              child: Text(label, style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600)),
+            ),
           ],
         ),
       ),
@@ -763,7 +790,10 @@ class _BalanceCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(o.balance >= 0 ? 'Solde dû' : 'Avoir du client', style: const TextStyle(color: _muted, fontSize: 12)),
+                Text(
+                  o.balance >= 0 ? 'Solde dû' : 'Avoir du client',
+                  style: const TextStyle(color: _muted, fontSize: 12),
+                ),
                 Text(
                   money(o.balance.abs()),
                   style: TextStyle(
@@ -780,8 +810,7 @@ class _BalanceCard extends StatelessWidget {
                         : 'Doit depuis $age jour${age > 1 ? 's' : ''} (le ${shortDate(o.oldestUnpaidAt!)})',
                     style: const TextStyle(color: _muted, fontSize: 12.5),
                   ),
-                if (o.balance <= 0)
-                  const Text('Compte à jour', style: TextStyle(color: _muted, fontSize: 12.5)),
+                if (o.balance <= 0) const Text('Compte à jour', style: TextStyle(color: _muted, fontSize: 12.5)),
                 if (limit != null) ...[
                   const SizedBox(height: 12),
                   ClipRRect(
@@ -790,7 +819,11 @@ class _BalanceCard extends StatelessWidget {
                       value: used,
                       minHeight: 7,
                       backgroundColor: Colors.white.withValues(alpha: 0.15),
-                      color: over ? const Color(0xFFFF8A65) : used > 0.8 ? const Color(0xFFFFC28F) : AppColors.glow,
+                      color: over
+                          ? const Color(0xFFFF8A65)
+                          : used > 0.8
+                          ? const Color(0xFFFFC28F)
+                          : AppColors.glow,
                     ),
                   ),
                   const SizedBox(height: 5),
@@ -1047,7 +1080,11 @@ class _AdjustSheetState extends ConsumerState<_AdjustSheet> {
           spacing: 8,
           runSpacing: 8,
           children: [
-            Pill(label: 'Ajouter une ancienne dette', selected: _increase, onTap: () => setState(() => _increase = true)),
+            Pill(
+              label: 'Ajouter une ancienne dette',
+              selected: _increase,
+              onTap: () => setState(() => _increase = true),
+            ),
             if (widget.balance > 0)
               Pill(label: 'Remise de dette', selected: !_increase, onTap: () => setState(() => _increase = false)),
           ],

@@ -271,12 +271,8 @@ class PendingSalesSection extends ConsumerWidget {
                     title: const Text('Supprimer cette vente ?'),
                     content: const Text('Elle ne sera jamais envoyée ni comptée dans votre caisse.'),
                     actions: [
-                      TextButton(onPressed: () => Navigator.pop(d, false), child: const Text('Annuler')),
-                      TextButton(
-                        style: TextButton.styleFrom(foregroundColor: AppColors.danger),
-                        onPressed: () => Navigator.pop(d, true),
-                        child: const Text('Supprimer'),
-                      ),
+                      CancelButton(onPressed: () => Navigator.pop(d, false)),
+                      ConfirmButton(label: 'Supprimer', onPressed: () => Navigator.pop(d, true)),
                     ],
                   ),
                 );

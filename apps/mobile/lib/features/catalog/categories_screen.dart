@@ -24,8 +24,8 @@ Future<String?> _askName(BuildContext context, {String? initial, required String
         onSubmitted: (v) => Navigator.pop(ctx, v.trim()),
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Annuler')),
-        TextButton(onPressed: () => Navigator.pop(ctx, ctrl.text.trim()), child: const Text('Valider')),
+        CancelButton(onPressed: () => Navigator.pop(ctx)),
+        ConfirmButton(label: 'Valider', onPressed: () => Navigator.pop(ctx, ctrl.text.trim())),
       ],
     ),
   );
@@ -186,12 +186,8 @@ class CategoriesScreen extends ConsumerWidget {
                                       : 'Ses ${c.productCount} produit(s) restent dans le catalogue, sans catégorie.',
                                 ),
                                 actions: [
-                                  TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Annuler')),
-                                  TextButton(
-                                    style: TextButton.styleFrom(foregroundColor: AppColors.danger),
-                                    onPressed: () => Navigator.pop(ctx, true),
-                                    child: const Text('Supprimer'),
-                                  ),
+                                  CancelButton(onPressed: () => Navigator.pop(ctx, false)),
+                                  ConfirmButton(label: 'Supprimer', onPressed: () => Navigator.pop(ctx, true)),
                                 ],
                               ),
                             );

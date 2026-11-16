@@ -173,12 +173,8 @@ class _ProductEditorScreenState extends ConsumerState<ProductEditorScreen> {
           'Il disparaît du catalogue et de la caisse. Les ventes et factures passées gardent son nom et son prix.',
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Annuler')),
-          TextButton(
-            style: TextButton.styleFrom(foregroundColor: AppColors.danger),
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Supprimer'),
-          ),
+          CancelButton(onPressed: () => Navigator.pop(ctx, false)),
+          ConfirmButton(label: 'Supprimer', onPressed: () => Navigator.pop(ctx, true)),
         ],
       ),
     );

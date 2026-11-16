@@ -129,8 +129,7 @@ class _BusinessScreenState extends ConsumerState<BusinessScreen> {
               ),
               const SizedBox(height: 24),
               BusyButton(label: "Créer l'entreprise", busy: _busy, onPressed: _create),
-              if (list.isNotEmpty)
-                TextButton(onPressed: () => setState(() => _creating = false), child: const Text('Annuler')),
+              if (list.isNotEmpty) CancelButton(onPressed: () => setState(() => _creating = false)),
             ],
           ],
         ),

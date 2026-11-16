@@ -126,12 +126,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           '${unsentSalesCount(ref) > 0 ? '\n\nLes ventes pas encore envoyées depuis ce téléphone seront perdues.' : ''}',
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Annuler')),
-          TextButton(
-            style: TextButton.styleFrom(foregroundColor: AppColors.danger),
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Tout déconnecter'),
-          ),
+          CancelButton(onPressed: () => Navigator.pop(ctx, false)),
+          ConfirmButton(label: 'Tout déconnecter', onPressed: () => Navigator.pop(ctx, true)),
         ],
       ),
     );
@@ -158,8 +154,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 style: const TextStyle(color: AppColors.danger),
               ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Annuler')),
-          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Déconnexion')),
+          CancelButton(onPressed: () => Navigator.pop(ctx, false)),
+          ConfirmButton(label: 'Déconnexion', onPressed: () => Navigator.pop(ctx, true)),
         ],
       ),
     );

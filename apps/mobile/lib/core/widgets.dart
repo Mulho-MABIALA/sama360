@@ -243,3 +243,45 @@ class BusyButton extends StatelessWidget {
 extension CanX on WidgetRef {
   bool can(String permission) => watch(canProvider(permission));
 }
+
+/// Bouton qui renonce (Annuler, Retour, Fermer…) : toujours rouge, partout dans l'app.
+class CancelButton extends StatelessWidget {
+  const CancelButton({super.key, this.label = 'Annuler', required this.onPressed});
+  final String label;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) => TextButton(
+    style: TextButton.styleFrom(
+      foregroundColor: AppColors.danger,
+      backgroundColor: AppColors.danger.withValues(alpha: 0.10),
+      minimumSize: const Size(96, 44),
+      padding: const EdgeInsets.symmetric(horizontal: 18),
+      shape: const StadiumBorder(),
+      textStyle: Theme.of(context).textTheme.labelLarge?.copyWith(fontSize: 15, fontWeight: FontWeight.w700),
+    ),
+    onPressed: onPressed,
+    child: Text(label),
+  );
+}
+
+/// Bouton qui valide (Valider, Créer, Supprimer, Confirmer…) : toujours vert, partout dans l'app.
+class ConfirmButton extends StatelessWidget {
+  const ConfirmButton({super.key, required this.label, required this.onPressed});
+  final String label;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) => FilledButton(
+    style: FilledButton.styleFrom(
+      backgroundColor: AppColors.green,
+      foregroundColor: Colors.white,
+      minimumSize: const Size(96, 44),
+      padding: const EdgeInsets.symmetric(horizontal: 18),
+      shape: const StadiumBorder(),
+      textStyle: Theme.of(context).textTheme.labelLarge?.copyWith(fontSize: 15, fontWeight: FontWeight.w800),
+    ),
+    onPressed: onPressed,
+    child: Text(label),
+  );
+}

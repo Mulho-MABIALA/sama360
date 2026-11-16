@@ -200,7 +200,7 @@ void main() {
       await tester.tap(find.text('Annuler la commande'));
       await tester.pumpAndSettle();
       await tester.enterText(find.byKey(const Key('cancelReason')), 'Parfum épuisé');
-      await tester.tap(find.text('Annuler la commande').last);
+      await tester.tap(find.text('Oui, annuler'));
       await tester.pumpAndSettle();
       expect(repo.shopStatusCalls.single, ('so1', ShopOrderStatus.cancelled, 'Parfum épuisé', null));
     });

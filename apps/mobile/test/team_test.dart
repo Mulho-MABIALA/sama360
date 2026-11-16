@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:sama360/core/models.dart';
+import 'package:sama360/core/widgets.dart';
 import 'package:sama360/features/team/team_screen.dart';
 
 import 'helpers.dart';
@@ -103,7 +104,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Retirer de l’équipe'));
     await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(TextButton, 'Retirer'));
+    await tester.tap(find.widgetWithText(ConfirmButton, 'Retirer'));
     await tester.pumpAndSettle();
     expect(repo.team.any((m) => m.id == 'm2'), isFalse);
     expect(find.text('Moussa Fall'), findsNothing);

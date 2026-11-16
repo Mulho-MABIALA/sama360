@@ -685,7 +685,7 @@ class _SupplierPickerState extends ConsumerState<_SupplierPicker> {
               ],
             ),
             actions: [
-              TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Annuler')),
+              CancelButton(onPressed: () => Navigator.pop(ctx)),
               FilledButton(
                 onPressed: busy
                     ? null

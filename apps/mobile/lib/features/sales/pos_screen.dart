@@ -98,9 +98,9 @@ class _PosScreenState extends ConsumerState<PosScreen> {
           'Aucun produit n’a le code $code.${ref.can('catalog:write') ? ' Voulez-vous créer sa fiche ?' : ''}',
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Fermer')),
+          CancelButton(label: 'Fermer', onPressed: () => Navigator.pop(ctx, false)),
           if (ref.can('catalog:write'))
-            TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Créer la fiche')),
+            ConfirmButton(label: 'Créer la fiche', onPressed: () => Navigator.pop(ctx, true)),
         ],
       ),
     );
@@ -476,7 +476,8 @@ class _CheckoutPanel extends ConsumerWidget {
                     style: const TextStyle(color: AppColors.warnText, fontWeight: FontWeight.w700, fontSize: 13),
                   ),
                 ),
-              if (cart.customer?.creditLimit != null) _CreditLimitHint(customer: cart.customer!, due: cart.total - cart.deposit),
+              if (cart.customer?.creditLimit != null)
+                _CreditLimitHint(customer: cart.customer!, due: cart.total - cart.deposit),
             ],
             const SizedBox(height: 12),
             BusyButton(

@@ -197,7 +197,7 @@ void main() {
     await tester.tap(find.text('Annuler la facture'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byKey(const Key('cancelReason')), 'Erreur de client');
-    await tester.tap(find.descendant(of: find.byType(AlertDialog), matching: find.text('Annuler la facture')));
+    await tester.tap(find.descendant(of: find.byType(AlertDialog), matching: find.text('Oui, annuler')));
     await tester.pumpAndSettle();
     expect(repo.docs['f9']!.status, 'cancelled');
     expect(find.text('Annulée'), findsOneWidget);

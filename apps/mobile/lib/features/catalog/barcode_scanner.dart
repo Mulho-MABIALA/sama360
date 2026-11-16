@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
+import '../../core/widgets.dart';
+
 import '../../core/theme.dart';
 
 /// Ouvre le scanner et renvoie le code lu (null si annulé). Remplaçable dans les tests.
@@ -64,8 +66,8 @@ class _ScannerScreenState extends State<ScannerScreen> {
           onSubmitted: (v) => Navigator.pop(ctx, v),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Annuler')),
-          TextButton(onPressed: () => Navigator.pop(ctx, ctrl.text), child: const Text('Valider')),
+          CancelButton(onPressed: () => Navigator.pop(ctx)),
+          ConfirmButton(label: 'Valider', onPressed: () => Navigator.pop(ctx, ctrl.text)),
         ],
       ),
     );

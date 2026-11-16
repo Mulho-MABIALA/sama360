@@ -138,7 +138,7 @@ Future<Contact?> createCustomerDialog(BuildContext context, WidgetRef ref, {Stri
             ],
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Annuler')),
+            CancelButton(onPressed: () => Navigator.pop(ctx)),
             FilledButton(
               style: FilledButton.styleFrom(minimumSize: const Size(110, 44)),
               onPressed: busy
