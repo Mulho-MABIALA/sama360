@@ -70,6 +70,18 @@ void main() {
       expect(receiptFileName(demoSale), 'Recu-VEN-2026-0042.pdf');
     });
 
+    test('PDF ticket avec logo (et sans si l’image est illisible)', () async {
+      final png = base64Decode(
+        'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
+      );
+      final fonts = await ReceiptFonts.load();
+      final withLogo = await buildReceiptPdf(demoSale, demoBusiness, fonts: fonts, logo: png);
+      expect(latin1.decode(withLogo), contains('/Subtype/Image'));
+      final broken = await buildReceiptPdf(demoSale, demoBusiness, fonts: fonts, logo: [1, 2, 3]);
+      expect(ascii.decode(broken.sublist(0, 5)), '%PDF-');
+      expect(latin1.decode(broken), isNot(contains('/Subtype/Image')));
+    });
+
     test('modèle depuis l’API', () {
       final s = SaleDetail.fromJson({
         'id': 'x',

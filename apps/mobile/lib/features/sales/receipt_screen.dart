@@ -12,6 +12,7 @@ import '../../core/models.dart';
 import '../../core/providers.dart';
 import '../../core/theme.dart';
 import '../../core/widgets.dart';
+import '../business/business_logo.dart';
 import 'receipt.dart';
 
 /// Actions de partage (remplaçables dans les tests).
@@ -54,6 +55,12 @@ class _ReceiptScreenState extends ConsumerState<ReceiptScreen> {
     }
   }
 
+  /// PDF ticket avec le logo de l'entreprise s'il est disponible.
+  Future<List<int>> _pdf(SaleDetail s, CurrentBusiness b) async {
+    final logo = b.logoFileId == null ? null : await ref.read(repoProvider).fileBytes(b.logoFileId!);
+    return buildReceiptPdf(s, b, logo: logo);
+  }
+
   @override
   Widget build(BuildContext context) {
     final sale = ref.watch(saleProvider(widget.saleId));
@@ -91,10 +98,10 @@ class _ReceiptScreenState extends ConsumerState<ReceiptScreen> {
                   if (!ok && context.mounted) showInfo(context, 'WhatsApp n’a pas pu être ouvert');
                 }),
                 onShare: () => _run('share', () async {
-                  await actions.sharePdf(await buildReceiptPdf(s, b), receiptFileName(s));
+                  await actions.sharePdf(await _pdf(s, b), receiptFileName(s));
                 }),
                 onPrint: () => _run('print', () async {
-                  await actions.printPdf(await buildReceiptPdf(s, b), s.number);
+                  await actions.printPdf(await _pdf(s, b), s.number);
                 }),
               ),
             ],
@@ -209,6 +216,11 @@ class ReceiptPaper extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              if (b.logoFileId != null)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 6),
+                  child: Center(child: BusinessLogo(business: b, size: 54, radius: 12)),
+                ),
               Text(
                 b.name,
                 textAlign: TextAlign.center,

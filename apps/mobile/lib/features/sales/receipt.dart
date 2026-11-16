@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:intl/intl.dart';
 import 'package:pdf/pdf.dart';
@@ -54,8 +56,16 @@ class ReceiptFonts {
 }
 
 /// Reçu PDF au format ticket de caisse (rouleau 80 mm) : imprimable et partageable.
-Future<List<int>> buildReceiptPdf(SaleDetail s, CurrentBusiness b, {ReceiptFonts? fonts}) async {
+Future<List<int>> buildReceiptPdf(SaleDetail s, CurrentBusiness b, {ReceiptFonts? fonts, List<int>? logo}) async {
   final f = fonts ?? await ReceiptFonts.load();
+  pw.ImageProvider? logoImage;
+  if (logo != null && logo.isNotEmpty) {
+    try {
+      logoImage = pw.MemoryImage(Uint8List.fromList(logo));
+    } catch (_) {
+      logoImage = null; // image illisible : reçu sans logo
+    }
+  }
   final doc = pw.Document(title: 'Reçu ${s.number}', author: b.name, creator: 'Sama360');
   final base = pw.TextStyle(font: f.regular, fontSize: 8.5);
   final bold = pw.TextStyle(font: f.bold, fontSize: 8.5);
@@ -87,6 +97,15 @@ Future<List<int>> buildReceiptPdf(SaleDetail s, CurrentBusiness b, {ReceiptFonts
       build: (_) => pw.Column(
         crossAxisAlignment: pw.CrossAxisAlignment.stretch,
         children: [
+          if (logoImage != null)
+            pw.Center(
+              child: pw.Container(
+                width: 46,
+                height: 46,
+                margin: const pw.EdgeInsets.only(bottom: 4),
+                child: pw.Image(logoImage, fit: pw.BoxFit.contain),
+              ),
+            ),
           pw.Text(
             b.name,
             textAlign: pw.TextAlign.center,
