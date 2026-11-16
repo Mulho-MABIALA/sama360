@@ -120,6 +120,27 @@ void refreshPurchasing(WidgetRef ref) {
   ref.invalidate(productProvider);
 }
 
+final shopProvider = FutureProvider<ShopOverview>((ref) {
+  ref.watch(businessIdProvider);
+  return ref.watch(repoProvider).shop();
+});
+
+final shopOrdersProvider = FutureProvider.family<List<ShopOrder>, ShopOrderFilter>((ref, filter) {
+  ref.watch(businessIdProvider);
+  return ref.watch(repoProvider).shopOrders(filter: filter);
+});
+
+final shopOrderProvider = FutureProvider.family<ShopOrder, String>((ref, id) {
+  ref.watch(businessIdProvider);
+  return ref.watch(repoProvider).shopOrder(id);
+});
+
+void refreshShop(WidgetRef ref) {
+  ref.invalidate(shopProvider);
+  ref.invalidate(shopOrdersProvider);
+  ref.invalidate(shopOrderProvider);
+}
+
 final saleProvider = FutureProvider.family<SaleDetail, String>((ref, id) {
   ref.watch(businessIdProvider);
   return ref.watch(repoProvider).sale(id);

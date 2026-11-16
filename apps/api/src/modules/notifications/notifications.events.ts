@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import type { BusinessCreated, MemberInvited, StockLow } from '@sama360/contracts';
+import type { BusinessCreated, MemberInvited, ShopOrderPlaced, StockLow } from '@sama360/contracts';
 import { OnDomainEvent } from '../../shared/events/on-domain-event.decorator';
 
 /**
@@ -23,5 +23,10 @@ export class NotificationEventHandlers {
   @OnDomainEvent('stock.low')
   async stockLow(event: StockLow): Promise<void> {
     this.logger.log(`[stock bas] ${event.payload.name} : ${event.payload.onHand} restant(s) (seuil ${event.payload.threshold})`);
+  }
+
+  @OnDomainEvent('shop.order_placed')
+  async shopOrder(event: ShopOrderPlaced): Promise<void> {
+    this.logger.log(`[boutique] ${event.payload.number} de ${event.payload.customerName} : ${event.payload.total} F`);
   }
 }

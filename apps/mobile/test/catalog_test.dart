@@ -62,6 +62,8 @@ void main() {
     expect(find.textContaining('Bénéfice : 1'), findsOneWidget); // 3 500 − 2 000
 
     await tester.enterText(find.byKey(const Key('pPrice')), '4000');
+    await tester.ensureVisible(find.byTooltip('Scanner le code-barres'));
+    await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('Scanner le code-barres'));
     await tester.pumpAndSettle();
     expect(find.text('6009876543210'), findsOneWidget);

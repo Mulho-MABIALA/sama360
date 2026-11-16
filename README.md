@@ -100,6 +100,15 @@ Toutes les erreurs : `{ "error": { "code", "message", "details?" } }`.
 | GET | `/v1/reports/overview` | `reports:read` — rapport d'une période (`?from=&to=`, 400 jours max) : totaux, évolution vs période précédente, série jour/mois, moyens de paiement, top produits, vendeurs, dépenses, factures |
 | GET | `/v1/sales/my-day` | `sales:create` — ma journée de vendeur (nombre, montant) |
 | GET | `/v1/sales/debtors` | `sales:read` — clients qui doivent de l'argent |
+| GET | `/s/:slug` · `/s/:slug/c/:id` | public — page web de la boutique (catalogue, panier, commande) et suivi de commande |
+| GET | `/v1/public/shops/:slug` | public — vitrine : réglages, catégories, produits publiés et disponibilité (sans coût ni stock exact) |
+| POST | `/v1/public/shops/:slug/orders` | public, 10/min — commande d'un client sans compte (idempotente sur `id`), prix calculés par le serveur, fiche client créée |
+| GET | `/v1/public/shops/:slug/orders/:id` | public — suivi de la commande par le client |
+| GET | `/v1/shop` | `sales:read` — adresse, réglages et chiffres de la boutique |
+| PUT | `/v1/shop/settings` | `catalog:write` — ouverture, présentation, WhatsApp, retrait, livraison (frais, zone), minimum |
+| POST | `/v1/shop/publish` | `catalog:write` — mettre en ligne ou retirer des produits (tous si `productIds` absent) |
+| GET | `/v1/shop/orders` · `/v1/shop/orders/:id` | `sales:read` — commandes reçues (`?filter=new\|open\|done\|all`) |
+| POST | `/v1/shop/orders/:id/status` | `sales:create` — confirmée → prête → en livraison → livrée (vente enregistrée avec le paiement reçu, reste au carnet) ou annulée |
 | GET / POST | `/v1/purchases` | `inventory:read` / `inventory:write` — bons de commande BC-… (`?filter=open\|unpaid\|received\|all&supplierId=`), totaux ; création idempotente si `id` fourni, `draft`, achat direct `receive: true` + `payment` |
 | GET / PATCH | `/v1/purchases/:id` | détail (lignes commandées / reçues, réceptions, paiements) ; modification tant que rien n'est reçu ni payé |
 | POST | `/v1/purchases/:id/confirm` · `/cancel` | `inventory:write` — brouillon → commandé ; annulation si rien reçu ni payé |

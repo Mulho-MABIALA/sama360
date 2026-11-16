@@ -341,4 +341,28 @@ void main() {
     await pumpSama(tester, location: '/purchases/new?low=1&supplierId=s1');
     await _shot(tester, '16e_nouvel_achat');
   });
+
+  testWidgets('boutique', (tester) async {
+    phoneSize(tester);
+    await pumpSama(tester, location: '/shop');
+    await _shot(tester, '17_boutique');
+  });
+
+  testWidgets('boutique fermée', (tester) async {
+    phoneSize(tester);
+    await pumpSama(tester, location: '/shop', repo: FakeRepo()..shopEnabled = false);
+    await _shot(tester, '17b_boutique_ouvrir');
+  });
+
+  testWidgets('commande en ligne', (tester) async {
+    phoneSize(tester);
+    await pumpSama(tester, location: '/shop/orders/so1');
+    await _shot(tester, '17c_commande_en_ligne');
+  });
+
+  testWidgets('réglages boutique', (tester) async {
+    phoneSize(tester);
+    await pumpSama(tester, location: '/shop/settings');
+    await _shot(tester, '17d_reglages_boutique');
+  });
 }

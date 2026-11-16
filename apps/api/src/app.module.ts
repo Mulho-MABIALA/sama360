@@ -11,6 +11,7 @@ import { InventoryModule } from './modules/inventory/inventory.module';
 import { SalesModule } from './modules/sales/sales.module';
 import { InvoicingModule } from './modules/invoicing/invoicing.module';
 import { PurchasingModule } from './modules/purchasing/purchasing.module';
+import { ShopModule } from './modules/shop/shop.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { Public } from './shared/auth/decorators';
 import { JwtAuthGuard } from './shared/auth/jwt-auth.guard';
@@ -46,6 +47,7 @@ class HealthController {
     SalesModule,
     InvoicingModule,
     PurchasingModule,
+    ShopModule,
     NotificationsModule,
   ],
   controllers: [HealthController],

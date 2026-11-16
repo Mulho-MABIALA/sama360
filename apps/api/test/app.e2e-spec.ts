@@ -33,6 +33,8 @@ async function resetDatabase(url: string) {
   const c = new Client({ connectionString: url });
   await c.connect();
   await c.query(`
+    DROP SCHEMA IF EXISTS shop CASCADE;
+    DROP SCHEMA IF EXISTS purchasing CASCADE;
     DROP SCHEMA IF EXISTS invoicing CASCADE;
     DROP SCHEMA IF EXISTS sales CASCADE;
     DROP SCHEMA IF EXISTS inventory CASCADE;
@@ -500,7 +502,9 @@ describe('Socle Sama360 (e2e)', () => {
         await dbs.db.execute(sql`SELECT payload FROM core.outbox_events WHERE type = 'stock.low' AND aggregate_id = ${huile}`)
       ).rows as { payload: { onHand: number; threshold: number } }[];
       expect(alerts).toHaveLength(1);
-      expect(alerts[0].payload).toMatchObject({ onHand: 4, threshold: 5 });
+      // Le worker traite les deux ventes en parallèle : le seuil est franchi à 5 ou à 4 selon l'ordre
+      expect(alerts[0].payload.threshold).toBe(5);
+      expect([4, 5]).toContain(alerts[0].payload.onHand);
 
       // Le cache de solde de l'annuaire suit, via contacts
       const contact = await waitFor(
@@ -1313,6 +1317,180 @@ describe('Socle Sama360 (e2e)', () => {
       expect(cancelled.body).toMatchObject({ status: 'cancelled', due: 0 });
       await http.post(`/v1/purchases/${o.body.id}/cancel`).set(A()).expect(409);
       await http.post(`/v1/purchases/${o.body.id}/payments`).set(A()).send({ amount: 100, method: 'cash' }).expect(409);
+    });
+  });
+
+  describe('Boutique en ligne', () => {
+    const A = () => auth(awa.accessToken, awaBiz);
+    let slug: string;
+    let pagne: string;
+    let bazin: string;
+    let cache: string;
+    let order: string;
+    let cashier: string;
+    const year = new Date().getUTCFullYear();
+    const pub = () => `/v1/public/shops/${slug}`;
+
+    beforeAll(async () => {
+      await http.post('/v1/members').set(A()).send({ phone: '+221770005544', fullName: 'Sokhna Diop', roleKey: 'cashier' }).expect(201);
+      cashier = (await login('+221770005544')).accessToken;
+      slug = (await http.get('/v1/shop').set(A()).expect(200)).body.slug;
+      pagne = (await http.post('/v1/catalog/products').set(A()).send({ name: 'Pagne tissé', price: 7500 }).expect(201)).body.id;
+      bazin = (await http.post('/v1/catalog/products').set(A()).send({ name: 'Bazin riche', price: 15000 }).expect(201)).body.id;
+      cache = (await http.post('/v1/catalog/products').set(A()).send({ name: 'Produit caché', price: 100 }).expect(201)).body.id;
+      await http.post('/v1/inventory/movements').set(A()).send({ productId: pagne, type: 'purchase', quantity: 5 }).expect(201);
+      await http.post('/v1/inventory/movements').set(A()).send({ productId: bazin, type: 'purchase', quantity: 3 }).expect(201);
+    });
+
+    it('boutique fermée par défaut ; ouverture, réglages et publication', async () => {
+      await http.get(pub()).expect(404);
+      await http.get('/v1/public/shops/n-existe-pas').expect(404);
+      const bad = await http.put('/v1/shop/settings').set(A()).send({ pickup: false, delivery: false }).expect(422);
+      expect(bad.body.error.message).toContain('au moins');
+
+      const s = await http
+        .put('/v1/shop/settings')
+        .set(A())
+        .send({ enabled: true, title: 'Awa Beauté en ligne', whatsapp: '77 111 22 33', deliveryFee: 1000, deliveryZone: 'Dakar', minOrder: 10000 })
+        .expect(200);
+      expect(s.body).toMatchObject({ enabled: true, whatsapp: '+221771112233', deliveryFee: 1000, pickup: true, delivery: true });
+
+      const pubd = await http.post('/v1/shop/publish').set(A()).send({ productIds: [pagne, bazin], published: true }).expect(200);
+      expect(pubd.body.updated).toBe(2);
+      // Le caissier ne publie pas
+      await http.post('/v1/shop/publish').set(auth(cashier, awaBiz)).send({ published: true }).expect(403);
+      await http.put('/v1/shop/settings').set(auth(cashier, awaBiz)).send({ enabled: false }).expect(403);
+
+      const o = (await http.get('/v1/shop').set(A()).expect(200)).body;
+      expect(o).toMatchObject({ path: `/s/${slug}`, settings: { enabled: true, minOrder: 10000 } });
+      expect(o.stats.publishedProducts).toBeGreaterThanOrEqual(2);
+    });
+
+    it('vitrine publique et page web', async () => {
+      const v = (await http.get(pub()).expect(200)).body;
+      expect(v.shop).toMatchObject({ slug, name: 'Awa Beauté en ligne', whatsapp: '+221771112233', deliveryFee: 1000, minOrder: 10000 });
+      const names = v.products.map((p: { name: string }) => p.name);
+      expect(names).toEqual(expect.arrayContaining(['Pagne tissé', 'Bazin riche']));
+      expect(names).not.toContain('Produit caché');
+      expect(v.products.find((p: { id: string }) => p.id === bazin)).toMatchObject({ available: true, maxQuantity: 3, price: 15000 });
+      expect(JSON.stringify(v)).not.toMatch(/cost|onHand/); // ni coût d'achat ni stock exact
+
+      const page = await http.get(`/s/${slug}`).expect(200);
+      expect(page.headers['content-type']).toContain('text/html');
+      expect(page.text).toContain(`var SLUG = "${slug}";`);
+      await http.get(`/s/${slug}/c/01938000-0000-7000-8000-000000000001`).expect(200);
+      await http.get('/s/Pas_Valide!').expect(404);
+    });
+
+    it('commande d’un client : contrôles, prix serveur, fiche client créée, sans doublon', async () => {
+      order = '01938000-0000-7000-8000-00000000cd01';
+      const base = { id: order, customerName: 'Ndèye Sarr', customerPhone: '76 555 44 33', mode: 'delivery' };
+      const noAddress = await http.post(`${pub()}/orders`).send({ ...base, items: [{ productId: bazin, quantity: 1 }] }).expect(422);
+      expect(noAddress.body.error.message).toBe('Indiquez l’adresse de livraison');
+      const tooMany = await http
+        .post(`${pub()}/orders`)
+        .send({ ...base, address: 'Ouakam', items: [{ productId: bazin, quantity: 4 }] })
+        .expect(422);
+      expect(tooMany.body.error.message).toBe('« Bazin riche » : 3 disponible(s) seulement');
+      await http.post(`${pub()}/orders`).send({ ...base, address: 'Ouakam', items: [{ productId: cache, quantity: 1 }] }).expect(404);
+      const small = await http.post(`${pub()}/orders`).send({ ...base, address: 'Ouakam', items: [{ productId: pagne, quantity: 0 }] }).expect(422);
+      expect(small.body.error.code).toBe('VALIDATION_FAILED');
+      const min = await http.post(`${pub()}/orders`).send({ ...base, address: 'Ouakam', items: [{ productId: pagne, quantity: 0.5 }] }).expect(422);
+      expect(min.body.error.code).toBe('VALIDATION_FAILED');
+      await http.post(`${pub()}/orders`).send({ ...base, customerPhone: '12', address: 'Ouakam', items: [{ productId: pagne, quantity: 1 }] }).expect(422);
+      const below = await http.post(`${pub()}/orders`).send({ ...base, address: 'Ouakam', items: [{ productId: pagne, quantity: 1 }] }).expect(422);
+      expect(below.body.error.message).toBe('Commande minimum : 10 000 F');
+
+      const body = {
+        ...base,
+        address: 'Ouakam, près de la mosquée',
+        note: 'Appeler avant',
+        items: [
+          { productId: pagne, quantity: 2 },
+          { productId: bazin, quantity: 1, unitPrice: 1 }, // un prix envoyé par le client est ignoré
+        ],
+      };
+      const placed = await http.post(`${pub()}/orders`).send(body).expect(201);
+      expect(placed.body).toMatchObject({
+        number: `CMD-${year}-0001`,
+        status: 'new',
+        statusLabel: 'Nouvelle',
+        subtotal: 30000,
+        deliveryFee: 1000,
+        total: 31000,
+      });
+      expect(placed.body.contactId).toBeUndefined();
+      const again = await http.post(`${pub()}/orders`).send(body).expect(200);
+      expect(again.body.number).toBe(`CMD-${year}-0001`);
+
+      const contacts = (await http.get('/v1/contacts?search=Ndèye').set(A()).expect(200)).body.data;
+      expect(contacts).toEqual([expect.objectContaining({ name: 'Ndèye Sarr', phone: '+221765554433', type: 'customer' })]);
+      expect((await http.get('/v1/shop').set(A())).body.stats.newOrders).toBe(1);
+    });
+
+    it('suivi par le commerçant jusqu’à la vente : stock, caisse, crédit ; suivi client', async () => {
+      // Le caissier voit et traite les commandes
+      const list = (await http.get('/v1/shop/orders?filter=new').set(auth(cashier, awaBiz)).expect(200)).body;
+      expect(list.data.map((o: { id: string }) => o.id)).toEqual([order]);
+      expect(list.data[0]).toMatchObject({ customerName: 'Ndèye Sarr', mode: 'delivery', total: 31000, lineCount: 2 });
+      const detail = (await http.get(`/v1/shop/orders/${order}`).set(auth(cashier, awaBiz)).expect(200)).body;
+      expect(detail).toMatchObject({ address: 'Ouakam, près de la mosquée', note: 'Appeler avant', deliveryFee: 1000 });
+      expect(detail.lines[1]).toMatchObject({ name: 'Bazin riche', quantity: 1, unitPrice: 15000 });
+      const early = await http.post(`/v1/shop/orders/${order}/status`).set(A()).send({ status: 'completed' }).expect(409);
+      expect(early.body.error.message).toBe('Une commande « nouvelle » ne peut pas passer à « livrée »');
+
+      await http.post(`/v1/shop/orders/${order}/status`).set(A()).send({ status: 'confirmed' }).expect(200);
+      await http.post(`/v1/shop/orders/${order}/status`).set(A()).send({ status: 'ready' }).expect(200);
+      await http.post(`/v1/shop/orders/${order}/status`).set(A()).send({ status: 'delivering' }).expect(200);
+      expect((await http.get(`${pub()}/orders/${order}`).expect(200)).body).toMatchObject({ status: 'delivering', statusLabel: 'En livraison' });
+
+      // Le livreur encaisse 20 000 F par Wave : le reste (11 000 F) passe au carnet de crédit
+      const done = await http
+        .post(`/v1/shop/orders/${order}/status`)
+        .set(A())
+        .send({ status: 'completed', payment: { method: 'wave', amount: 20000 } })
+        .expect(200);
+      expect(done.body).toMatchObject({ status: 'completed', saleId: order });
+      const sale = (await http.get(`/v1/sales/${order}`).set(A()).expect(200)).body;
+      expect(sale).toMatchObject({ total: 31000, paid: 20000, due: 11000, note: `Commande en ligne CMD-${year}-0001` });
+      expect(sale.items.map((i: { name: string }) => i.name)).toEqual(['Pagne tissé', 'Bazin riche', 'Livraison']);
+      await relay.relayOnce();
+      const stock = await waitFor(
+        async () => (await http.get('/v1/inventory/stock').set(A())).body.items as { productId: string; onHand: number }[],
+        (items) => Number(items.find((i) => i.productId === bazin)?.onHand) === 2,
+      );
+      expect(Number(stock.find((i) => i.productId === pagne)?.onHand)).toBe(3);
+
+      await http.post(`/v1/shop/orders/${order}/status`).set(A()).send({ status: 'cancelled' }).expect(409);
+      expect((await http.get(`${pub()}/orders/${order}`).expect(200)).body.statusLabel).toBe('Livrée');
+    });
+
+    it('retrait en boutique : pas d’étape livraison ; annulation avec motif', async () => {
+      const id = '01938000-0000-7000-8000-00000000cd02';
+      const placed = await http
+        .post(`${pub()}/orders`)
+        .send({ id, customerName: 'Ndèye Sarr', customerPhone: '+221765554433', mode: 'pickup', items: [{ productId: pagne, quantity: 2 }] })
+        .expect(201);
+      expect(placed.body).toMatchObject({ number: `CMD-${year}-0002`, deliveryFee: 0, total: 15000, address: null });
+      // Même client : pas de doublon dans l'annuaire
+      expect((await http.get('/v1/contacts?search=Ndèye').set(A())).body.data).toHaveLength(1);
+
+      await http.post(`/v1/shop/orders/${id}/status`).set(A()).send({ status: 'confirmed' }).expect(200);
+      const noRide = await http.post(`/v1/shop/orders/${id}/status`).set(A()).send({ status: 'delivering' }).expect(409);
+      expect(noRide.body.error.message).toBe('Une commande « confirmée » ne peut pas passer à « en livraison »');
+      const cancelled = await http
+        .post(`/v1/shop/orders/${id}/status`)
+        .set(A())
+        .send({ status: 'cancelled', reason: 'Client injoignable' })
+        .expect(200);
+      expect(cancelled.body).toMatchObject({ status: 'cancelled', cancelReason: 'Client injoignable', saleId: null });
+      const done = (await http.get('/v1/shop/orders?filter=done').set(A()).expect(200)).body.data;
+      expect(done.map((o: { id: string }) => o.id)).toEqual([id, order]);
+
+      // Boutique refermée : la vitrine disparaît, le suivi aussi
+      await http.put('/v1/shop/settings').set(A()).send({ enabled: false }).expect(200);
+      await http.get(pub()).expect(404);
+      await http.put('/v1/shop/settings').set(A()).send({ enabled: true }).expect(200);
     });
   });
 

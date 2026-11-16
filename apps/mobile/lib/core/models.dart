@@ -137,12 +137,16 @@ class Product {
     this.sku,
     this.wholesalePrice,
     this.wholesaleMinQty,
+    this.published = false,
   });
   final String id;
   final String name;
   final int price;
   final int cost;
   final String? categoryId;
+
+  /// Visible dans la boutique en ligne.
+  final bool published;
   final bool trackStock;
   final int lowStockThreshold;
   final String? imageFileId; // photo principale (GET /v1/files/:id)
@@ -178,6 +182,7 @@ class Product {
     sku: j['sku'] as String?,
     wholesalePrice: j['wholesalePrice'] == null ? null : _int(j['wholesalePrice']),
     wholesaleMinQty: j['wholesaleMinQty'] == null ? null : _num(j['wholesaleMinQty']),
+    published: j['published'] as bool? ?? false,
   );
 }
 
@@ -196,9 +201,13 @@ class ProductDraft {
     this.lowStockThreshold = 5,
     this.wholesalePrice,
     this.wholesaleMinQty,
+    this.published,
   });
   final String name;
   final int price;
+
+  /// null : ne change pas la visibilité en ligne.
+  final bool? published;
   final int cost;
   final String? categoryId;
   final bool isService;
@@ -223,6 +232,7 @@ class ProductDraft {
     'lowStockThreshold': lowStockThreshold,
     'wholesalePrice': wholesalePrice,
     'wholesaleMinQty': wholesaleMinQty,
+    'published': ?published,
   };
 }
 
@@ -1627,4 +1637,224 @@ class SupplierOverview {
       products: ((j['products'] as List?) ?? []).map((e) => SupplierProduct.fromJson(e as Map<String, dynamic>)).toList(),
     );
   }
+}
+
+
+// =====================================================================
+// Boutique en ligne
+// =====================================================================
+
+class ShopSettings {
+  const ShopSettings({
+    this.enabled = false,
+    this.title,
+    this.description,
+    this.whatsapp,
+    this.pickup = true,
+    this.delivery = true,
+    this.deliveryFee = 0,
+    this.deliveryZone,
+    this.minOrder = 0,
+  });
+  final bool enabled;
+  final String? title;
+  final String? description;
+  final String? whatsapp;
+  final bool pickup;
+  final bool delivery;
+  final int deliveryFee;
+  final String? deliveryZone;
+  final int minOrder;
+
+  factory ShopSettings.fromJson(Map<String, dynamic> j) => ShopSettings(
+    enabled: j['enabled'] as bool? ?? false,
+    title: j['title'] as String?,
+    description: j['description'] as String?,
+    whatsapp: j['whatsapp'] as String?,
+    pickup: j['pickup'] as bool? ?? true,
+    delivery: j['delivery'] as bool? ?? true,
+    deliveryFee: _int(j['deliveryFee']),
+    deliveryZone: j['deliveryZone'] as String?,
+    minOrder: _int(j['minOrder']),
+  );
+
+  Map<String, dynamic> toJson() => {
+    'enabled': enabled,
+    'title': title ?? '',
+    'description': description ?? '',
+    'whatsapp': whatsapp ?? '',
+    'pickup': pickup,
+    'delivery': delivery,
+    'deliveryFee': deliveryFee,
+    'deliveryZone': deliveryZone ?? '',
+    'minOrder': minOrder,
+  };
+}
+
+class ShopOverview {
+  const ShopOverview({
+    required this.slug,
+    required this.path,
+    required this.settings,
+    this.newOrders = 0,
+    this.openOrders = 0,
+    this.monthOrders = 0,
+    this.monthRevenue = 0,
+    this.publishedProducts = 0,
+    this.totalProducts = 0,
+  });
+  final String slug;
+  final String path;
+  final ShopSettings settings;
+  final int newOrders;
+  final int openOrders;
+  final int monthOrders;
+  final int monthRevenue;
+  final int publishedProducts;
+  final int totalProducts;
+
+  factory ShopOverview.fromJson(Map<String, dynamic> j) {
+    final s = j['stats'] as Map<String, dynamic>;
+    return ShopOverview(
+      slug: j['slug'] as String,
+      path: j['path'] as String,
+      settings: ShopSettings.fromJson(j['settings'] as Map<String, dynamic>),
+      newOrders: _int(s['newOrders']),
+      openOrders: _int(s['openOrders']),
+      monthOrders: _int(s['monthOrders']),
+      monthRevenue: _int(s['monthRevenue']),
+      publishedProducts: _int(s['publishedProducts']),
+      totalProducts: _int(s['totalProducts']),
+    );
+  }
+}
+
+enum ShopOrderStatus {
+  newOrder('new', 'Nouvelle'),
+  confirmed('confirmed', 'Confirmée'),
+  ready('ready', 'Prête'),
+  delivering('delivering', 'En livraison'),
+  completed('completed', 'Livrée'),
+  cancelled('cancelled', 'Annulée');
+
+  const ShopOrderStatus(this.api, this.label);
+  final String api;
+  final String label;
+
+  static ShopOrderStatus fromApi(String? v) => values.firstWhere((s) => s.api == v, orElse: () => newOrder);
+
+  bool get done => this == completed || this == cancelled;
+}
+
+enum ShopOrderFilter {
+  open('open', 'En cours'),
+  newOnly('new', 'Nouvelles'),
+  done('done', 'Terminées'),
+  all('all', 'Toutes');
+
+  const ShopOrderFilter(this.api, this.label);
+  final String api;
+  final String label;
+}
+
+class ShopOrderLine {
+  const ShopOrderLine({
+    required this.id,
+    required this.productId,
+    required this.name,
+    this.unit = 'pièce',
+    required this.quantity,
+    required this.unitPrice,
+    required this.total,
+    this.imageFileId,
+  });
+  final String id;
+  final String productId;
+  final String name;
+  final String unit;
+  final double quantity;
+  final int unitPrice;
+  final int total;
+  final String? imageFileId;
+
+  factory ShopOrderLine.fromJson(Map<String, dynamic> j) => ShopOrderLine(
+    id: j['id'] as String,
+    productId: j['productId'] as String,
+    name: j['name'] as String,
+    unit: j['unit'] as String? ?? 'pièce',
+    quantity: _dbl(j['quantity']),
+    unitPrice: _int(j['unitPrice']),
+    total: _int(j['total']),
+    imageFileId: j['imageFileId'] as String?,
+  );
+}
+
+class ShopOrder {
+  const ShopOrder({
+    required this.id,
+    required this.number,
+    required this.status,
+    required this.customerName,
+    required this.customerPhone,
+    required this.delivery,
+    required this.total,
+    this.lineCount = 0,
+    required this.createdAt,
+    this.contactId,
+    this.address,
+    this.note,
+    this.subtotal = 0,
+    this.deliveryFee = 0,
+    this.saleId,
+    this.cancelReason,
+    this.lines = const [],
+  });
+  final String id;
+  final String number;
+  final ShopOrderStatus status;
+  final String customerName;
+  final String customerPhone;
+
+  /// Livraison (sinon retrait en boutique).
+  final bool delivery;
+  final int total;
+  final int lineCount;
+  final DateTime createdAt;
+  final String? contactId;
+  final String? address;
+  final String? note;
+  final int subtotal;
+  final int deliveryFee;
+  final String? saleId;
+  final String? cancelReason;
+  final List<ShopOrderLine> lines;
+
+  /// Étapes suivantes proposées au commerçant (la livraison seulement si commandée en livraison).
+  List<ShopOrderStatus> get nextSteps => switch (status) {
+    ShopOrderStatus.newOrder => const [ShopOrderStatus.confirmed],
+    ShopOrderStatus.confirmed => const [ShopOrderStatus.ready],
+    ShopOrderStatus.ready => delivery ? const [ShopOrderStatus.delivering] : const [ShopOrderStatus.completed],
+    ShopOrderStatus.delivering => const [ShopOrderStatus.completed],
+    _ => const [],
+  };
+
+  factory ShopOrder.fromJson(Map<String, dynamic> j) => ShopOrder(
+    id: j['id'] as String,
+    number: j['number'] as String,
+    status: ShopOrderStatus.fromApi(j['status'] as String?),
+    customerName: j['customerName'] as String,
+    customerPhone: j['customerPhone'] as String,
+    delivery: j['mode'] == 'delivery',
+    total: _int(j['total']),
+    lineCount: _int(j['lineCount']),
+    createdAt: _date(j['createdAt']) ?? DateTime.now(),
+    contactId: j['contactId'] as String?,
+    address: j['address'] as String?,
+    note: j['note'] as String?,
+    subtotal: _int(j['subtotal']),
+    deliveryFee: _int(j['deliveryFee']),
+    saleId: j['saleId'] as String?,
+    cancelReason: j['cancelReason'] as String?,
+    lines: ((j['lines'] as List?) ?? []).map((e) => ShopOrderLine.fromJson(e as Map<String, dynamic>)).toList(),
+  );
 }

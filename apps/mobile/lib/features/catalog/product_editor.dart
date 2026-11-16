@@ -38,6 +38,7 @@ class _ProductEditorScreenState extends ConsumerState<ProductEditorScreen> {
   bool _isService = false;
   String _unit = 'pièce';
   bool _trackStock = true;
+  bool _published = true; // nouveau produit : visible dans la boutique en ligne
   bool _wholesale = false;
   Category? _category;
   PickedPhoto? _photo;
@@ -71,6 +72,7 @@ class _ProductEditorScreenState extends ConsumerState<ProductEditorScreen> {
         _unit = p.unit;
         _trackStock = p.trackStock;
         _wholesale = p.hasWholesale;
+        _published = p.published;
         if (p.hasWholesale) {
           _wPrice.text = '${p.wholesalePrice}';
           _wQty.text = qty(p.wholesaleMinQty!);
@@ -126,6 +128,7 @@ class _ProductEditorScreenState extends ConsumerState<ProductEditorScreen> {
       barcode: _barcode.text,
       sku: _sku.text,
       trackStock: _trackStock,
+      published: _published,
       lowStockThreshold: _int(_threshold) ?? 5,
       wholesalePrice: _wholesale ? wPrice : null,
       wholesaleMinQty: _wholesale ? wQty : null,
@@ -281,6 +284,16 @@ class _ProductEditorScreenState extends ConsumerState<ProductEditorScreen> {
                                 suffixIcon: Icon(Icons.expand_more),
                               ),
                               child: Text(_category?.name ?? 'Sans catégorie'),
+                            ),
+                          ),
+                          SwitchListTile(
+                            key: const Key('pPublished'),
+                            contentPadding: EdgeInsets.zero,
+                            value: _published,
+                            onChanged: (v) => setState(() => _published = v),
+                            title: const Text(
+                              'Visible dans la boutique en ligne',
+                              style: TextStyle(fontWeight: FontWeight.w700),
                             ),
                           ),
                         ],

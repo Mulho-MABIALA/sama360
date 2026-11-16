@@ -87,6 +87,18 @@ export type SupplierPaymentRecorded = DomainEvent<
   { paymentId: string; orderId: string; supplierId: string; amount: number; method: string }
 >;
 
+/** Commande passée sur la boutique en ligne. */
+export type ShopOrderPlaced = DomainEvent<
+  'shop.order_placed',
+  { orderId: string; number: string; total: number; customerName: string; customerPhone: string; mode: string }
+>;
+
+/** Changement de statut d'une commande en ligne (confirmée, prête, livrée, annulée…). */
+export type ShopOrderStatusChanged = DomainEvent<
+  'shop.order_status_changed',
+  { orderId: string; number: string; from: string; to: string; saleId: string | null }
+>;
+
 /** Facture émise : la marchandise sort du stock. */
 export type InvoiceIssued = DomainEvent<
   'invoice.issued',
@@ -121,6 +133,8 @@ export interface EventMap {
   'customer.balance_adjusted': CustomerBalanceAdjusted;
   'purchase.received': PurchaseReceived;
   'supplier.payment_recorded': SupplierPaymentRecorded;
+  'shop.order_placed': ShopOrderPlaced;
+  'shop.order_status_changed': ShopOrderStatusChanged;
   'invoice.issued': InvoiceIssued;
   'invoice.cancelled': InvoiceCancelled;
   'stock.low': StockLow;

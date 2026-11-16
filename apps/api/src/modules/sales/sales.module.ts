@@ -10,5 +10,6 @@ import { SalesService } from './sales.service';
   imports: [InventoryModule],
   controllers: [SalesController, ReportsController, CustomersController],
   providers: [SalesService, CustomersService],
+  exports: [SalesService],
 })
 export class SalesModule {}

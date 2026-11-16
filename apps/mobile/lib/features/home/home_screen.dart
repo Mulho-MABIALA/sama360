@@ -35,7 +35,7 @@ const _mainServices = [
 
 /// 6e tuile : les rapports pour qui peut les voir, sinon la boutique (bientôt).
 const _reportsService = _Service('Rapports', Icons.insights_rounded, Color(0xFF0E9384), route: '/reports');
-const _shopService = _Service('Boutique', Icons.storefront_rounded, Color(0xFF0E9384), soon: true);
+const _shopService = _Service('Boutique', Icons.storefront_rounded, Color(0xFF0E9384), route: '/shop');
 
 /// 7e tuile : l'équipe pour qui peut la voir, sinon les paiements (bientôt).
 const _teamService = _Service('Équipe', Icons.groups_rounded, Color(0xFFDB2777), route: '/team');
@@ -65,6 +65,8 @@ class HomeScreen extends ConsumerWidget {
     final canReports = ref.can('reports:read');
     final canStock = ref.can('inventory:read');
     final lowStock = canStock ? ref.watch(stockProvider).value?.lowStock ?? 0 : 0;
+    final hasShop = ref.watch(currentBusinessProvider).value?.modules.contains('shop') ?? false;
+    final newShopOrders = hasShop && ref.can('sales:read') ? ref.watch(shopProvider).value?.newOrders ?? 0 : 0;
 
     final shown = [
       ..._mainServices,
@@ -82,7 +84,7 @@ class HomeScreen extends ConsumerWidget {
         showInfo(context, '${s.name} arrive bientôt sur Sama360');
       } else if (s.route == 'expense') {
         _addExpense(context, ref);
-      } else if (s.route == '/team' || s.route == '/invoices' || s.route == '/reports' || s.route == '/purchases') {
+      } else if (s.route == '/team' || s.route == '/invoices' || s.route == '/reports' || s.route == '/purchases' || s.route == '/shop') {
         context.push(s.route!);
       } else {
         context.go(s.route!);
@@ -109,6 +111,7 @@ class HomeScreen extends ConsumerWidget {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   const SyncBanner(padding: EdgeInsets.only(bottom: 14)),
+                  if (newShopOrders > 0) ...[_ShopOrdersBanner(count: newShopOrders), const SizedBox(height: 12)],
                   if (lowStock > 0) ...[_LowStockBanner(count: lowStock), const SizedBox(height: 18)],
                   const _SectionTitle('Vos services'),
                   const SizedBox(height: 10),
@@ -764,6 +767,33 @@ class _RoundAction extends StatelessWidget {
           ),
         ],
       ),
+    ),
+  );
+}
+
+class _ShopOrdersBanner extends StatelessWidget {
+  const _ShopOrdersBanner({required this.count});
+  final int count;
+
+  @override
+  Widget build(BuildContext context) => Glass(
+    radius: 18,
+    tint: AppColors.leaf,
+    onTap: () => context.push('/shop'),
+    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+    child: Row(
+      children: [
+        const GlossyOrb(icon: Icons.shopping_bag_rounded, color: Color(0xFF0E9384), size: 34),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Text(
+            count == 1 ? '1 nouvelle commande en ligne' : '$count nouvelles commandes en ligne',
+            style: const TextStyle(color: AppColors.greenDark, fontWeight: FontWeight.w800),
+          ),
+        ),
+        const Text('Voir', style: TextStyle(color: AppColors.greenDark, fontWeight: FontWeight.w800)),
+        const Icon(Icons.chevron_right_rounded, color: AppColors.greenDark),
+      ],
     ),
   );
 }

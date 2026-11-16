@@ -133,6 +133,8 @@ class ApiClient {
 
   Future<T> patch<T>(String path, {Object? data}) => _wrap(() => dio.patch<T>(path, data: data));
 
+  Future<T> put<T>(String path, {Object? data}) => _wrap(() => dio.put<T>(path, data: data));
+
   Future<T> delete<T>(String path) => _wrap(() => dio.delete<T>(path));
 
   /// Envoi de fichier (multipart/form-data, champ « file »).

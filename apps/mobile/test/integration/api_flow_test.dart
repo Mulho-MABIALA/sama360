@@ -657,4 +657,71 @@ void main() {
     skip: skip,
     timeout: const Timeout(Duration(minutes: 1)),
   );
+
+  test(
+    'boutique réelle : ouverture, commande d’un client sur la page publique, livraison et vente',
+    () async {
+      final store = MemorySessionStore();
+      final client = ApiClient(baseUrl: _api!, store: store);
+      final repo = SamaRepository(client);
+      final phone = '+22177${Random().nextInt(9000000) + 1000000}';
+      await repo.requestOtp(phone);
+      final t = await repo.verifyOtp(phone, await _otpFor(phone));
+      await store.save(Session(accessToken: t.access, refreshToken: t.refresh));
+      await repo.updateName('Mame Diarra');
+      client.businessId = await repo.createBusiness(name: 'Diarra Couture test ${Random().nextInt(99999)}', category: 'boutique', city: 'Dakar');
+
+      final robe = await repo.saveProduct(const ProductDraft(name: 'Robe wax', price: 12000, published: true));
+      await repo.addStock(robe.id, 4);
+      var shop = await repo.shop();
+      expect((shop.settings.enabled, shop.publishedProducts), (false, 1));
+      await repo.saveShopSettings(const ShopSettings(enabled: true, deliveryFee: 1500, whatsapp: '+221771112233'));
+      shop = await repo.shop();
+      expect(shop.settings.enabled, isTrue);
+
+      // Le client passe par la page publique (sans compte)
+      final web = Dio(BaseOptions(baseUrl: _api!, validateStatus: (_) => true));
+      final page = await web.get<String>(shop.path, options: Options(responseType: ResponseType.plain));
+      expect(page.data, contains('var SLUG = "${shop.slug}";'));
+      final vitrine = (await web.get<Map<String, dynamic>>('/v1/public/shops/${shop.slug}')).data!;
+      expect((vitrine['products'] as List).single['name'], 'Robe wax');
+      final orderId = const Uuid().v4();
+      final placed = await web.post<Map<String, dynamic>>(
+        '/v1/public/shops/${shop.slug}/orders',
+        data: {
+          'id': orderId,
+          'customerName': 'Khady Fall',
+          'customerPhone': '76 123 45 67',
+          'mode': 'delivery',
+          'address': 'Parcelles U17',
+          'items': [
+            {'productId': robe.id, 'quantity': 2},
+          ],
+        },
+      );
+      expect(placed.statusCode, 201);
+      expect(placed.data!['total'], 25500);
+
+      final orders = await repo.shopOrders(filter: ShopOrderFilter.newOnly);
+      expect((orders.single.id, orders.single.customerName, orders.single.delivery), (orderId, 'Khady Fall', true));
+      await repo.setShopOrderStatus(orderId, ShopOrderStatus.confirmed);
+      await repo.setShopOrderStatus(orderId, ShopOrderStatus.ready);
+      await repo.setShopOrderStatus(orderId, ShopOrderStatus.delivering);
+      final done = await repo.setShopOrderStatus(
+        orderId,
+        ShopOrderStatus.completed,
+        payment: (amount: 25500, method: PayMethod.orangeMoney),
+      );
+      expect((done.status, done.saleId), (ShopOrderStatus.completed, orderId));
+      final sale = await repo.sale(orderId);
+      expect((sale.total, sale.due), (25500, 0));
+      final stock = await _eventually(repo.stock, (s) => s.items.firstWhere((i) => i.productId == robe.id).onHand == 2);
+      expect(stock.items.firstWhere((i) => i.productId == robe.id).onHand, 2);
+
+      final track = await web.get<Map<String, dynamic>>('/v1/public/shops/${shop.slug}/orders/$orderId');
+      expect(track.data!['statusLabel'], 'Livrée');
+    },
+    skip: skip,
+    timeout: const Timeout(Duration(minutes: 1)),
+  );
 }

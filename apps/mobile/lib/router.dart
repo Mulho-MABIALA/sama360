@@ -7,6 +7,9 @@ import 'features/auth/login_screens.dart';
 import 'features/business/business_screen.dart';
 import 'features/customers/customer_editor.dart';
 import 'features/purchasing/purchase_editor.dart';
+import 'features/shop/shop_order_screen.dart';
+import 'features/shop/shop_screen.dart';
+import 'features/shop/shop_settings_screen.dart';
 import 'features/purchasing/purchase_screen.dart';
 import 'features/purchasing/purchases_screen.dart';
 import 'features/customers/customers_screens.dart';
@@ -63,6 +66,16 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(path: '/profile', builder: (_, _) => const ProfileSetupScreen()),
       GoRoute(path: '/business', builder: (_, _) => const BusinessScreen()),
+      GoRoute(path: '/shop', builder: (_, _) => const ShopScreen()),
+      GoRoute(
+        path: '/shop/settings',
+        builder: (_, s) => ShopSettingsScreen(opening: s.uri.queryParameters['open'] == '1'),
+      ),
+      GoRoute(path: '/shop/products', builder: (_, _) => const ShopProductsScreen()),
+      GoRoute(
+        path: '/shop/orders/:id',
+        builder: (_, s) => ShopOrderScreen(orderId: s.pathParameters['id']!),
+      ),
       GoRoute(
         path: '/purchases',
         builder: (_, s) => PurchasesScreen(suppliersTab: s.uri.queryParameters['tab'] == 'suppliers'),

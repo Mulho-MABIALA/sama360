@@ -583,6 +583,129 @@ class FakeRepo extends SamaRepository {
     return 22500 - amount;
   }
 
+  // ---------- Boutique en ligne ----------
+  bool shopEnabled = true;
+  int publishedCount = 4;
+  final shopSettingsSaved = <ShopSettings>[];
+  final publishCalls = <(List<String>?, bool)>[];
+  final shopStatusCalls = <(String, ShopOrderStatus, String?, ({int amount, PayMethod method})?)>[];
+  final shopQueries = <ShopOrderFilter>[];
+
+  static final demoShopOrders = [
+    ShopOrder(
+      id: 'so1',
+      number: 'CMD-2026-0012',
+      status: ShopOrderStatus.newOrder,
+      customerName: 'Ndèye Sarr',
+      customerPhone: '+221765554433',
+      delivery: true,
+      total: 23000,
+      subtotal: 22000,
+      deliveryFee: 1000,
+      lineCount: 2,
+      createdAt: DateTime(2026, 11, 16, 9, 42),
+      contactId: 'k1',
+      address: 'Ouakam, près de la mosquée',
+      note: 'Appeler avant de passer',
+      lines: const [
+        ShopOrderLine(id: 'sl1', productId: 'p1', name: 'Beurre de karité 250 g', quantity: 2, unitPrice: 3500, total: 7000),
+        ShopOrderLine(id: 'sl2', productId: 'p6', name: 'Parfum Thiouraye', quantity: 3, unitPrice: 5000, total: 15000),
+      ],
+    ),
+    ShopOrder(
+      id: 'so2',
+      number: 'CMD-2026-0011',
+      status: ShopOrderStatus.confirmed,
+      customerName: 'Aïssatou Ba',
+      customerPhone: '+221778889900',
+      delivery: false,
+      total: 7000,
+      subtotal: 7000,
+      lineCount: 1,
+      createdAt: DateTime(2026, 11, 15, 18, 5),
+      lines: const [
+        ShopOrderLine(id: 'sl3', productId: 'p1', name: 'Beurre de karité 250 g', quantity: 2, unitPrice: 3500, total: 7000),
+      ],
+    ),
+    ShopOrder(
+      id: 'so3',
+      number: 'CMD-2026-0010',
+      status: ShopOrderStatus.completed,
+      customerName: 'Fatou Ndiaye',
+      customerPhone: '+221774120855',
+      delivery: true,
+      total: 9000,
+      subtotal: 8000,
+      deliveryFee: 1000,
+      lineCount: 1,
+      createdAt: DateTime(2026, 11, 14, 11),
+      saleId: 's1',
+      lines: const [
+        ShopOrderLine(id: 'sl4', productId: 'p3', name: 'Huile de coco 500 ml', quantity: 2, unitPrice: 4000, total: 8000),
+      ],
+    ),
+  ];
+
+  @override
+  Future<ShopOverview> shop() async => ShopOverview(
+    slug: 'awa-beaute',
+    path: '/s/awa-beaute',
+    settings: ShopSettings(
+      enabled: shopEnabled,
+      title: shopEnabled ? 'Awa Beauté en ligne' : null,
+      whatsapp: shopEnabled ? '+221771112233' : null,
+      deliveryFee: 1000,
+      deliveryZone: 'Dakar',
+    ),
+    newOrders: 1,
+    openOrders: 1,
+    monthOrders: 7,
+    monthRevenue: 184500,
+    publishedProducts: shopEnabled ? publishedCount : 0,
+    totalProducts: 6,
+  );
+
+  @override
+  Future<ShopSettings> saveShopSettings(ShopSettings s) async {
+    shopSettingsSaved.add(s);
+    return s;
+  }
+
+  @override
+  Future<int> publishProducts({List<String>? productIds, required bool published}) async {
+    publishCalls.add((productIds, published));
+    return productIds?.length ?? 6;
+  }
+
+  @override
+  Future<List<ShopOrder>> shopOrders({ShopOrderFilter filter = ShopOrderFilter.open}) async {
+    shopQueries.add(filter);
+    return demoShopOrders
+        .where(
+          (o) => switch (filter) {
+            ShopOrderFilter.open => !o.status.done,
+            ShopOrderFilter.newOnly => o.status == ShopOrderStatus.newOrder,
+            ShopOrderFilter.done => o.status.done,
+            ShopOrderFilter.all => true,
+          },
+        )
+        .toList();
+  }
+
+  @override
+  Future<ShopOrder> shopOrder(String id) async => demoShopOrders.firstWhere((o) => o.id == id);
+
+  @override
+  Future<ShopOrder> setShopOrderStatus(
+    String id,
+    ShopOrderStatus status, {
+    String? reason,
+    ({int amount, PayMethod method})? payment,
+  }) async {
+    shopStatusCalls.add((id, status, reason, payment));
+    return demoShopOrders.firstWhere((o) => o.id == id);
+  }
+
   /// Vrai : simule une coupure réseau (toutes les ventes échouent sans réponse).
   bool offline = false;
 

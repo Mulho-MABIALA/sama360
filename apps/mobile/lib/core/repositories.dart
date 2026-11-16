@@ -453,6 +453,50 @@ class SamaRepository {
     return (r['due'] as num).toInt();
   }
 
+  // ---------- Boutique en ligne ----------
+  Future<ShopOverview> shop() async => ShopOverview.fromJson(await _cachedGet<Map<String, dynamic>>('/v1/shop'));
+
+  Future<ShopSettings> saveShopSettings(ShopSettings s) async =>
+      ShopSettings.fromJson(await api.put<Map<String, dynamic>>('/v1/shop/settings', data: s.toJson()));
+
+  /// Publie ou retire des produits de la boutique (tous si [productIds] est null). Renvoie le nombre modifié.
+  Future<int> publishProducts({List<String>? productIds, required bool published}) async {
+    final r = await api.post<Map<String, dynamic>>(
+      '/v1/shop/publish',
+      data: {'productIds': ?productIds, 'published': published},
+    );
+    return (r['updated'] as num).toInt();
+  }
+
+  Future<List<ShopOrder>> shopOrders({ShopOrderFilter filter = ShopOrderFilter.open}) async =>
+      ((await _cachedGet<Map<String, dynamic>>(
+                '/v1/shop/orders',
+                query: {'filter': filter.api, 'limit': 100},
+              ))['data']
+              as List)
+          .map((e) => ShopOrder.fromJson(e as Map<String, dynamic>))
+          .toList();
+
+  Future<ShopOrder> shopOrder(String id) async =>
+      ShopOrder.fromJson(await _cachedGet<Map<String, dynamic>>('/v1/shop/orders/$id'));
+
+  /// Fait avancer une commande. « Livrée » enregistre la vente avec le paiement reçu.
+  Future<ShopOrder> setShopOrderStatus(
+    String id,
+    ShopOrderStatus status, {
+    String? reason,
+    ({int amount, PayMethod method})? payment,
+  }) async => ShopOrder.fromJson(
+    await api.post<Map<String, dynamic>>(
+      '/v1/shop/orders/$id/status',
+      data: {
+        'status': status.api,
+        'reason': ?reason,
+        if (payment != null) 'payment': {'amount': payment.amount, 'method': payment.method.api},
+      },
+    ),
+  );
+
   // ---------- Équipe ----------
   Future<List<Member>> members() async =>
       (await _cachedGet<List<dynamic>>('/v1/members')).map((e) => Member.fromJson(e as Map<String, dynamic>)).toList();
