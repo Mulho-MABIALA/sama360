@@ -177,6 +177,8 @@ export const contacts = contactsSchema.table('contacts', {
   address: text('address'),
   notes: text('notes'),
   balance: money('balance').notNull().default(0),
+  creditLimit: money('credit_limit'),
+  lastRemindedAt: ts('last_reminded_at'),
   version: integer('version').notNull().default(1),
   createdAt: ts('created_at').notNull().defaultNow(),
   updatedAt: ts('updated_at').notNull().defaultNow(),

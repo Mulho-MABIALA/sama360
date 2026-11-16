@@ -982,6 +982,157 @@ describe('Socle Sama360 (e2e)', () => {
     });
   });
 
+  describe('Clients et crédit', () => {
+    const A = () => auth(awa.accessToken, awaBiz);
+    let cashier: string;
+    let binta: string;
+    let product: string;
+    const sell = (customerId: string, total: number, paid: number, extra: Record<string, unknown> = {}, token?: string) =>
+      http
+        .post('/v1/sales')
+        .set(token ? auth(token, awaBiz) : A())
+        .send({
+          customerId,
+          items: [{ productId: product, quantity: 1, unitPrice: total }],
+          payments: paid ? [{ method: 'cash', amount: paid }] : [],
+          ...extra,
+        });
+
+    beforeAll(async () => {
+      await http
+        .post('/v1/members')
+        .set(A())
+        .send({ phone: '+221770009988', fullName: 'Ibou Ndiaye', roleKey: 'cashier' })
+        .expect(201);
+      cashier = (await login('+221770009988')).accessToken;
+      product = (await http.post('/v1/catalog/products').set(A()).send({ name: 'Pagne wax', price: 10000 }).expect(201))
+        .body.id;
+    });
+
+    it('plafond de crédit : fixé par le gérant, refusé au caissier, appliqué en caisse sauf hors ligne', async () => {
+      const denied = await http
+        .post('/v1/contacts')
+        .set(auth(cashier, awaBiz))
+        .send({ name: 'Binta Sow', creditLimit: 50000 })
+        .expect(403);
+      expect(denied.body.error.message).toContain('plafond');
+
+      binta = (
+        await http
+          .post('/v1/contacts')
+          .set(A())
+          .send({ name: 'Binta Sow', phone: '77 222 33 44', creditLimit: 25000 })
+          .expect(201)
+      ).body.id;
+
+      await sell(binta, 20000, 0, {}, cashier).expect(201);
+      const over = await sell(binta, 10000, 0).expect(422);
+      expect(over.body.error).toMatchObject({
+        code: 'CREDIT_LIMIT_EXCEEDED',
+        details: { limit: 25000, balance: 20000, available: 5000, requested: 10000 },
+      });
+      expect(over.body.error.message).toBe('Crédit possible pour Binta Sow : 5 000 F au maximum (plafond 25 000 F)');
+      // Payer une partie ramène la dette sous le plafond
+      await sell(binta, 10000, 5000).expect(201);
+      // Vente faite hors ligne : déjà conclue en boutique, enregistrée même au-delà du plafond
+      await sell(binta, 8000, 0, { soldAt: new Date(Date.now() - 3600_000).toISOString() }).expect(201);
+      const full = await sell(binta, 1000, 0).expect(422);
+      expect(full.body.error.message).toBe('Binta Sow a atteint son plafond de crédit (25 000 F)');
+
+      // Le caissier peut modifier le client mais pas son plafond
+      await http.patch(`/v1/contacts/${binta}`).set(auth(cashier, awaBiz)).send({ address: 'Marché Sandaga' }).expect(200);
+      await http.patch(`/v1/contacts/${binta}`).set(auth(cashier, awaBiz)).send({ creditLimit: null }).expect(403);
+    });
+
+    it('fiche client : solde, plafond disponible, statistiques, achats et relevé avec solde courant', async () => {
+      const o = (await http.get(`/v1/customers/${binta}`).set(A()).expect(200)).body;
+      expect(o.customer).toMatchObject({ name: 'Binta Sow', creditLimit: 25000, address: 'Marché Sandaga' });
+      expect(o.balance).toBe(33000);
+      expect(o.availableCredit).toBe(0);
+      expect(o.stats).toMatchObject({ salesCount: 3, totalSpent: 38000, totalPaid: 5000, averageBasket: 12667 });
+      expect(o.recentSales).toHaveLength(3);
+      expect(o.topProducts[0]).toMatchObject({ name: 'Pagne wax', quantity: 3, total: 38000 });
+      // Relevé du plus récent au plus ancien ; la vente hors ligne (il y a une heure) est la plus ancienne
+      expect(o.entries.map((e: { balanceAfter: number }) => e.balanceAfter)).toEqual([33000, 28000, 8000]);
+      expect(new Date(o.oldestUnpaidAt).getTime()).toBeLessThan(Date.now());
+
+      // Remboursement de 22 000 F : la dette la plus ancienne (8 000) est soldée, la suivante devient la plus ancienne
+      await http.post(`/v1/sales/customers/${binta}/repayments`).set(A()).send({ amount: 22000, method: 'wave' }).expect(201);
+      const after = (await http.get(`/v1/customers/${binta}`).set(A()).expect(200)).body;
+      expect(after.balance).toBe(11000);
+      expect(after.availableCredit).toBe(14000);
+      expect(new Date(after.oldestUnpaidAt).getTime()).toBeGreaterThan(new Date(o.oldestUnpaidAt).getTime());
+    });
+
+    it('ajustements : reprise d’ancienne dette et remise, réservés au gérant', async () => {
+      await http
+        .post(`/v1/customers/${binta}/adjustments`)
+        .set(auth(cashier, awaBiz))
+        .send({ amount: 5000, reason: 'Ancien cahier' })
+        .expect(403);
+      await http.post(`/v1/customers/${binta}/adjustments`).set(A()).send({ amount: 0, reason: 'Rien' }).expect(422);
+      const up = await http
+        .post(`/v1/customers/${binta}/adjustments`)
+        .set(A())
+        .send({ amount: 4000, reason: 'Reprise du cahier papier' })
+        .expect(201);
+      expect(up.body.balance).toBe(15000);
+      const tooMuch = await http
+        .post(`/v1/customers/${binta}/adjustments`)
+        .set(A())
+        .send({ amount: -20000, reason: 'Geste commercial' })
+        .expect(422);
+      expect(tooMuch.body.error.message).toBe('La remise dépasse la dette du client (15 000 F)');
+      await http
+        .post(`/v1/customers/${binta}/adjustments`)
+        .set(A())
+        .send({ amount: -1000, reason: 'Geste commercial' })
+        .expect(201);
+      const o = (await http.get(`/v1/customers/${binta}`).set(A()).expect(200)).body;
+      expect(o.balance).toBe(14000);
+      expect(o.entries[0]).toMatchObject({ entryType: 'adjustment', amount: -1000, refType: 'write_off', balanceAfter: 14000 });
+      // Le solde en cache de l'annuaire suit (via l'événement)
+      await relay.relayOnce();
+      const contact = await waitFor(
+        async () => (await http.get(`/v1/contacts/${binta}`).set(A())).body as { balance: number },
+        (c) => c.balance === 14000,
+      );
+      expect(contact.balance).toBe(14000);
+    });
+
+    it('annuaire : filtres, tri, totaux, rappel, et suppression bloquée tant qu’il reste une dette', async () => {
+      const kader = (await http.post('/v1/contacts').set(A()).send({ name: 'Abdou Kader' }).expect(201)).body.id;
+      const all = (await http.get('/v1/customers').set(A()).expect(200)).body;
+      const names = all.data.map((c: { name: string }) => c.name);
+      expect(names.indexOf('Abdou Kader')).toBeLessThan(names.indexOf('Binta Sow'));
+      expect(all.totals.debtors).toBeGreaterThanOrEqual(1);
+
+      const debt = (await http.get('/v1/customers?filter=debt&sort=balance').set(A()).expect(200)).body;
+      expect(debt.data.some((c: { id: string }) => c.id === kader)).toBe(false);
+      expect(debt.data.find((c: { id: string }) => c.id === binta)).toMatchObject({
+        balance: 14000,
+        creditLimit: 25000,
+        salesCount: 3,
+        totalSpent: 38000,
+      });
+      expect(debt.data.map((c: { balance: number }) => c.balance)).toEqual(
+        [...debt.data.map((c: { balance: number }) => c.balance)].sort((a, b) => b - a),
+      );
+      const found = (await http.get('/v1/customers?search=binta').set(A()).expect(200)).body;
+      expect(found.data).toHaveLength(1);
+
+      const r = await http.post(`/v1/customers/${binta}/reminders`).set(auth(cashier, awaBiz)).send({ channel: 'whatsapp' }).expect(201);
+      expect(r.body.lastRemindedAt).toBeTruthy();
+      expect((await http.get(`/v1/customers/${binta}`).set(A())).body.customer.lastRemindedAt).toBeTruthy();
+
+      const blocked = await http.delete(`/v1/contacts/${binta}`).set(A()).expect(409);
+      expect(blocked.body.error).toMatchObject({ code: 'CUSTOMER_HAS_BALANCE', details: { balance: 14000 } });
+      expect(blocked.body.error.message).toBe('Ce client doit encore 14 000 F : soldez sa dette avant de le supprimer');
+      await http.delete(`/v1/contacts/${kader}`).set(A()).expect(204);
+      await http.get(`/v1/customers/${kader}`).set(A()).expect(404);
+    });
+  });
+
   describe('Photos produit', () => {
     // PNG 1×1 valide et en-tête JPEG minimal
     const png = Buffer.from(

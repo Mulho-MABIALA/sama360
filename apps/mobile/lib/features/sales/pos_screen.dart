@@ -476,6 +476,7 @@ class _CheckoutPanel extends ConsumerWidget {
                     style: const TextStyle(color: AppColors.warnText, fontWeight: FontWeight.w700, fontSize: 13),
                   ),
                 ),
+              if (cart.customer?.creditLimit != null) _CreditLimitHint(customer: cart.customer!, due: cart.total - cart.deposit),
             ],
             const SizedBox(height: 12),
             BusyButton(
@@ -484,6 +485,32 @@ class _CheckoutPanel extends ConsumerWidget {
               onPressed: cart.isEmpty ? null : onCheckout,
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Crédit encore possible pour le client choisi (plafond − dette actuelle).
+class _CreditLimitHint extends StatelessWidget {
+  const _CreditLimitHint({required this.customer, required this.due});
+  final Contact customer;
+  final int due;
+
+  @override
+  Widget build(BuildContext context) {
+    final available = (customer.creditLimit! - customer.balance).clamp(0, customer.creditLimit!);
+    final over = due > available;
+    return Padding(
+      padding: const EdgeInsets.only(top: 4),
+      child: Text(
+        over
+            ? 'Dépasse le plafond : crédit possible ${money(available)} au maximum'
+            : 'Crédit encore possible : ${money(available)}',
+        style: TextStyle(
+          color: over ? AppColors.danger : AppColors.muted,
+          fontWeight: over ? FontWeight.w700 : FontWeight.w500,
+          fontSize: 12.5,
         ),
       ),
     );

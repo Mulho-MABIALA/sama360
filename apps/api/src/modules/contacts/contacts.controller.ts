@@ -1,11 +1,12 @@
 import { Body, Controller, Delete, Get, HttpCode, Param, ParseUUIDPipe, Patch, Post, Query } from '@nestjs/common';
-import { and, desc, eq, ilike, isNull, lt, or, SQL } from 'drizzle-orm';
+import { and, desc, eq, ilike, isNull, lt, or, SQL, sql } from 'drizzle-orm';
 import { z } from 'zod';
 import { AuthUser, TenantContext } from '../../shared/auth/auth.types';
 import { CurrentTenant, CurrentUser, RequirePermission } from '../../shared/auth/decorators';
 import { DbService } from '../../shared/db/db.service';
 import { contacts } from '../../shared/db/schema';
 import { OutboxService } from '../../shared/events/outbox.service';
+import { hasPermission } from '@sama360/contracts';
 import { AppError } from '../../shared/http/app-error';
 import { PageQuery, parse } from '../../shared/http/zod';
 import { newId } from '../../shared/ids';
@@ -18,11 +19,19 @@ const ContactInput = z.object({
   email: z.string().email().max(160).nullish(),
   address: z.string().max(500).nullish(),
   notes: z.string().max(2000).nullish(),
+  /** Plafond de crédit en FCFA (null : pas de plafond). Réservé au gérant et au propriétaire. */
+  creditLimit: z.coerce.number().int().min(0).max(1_000_000_000_000).nullish(),
 });
 const ListQuery = PageQuery.extend({
   search: z.string().trim().max(80).optional(),
   type: z.enum(['customer', 'supplier', 'both']).optional(),
 });
+
+function assertCanSetLimit(t: TenantContext, input: { creditLimit?: number | null }) {
+  if (input.creditLimit !== undefined && !hasPermission(t.permissions, 'sales:void')) {
+    throw AppError.forbidden('Seul le gérant ou le propriétaire peut fixer un plafond de crédit');
+  }
+}
 
 function cleanPhone(phone: string | null | undefined): string | null | undefined {
   if (phone === undefined || phone === null || phone === '') return phone === '' ? null : phone;
@@ -66,6 +75,7 @@ export class ContactsController {
   @RequirePermission('contacts:write')
   create(@CurrentTenant() t: TenantContext, @CurrentUser() user: AuthUser, @Body() body: unknown) {
     const input = parse(ContactInput, body);
+    assertCanSetLimit(t, input);
     const phone = cleanPhone(input.phone) ?? null;
     return this.dbs.withTenant(t.businessId, async (tx) => {
       const [contact] = await tx
@@ -101,6 +111,7 @@ export class ContactsController {
   @RequirePermission('contacts:write')
   update(@CurrentTenant() t: TenantContext, @Param('id', ParseUUIDPipe) id: string, @Body() body: unknown) {
     const input = parse(ContactInput.partial(), body);
+    assertCanSetLimit(t, input);
     const phone = cleanPhone(input.phone);
     return this.dbs.withTenant(t.businessId, async (tx) => {
       const [current] = await tx
@@ -123,6 +134,19 @@ export class ContactsController {
   @RequirePermission('contacts:write')
   async remove(@CurrentTenant() t: TenantContext, @Param('id', ParseUUIDPipe) id: string) {
     await this.dbs.withTenant(t.businessId, async (tx) => {
+      // Un client qui doit encore de l'argent reste dans l'annuaire : sa dette ne doit pas disparaître.
+      const owed = await tx.execute(
+        sql`SELECT coalesce(sum(amount), 0)::bigint AS b FROM sales.customer_ledger WHERE customer_id = ${id}`,
+      );
+      const balance = Number((owed.rows[0] as { b: string }).b);
+      if (balance > 0) {
+        throw new AppError(
+          'CUSTOMER_HAS_BALANCE',
+          `Ce client doit encore ${new Intl.NumberFormat('fr-FR').format(balance).replace(/\u202f|\u00a0/g, ' ')} F : soldez sa dette avant de le supprimer`,
+          409,
+          { balance },
+        );
+      }
       const res = await tx
         .update(contacts)
         .set({ deletedAt: new Date(), updatedAt: new Date() })

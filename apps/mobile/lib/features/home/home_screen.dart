@@ -28,7 +28,7 @@ class _Service {
 const _mainServices = [
   _Service('Ventes', Icons.point_of_sale_rounded, Color(0xFF0A8453), route: '/pos'),
   _Service('Stock', Icons.inventory_2_rounded, Color(0xFFD9822B), route: '/stock'),
-  _Service('Crédits', Icons.menu_book_rounded, Color(0xFF2F6FDB), route: '/customers'),
+  _Service('Clients', Icons.people_alt_rounded, Color(0xFF2F6FDB), route: '/customers'),
   _Service('Dépenses', Icons.account_balance_wallet_rounded, Color(0xFFE0533D), route: 'expense'),
   _Service('Factures', Icons.receipt_long_rounded, Color(0xFF7A5AF8), route: '/invoices'),
 ];
@@ -403,7 +403,7 @@ class _CashCard extends ConsumerWidget {
       children: [
         _RoundAction(icon: Icons.add_rounded, label: 'Vendre', filled: true, onTap: () => context.go('/pos')),
         const SizedBox(width: 12),
-        _RoundAction(icon: Icons.menu_book_rounded, label: 'Crédits', onTap: () => context.go('/customers')),
+        _RoundAction(icon: Icons.menu_book_rounded, label: 'Crédits', onTap: () => context.go('/customers?debt=1')),
         const SizedBox(width: 12),
         _RoundAction(icon: Icons.south_west_rounded, label: 'Dépense', onTap: onExpense),
       ],

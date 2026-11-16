@@ -409,13 +409,28 @@ class Member {
 }
 
 class Contact {
-  const Contact({required this.id, required this.name, this.phone, this.balance = 0, this.email, this.address});
+  const Contact({
+    required this.id,
+    required this.name,
+    this.phone,
+    this.balance = 0,
+    this.email,
+    this.address,
+    this.notes,
+    this.creditLimit,
+    this.lastRemindedAt,
+  });
   final String id;
   final String name;
   final String? phone;
   final int balance;
   final String? email;
   final String? address;
+  final String? notes;
+
+  /// Plafond de crédit en FCFA ; null : pas de plafond.
+  final int? creditLimit;
+  final DateTime? lastRemindedAt;
 
   factory Contact.fromJson(Map<String, dynamic> j) => Contact(
     id: j['id'] as String,
@@ -423,8 +438,245 @@ class Contact {
     phone: j['phone'] as String?,
     email: j['email'] as String?,
     address: j['address'] as String?,
+    notes: j['notes'] as String?,
     balance: _int(j['balance']),
+    creditLimit: j['creditLimit'] == null ? null : _int(j['creditLimit']),
+    lastRemindedAt: _date(j['lastRemindedAt']),
   );
+}
+
+/// Saisie d'une fiche client (création ou modification).
+class CustomerDraft {
+  const CustomerDraft({required this.name, this.phone, this.email, this.address, this.notes, this.creditLimit});
+  final String name;
+  final String? phone;
+  final String? email;
+  final String? address;
+  final String? notes;
+  final int? creditLimit;
+
+  Map<String, dynamic> toJson({bool withLimit = true}) => {
+    'name': name,
+    'phone': phone,
+    'email': email,
+    'address': address,
+    'notes': notes,
+    if (withLimit) 'creditLimit': creditLimit,
+  };
+}
+
+enum CustomerFilter {
+  all('all', 'Tous'),
+  debt('debt', 'Doivent de l’argent'),
+  overLimit('over_limit', 'Plafond dépassé');
+
+  const CustomerFilter(this.api, this.label);
+  final String api;
+  final String label;
+}
+
+enum CustomerSort {
+  name('name', 'Nom'),
+  balance('balance', 'Plus grosse dette'),
+  recent('recent', 'Achat le plus récent');
+
+  const CustomerSort(this.api, this.label);
+  final String api;
+  final String label;
+}
+
+/// Ligne de l'annuaire clients.
+class CustomerRow {
+  const CustomerRow({
+    required this.id,
+    required this.name,
+    this.phone,
+    required this.balance,
+    this.creditLimit,
+    this.salesCount = 0,
+    this.totalSpent = 0,
+    this.lastPurchaseAt,
+    this.firstDebtAt,
+    this.lastRemindedAt,
+  });
+  final String id;
+  final String name;
+  final String? phone;
+  final int balance;
+  final int? creditLimit;
+  final int salesCount;
+  final int totalSpent;
+  final DateTime? lastPurchaseAt;
+  final DateTime? firstDebtAt;
+  final DateTime? lastRemindedAt;
+
+  bool get overLimit => creditLimit != null && balance > creditLimit!;
+
+  Contact toContact() => Contact(id: id, name: name, phone: phone, balance: balance, creditLimit: creditLimit);
+
+  factory CustomerRow.fromJson(Map<String, dynamic> j) => CustomerRow(
+    id: j['id'] as String,
+    name: j['name'] as String,
+    phone: j['phone'] as String?,
+    balance: _int(j['balance']),
+    creditLimit: j['creditLimit'] == null ? null : _int(j['creditLimit']),
+    salesCount: _int(j['salesCount']),
+    totalSpent: _int(j['totalSpent']),
+    lastPurchaseAt: _date(j['lastPurchaseAt']),
+    firstDebtAt: _date(j['firstDebtAt']),
+    lastRemindedAt: _date(j['lastRemindedAt']),
+  );
+}
+
+class CustomerTotals {
+  const CustomerTotals({this.customers = 0, this.debtors = 0, this.totalDue = 0, this.overLimit = 0});
+  final int customers;
+  final int debtors;
+  final int totalDue;
+  final int overLimit;
+
+  factory CustomerTotals.fromJson(Map<String, dynamic> j) => CustomerTotals(
+    customers: _int(j['customers']),
+    debtors: _int(j['debtors']),
+    totalDue: _int(j['totalDue']),
+    overLimit: _int(j['overLimit']),
+  );
+}
+
+class CustomerList {
+  const CustomerList({required this.data, required this.totals, this.nextOffset});
+  final List<CustomerRow> data;
+  final CustomerTotals totals;
+  final int? nextOffset;
+
+  factory CustomerList.fromJson(Map<String, dynamic> j) => CustomerList(
+    data: (j['data'] as List).map((e) => CustomerRow.fromJson(e as Map<String, dynamic>)).toList(),
+    totals: CustomerTotals.fromJson(j['totals'] as Map<String, dynamic>),
+    nextOffset: j['nextOffset'] == null ? null : _int(j['nextOffset']),
+  );
+}
+
+class CustomerStats {
+  const CustomerStats({
+    this.salesCount = 0,
+    this.totalSpent = 0,
+    this.totalPaid = 0,
+    this.averageBasket = 0,
+    this.firstPurchaseAt,
+    this.lastPurchaseAt,
+    this.openInvoices = 0,
+    this.openInvoicesDue = 0,
+  });
+  final int salesCount;
+  final int totalSpent;
+  final int totalPaid;
+  final int averageBasket;
+  final DateTime? firstPurchaseAt;
+  final DateTime? lastPurchaseAt;
+  final int openInvoices;
+  final int openInvoicesDue;
+
+  factory CustomerStats.fromJson(Map<String, dynamic> j) => CustomerStats(
+    salesCount: _int(j['salesCount']),
+    totalSpent: _int(j['totalSpent']),
+    totalPaid: _int(j['totalPaid']),
+    averageBasket: _int(j['averageBasket']),
+    firstPurchaseAt: _date(j['firstPurchaseAt']),
+    lastPurchaseAt: _date(j['lastPurchaseAt']),
+    openInvoices: _int(j['openInvoices']),
+    openInvoicesDue: _int(j['openInvoicesDue']),
+  );
+}
+
+class CustomerSale {
+  const CustomerSale({
+    required this.id,
+    required this.number,
+    required this.total,
+    required this.due,
+    required this.status,
+    required this.soldAt,
+    this.itemCount = 0,
+  });
+  final String id;
+  final String number;
+  final int total;
+  final int due;
+  final String status;
+  final DateTime soldAt;
+  final int itemCount;
+
+  factory CustomerSale.fromJson(Map<String, dynamic> j) => CustomerSale(
+    id: j['id'] as String,
+    number: j['number'] as String,
+    total: _int(j['total']),
+    due: _int(j['due']),
+    status: j['status'] as String? ?? 'completed',
+    soldAt: _date(j['soldAt']) ?? DateTime.now(),
+    itemCount: _int(j['itemCount']),
+  );
+}
+
+class CustomerTopProduct {
+  const CustomerTopProduct({required this.name, required this.quantity, required this.total});
+  final String name;
+  final double quantity;
+  final int total;
+
+  factory CustomerTopProduct.fromJson(Map<String, dynamic> j) => CustomerTopProduct(
+    name: j['name'] as String,
+    quantity: (j['quantity'] as num?)?.toDouble() ?? 0,
+    total: _int(j['total']),
+  );
+}
+
+/// Fiche client complète : solde, plafond, statistiques, achats et relevé du carnet.
+class CustomerOverview {
+  const CustomerOverview({
+    required this.customer,
+    required this.balance,
+    this.availableCredit,
+    this.oldestUnpaidAt,
+    this.stats = const CustomerStats(),
+    this.topProducts = const [],
+    this.recentSales = const [],
+    this.entries = const [],
+  });
+  final Contact customer;
+  final int balance;
+  final int? availableCredit;
+  final DateTime? oldestUnpaidAt;
+  final CustomerStats stats;
+  final List<CustomerTopProduct> topProducts;
+  final List<CustomerSale> recentSales;
+
+  /// Du plus récent au plus ancien, avec le solde après chaque mouvement.
+  final List<LedgerEntry> entries;
+
+  int? get creditLimit => customer.creditLimit;
+
+  /// Jours depuis la plus ancienne dette encore impayée.
+  int? debtAgeDays([DateTime? now]) =>
+      oldestUnpaidAt == null ? null : (now ?? DateTime.now()).difference(oldestUnpaidAt!).inDays;
+
+  factory CustomerOverview.fromJson(Map<String, dynamic> j) {
+    final balance = _int(j['balance']);
+    final c = j['customer'] as Map<String, dynamic>;
+    return CustomerOverview(
+      customer: Contact.fromJson({...c, 'balance': balance}),
+      balance: balance,
+      availableCredit: j['availableCredit'] == null ? null : _int(j['availableCredit']),
+      oldestUnpaidAt: _date(j['oldestUnpaidAt']),
+      stats: CustomerStats.fromJson(j['stats'] as Map<String, dynamic>),
+      topProducts: ((j['topProducts'] as List?) ?? [])
+          .map((e) => CustomerTopProduct.fromJson(e as Map<String, dynamic>))
+          .toList(),
+      recentSales: ((j['recentSales'] as List?) ?? [])
+          .map((e) => CustomerSale.fromJson(e as Map<String, dynamic>))
+          .toList(),
+      entries: ((j['entries'] as List?) ?? []).map((e) => LedgerEntry.fromJson(e as Map<String, dynamic>)).toList(),
+    );
+  }
 }
 
 class Debtor {
@@ -452,6 +704,9 @@ class LedgerEntry {
     this.note,
     this.method,
     required this.at,
+    this.refType,
+    this.refId,
+    this.balanceAfter,
   });
   final String id;
   final String type; // debt, repayment, adjustment
@@ -460,6 +715,24 @@ class LedgerEntry {
   final String? method;
   final DateTime at;
 
+  /// sale, sale_void, opening_debt (reprise d'ancienne dette), write_off (remise de dette)
+  final String? refType;
+  final String? refId;
+
+  /// Solde du client juste après ce mouvement (relevé de compte).
+  final int? balanceAfter;
+
+  /// Libellé lisible du mouvement.
+  String get label => switch (type) {
+    'debt' => 'Vente à crédit${note == null ? '' : ' · $note'}',
+    'repayment' => 'Remboursement ${PayMethod.fromApi(method)?.label ?? ''}'.trim(),
+    _ => switch (refType) {
+      'opening_debt' => 'Ancienne dette${note == null ? '' : ' · $note'}',
+      'write_off' => 'Remise de dette${note == null ? '' : ' · $note'}',
+      _ => note ?? 'Ajustement',
+    },
+  };
+
   factory LedgerEntry.fromJson(Map<String, dynamic> j) => LedgerEntry(
     id: j['id'] as String,
     type: j['entryType'] as String,
@@ -467,6 +740,9 @@ class LedgerEntry {
     note: j['note'] as String?,
     method: j['method'] as String?,
     at: _date(j['occurredAt']) ?? DateTime.now(),
+    refType: j['refType'] as String?,
+    refId: j['refId'] as String?,
+    balanceAfter: j['balanceAfter'] == null ? null : _int(j['balanceAfter']),
   );
 }
 

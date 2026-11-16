@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import type { CustomerRepaymentRecorded, SaleCompleted, SaleVoided } from '@sama360/contracts';
+import type { CustomerBalanceAdjusted, CustomerRepaymentRecorded, SaleCompleted, SaleVoided } from '@sama360/contracts';
 import { sql } from 'drizzle-orm';
 import type { Tx } from '../../shared/db/db.service';
 import { OnDomainEvent } from '../../shared/events/on-domain-event.decorator';
@@ -30,5 +30,10 @@ export class ContactBalanceHandlers {
   @OnDomainEvent('customer.repayment_recorded')
   async onRepayment(event: CustomerRepaymentRecorded, tx: Tx) {
     await this.add(tx, event.payload.customerId, -event.payload.amount);
+  }
+
+  @OnDomainEvent('customer.balance_adjusted')
+  async onAdjustment(event: CustomerBalanceAdjusted, tx: Tx) {
+    await this.add(tx, event.payload.customerId, event.payload.amount);
   }
 }

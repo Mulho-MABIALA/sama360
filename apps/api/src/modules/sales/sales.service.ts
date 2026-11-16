@@ -115,6 +115,9 @@ export class SalesService {
       if (due > 0 && !input.customerId) {
         throw new AppError('CREDIT_REQUIRES_CUSTOMER', 'Choisissez un client pour une vente à crédit', 422, { due });
       }
+      // Plafond de crédit : contrôlé pour les ventes en direct. Une vente hors ligne (soldAt fourni)
+      // a déjà eu lieu en boutique, on l'enregistre même si elle dépasse le plafond.
+      if (due > 0 && !input.soldAt) await this.assertCreditLimit(tx, input.customerId!, due);
 
       const id = input.id ?? newId();
       const soldAt = saleDate(input.soldAt);
@@ -317,6 +320,28 @@ export class SalesService {
     });
   }
 
+  /** Refuse une nouvelle dette qui ferait dépasser le plafond de crédit du client. */
+  async assertCreditLimit(tx: Tx, customerId: string, newDebt: number) {
+    const res = await tx.execute(
+      sql`SELECT credit_limit, name FROM contacts.contacts WHERE id = ${customerId} FOR UPDATE`,
+    );
+    const row = res.rows[0] as { credit_limit: string | null; name: string } | undefined;
+    if (!row || row.credit_limit === null) return;
+    const limit = Number(row.credit_limit);
+    const balance = await this.balance(tx, customerId);
+    if (balance + newDebt > limit) {
+      const available = Math.max(0, limit - balance);
+      throw new AppError(
+        'CREDIT_LIMIT_EXCEEDED',
+        available === 0
+          ? `${row.name} a atteint son plafond de crédit (${fcfa(limit)})`
+          : `Crédit possible pour ${row.name} : ${fcfa(available)} au maximum (plafond ${fcfa(limit)})`,
+        422,
+        { limit, balance, available, requested: newDebt },
+      );
+    }
+  }
+
   /** Solde dû par un client = somme de son carnet de crédit (source de vérité). */
   async balance(tx: Tx, customerId: string): Promise<number> {
     const res = await tx.execute(
@@ -371,6 +396,8 @@ export class SalesService {
     return `${prefix}-${year}-${String(n).padStart(4, '0')}`;
   }
 }
+
+export const fcfa = (n: number) => `${new Intl.NumberFormat('fr-FR').format(n).replace(/\u202f|\u00a0/g, ' ')} F`;
 
 /** Ventes hors ligne : 90 jours maximum en arrière ; une horloge de téléphone en avance est ramenée à maintenant. */
 export const OFFLINE_MAX_AGE_DAYS = 90;

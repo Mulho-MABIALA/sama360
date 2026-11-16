@@ -69,6 +69,12 @@ export type CustomerRepaymentRecorded = DomainEvent<
   { entryId: string; customerId: string; amount: number; method: string }
 >;
 
+/** Ajustement manuel du carnet de crédit (reprise d'une ancienne dette, remise de dette). */
+export type CustomerBalanceAdjusted = DomainEvent<
+  'customer.balance_adjusted',
+  { entryId: string; customerId: string; amount: number; reason: string }
+>;
+
 /** Facture émise : la marchandise sort du stock. */
 export type InvoiceIssued = DomainEvent<
   'invoice.issued',
@@ -100,6 +106,7 @@ export interface EventMap {
   'sale.completed': SaleCompleted;
   'sale.voided': SaleVoided;
   'customer.repayment_recorded': CustomerRepaymentRecorded;
+  'customer.balance_adjusted': CustomerBalanceAdjusted;
   'invoice.issued': InvoiceIssued;
   'invoice.cancelled': InvoiceCancelled;
   'stock.low': StockLow;

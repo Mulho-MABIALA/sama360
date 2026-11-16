@@ -527,4 +527,71 @@ void main() {
     skip: skip,
     timeout: const Timeout(Duration(minutes: 1)),
   );
+
+  test(
+    'clients réels : plafond de crédit, fiche, ajustement, rappel, suppression protégée',
+    () async {
+      final store = MemorySessionStore();
+      final client = ApiClient(baseUrl: _api!, store: store);
+      final repo = SamaRepository(client);
+      final phone = '+22177${Random().nextInt(9000000) + 1000000}';
+      await repo.requestOtp(phone);
+      final t = await repo.verifyOtp(phone, await _otpFor(phone));
+      await store.save(Session(accessToken: t.access, refreshToken: t.refresh));
+      await repo.updateName('Ndeye Fall');
+      client.businessId = await repo.createBusiness(name: 'Fall Tissus test', category: 'boutique', city: 'Dakar');
+
+      final pagne = await repo.saveProduct(const ProductDraft(name: 'Pagne wax', price: 10000, trackStock: false));
+      final binta = await repo.saveCustomer(
+        const CustomerDraft(name: 'Binta Sow', phone: '+221772223344', address: 'Médina', creditLimit: 25000),
+      );
+      expect(binta.creditLimit, 25000);
+
+      Future<SaleResult> sell(int qty, int paid) => repo.createSale(
+        id: const Uuid().v7(),
+        customerId: binta.id,
+        items: [(productId: pagne.id, quantity: qty.toDouble())],
+        payments: [if (paid > 0) (method: PayMethod.cash, amount: paid)],
+      );
+      await sell(2, 0); // 20 000 à crédit
+      await expectLater(
+        sell(1, 0),
+        throwsA(
+          isA<ApiException>()
+              .having((e) => e.code, 'code', 'CREDIT_LIMIT_EXCEEDED')
+              .having((e) => e.message, 'message', contains('5 000 F au maximum')),
+        ),
+      );
+      await sell(1, 6000); // 4 000 à crédit : reste sous le plafond
+
+      var o = await repo.customerOverview(binta.id);
+      expect((o.balance, o.availableCredit, o.creditLimit), (24000, 1000, 25000));
+      expect((o.stats.salesCount, o.stats.totalSpent, o.stats.averageBasket), (2, 30000, 15000));
+      expect(o.entries.map((e) => e.balanceAfter), [24000, 20000]);
+      expect(o.topProducts.single.quantity, 3);
+      expect(o.oldestUnpaidAt, isNotNull);
+
+      await repo.repay(binta.id, 20000, PayMethod.wave);
+      expect(await repo.adjustBalance(binta.id, amount: 3000, reason: 'Ancien cahier'), 7000);
+      await repo.markReminded(binta.id, 'whatsapp');
+      o = await repo.customerOverview(binta.id);
+      expect(o.balance, 7000);
+      expect(o.entries.first.label, 'Ancienne dette · Ancien cahier');
+      expect(o.customer.lastRemindedAt, isNotNull);
+
+      final debtors = await repo.customerList(filter: CustomerFilter.debt, sort: CustomerSort.balance);
+      expect(debtors.data.single.id, binta.id);
+      expect((debtors.totals.debtors, debtors.totals.totalDue), (1, 7000));
+
+      await expectLater(
+        repo.deleteCustomer(binta.id),
+        throwsA(isA<ApiException>().having((e) => e.code, 'code', 'CUSTOMER_HAS_BALANCE')),
+      );
+      expect(await repo.adjustBalance(binta.id, amount: -7000, reason: 'Geste commercial'), 0);
+      await repo.deleteCustomer(binta.id);
+      expect((await repo.customerList()).data, isEmpty);
+    },
+    skip: skip,
+    timeout: const Timeout(Duration(minutes: 1)),
+  );
 }

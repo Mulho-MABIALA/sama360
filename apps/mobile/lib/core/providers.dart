@@ -77,6 +77,18 @@ final ledgerProvider = FutureProvider.family<Ledger, String>((ref, customerId) {
   return ref.watch(repoProvider).ledger(customerId);
 });
 
+typedef CustomerQuery = ({String search, CustomerFilter filter, CustomerSort sort});
+
+final customerListProvider = FutureProvider.family<CustomerList, CustomerQuery>((ref, q) {
+  ref.watch(businessIdProvider);
+  return ref.watch(repoProvider).customerList(search: q.search, filter: q.filter, sort: q.sort);
+});
+
+final customerOverviewProvider = FutureProvider.family<CustomerOverview, String>((ref, id) {
+  ref.watch(businessIdProvider);
+  return ref.watch(repoProvider).customerOverview(id);
+});
+
 final saleProvider = FutureProvider.family<SaleDetail, String>((ref, id) {
   ref.watch(businessIdProvider);
   return ref.watch(repoProvider).sale(id);
@@ -144,6 +156,8 @@ void refreshBusinessData(WidgetRef ref) {
   ref.invalidate(productsProvider);
   ref.invalidate(debtorsProvider);
   ref.invalidate(ledgerProvider);
+  ref.invalidate(customerListProvider);
+  ref.invalidate(customerOverviewProvider);
   ref.invalidate(salesTodayProvider);
   ref.invalidate(myDayProvider);
 }

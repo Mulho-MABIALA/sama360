@@ -288,4 +288,25 @@ void main() {
     await pumpSama(tester, location: '/categories');
     await _shot(tester, '14c_categories');
   });
+
+  testWidgets('fiche client : bas (carnet)', (tester) async {
+    phoneSize(tester);
+    await pumpSama(tester, location: '/customers/k1');
+    await tester.drag(find.byType(Scrollable).first, const Offset(0, -760));
+    await _shot(tester, '15_fiche_client_carnet');
+  });
+
+  testWidgets('fiche client : rappel', (tester) async {
+    phoneSize(tester);
+    await pumpSama(tester, location: '/customers/k1');
+    await tester.tap(find.text('Envoyer un rappel'));
+    await tester.pumpAndSettle();
+    await _shot(tester, '15b_rappel');
+  });
+
+  testWidgets('nouveau client', (tester) async {
+    phoneSize(tester);
+    await pumpSama(tester, location: '/customers/k1/edit');
+    await _shot(tester, '15c_modifier_client');
+  });
 }

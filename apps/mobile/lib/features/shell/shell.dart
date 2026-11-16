@@ -9,7 +9,7 @@ import '../../core/theme.dart';
 import '../../core/widgets.dart';
 import '../auth/auth_controller.dart';
 
-/// Barre de navigation du bas : Accueil, Caisse, Stock, Crédits (le profil s'ouvre depuis l'avatar).
+/// Barre de navigation du bas : Accueil, Caisse, Stock, Clients (le profil s'ouvre depuis l'avatar).
 class AppShell extends StatelessWidget {
   const AppShell({super.key, required this.shell});
   final StatefulNavigationShell shell;
@@ -49,9 +49,9 @@ class AppShell extends StatelessWidget {
                 label: 'Stock',
               ),
               NavigationDestination(
-                icon: Icon(Icons.menu_book_outlined),
-                selectedIcon: Icon(Icons.menu_book),
-                label: 'Crédits',
+                icon: Icon(Icons.people_alt_outlined),
+                selectedIcon: Icon(Icons.people_alt),
+                label: 'Clients',
               ),
             ],
           ),

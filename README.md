@@ -80,8 +80,12 @@ Toutes les erreurs : `{ "error": { "code", "message", "details?" } }`.
 | GET | `/v1/roles` | connecté |
 | GET / POST | `/v1/members` | `members:read` / `members:invite` |
 | PATCH / DELETE | `/v1/members/:id` | `members:manage` — rôle, suspension, retrait |
-| GET / POST | `/v1/contacts` | `contacts:read` / `contacts:write` |
-| GET / PATCH / DELETE | `/v1/contacts/:id` | idem |
+| GET / POST | `/v1/contacts` | `contacts:read` / `contacts:write` — `creditLimit` (plafond de crédit) réservé à `sales:void` |
+| GET / PATCH / DELETE | `/v1/contacts/:id` | idem ; suppression refusée (409) tant que le client doit de l'argent |
+| GET | `/v1/customers` | `contacts:read` — annuaire avec soldes et achats (`?search=&filter=all\|debt\|over_limit&sort=name\|balance\|recent&limit=&offset=`) et totaux |
+| GET | `/v1/customers/:id` | `contacts:read` — fiche client : solde, plafond et crédit disponible, plus ancienne dette impayée, statistiques, achats, top produits, relevé avec solde après chaque mouvement |
+| POST | `/v1/customers/:id/adjustments` | `sales:void` — reprise d'ancienne dette (montant positif) ou remise de dette (négatif) |
+| POST | `/v1/customers/:id/reminders` | `contacts:write` — note l'envoi d'un rappel de paiement |
 | GET / POST | `/v1/catalog/categories` | `catalog:read` / `catalog:write` |
 | GET | `/v1/catalog/products/by-code/:code` | `catalog:read` — produit par code-barres ou référence (scan) |
 | PATCH / DELETE | `/v1/catalog/categories/:id` | `catalog:write` — renommer, supprimer (les produits restent, sans catégorie) |
@@ -89,7 +93,7 @@ Toutes les erreurs : `{ "error": { "code", "message", "details?" } }`.
 | GET / PATCH / DELETE | `/v1/catalog/products/:id` | idem |
 | POST / DELETE | `/v1/catalog/products/:id/image` | `catalog:write` — photo (multipart, champ `file`, JPEG/PNG/WebP, 5 Mo max) |
 | GET | `/v1/files/:id` | public — sert une photo (cache long, l'identifiant change à chaque nouvelle photo) |
-| POST | `/v1/sales` | `sales:create` — encaisser (idempotent si `id` fourni par le mobile) |
+| POST | `/v1/sales` | `sales:create` — encaisser (idempotent si `id` fourni par le mobile) ; vente à crédit refusée au-delà du plafond du client (422 `CREDIT_LIMIT_EXCEEDED`), sauf vente hors ligne (`soldAt`) |
 | GET | `/v1/sales` · `/v1/sales/:id` | `sales:read` (`?from=&to=&customerId=&cashierId=&mine=true&status=`) |
 | POST | `/v1/sales/:id/void` | `sales:void` — annule : stock remis, dette annulée |
 | GET | `/v1/sales/summary` | `reports:read` — CA, coût, bénéfice, dépenses, encaissé, crédit, ventes par vendeur (`?from=&to=`) |

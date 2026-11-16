@@ -1,0 +1,309 @@
+import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:material_ui/material_ui.dart';
+
+import '../../core/format.dart';
+import '../../core/glass.dart';
+import '../../core/models.dart';
+import '../../core/providers.dart';
+import '../../core/theme.dart';
+import '../../core/widgets.dart';
+
+/// Fiche client : création ([customerId] null) ou modification.
+class CustomerEditorScreen extends ConsumerStatefulWidget {
+  const CustomerEditorScreen({super.key, this.customerId, this.initialName});
+  final String? customerId;
+  final String? initialName;
+
+  @override
+  ConsumerState<CustomerEditorScreen> createState() => _CustomerEditorScreenState();
+}
+
+class _CustomerEditorScreenState extends ConsumerState<CustomerEditorScreen> {
+  final _name = TextEditingController();
+  final _phone = TextEditingController();
+  final _email = TextEditingController();
+  final _address = TextEditingController();
+  final _notes = TextEditingController();
+  final _limit = TextEditingController();
+  bool _hasLimit = false;
+  int _balance = 0;
+  bool _loaded = false;
+  bool _busy = false;
+  final _errors = <String, String>{};
+
+  bool get _editing => widget.customerId != null;
+
+  @override
+  void initState() {
+    super.initState();
+    _name.text = widget.initialName ?? '';
+    if (!_editing) {
+      _loaded = true;
+      return;
+    }
+    Future(() async {
+      try {
+        final o = await ref.read(customerOverviewProvider(widget.customerId!).future);
+        final c = o.customer;
+        _name.text = c.name;
+        _phone.text = c.phone == null ? '' : displayPhone(c.phone!);
+        _email.text = c.email ?? '';
+        _address.text = c.address ?? '';
+        _notes.text = c.notes ?? '';
+        _hasLimit = c.creditLimit != null;
+        _limit.text = c.creditLimit?.toString() ?? '';
+        _balance = o.balance;
+      } catch (e) {
+        if (mounted) showError(context, e);
+      }
+      if (mounted) setState(() => _loaded = true);
+    });
+  }
+
+  @override
+  void dispose() {
+    for (final c in [_name, _phone, _email, _address, _notes, _limit]) {
+      c.dispose();
+    }
+    super.dispose();
+  }
+
+  String? _clean(TextEditingController c) => c.text.trim().isEmpty ? null : c.text.trim();
+
+  void _leave(Contact? result) =>
+      context.canPop() ? context.pop(result) : context.go(result == null ? '/customers' : '/customers/${result.id}');
+
+  Future<void> _save() async {
+    _errors.clear();
+    final name = _name.text.trim();
+    if (name.isEmpty) _errors['name'] = 'Indiquez le nom du client';
+    final phone = _phone.text.trim().isEmpty ? null : senegalPhone(_phone.text);
+    if (_phone.text.trim().isNotEmpty && phone == null) _errors['phone'] = '9 chiffres, ex. 77 123 45 67';
+    final email = _clean(_email);
+    if (email != null && !RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(email)) {
+      _errors['email'] = 'Adresse e-mail invalide';
+    }
+    final limit = int.tryParse(_limit.text);
+    if (_hasLimit && limit == null) _errors['limit'] = 'Indiquez le montant maximum';
+    setState(() {});
+    if (_errors.isNotEmpty) return;
+
+    final canLimit = ref.read(canProvider('sales:void'));
+    final draft = CustomerDraft(
+      name: name,
+      phone: phone,
+      email: email,
+      address: _clean(_address),
+      notes: _clean(_notes),
+      creditLimit: _hasLimit ? limit : null,
+    );
+    setState(() => _busy = true);
+    try {
+      final saved = await ref.read(repoProvider).saveCustomer(draft, id: widget.customerId, withLimit: canLimit);
+      refreshBusinessData(ref);
+      if (!mounted) return;
+      showInfo(context, _editing ? 'Fiche client enregistrée' : '${saved.name} ajouté(e)');
+      _leave(saved);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _busy = false);
+      showError(context, e);
+    }
+  }
+
+  Future<void> _delete() async {
+    if (_balance > 0) {
+      showInfo(context, 'Ce client doit encore ${money(_balance)} : soldez sa dette avant de le supprimer');
+      return;
+    }
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Supprimer « ${_name.text} » ?'),
+        content: const Text('Il disparaît de vos clients. Ses ventes et factures passées restent dans l’historique.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Annuler')),
+          TextButton(
+            style: TextButton.styleFrom(foregroundColor: AppColors.danger),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Supprimer'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    setState(() => _busy = true);
+    try {
+      await ref.read(repoProvider).deleteCustomer(widget.customerId!);
+      refreshBusinessData(ref);
+      if (!mounted) return;
+      showInfo(context, 'Client supprimé');
+      context.go('/customers');
+    } catch (e) {
+      if (mounted) {
+        setState(() => _busy = false);
+        showError(context, e);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final canLimit = ref.watch(canProvider('sales:void'));
+    final canDelete = ref.watch(canProvider('contacts:write'));
+    return AuroraScaffold(
+      appBar: AppBar(
+        title: Text(
+          _editing ? 'Modifier le client' : 'Nouveau client',
+          style: const TextStyle(fontWeight: FontWeight.w800),
+        ),
+        actions: [
+          if (_editing && canDelete)
+            IconButton(
+              tooltip: 'Supprimer le client',
+              onPressed: _busy || !_loaded ? null : _delete,
+              icon: const Icon(Icons.delete_outline_rounded),
+            ),
+        ],
+      ),
+      body: !_loaded
+          ? const Center(child: CircularProgressIndicator())
+          : Column(
+              children: [
+                Expanded(
+                  child: ListView(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                    children: [
+                      _Section(
+                        title: 'Coordonnées',
+                        children: [
+                          TextField(
+                            key: const Key('cName'),
+                            controller: _name,
+                            autofocus: !_editing && _name.text.isEmpty,
+                            textCapitalization: TextCapitalization.words,
+                            decoration: InputDecoration(labelText: 'Nom du client', errorText: _errors['name']),
+                          ),
+                          const SizedBox(height: 12),
+                          TextField(
+                            key: const Key('cPhone'),
+                            controller: _phone,
+                            keyboardType: TextInputType.phone,
+                            decoration: InputDecoration(
+                              labelText: 'Téléphone',
+                              prefixText: '+221 ',
+                              helperText: 'Pour les rappels WhatsApp et SMS',
+                              errorText: _errors['phone'],
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          TextField(
+                            key: const Key('cEmail'),
+                            controller: _email,
+                            keyboardType: TextInputType.emailAddress,
+                            decoration: InputDecoration(labelText: 'E-mail (facultatif)', errorText: _errors['email']),
+                          ),
+                          const SizedBox(height: 12),
+                          TextField(
+                            key: const Key('cAddress'),
+                            controller: _address,
+                            textCapitalization: TextCapitalization.sentences,
+                            decoration: const InputDecoration(labelText: 'Adresse ou quartier (facultatif)'),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      _Section(
+                        title: 'Crédit',
+                        children: [
+                          SwitchListTile(
+                            key: const Key('cHasLimit'),
+                            contentPadding: EdgeInsets.zero,
+                            value: _hasLimit,
+                            onChanged: canLimit ? (v) => setState(() => _hasLimit = v) : null,
+                            title: const Text('Plafond de crédit', style: TextStyle(fontWeight: FontWeight.w700)),
+                            subtitle: Text(
+                              canLimit
+                                  ? 'La caisse refuse une vente à crédit qui dépasse ce montant'
+                                  : 'Seul le gérant ou le propriétaire peut le modifier',
+                              style: const TextStyle(fontSize: 12),
+                            ),
+                          ),
+                          if (_hasLimit) ...[
+                            const SizedBox(height: 4),
+                            TextField(
+                              key: const Key('cLimit'),
+                              controller: _limit,
+                              enabled: canLimit,
+                              keyboardType: TextInputType.number,
+                              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                              decoration: InputDecoration(
+                                labelText: 'Dette maximum autorisée',
+                                suffixText: 'FCFA',
+                                errorText: _errors['limit'],
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      _Section(
+                        title: 'Notes',
+                        children: [
+                          TextField(
+                            key: const Key('cNotes'),
+                            controller: _notes,
+                            minLines: 2,
+                            maxLines: 5,
+                            textCapitalization: TextCapitalization.sentences,
+                            decoration: const InputDecoration(
+                              hintText: 'Préférences, jour de paie, personne à contacter…',
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                Padding(
+                  padding: EdgeInsets.fromLTRB(10, 4, 10, 8 + MediaQuery.paddingOf(context).bottom),
+                  child: Glass(
+                    radius: 28,
+                    padding: const EdgeInsets.all(14),
+                    child: BusyButton(
+                      label: _editing ? 'Enregistrer' : 'Ajouter le client',
+                      busy: _busy,
+                      onPressed: _save,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+    );
+  }
+}
+
+class _Section extends StatelessWidget {
+  const _Section({required this.title, required this.children});
+  final String title;
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) => Glass(
+    radius: 22,
+    padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Semantics(
+          header: true,
+          child: Text(title, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
+        ),
+        const SizedBox(height: 10),
+        ...children,
+      ],
+    ),
+  );
+}

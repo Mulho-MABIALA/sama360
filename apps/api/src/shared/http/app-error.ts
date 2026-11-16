@@ -27,6 +27,8 @@ export type ErrorCode =
   | 'DOCUMENT_LOCKED'
   | 'INVOICE_HAS_PAYMENTS'
   | 'PAYMENT_EXCEEDS_DUE'
+  | 'CREDIT_LIMIT_EXCEEDED'
+  | 'CUSTOMER_HAS_BALANCE'
   | 'INTERNAL';
 
 export class AppError extends Error {

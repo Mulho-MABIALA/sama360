@@ -303,6 +303,44 @@ class SamaRepository {
     }
   }
 
+  /// Annuaire clients avec soldes, achats et totaux (en-tête).
+  Future<CustomerList> customerList({
+    String? search,
+    CustomerFilter filter = CustomerFilter.all,
+    CustomerSort sort = CustomerSort.name,
+  }) async {
+    final query = {'filter': filter.api, 'sort': sort.api, 'limit': 100, 'search': ?(search?.isEmpty ?? true ? null : search)};
+    return CustomerList.fromJson(await _cachedGet<Map<String, dynamic>>('/v1/customers', query: query));
+  }
+
+  Future<CustomerOverview> customerOverview(String id) async =>
+      CustomerOverview.fromJson(await _cachedGet<Map<String, dynamic>>('/v1/customers/$id'));
+
+  /// Crée ou modifie une fiche client. Le plafond n'est envoyé que si l'utilisateur peut le fixer.
+  Future<Contact> saveCustomer(CustomerDraft draft, {String? id, bool withLimit = true}) async {
+    final data = {...draft.toJson(withLimit: withLimit), if (id == null) 'type': 'customer'};
+    return Contact.fromJson(
+      id == null
+          ? await api.post<Map<String, dynamic>>('/v1/contacts', data: data)
+          : await api.patch<Map<String, dynamic>>('/v1/contacts/$id', data: data),
+    );
+  }
+
+  Future<void> deleteCustomer(String id) => api.delete<void>('/v1/contacts/$id');
+
+  /// Reprise d'une ancienne dette (montant positif) ou remise de dette (négatif). Renvoie le nouveau solde.
+  Future<int> adjustBalance(String customerId, {required int amount, required String reason}) async {
+    final r = await api.post<Map<String, dynamic>>(
+      '/v1/customers/$customerId/adjustments',
+      data: {'amount': amount, 'reason': reason},
+    );
+    return (r['balance'] as num).toInt();
+  }
+
+  /// Note qu'un rappel de paiement vient d'être envoyé.
+  Future<void> markReminded(String customerId, String channel) =>
+      api.post<void>('/v1/customers/$customerId/reminders', data: {'channel': channel});
+
   Future<Contact> createCustomer({required String name, String? phone}) async =>
       Contact.fromJson(await api.post<Map<String, dynamic>>('/v1/contacts', data: {'name': name, 'phone': ?phone}));
 

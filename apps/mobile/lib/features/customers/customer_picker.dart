@@ -83,7 +83,14 @@ class _CustomerPickerState extends ConsumerState<_CustomerPicker> {
                   return ListTile(
                     leading: Avatar(name: c.name, size: 40, bg: AppColors.greenSoft, fg: AppColors.green),
                     title: Text(c.name, style: const TextStyle(fontWeight: FontWeight.w700)),
-                    subtitle: c.phone == null ? null : Text(displayPhone(c.phone!)),
+                    subtitle: c.phone == null && c.creditLimit == null
+                        ? null
+                        : Text(
+                            [
+                              if (c.phone != null) displayPhone(c.phone!),
+                              if (c.creditLimit != null) 'plafond ${moneyShort(c.creditLimit!)}',
+                            ].join(' · '),
+                          ),
                     trailing: c.balance > 0
                         ? Text(
                             money(c.balance),

@@ -231,6 +231,155 @@ class FakeRepo extends SamaRepository {
     ],
   );
 
+  // ---------- Clients et crédit ----------
+  final savedCustomers = <(String?, Map<String, dynamic>)>[]; // (id modifié, corps envoyé)
+  final deletedCustomers = <String>[];
+  final adjustments = <(String, int, String)>[];
+  final reminders = <(String, String)>[];
+  final customerQueries = <(String?, CustomerFilter, CustomerSort)>[];
+
+  static final demoCustomers = [
+    CustomerRow(
+      id: 'k1',
+      name: 'Fatou Ndiaye',
+      phone: '+221774120855',
+      balance: 17500,
+      creditLimit: 25000,
+      salesCount: 6,
+      totalSpent: 64500,
+      lastPurchaseAt: DateTime(2026, 11, 14, 10, 32),
+      firstDebtAt: DateTime(2026, 11, 2),
+    ),
+    CustomerRow(
+      id: 'k2',
+      name: 'Coumba Diop',
+      phone: '+221775550011',
+      balance: 12000,
+      creditLimit: 10000,
+      salesCount: 3,
+      totalSpent: 21000,
+      lastPurchaseAt: DateTime(2026, 11, 10),
+      firstDebtAt: DateTime(2026, 11, 4),
+    ),
+    CustomerRow(
+      id: 'k3',
+      name: 'Mariama Sow',
+      balance: 6500,
+      salesCount: 2,
+      totalSpent: 9000,
+      lastPurchaseAt: DateTime(2026, 11, 12),
+      firstDebtAt: DateTime(2026, 11, 12),
+    ),
+    CustomerRow(
+      id: 'c1',
+      name: 'Hôtel Teranga',
+      phone: '+221338200000',
+      balance: 0,
+      salesCount: 12,
+      totalSpent: 318000,
+      lastPurchaseAt: DateTime(2026, 11, 15),
+    ),
+    const CustomerRow(id: 'c9', name: 'Ousmane Fall', phone: '+221701234567', balance: 0),
+  ];
+
+  @override
+  Future<CustomerList> customerList({
+    String? search,
+    CustomerFilter filter = CustomerFilter.all,
+    CustomerSort sort = CustomerSort.name,
+  }) async {
+    customerQueries.add((search, filter, sort));
+    var rows = demoCustomers.where(
+      (c) => switch (filter) {
+        CustomerFilter.all => true,
+        CustomerFilter.debt => c.balance > 0,
+        CustomerFilter.overLimit => c.overLimit,
+      },
+    );
+    if (search != null && search.isNotEmpty) {
+      rows = rows.where((c) => c.name.toLowerCase().contains(search.toLowerCase()));
+    }
+    final list = rows.toList()
+      ..sort(
+        (a, b) => switch (sort) {
+          CustomerSort.balance => b.balance.compareTo(a.balance),
+          CustomerSort.recent => (b.lastPurchaseAt ?? DateTime(2000)).compareTo(a.lastPurchaseAt ?? DateTime(2000)),
+          CustomerSort.name => a.name.compareTo(b.name),
+        },
+      );
+    return CustomerList(
+      data: list,
+      totals: const CustomerTotals(customers: 5, debtors: 3, totalDue: 36000, overLimit: 1),
+    );
+  }
+
+  @override
+  Future<CustomerOverview> customerOverview(String id) async {
+    if (id == 'c9') {
+      return const CustomerOverview(
+        customer: Contact(id: 'c9', name: 'Ousmane Fall', phone: '+221701234567'),
+        balance: 0,
+      );
+    }
+    return CustomerOverview(
+      customer: Contact(
+        id: 'k1',
+        name: 'Fatou Ndiaye',
+        phone: '+221774120855',
+        address: 'Liberté 6, Dakar',
+        notes: 'Paie en fin de mois',
+        balance: 17500,
+        creditLimit: 25000,
+        lastRemindedAt: DateTime.now().subtract(const Duration(days: 3)),
+      ),
+      balance: 17500,
+      availableCredit: 7500,
+      oldestUnpaidAt: DateTime.now().subtract(const Duration(days: 14)),
+      stats: CustomerStats(
+        salesCount: 6,
+        totalSpent: 64500,
+        totalPaid: 47000,
+        averageBasket: 10750,
+        firstPurchaseAt: DateTime(2026, 6, 3),
+        lastPurchaseAt: DateTime.now().subtract(const Duration(days: 2)),
+        openInvoices: 1,
+        openInvoicesDue: 30000,
+      ),
+      topProducts: const [
+        CustomerTopProduct(name: 'Beurre de karité 250 g', quantity: 8, total: 28000),
+        CustomerTopProduct(name: 'Savon noir', quantity: 12, total: 18000),
+      ],
+      recentSales: [
+        CustomerSale(id: 's1', number: 'VEN-2026-0412', total: 9000, due: 4000, status: 'completed', soldAt: DateTime(2026, 11, 14, 10, 32), itemCount: 3),
+        CustomerSale(id: 's2', number: 'VEN-2026-0388', total: 8500, due: 8500, status: 'completed', soldAt: DateTime(2026, 11, 6, 11, 20), itemCount: 2),
+      ],
+      entries: [
+        LedgerEntry(id: 'e1', type: 'debt', amount: 4000, note: 'VEN-2026-0412', at: DateTime(2026, 11, 14, 10, 32), refType: 'sale', balanceAfter: 17500),
+        LedgerEntry(id: 'e2', type: 'repayment', amount: -10000, method: 'wave', at: DateTime(2026, 11, 9, 18, 5), balanceAfter: 13500),
+        LedgerEntry(id: 'e3', type: 'debt', amount: 8500, note: 'VEN-2026-0388', at: DateTime(2026, 11, 6, 11, 20), refType: 'sale', balanceAfter: 23500),
+        LedgerEntry(id: 'e4', type: 'adjustment', amount: 15000, note: 'Cahier papier', at: DateTime(2026, 11, 2, 16, 47), refType: 'opening_debt', balanceAfter: 15000),
+      ],
+    );
+  }
+
+  @override
+  Future<Contact> saveCustomer(CustomerDraft draft, {String? id, bool withLimit = true}) async {
+    savedCustomers.add((id, draft.toJson(withLimit: withLimit)));
+    return Contact(id: id ?? 'new-customer', name: draft.name, phone: draft.phone, creditLimit: draft.creditLimit);
+  }
+
+  @override
+  Future<void> deleteCustomer(String id) async => deletedCustomers.add(id);
+
+  @override
+  Future<int> adjustBalance(String customerId, {required int amount, required String reason}) async {
+    adjustments.add((customerId, amount, reason));
+    return 17500 + amount;
+  }
+
+  @override
+  Future<void> markReminded(String customerId, String channel) async => reminders.add((customerId, channel));
+
   /// Vrai : simule une coupure réseau (toutes les ventes échouent sans réponse).
   bool offline = false;
 
@@ -446,7 +595,7 @@ class FakeRepo extends SamaRepository {
   @override
   Future<List<Contact>> customers({String? search}) async => const [
     Contact(id: 'c1', name: 'Hôtel Teranga', phone: '+221338200000'),
-    Contact(id: 'k1', name: 'Fatou Ndiaye', phone: '+221774120855'),
+    Contact(id: 'k1', name: 'Fatou Ndiaye', phone: '+221774120855', balance: 17500, creditLimit: 25000),
   ];
 
   @override

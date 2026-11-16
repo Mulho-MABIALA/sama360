@@ -5,6 +5,7 @@ import 'package:material_ui/material_ui.dart';
 import 'features/auth/auth_controller.dart';
 import 'features/auth/login_screens.dart';
 import 'features/business/business_screen.dart';
+import 'features/customers/customer_editor.dart';
 import 'features/customers/customers_screens.dart';
 import 'features/home/home_screen.dart';
 import 'features/inventory/stock_screen.dart';
@@ -60,8 +61,16 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/profile', builder: (_, _) => const ProfileSetupScreen()),
       GoRoute(path: '/business', builder: (_, _) => const BusinessScreen()),
       GoRoute(
+        path: '/customers/new',
+        builder: (_, s) => CustomerEditorScreen(initialName: s.uri.queryParameters['name']),
+      ),
+      GoRoute(
         path: '/customers/:id',
-        builder: (_, s) => LedgerScreen(customerId: s.pathParameters['id']!),
+        builder: (_, s) => CustomerScreen(customerId: s.pathParameters['id']!),
+      ),
+      GoRoute(
+        path: '/customers/:id/edit',
+        builder: (_, s) => CustomerEditorScreen(customerId: s.pathParameters['id']!),
       ),
       GoRoute(path: '/account', builder: (_, _) => const ProfileScreen()),
       GoRoute(path: '/team', builder: (_, _) => const TeamScreen()),
@@ -114,7 +123,14 @@ final routerProvider = Provider<GoRouter>((ref) {
             ],
           ),
           StatefulShellBranch(
-            routes: [GoRoute(path: '/customers', builder: (_, _) => const DebtorsScreen())],
+            routes: [
+              GoRoute(
+                path: '/customers',
+                builder: (_, s) => CustomersScreen(
+                  initialFilter: s.uri.queryParameters['debt'] == '1' ? CustomerFilter.debt : CustomerFilter.all,
+                ),
+              ),
+            ],
           ),
         ],
       ),

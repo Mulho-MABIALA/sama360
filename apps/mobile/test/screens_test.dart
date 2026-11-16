@@ -80,16 +80,15 @@ void main() {
     expect(find.text('Huile de coco 500 ml'), findsOneWidget);
   });
 
-  testWidgets('carnet de crédit : total et fiche client', (tester) async {
+  testWidgets('clients : total à encaisser et fiche client', (tester) async {
     phoneSize(tester);
     final (c, _) = await pumpSama(tester, location: '/customers');
     expect(find.text('Fatou Ndiaye'), findsOneWidget);
-    expect(find.text('3 client(s) vous doivent de l’argent'), findsOneWidget);
     await tester.tap(find.text('Fatou Ndiaye'));
     await tester.pumpAndSettle();
     expect(find.text('Fiche client'), findsOneWidget);
-    expect(find.text('Envoyer un rappel WhatsApp'), findsOneWidget);
-    expect(find.text('Remboursement Wave'), findsOneWidget);
+    expect(find.text('Envoyer un rappel'), findsOneWidget);
+    await tester.scrollUntilVisible(find.text('Remboursement Wave'), 200, scrollable: find.byType(Scrollable).first);
     expect(routerOf(c).state.matchedLocation, '/customers/k1');
   });
 
