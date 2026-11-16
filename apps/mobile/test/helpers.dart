@@ -771,6 +771,66 @@ class FakeRepo extends SamaRepository {
     ],
   );
 
+  // ---------- Notifications ----------
+  late List<AppNotification> demoNotifications = [
+    AppNotification(
+      id: 'n1',
+      kind: 'shop_order',
+      title: 'Nouvelle commande CMD-2026-0012',
+      body: 'Ndèye Sarr · 31\u202f000 F · à livrer',
+      link: '/cash',
+      createdAt: DateTime.now().subtract(const Duration(minutes: 12)),
+    ),
+    AppNotification(
+      id: 'n2',
+      kind: 'stock_low',
+      title: 'Stock bas : Huile de coco 500 ml',
+      body: 'Il en reste 4 (seuil d’alerte : 5).',
+      link: '/stock',
+      createdAt: DateTime.now().subtract(const Duration(hours: 2)),
+    ),
+    AppNotification(
+      id: 'n3',
+      kind: 'invoices_overdue',
+      title: '2 factures en retard',
+      body: '45\u202f000 F à encaisser. Relancez vos clients.',
+      link: '/invoices',
+      createdAt: DateTime.now().subtract(const Duration(days: 1, hours: 1)),
+    ),
+    AppNotification(
+      id: 'n4',
+      kind: 'cash_open_team',
+      title: 'Une caisse est restée ouverte',
+      body: 'Ouverte(s) avant aujourd’hui : vérifiez le comptage avant de clôturer.',
+      link: '/cash/history',
+      createdAt: DateTime.now().subtract(const Duration(days: 3)),
+      read: true,
+    ),
+  ];
+  final notificationReads = <String>[];
+  int readAllCalls = 0;
+
+  int get _unread => demoNotifications.where((n) => !n.read).length;
+
+  @override
+  Future<NotificationsPage> notifications() async => NotificationsPage(items: demoNotifications, unread: _unread);
+
+  @override
+  Future<int> unreadNotifications() async => _unread;
+
+  @override
+  Future<int> markNotificationRead(String id) async {
+    notificationReads.add(id);
+    demoNotifications = [for (final n in demoNotifications) n.id == id ? n.copyWith(read: true) : n];
+    return _unread;
+  }
+
+  @override
+  Future<void> markAllNotificationsRead() async {
+    readAllCalls++;
+    demoNotifications = [for (final n in demoNotifications) n.copyWith(read: true)];
+  }
+
   @override
   Future<CashSession?> cashCurrent() async => cashOpen ? demoCashSession : null;
 

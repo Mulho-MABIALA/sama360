@@ -405,4 +405,10 @@ void main() {
     await pumpSama(tester, location: '/cash/sessions/cs0');
     await _shot(tester, '22_rapport_z');
   });
+
+  testWidgets('notifications', (tester) async {
+    phoneSize(tester);
+    await pumpSama(tester, location: '/notifications');
+    await _shot(tester, '23_notifications');
+  });
 }

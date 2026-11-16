@@ -2085,3 +2085,54 @@ class CashSessionSummary {
     difference: j['difference'] == null ? null : _int(j['difference']),
   );
 }
+
+/// Notification de la cloche de l'accueil.
+class AppNotification {
+  const AppNotification({
+    required this.id,
+    required this.kind,
+    required this.title,
+    required this.body,
+    required this.createdAt,
+    this.link,
+    this.read = false,
+  });
+  final String id;
+  final String kind;
+  final String title;
+  final String body;
+  final String? link;
+  final DateTime createdAt;
+  final bool read;
+
+  AppNotification copyWith({bool? read}) => AppNotification(
+    id: id,
+    kind: kind,
+    title: title,
+    body: body,
+    link: link,
+    createdAt: createdAt,
+    read: read ?? this.read,
+  );
+
+  factory AppNotification.fromJson(Map<String, dynamic> j) => AppNotification(
+    id: j['id'] as String,
+    kind: j['kind'] as String,
+    title: j['title'] as String,
+    body: (j['body'] as String?) ?? '',
+    link: j['link'] as String?,
+    createdAt: (_date(j['createdAt']) ?? DateTime.now()).toLocal(),
+    read: j['read'] == true,
+  );
+}
+
+class NotificationsPage {
+  const NotificationsPage({required this.items, required this.unread});
+  final List<AppNotification> items;
+  final int unread;
+
+  factory NotificationsPage.fromJson(Map<String, dynamic> j) => NotificationsPage(
+    items: [for (final n in (j['items'] as List? ?? const [])) AppNotification.fromJson(n as Map<String, dynamic>)],
+    unread: _int(j['unread']),
+  );
+}

@@ -55,8 +55,6 @@ const _moreServices = [
   _Service('Réservation', Icons.event_available_rounded, Color(0xFF2F6FDB), soon: true),
   _Service('Assistant IA', Icons.auto_awesome_rounded, Color(0xFF7A5AF8), soon: true),
   _Service('Projets', Icons.task_alt_rounded, Color(0xFF0A8453), soon: true),
-  _Service('Éducation', Icons.school_rounded, Color(0xFFE0533D), soon: true),
-  _Service('Finances perso', Icons.savings_rounded, Color(0xFF0E9384), soon: true),
 ];
 
 class HomeScreen extends ConsumerWidget {
@@ -249,11 +247,7 @@ class _Hero extends StatelessWidget {
                           const SizedBox(width: 9),
                           const SamaLogo(size: 22, onDark: true),
                           const Spacer(),
-                          _GlassIcon(
-                            tooltip: 'Notifications',
-                            icon: Icons.notifications_none_rounded,
-                            onTap: () => showInfo(context, 'Notifications bientôt disponibles'),
-                          ),
+                          const _Bell(),
                           const SizedBox(width: 8),
                           InkWell(
                             customBorder: const CircleBorder(),
@@ -353,6 +347,51 @@ class _Hero extends StatelessWidget {
             ),
           ),
         ),
+      ],
+    );
+  }
+}
+
+/// Cloche avec pastille du nombre de notifications non lues.
+class _Bell extends ConsumerWidget {
+  const _Bell();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final unread = ref.watch(unreadNotificationsProvider).value ?? 0;
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        _GlassIcon(
+          tooltip: unread == 0 ? 'Notifications' : 'Notifications : $unread non lue${unread > 1 ? 's' : ''}',
+          icon: unread == 0 ? Icons.notifications_none_rounded : Icons.notifications_active_rounded,
+          onTap: () async {
+            await context.push('/notifications');
+            if (context.mounted) ref.invalidate(unreadNotificationsProvider);
+          },
+        ),
+        if (unread > 0)
+          Positioned(
+            right: -3,
+            top: -3,
+            child: IgnorePointer(
+              child: Container(
+                constraints: const BoxConstraints(minWidth: 20),
+                height: 20,
+                padding: const EdgeInsets.symmetric(horizontal: 5),
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE5484D),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: Colors.white, width: 1.6),
+                ),
+                child: Text(
+                  unread > 99 ? '99+' : '$unread',
+                  style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w800, height: 1.1),
+                ),
+              ),
+            ),
+          ),
       ],
     );
   }

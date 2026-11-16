@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 
+import 'features/notifications/notifications_screen.dart';
 import 'features/auth/auth_controller.dart';
 import 'features/auth/login_screens.dart';
 import 'features/business/business_screen.dart';
@@ -70,6 +71,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/profile', builder: (_, _) => const ProfileSetupScreen()),
       GoRoute(path: '/business', builder: (_, _) => const BusinessScreen()),
       GoRoute(path: '/cash', builder: (_, _) => const CashScreen()),
+      GoRoute(path: '/notifications', builder: (_, _) => const NotificationsScreen()),
       GoRoute(
         path: '/cash/close',
         builder: (_, s) => CashCloseScreen(sessionId: s.uri.queryParameters['session']),

@@ -76,6 +76,7 @@ describe('Socle Sama360 (e2e)', () => {
   const FATOU = '+221765554433';
 
   let awa: { accessToken: string; refreshToken: string };
+  let modouToken = ''; // vendeur créé dans « Clôture de caisse », réutilisé (codes OTP limités par numéro)
   let moussa: { accessToken: string; refreshToken: string };
   let awaBiz: string;
   let cashierToken: string;
@@ -1514,6 +1515,7 @@ describe('Socle Sama360 (e2e)', () => {
       await http.post('/v1/members').set(A()).send({ phone: '+221770003322', fullName: 'Modou Gaye', roleKey: 'cashier' }).expect(201);
       await http.post('/v1/members').set(A()).send({ phone: '+221770003311', fullName: 'Fama Ndao', roleKey: 'cashier' }).expect(201);
       cashier = (await login('+221770003322')).accessToken;
+      modouToken = cashier;
       other = (await login('+221770003311')).accessToken;
       product = (await http.post('/v1/catalog/products').set(A()).send({ name: 'Thé Ataya', price: 5000, trackStock: false }).expect(201)).body.id;
       client = (await http.post('/v1/contacts').set(A()).send({ name: 'Pape Diouf' }).expect(201)).body.id;
@@ -1723,6 +1725,115 @@ describe('Socle Sama360 (e2e)', () => {
       const removed = await http.delete('/v1/me/avatar').set(A()).expect(200);
       expect(removed.body.user.avatarFileId).toBeNull();
       await http.get(`/v1/files/${second.body.user.avatarFileId}`).expect(404);
+    });
+  });
+
+  describe('Notifications', () => {
+    const A = () => auth(awa.accessToken, awaBiz);
+    let cashier: string;
+    let manager: string;
+    const M = () => auth(manager, awaBiz);
+    const C = () => auth(cashier, awaBiz);
+    type N = { id: string; kind: string; title: string; body: string; link: string | null; read: boolean };
+    const list = async (h: Record<string, string>) =>
+      (await http.get('/v1/notifications').set(h).expect((r) => { if (r.status !== 200) throw new Error(JSON.stringify(r.body)); })).body as { items: N[]; unread: number };
+
+    beforeAll(async () => {
+      await http.post('/v1/members').set(A()).send({ phone: '+221770004411', fullName: 'Ndèye Fall', roleKey: 'manager' }).expect(201);
+      manager = (await login('+221770004411')).accessToken;
+      cashier = modouToken; // Modou Gaye, vendeur
+    });
+
+    it('les événements deviennent des notifications selon le rôle', async () => {
+      const mine = await waitFor(() => list(A()), (l) => l.items.some((n) => n.kind === 'shop_order'));
+      const kinds = new Set(mine.items.map((n) => n.kind));
+      expect([...kinds]).toEqual(expect.arrayContaining(['welcome', 'stock_low', 'shop_order']));
+      const low = mine.items.find((n) => n.title === 'Stock bas : Huile de coco 500 ml');
+      expect(low).toMatchObject({ kind: 'stock_low', read: false });
+      expect(low!.link).toMatch(/^\/products\/[0-9a-f-]{36}$/);
+      expect(mine.unread).toBe(mine.items.filter((n) => !n.read).length);
+      expect((await http.get('/v1/notifications/unread-count').set(A()).expect(200)).body.unread).toBe(mine.unread);
+
+      // Le vendeur voit le stock et les commandes, mais pas les annulations de ventes
+      const sale = (await http.post('/v1/sales').set(C()).send({
+        items: [{ name: 'Sachet de bissap', quantity: 1, unitPrice: 500 }],
+        payments: [{ method: 'cash', amount: 500 }],
+      })).body;
+      if (sale.id) await http.post(`/v1/sales/${sale.id}/void`).set(A()).send({ reason: 'Erreur de prix' }).expect(200);
+      await relay.relayOnce();
+      const forManager = sale.id
+        ? await waitFor(() => list(M()), (l) => l.items.some((n) => n.link === `/sales/${sale.id}`))
+        : await list(M());
+      if (sale.id) {
+        expect(forManager.items.find((n) => n.link === `/sales/${sale.id}`)).toMatchObject({
+          kind: 'sale_voided',
+          title: `Vente ${sale.number} annulée`,
+          body: 'Annulée par Awa Diallo. La marchandise est revenue en stock.',
+          link: `/sales/${sale.id}`,
+        });
+        // Celle qui a annulé ne reçoit pas sa propre notification ; le vendeur n'y a pas accès
+        expect((await list(A())).items.some((n) => n.link === `/sales/${sale.id}`)).toBe(false);
+      }
+      const forCashier = await list(C());
+      expect(forCashier.items.some((n) => n.kind === 'stock_low')).toBe(true);
+      expect(forCashier.items.some((n) => n.kind === 'sale_voided')).toBe(false);
+    });
+
+    it('rappels : caisse restée ouverte, factures en retard, crédits anciens — une fois par jour', async () => {
+      const cur = (await http.get('/v1/cash/current').set(C()).expect(200)).body.session;
+      const sessionId = cur?.id ?? (await http.post('/v1/cash/open').set(C()).send({ openingFloat: 0 }).expect(201)).body.id;
+      await dbs.withTenant(awaBiz, async (tx) => {
+        await tx.execute(sql`UPDATE sales.cash_sessions SET opened_at = now() - interval '1 day' WHERE id = ${sessionId}`);
+        await tx.execute(sql`UPDATE invoicing.documents SET due_date = current_date - 3
+          WHERE kind = 'invoice' AND status IN ('unpaid', 'partial')`);
+        await tx.execute(sql`UPDATE sales.customer_ledger SET occurred_at = occurred_at - interval '40 days'`);
+      });
+      const unpaid = await dbs.withTenant(awaBiz, async (tx) =>
+        (await tx.execute(sql`SELECT count(*)::int AS n FROM invoicing.documents
+          WHERE kind = 'invoice' AND status IN ('unpaid', 'partial')`)).rows[0] as { n: number });
+
+      const forCashier = await list(C());
+      expect(forCashier.items.find((n) => n.kind === 'cash_open')).toMatchObject({
+        title: 'Votre caisse est toujours ouverte',
+        link: '/cash',
+      });
+      expect(forCashier.items.some((n) => n.kind === 'cash_open_team')).toBe(false);
+
+      const forOwner = await list(A());
+      expect(forOwner.items.some((n) => n.kind === 'cash_open')).toBe(false); // personnelle au vendeur
+      expect(forOwner.items.find((n) => n.kind === 'cash_open_team')?.title).toMatch(/caisses? (sont|est) restée/);
+      if (unpaid.n > 0) {
+        expect(forOwner.items.find((n) => n.kind === 'invoices_overdue')).toMatchObject({
+          title: unpaid.n > 1 ? `${unpaid.n} factures en retard` : '1 facture en retard',
+          link: '/invoices',
+        });
+      }
+      expect(forOwner.items.find((n) => n.kind === 'credit_stale')?.title).toMatch(/rien remboursé depuis 30 jours/);
+
+      // Pas de doublon en rouvrant la cloche
+      const again = await list(A());
+      expect(again.items.filter((n) => n.kind === 'cash_open_team')).toHaveLength(1);
+      expect(again.items.filter((n) => n.kind === 'credit_stale')).toHaveLength(1);
+    });
+
+    it('lu, tout lu, et pas d’accès aux notifications des autres', async () => {
+      const before = await list(A());
+      const first = before.items.find((n) => !n.read)!;
+      const res = await http.post(`/v1/notifications/${first.id}/read`).set(A()).expect(200);
+      expect(res.body.unread).toBe(before.unread - 1);
+      // Lu pour Awa seulement
+      const sameForManager = (await list(M())).items.find((n) => n.id === first.id);
+      if (sameForManager) expect(sameForManager.read).toBe(false);
+
+      // La notification personnelle du vendeur n'existe pas pour Awa
+      const personal = (await list(C())).items.find((n) => n.kind === 'cash_open')!;
+      await http.post(`/v1/notifications/${personal.id}/read`).set(A()).expect(404);
+      await http.post('/v1/notifications/0193aaaa-0000-7000-8000-000000000000/read').set(A()).expect(404);
+
+      expect((await http.post('/v1/notifications/read-all').set(A()).expect(200)).body.unread).toBe(0);
+      const after = await list(A());
+      expect(after.unread).toBe(0);
+      expect(after.items.every((n) => n.read)).toBe(true);
     });
   });
 

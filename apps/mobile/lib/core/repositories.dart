@@ -499,6 +499,26 @@ class SamaRepository {
 
   // ---------- Caisse ----------
   /// Ma caisse ouverte (null si fermée).
+  // ---------- Notifications ----------
+
+  Future<NotificationsPage> notifications() async =>
+      NotificationsPage.fromJson(await _cachedGet<Map<String, dynamic>>('/v1/notifications'));
+
+  /// Pastille de la cloche (0 hors connexion).
+  Future<int> unreadNotifications() async {
+    final r = await api.get<Map<String, dynamic>>('/v1/notifications/unread-count');
+    return (r['unread'] as num?)?.toInt() ?? 0;
+  }
+
+  Future<int> markNotificationRead(String id) async {
+    final r = await api.post<Map<String, dynamic>>('/v1/notifications/$id/read');
+    return (r['unread'] as num?)?.toInt() ?? 0;
+  }
+
+  Future<void> markAllNotificationsRead() async {
+    await api.post<Map<String, dynamic>>('/v1/notifications/read-all');
+  }
+
   Future<CashSession?> cashCurrent() async {
     final r = await _cachedGet<Map<String, dynamic>>('/v1/cash/current');
     final s = r['session'];
