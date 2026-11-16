@@ -57,23 +57,48 @@ class ErrorPanel extends StatelessWidget {
 }
 
 class Avatar extends StatelessWidget {
-  const Avatar({super.key, required this.name, this.size = 44, this.bg = AppColors.green, this.fg = Colors.white});
+  const Avatar({
+    super.key,
+    required this.name,
+    this.size = 44,
+    this.bg = AppColors.green,
+    this.fg = Colors.white,
+    this.imageUrl,
+  });
   final String? name;
   final double size;
   final Color bg;
   final Color fg;
 
+  /// Photo de profil ; les initiales s'affichent pendant le chargement ou en cas d'erreur.
+  final String? imageUrl;
+
   @override
-  Widget build(BuildContext context) => Container(
-    width: size,
-    height: size,
-    alignment: Alignment.center,
-    decoration: BoxDecoration(color: bg, shape: BoxShape.circle),
-    child: Text(
-      initials(name),
-      style: TextStyle(color: fg, fontWeight: FontWeight.w800, fontSize: size * 0.36),
-    ),
-  );
+  Widget build(BuildContext context) {
+    final letters = Container(
+      width: size,
+      height: size,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(color: bg, shape: BoxShape.circle),
+      child: Text(
+        initials(name),
+        style: TextStyle(color: fg, fontWeight: FontWeight.w800, fontSize: size * 0.36),
+      ),
+    );
+    if (imageUrl == null) return letters;
+    return ClipOval(
+      child: Image.network(
+        imageUrl!,
+        width: size,
+        height: size,
+        fit: BoxFit.cover,
+        semanticLabel: name == null ? 'Photo de profil' : 'Photo de $name',
+        cacheWidth: (size * MediaQuery.devicePixelRatioOf(context)).round(),
+        errorBuilder: (_, _, _) => letters,
+        loadingBuilder: (_, child, progress) => progress == null ? child : letters,
+      ),
+    );
+  }
 }
 
 /// Petite carte chiffre + libellé (bandeaux de statistiques).

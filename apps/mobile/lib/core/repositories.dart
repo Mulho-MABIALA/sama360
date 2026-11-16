@@ -28,6 +28,18 @@ class SamaRepository {
 
   Future<void> updateName(String fullName) => api.patch<void>('/v1/me', data: {'fullName': fullName});
 
+  /// Nom et e-mail (e-mail vide = retiré).
+  Future<void> updateProfile({required String fullName, String? email}) =>
+      api.patch<void>('/v1/me', data: {'fullName': fullName, 'email': (email ?? '').isEmpty ? null : email});
+
+  Future<void> uploadAvatar(List<int> bytes, {String filename = 'photo.jpg'}) =>
+      api.upload<void>('/v1/me/avatar', bytes, filename: filename);
+
+  Future<void> deleteAvatar() => api.delete<void>('/v1/me/avatar');
+
+  /// Ferme les sessions sur tous les appareils.
+  Future<void> logoutAll() => api.post<void>('/v1/me/logout-all');
+
   // ---------- Entreprises ----------
   Future<String> createBusiness({required String name, String? category, String? city}) async {
     final r = await api.post<Map<String, dynamic>>(

@@ -6,10 +6,21 @@ double _num(Object? v) => v is num ? v.toDouble() : double.tryParse('$v') ?? 0;
 DateTime? _date(Object? v) => v == null ? null : DateTime.tryParse('$v');
 
 class Me {
-  const Me({required this.id, required this.phone, this.fullName, this.businesses = const []});
+  const Me({
+    required this.id,
+    required this.phone,
+    this.fullName,
+    this.email,
+    this.avatarFileId,
+    this.createdAt,
+    this.businesses = const [],
+  });
   final String id;
   final String phone;
   final String? fullName;
+  final String? email;
+  final String? avatarFileId;
+  final DateTime? createdAt;
   final List<BusinessLink> businesses;
 
   factory Me.fromJson(Map<String, dynamic> j) {
@@ -18,6 +29,9 @@ class Me {
       id: u['id'] as String,
       phone: u['phone'] as String,
       fullName: u['fullName'] as String?,
+      email: u['email'] as String?,
+      avatarFileId: u['avatarFileId'] as String?,
+      createdAt: _date(u['createdAt']),
       businesses: ((j['businesses'] as List?) ?? const [])
           .map((b) => BusinessLink.fromJson(b as Map<String, dynamic>))
           .toList(),

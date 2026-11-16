@@ -20,11 +20,13 @@ export class FilesService {
    * Enregistre une image (JPEG, PNG, WebP) : octets dans le stockage, métadonnées en base.
    * À appeler dans la transaction métier ; si elle échoue, le fichier orphelin est supprimé.
    */
-  async saveImage(tx: Tx, input: { businessId: string; kind: string; data: Buffer; createdBy: string }) {
+  async saveImage(tx: Tx, input: { businessId: string | null; kind: string; data: Buffer; createdBy: string }) {
     const type = detectImage(input.data);
     if (!type) throw new AppError('VALIDATION_FAILED', 'Format non accepté : utilisez une photo JPEG, PNG ou WebP', 422);
     const id = newId();
-    const storageKey = `${input.businessId}/${input.kind}/${id}.${type.ext}`;
+    // Fichiers d'entreprise : <entreprise>/… ; fichiers personnels : users/<utilisateur>/…
+    const owner = input.businessId ?? `users/${input.createdBy}`;
+    const storageKey = `${owner}/${input.kind}/${id}.${type.ext}`;
     await this.storage.put(storageKey, input.data, type.mime);
     try {
       await tx.insert(files).values({
@@ -53,7 +55,7 @@ export class FilesService {
     }
   }
 
-  /** Lecture publique par identifiant (photos de produits). */
+  /** Lecture publique par identifiant aléatoire (photos de produits, photos de profil). */
   async open(fileId: string) {
     const [f] = await this.dbs.db.select().from(files).where(eq(files.id, fileId)).limit(1);
     if (!f) return null;

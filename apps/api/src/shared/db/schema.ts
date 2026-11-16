@@ -32,6 +32,7 @@ export const users = core.table('users', {
   email: varchar('email', { length: 160 }),
   pinHash: varchar('pin_hash', { length: 255 }),
   locale: varchar('locale', { length: 5 }).notNull().default('fr'),
+  avatarFileId: uuid('avatar_file_id'),
   status: varchar('status', { length: 20 }).notNull().default('active'),
   createdAt: ts('created_at').notNull().defaultNow(),
   updatedAt: ts('updated_at').notNull().defaultNow(),
@@ -344,7 +345,7 @@ export const expenses = salesSchema.table('expenses', {
 // ---------- fichiers ----------
 export const files = core.table('files', {
   id: uuid('id').primaryKey(),
-  businessId: uuid('business_id').notNull(),
+  businessId: uuid('business_id'), // null : fichier personnel (photo de profil)
   kind: varchar('kind', { length: 30 }).notNull(),
   storageKey: varchar('storage_key', { length: 255 }).notNull().unique(),
   mime: varchar('mime', { length: 60 }).notNull(),

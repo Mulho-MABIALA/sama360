@@ -1,12 +1,13 @@
 import { Module } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
+import { FilesModule } from '../files/files.module';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { MeController } from './me.controller';
 import { ConsoleOtpSender, OTP_SENDER } from './otp-sender';
 
 @Module({
-  imports: [JwtModule.register({})],
+  imports: [JwtModule.register({}), FilesModule],
   controllers: [AuthController, MeController],
   providers: [AuthService, ConsoleOtpSender, { provide: OTP_SENDER, useExisting: ConsoleOtpSender }],
   exports: [AuthService, JwtModule, ConsoleOtpSender],

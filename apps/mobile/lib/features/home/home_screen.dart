@@ -10,6 +10,7 @@ import '../../core/providers.dart';
 import '../../core/theme.dart';
 import '../../core/widgets.dart';
 import '../auth/auth_controller.dart';
+import '../profile/profile_screen.dart';
 import 'promo_carousel.dart';
 
 class _Service {
@@ -216,14 +217,14 @@ class _Hero extends StatelessWidget {
                           const SizedBox(width: 8),
                           InkWell(
                             customBorder: const CircleBorder(),
-                            onTap: () => context.go('/account'),
+                            onTap: () => context.push('/account'),
                             child: Container(
                               padding: const EdgeInsets.all(2.5),
                               decoration: const BoxDecoration(
                                 shape: BoxShape.circle,
                                 gradient: LinearGradient(colors: [AppColors.glow, Color(0xFFFFC08A)]),
                               ),
-                              child: Avatar(name: name, size: 38),
+                              child: const MeAvatar(size: 38),
                             ),
                           ),
                         ],

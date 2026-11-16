@@ -32,6 +32,7 @@ const demoMe = Me(
   id: 'u1',
   phone: '+221771234567',
   fullName: 'Awa Diallo',
+  createdAt: null,
   businesses: [BusinessLink(id: 'b1', name: 'Awa Beauté', category: 'boutique', role: 'owner', roleName: 'Propriétaire')],
 );
 const demoProducts = [
@@ -142,6 +143,49 @@ class FakeRepo extends SamaRepository {
     final paid = payments.fold<int>(0, (s, p) => s + p.amount);
     return SaleResult(id: id, number: 'VEN-2026-000$saleCounter', total: total, paid: paid, due: total - paid);
   }
+
+  // ---------- Profil ----------
+  Me profile = demoMe;
+  int avatarUploads = 0;
+  bool loggedOutEverywhere = false;
+
+  @override
+  Future<Me> me() async => profile;
+
+  @override
+  Future<void> updateProfile({required String fullName, String? email}) async => profile = Me(
+    id: profile.id,
+    phone: profile.phone,
+    fullName: fullName,
+    email: (email ?? '').isEmpty ? null : email,
+    avatarFileId: profile.avatarFileId,
+    businesses: profile.businesses,
+  );
+
+  @override
+  Future<void> uploadAvatar(List<int> bytes, {String filename = 'photo.jpg'}) async {
+    avatarUploads++;
+    profile = Me(
+      id: profile.id,
+      phone: profile.phone,
+      fullName: profile.fullName,
+      email: profile.email,
+      avatarFileId: 'avatar-$avatarUploads',
+      businesses: profile.businesses,
+    );
+  }
+
+  @override
+  Future<void> deleteAvatar() async => profile = Me(
+    id: profile.id,
+    phone: profile.phone,
+    fullName: profile.fullName,
+    email: profile.email,
+    businesses: profile.businesses,
+  );
+
+  @override
+  Future<void> logoutAll() async => loggedOutEverywhere = true;
 
   @override
   Future<SaleDetail> sale(String id) async => id == 'voided' ? demoVoidedSale : demoSale;

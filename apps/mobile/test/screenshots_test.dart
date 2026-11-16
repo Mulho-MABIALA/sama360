@@ -113,4 +113,18 @@ void main() {
     await pumpSama(tester, location: '/sales');
     await _shot(tester, '9b_ventes_du_jour');
   });
+
+  testWidgets('profil', (tester) async {
+    phoneSize(tester);
+    await pumpSama(tester);
+    await tester.tap(find.text('AD').first);
+    await _shot(tester, '8_profil');
+  });
+
+  testWidgets('profil (bas)', (tester) async {
+    phoneSize(tester);
+    await pumpSama(tester, location: '/account');
+    await tester.drag(find.byType(Scrollable).first, const Offset(0, -700));
+    await _shot(tester, '8b_profil_bas');
+  });
 }

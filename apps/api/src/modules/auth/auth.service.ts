@@ -154,6 +154,16 @@ export class AuthService {
       .where(and(eq(refreshTokens.tokenHash, hash), isNull(refreshTokens.revokedAt)));
   }
 
+  /** Déconnecte tous les appareils de l'utilisateur (sessions révoquées). Renvoie le nombre de sessions fermées. */
+  async logoutAll(userId: string): Promise<number> {
+    const rows = await this.dbs.db
+      .update(refreshTokens)
+      .set({ revokedAt: new Date() })
+      .where(and(eq(refreshTokens.userId, userId), isNull(refreshTokens.revokedAt)))
+      .returning({ id: refreshTokens.id });
+    return rows.length;
+  }
+
   private async issueTokens(tx: Tx, userId: string, deviceId?: string, replacing?: string): Promise<TokenPair> {
     const e = env();
     const accessToken = await this.jwt.signAsync(

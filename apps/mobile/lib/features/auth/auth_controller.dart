@@ -60,6 +60,27 @@ class AuthController extends AsyncNotifier<AuthState> {
     state = AsyncData(await _load());
   }
 
+  Future<void> updateProfile({required String fullName, String? email}) async {
+    await ref.read(repoProvider).updateProfile(fullName: fullName.trim(), email: email?.trim());
+    state = AsyncData(await _load());
+  }
+
+  Future<void> setAvatar(List<int> bytes, String filename) async {
+    await ref.read(repoProvider).uploadAvatar(bytes, filename: filename);
+    state = AsyncData(await _load());
+  }
+
+  Future<void> removeAvatar() async {
+    await ref.read(repoProvider).deleteAvatar();
+    state = AsyncData(await _load());
+  }
+
+  /// Déconnecte tous les appareils (celui-ci compris).
+  Future<void> signOutEverywhere() async {
+    await ref.read(repoProvider).logoutAll();
+    await _clearLocal();
+  }
+
   Future<void> createBusiness({required String name, String? category, String? city}) async {
     final id = await ref.read(repoProvider).createBusiness(name: name.trim(), category: category, city: city);
     await _store.saveBusinessId(id);

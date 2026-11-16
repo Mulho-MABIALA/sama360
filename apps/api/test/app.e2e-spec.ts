@@ -75,6 +75,7 @@ describe('Socle Sama360 (e2e)', () => {
   let moussa: { accessToken: string; refreshToken: string };
   let awaBiz: string;
   let cashierToken: string;
+  let cashierRefresh: string;
   let moussaBiz: string;
 
   const auth = (token: string, businessId?: string) => {
@@ -354,7 +355,7 @@ describe('Socle Sama360 (e2e)', () => {
 
   describe('Ventes et stock', () => {
     const CAISSIER = '+221770000099';
-    let cashier: { accessToken: string };
+    let cashier: { accessToken: string; refreshToken: string };
     let karite: string;
     let huile: string;
     let aminata: string;
@@ -405,6 +406,7 @@ describe('Socle Sama360 (e2e)', () => {
       await http.post('/v1/members').set(A()).send({ phone: CAISSIER, roleKey: 'cashier' }).expect(201);
       cashier = await login(CAISSIER);
       cashierToken = cashier.accessToken;
+      cashierRefresh = cashier.refreshToken;
     });
 
     it('encaisse une vente au comptant, de façon idempotente', async () => {
@@ -675,7 +677,56 @@ describe('Socle Sama360 (e2e)', () => {
     });
   });
 
+  describe('Photo de profil', () => {
+    const png = Buffer.from(
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
+      'base64',
+    );
+    const jpeg = Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0]), Buffer.alloc(200, 1)]);
+
+    it('ajoute, remplace et retire la photo de profil', async () => {
+      const A = () => auth(awa.accessToken);
+      const first = await http
+        .post('/v1/me/avatar')
+        .set(A())
+        .attach('file', png, { filename: 'moi.png', contentType: 'image/png' })
+        .expect(201);
+      const firstId = first.body.user.avatarFileId;
+      expect(firstId).toEqual(expect.any(String));
+      expect((await http.get('/v1/me').set(A()).expect(200)).body.user.avatarFileId).toBe(firstId);
+      await http.get(`/v1/files/${firstId}`).expect(200);
+
+      // Remplacement : l'ancienne photo est supprimée
+      const second = await http
+        .post('/v1/me/avatar')
+        .set(A())
+        .attach('file', jpeg, { filename: 'moi.jpg', contentType: 'image/jpeg' })
+        .expect(201);
+      expect(second.body.user.avatarFileId).not.toBe(firstId);
+      await http.get(`/v1/files/${firstId}`).expect(404);
+
+      // Faux fichier refusé, sans jeton refusé
+      await http
+        .post('/v1/me/avatar')
+        .set(A())
+        .attach('file', Buffer.from('pas une image'), { filename: 'x.png', contentType: 'image/png' })
+        .expect(422);
+      await http.post('/v1/me/avatar').attach('file', png, { filename: 'moi.png' }).expect(401);
+
+      const removed = await http.delete('/v1/me/avatar').set(A()).expect(200);
+      expect(removed.body.user.avatarFileId).toBeNull();
+      await http.get(`/v1/files/${second.body.user.avatarFileId}`).expect(404);
+    });
+  });
+
   describe('Sessions', () => {
+    it('déconnecte tous les appareils', async () => {
+      // Session du caissier (les codes de connexion sont limités par minute : on réutilise sa session)
+      const res = await http.post('/v1/me/logout-all').set(auth(cashierToken)).expect(200);
+      expect(res.body.revoked).toBeGreaterThanOrEqual(1);
+      await http.post('/v1/auth/refresh').send({ refreshToken: cashierRefresh }).expect(401);
+    });
+
     it('fait tourner le jeton de rafraîchissement et détecte sa réutilisation', async () => {
       const r1 = await http.post('/v1/auth/refresh').send({ refreshToken: awa.refreshToken }).expect(200);
       expect(r1.body.refreshToken).not.toBe(awa.refreshToken);
