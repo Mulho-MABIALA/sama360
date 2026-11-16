@@ -233,6 +233,7 @@ class FakeRepo extends SamaRepository {
 
   // ---------- Clients et crédit ----------
   final savedCustomers = <(String?, Map<String, dynamic>)>[]; // (id modifié, corps envoyé)
+  final savedTypes = <String>[];
   final deletedCustomers = <String>[];
   final adjustments = <(String, int, String)>[];
   final reminders = <(String, String)>[];
@@ -363,8 +364,9 @@ class FakeRepo extends SamaRepository {
   }
 
   @override
-  Future<Contact> saveCustomer(CustomerDraft draft, {String? id, bool withLimit = true}) async {
+  Future<Contact> saveCustomer(CustomerDraft draft, {String? id, bool withLimit = true, String type = 'customer'}) async {
     savedCustomers.add((id, draft.toJson(withLimit: withLimit)));
+    savedTypes.add(type);
     return Contact(id: id ?? 'new-customer', name: draft.name, phone: draft.phone, creditLimit: draft.creditLimit);
   }
 
@@ -379,6 +381,207 @@ class FakeRepo extends SamaRepository {
 
   @override
   Future<void> markReminded(String customerId, String channel) async => reminders.add((customerId, channel));
+
+  // ---------- Achats et fournisseurs ----------
+  final purchaseBodies = <Map<String, dynamic>>[];
+  final purchaseUpdates = <(String, Map<String, dynamic>)>[];
+  final confirmed = <String>[];
+  final cancelledPurchases = <String>[];
+  final receptions = <(String, List<({String lineId, double quantity, int unitCost})>, String?, ({int amount, PayMethod method})?)>[];
+  final purchasePayments = <(String, int, PayMethod)>[];
+  final supplierPayments = <(String, int, PayMethod)>[];
+  final purchaseQueries = <(PurchaseFilter, String?)>[];
+
+  static final demoPurchases = [
+    PurchaseSummary(
+      id: 'po1',
+      number: 'BC-2026-0007',
+      status: PurchaseStatus.ordered,
+      supplierId: 's1',
+      supplierName: 'Grossiste Sandaga',
+      orderDate: DateTime(2026, 11, 10),
+      expectedDate: DateTime(2026, 11, 13),
+      total: 88000,
+      lineCount: 2,
+    ),
+    PurchaseSummary(
+      id: 'po2',
+      number: 'BC-2026-0005',
+      status: PurchaseStatus.partial,
+      supplierId: 's2',
+      supplierName: 'Cosmétiques Dakar SARL',
+      orderDate: DateTime(2026, 11, 6),
+      total: 120000,
+      receivedTotal: 60000,
+      paid: 40000,
+      due: 20000,
+      lineCount: 3,
+    ),
+    PurchaseSummary(
+      id: 'po3',
+      number: 'BC-2026-0003',
+      status: PurchaseStatus.received,
+      supplierId: 's1',
+      supplierName: 'Grossiste Sandaga',
+      orderDate: DateTime(2026, 11, 2),
+      total: 22500,
+      receivedTotal: 22500,
+      paid: 0,
+      due: 22500,
+      lineCount: 1,
+    ),
+    PurchaseSummary(
+      id: 'po4',
+      number: 'BC-2026-0008',
+      status: PurchaseStatus.draft,
+      supplierId: 's2',
+      supplierName: 'Cosmétiques Dakar SARL',
+      orderDate: DateTime(2026, 11, 15),
+      total: 26000,
+      lineCount: 1,
+    ),
+  ];
+
+  @override
+  Future<PurchaseList> purchases({PurchaseFilter filter = PurchaseFilter.all, String? supplierId}) async {
+    purchaseQueries.add((filter, supplierId));
+    final rows = demoPurchases.where(
+      (p) => switch (filter) {
+        PurchaseFilter.open => p.status.open,
+        PurchaseFilter.unpaid => p.due > 0,
+        PurchaseFilter.received => p.status == PurchaseStatus.received,
+        PurchaseFilter.all => true,
+      },
+    );
+    return PurchaseList(
+      data: rows.toList(),
+      totals: const PurchaseTotals(openOrders: 3, toReceive: 148000, totalDue: 42500, suppliersOwed: 2),
+    );
+  }
+
+  PurchaseDetail _detail(String id) {
+    final summary = demoPurchases.firstWhere((p) => p.id == id);
+    final lines = switch (id) {
+      'po2' => const [
+        PurchaseLine(id: 'l21', productId: 'p4', name: 'Crème éclaircissante bio', quantity: 20, receivedQty: 10, unitCost: 4000, total: 80000),
+        PurchaseLine(id: 'l22', productId: 'p5', name: 'Shampoing aloe vera', quantity: 20, receivedQty: 10, unitCost: 2000, total: 40000),
+      ],
+      'po4' => const [
+        PurchaseLine(id: 'l41', productId: 'p3', name: 'Huile de coco 500 ml', quantity: 10, unitCost: 2600, total: 26000),
+      ],
+      _ => const [
+        PurchaseLine(id: 'l11', productId: 'p1', name: 'Beurre de karité 250 g', quantity: 24, unitCost: 2000, total: 48000),
+        PurchaseLine(id: 'l12', productId: 'p2', name: 'Savon noir', quantity: 50, unitCost: 800, total: 40000),
+      ],
+    };
+    return PurchaseDetail(
+      summary: summary,
+      supplier: Contact(
+        id: summary.supplierId,
+        name: summary.supplierName,
+        phone: summary.supplierId == 's1' ? '+221773004050' : null,
+      ),
+      note: id == 'po1' ? 'Livrer à la boutique de Sandaga' : null,
+      lines: lines,
+      receipts: id == 'po2'
+          ? [PurchaseReceipt(id: 'r1', total: 60000, note: 'Premier carton', receivedAt: DateTime(2026, 11, 8, 9, 30), receivedBy: 'Awa Diallo')]
+          : const [],
+      payments: id == 'po2'
+          ? [PurchasePayment(id: 'pp1', method: PayMethod.wave, amount: 40000, paidAt: DateTime(2026, 11, 8, 10))]
+          : const [],
+    );
+  }
+
+  @override
+  Future<PurchaseDetail> purchase(String id) async => _detail(id);
+
+  @override
+  Future<PurchaseDetail> createPurchase(Map<String, dynamic> body) async {
+    purchaseBodies.add(body);
+    return _detail('po1');
+  }
+
+  @override
+  Future<PurchaseDetail> updatePurchase(String id, Map<String, dynamic> body) async {
+    purchaseUpdates.add((id, body));
+    return _detail(id);
+  }
+
+  @override
+  Future<PurchaseDetail> confirmPurchase(String id) async {
+    confirmed.add(id);
+    return _detail(id);
+  }
+
+  @override
+  Future<PurchaseDetail> cancelPurchase(String id) async {
+    cancelledPurchases.add(id);
+    return _detail(id);
+  }
+
+  @override
+  Future<PurchaseDetail> receivePurchase(
+    String id, {
+    List<({String lineId, double quantity, int unitCost})> lines = const [],
+    String? note,
+    ({int amount, PayMethod method})? payment,
+  }) async {
+    receptions.add((id, lines, note, payment));
+    return _detail(id);
+  }
+
+  @override
+  Future<PurchaseDetail> payPurchase(String id, {required int amount, required PayMethod method, String? paymentId}) async {
+    purchasePayments.add((id, amount, method));
+    return _detail(id);
+  }
+
+  @override
+  Future<List<SupplierRow>> suppliers({String? search}) async => [
+    SupplierRow(
+      id: 's1',
+      name: 'Grossiste Sandaga',
+      phone: '+221773004050',
+      ordersCount: 6,
+      purchased: 410000,
+      due: 22500,
+      openOrders: 1,
+      lastOrderAt: DateTime.now().subtract(const Duration(days: 6)),
+    ),
+    SupplierRow(id: 's2', name: 'Cosmétiques Dakar SARL', ordersCount: 3, purchased: 240000, due: 20000, openOrders: 2),
+    const SupplierRow(id: 's3', name: 'Imprimerie du Port', phone: '+221338210000'),
+  ].where((r) => search == null || search.isEmpty || r.name.toLowerCase().contains(search.toLowerCase())).toList();
+
+  @override
+  Future<SupplierOverview> supplierOverview(String id) async => SupplierOverview(
+    supplier: const Contact(
+      id: 's1',
+      name: 'Grossiste Sandaga',
+      phone: '+221773004050',
+      address: 'Avenue Lamine Guèye',
+      notes: 'Livre le mardi et le vendredi',
+    ),
+    due: 22500,
+    ordersCount: 6,
+    purchased: 410000,
+    paid: 387500,
+    openOrders: 1,
+    lastOrderAt: DateTime.now().subtract(const Duration(days: 6)),
+    orders: [demoPurchases[0], demoPurchases[2]],
+    payments: [
+      PurchasePayment(id: 'sp1', method: PayMethod.cash, amount: 50000, paidAt: DateTime(2026, 11, 1, 17), number: 'BC-2026-0001'),
+    ],
+    products: const [
+      SupplierProduct(productId: 'p1', name: 'Beurre de karité 250 g', quantity: 96, lastCost: 2000),
+      SupplierProduct(productId: 'p2', name: 'Savon noir', quantity: 200, lastCost: 800),
+    ],
+  );
+
+  @override
+  Future<int> paySupplier(String id, {required int amount, required PayMethod method}) async {
+    supplierPayments.add((id, amount, method));
+    return 22500 - amount;
+  }
 
   /// Vrai : simule une coupure réseau (toutes les ventes échouent sans réponse).
   bool offline = false;

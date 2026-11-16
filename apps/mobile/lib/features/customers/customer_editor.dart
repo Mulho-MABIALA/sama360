@@ -10,11 +10,12 @@ import '../../core/providers.dart';
 import '../../core/theme.dart';
 import '../../core/widgets.dart';
 
-/// Fiche client : création ([customerId] null) ou modification.
+/// Fiche client ou fournisseur ([supplier]) : création ([customerId] null) ou modification.
 class CustomerEditorScreen extends ConsumerStatefulWidget {
-  const CustomerEditorScreen({super.key, this.customerId, this.initialName});
+  const CustomerEditorScreen({super.key, this.customerId, this.initialName, this.supplier = false});
   final String? customerId;
   final String? initialName;
+  final bool supplier;
 
   @override
   ConsumerState<CustomerEditorScreen> createState() => _CustomerEditorScreenState();
@@ -34,6 +35,7 @@ class _CustomerEditorScreenState extends ConsumerState<CustomerEditorScreen> {
   final _errors = <String, String>{};
 
   bool get _editing => widget.customerId != null;
+  bool get _supplier => widget.supplier;
 
   @override
   void initState() {
@@ -45,8 +47,16 @@ class _CustomerEditorScreenState extends ConsumerState<CustomerEditorScreen> {
     }
     Future(() async {
       try {
-        final o = await ref.read(customerOverviewProvider(widget.customerId!).future);
-        final c = o.customer;
+        final Contact c;
+        if (_supplier) {
+          final o = await ref.read(supplierProvider(widget.customerId!).future);
+          c = o.supplier;
+          _balance = o.due;
+        } else {
+          final o = await ref.read(customerOverviewProvider(widget.customerId!).future);
+          c = o.customer;
+          _balance = o.balance;
+        }
         _name.text = c.name;
         _phone.text = c.phone == null ? '' : displayPhone(c.phone!);
         _email.text = c.email ?? '';
@@ -54,7 +64,6 @@ class _CustomerEditorScreenState extends ConsumerState<CustomerEditorScreen> {
         _notes.text = c.notes ?? '';
         _hasLimit = c.creditLimit != null;
         _limit.text = c.creditLimit?.toString() ?? '';
-        _balance = o.balance;
       } catch (e) {
         if (mounted) showError(context, e);
       }
@@ -72,13 +81,16 @@ class _CustomerEditorScreenState extends ConsumerState<CustomerEditorScreen> {
 
   String? _clean(TextEditingController c) => c.text.trim().isEmpty ? null : c.text.trim();
 
+  String get _base => _supplier ? '/suppliers' : '/customers';
+  String get _home => _supplier ? '/purchases?tab=suppliers' : '/customers';
+
   void _leave(Contact? result) =>
-      context.canPop() ? context.pop(result) : context.go(result == null ? '/customers' : '/customers/${result.id}');
+      context.canPop() ? context.pop(result) : context.go(result == null ? _home : '$_base/${result.id}');
 
   Future<void> _save() async {
     _errors.clear();
     final name = _name.text.trim();
-    if (name.isEmpty) _errors['name'] = 'Indiquez le nom du client';
+    if (name.isEmpty) _errors['name'] = _supplier ? 'Indiquez le nom du fournisseur' : 'Indiquez le nom du client';
     final phone = _phone.text.trim().isEmpty ? null : senegalPhone(_phone.text);
     if (_phone.text.trim().isNotEmpty && phone == null) _errors['phone'] = '9 chiffres, ex. 77 123 45 67';
     final email = _clean(_email);
@@ -90,21 +102,23 @@ class _CustomerEditorScreenState extends ConsumerState<CustomerEditorScreen> {
     setState(() {});
     if (_errors.isNotEmpty) return;
 
-    final canLimit = ref.read(canProvider('sales:void'));
+    final canLimit = !_supplier && ref.read(canProvider('sales:void'));
     final draft = CustomerDraft(
       name: name,
       phone: phone,
       email: email,
       address: _clean(_address),
       notes: _clean(_notes),
-      creditLimit: _hasLimit ? limit : null,
+      creditLimit: _hasLimit && !_supplier ? limit : null,
     );
     setState(() => _busy = true);
     try {
-      final saved = await ref.read(repoProvider).saveCustomer(draft, id: widget.customerId, withLimit: canLimit);
-      refreshBusinessData(ref);
+      final saved = await ref
+          .read(repoProvider)
+          .saveCustomer(draft, id: widget.customerId, withLimit: canLimit, type: _supplier ? 'supplier' : 'customer');
+      _supplier ? refreshPurchasing(ref) : refreshBusinessData(ref);
       if (!mounted) return;
-      showInfo(context, _editing ? 'Fiche client enregistrée' : '${saved.name} ajouté(e)');
+      showInfo(context, _editing ? 'Fiche enregistrée' : '${saved.name} ajouté(e)');
       _leave(saved);
     } catch (e) {
       if (!mounted) return;
@@ -115,14 +129,23 @@ class _CustomerEditorScreenState extends ConsumerState<CustomerEditorScreen> {
 
   Future<void> _delete() async {
     if (_balance > 0) {
-      showInfo(context, 'Ce client doit encore ${money(_balance)} : soldez sa dette avant de le supprimer');
+      showInfo(
+        context,
+        _supplier
+            ? 'Vous devez encore ${money(_balance)} à ce fournisseur : réglez-le avant de le supprimer'
+            : 'Ce client doit encore ${money(_balance)} : soldez sa dette avant de le supprimer',
+      );
       return;
     }
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text('Supprimer « ${_name.text} » ?'),
-        content: const Text('Il disparaît de vos clients. Ses ventes et factures passées restent dans l’historique.'),
+        content: Text(
+          _supplier
+              ? 'Il disparaît de vos fournisseurs. Ses bons de commande passés restent dans l’historique.'
+              : 'Il disparaît de vos clients. Ses ventes et factures passées restent dans l’historique.',
+        ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Annuler')),
           TextButton(
@@ -137,10 +160,10 @@ class _CustomerEditorScreenState extends ConsumerState<CustomerEditorScreen> {
     setState(() => _busy = true);
     try {
       await ref.read(repoProvider).deleteCustomer(widget.customerId!);
-      refreshBusinessData(ref);
+      _supplier ? refreshPurchasing(ref) : refreshBusinessData(ref);
       if (!mounted) return;
-      showInfo(context, 'Client supprimé');
-      context.go('/customers');
+      showInfo(context, _supplier ? 'Fournisseur supprimé' : 'Client supprimé');
+      context.go(_home);
     } catch (e) {
       if (mounted) {
         setState(() => _busy = false);
@@ -153,16 +176,17 @@ class _CustomerEditorScreenState extends ConsumerState<CustomerEditorScreen> {
   Widget build(BuildContext context) {
     final canLimit = ref.watch(canProvider('sales:void'));
     final canDelete = ref.watch(canProvider('contacts:write'));
+    final who = _supplier ? 'fournisseur' : 'client';
     return AuroraScaffold(
       appBar: AppBar(
         title: Text(
-          _editing ? 'Modifier le client' : 'Nouveau client',
+          _editing ? 'Modifier le $who' : 'Nouveau $who',
           style: const TextStyle(fontWeight: FontWeight.w800),
         ),
         actions: [
           if (_editing && canDelete)
             IconButton(
-              tooltip: 'Supprimer le client',
+              tooltip: 'Supprimer le $who',
               onPressed: _busy || !_loaded ? null : _delete,
               icon: const Icon(Icons.delete_outline_rounded),
             ),
@@ -184,7 +208,10 @@ class _CustomerEditorScreenState extends ConsumerState<CustomerEditorScreen> {
                             controller: _name,
                             autofocus: !_editing && _name.text.isEmpty,
                             textCapitalization: TextCapitalization.words,
-                            decoration: InputDecoration(labelText: 'Nom du client', errorText: _errors['name']),
+                            decoration: InputDecoration(
+                              labelText: _supplier ? 'Nom du fournisseur' : 'Nom du client',
+                              errorText: _errors['name'],
+                            ),
                           ),
                           const SizedBox(height: 12),
                           TextField(
@@ -194,7 +221,9 @@ class _CustomerEditorScreenState extends ConsumerState<CustomerEditorScreen> {
                             decoration: InputDecoration(
                               labelText: 'Téléphone',
                               prefixText: '+221 ',
-                              helperText: 'Pour les rappels WhatsApp et SMS',
+                              helperText: _supplier
+                                  ? 'Pour lui envoyer vos bons de commande'
+                                  : 'Pour les rappels WhatsApp et SMS',
                               errorText: _errors['phone'],
                             ),
                           ),
@@ -214,40 +243,41 @@ class _CustomerEditorScreenState extends ConsumerState<CustomerEditorScreen> {
                           ),
                         ],
                       ),
-                      const SizedBox(height: 12),
-                      _Section(
-                        title: 'Crédit',
-                        children: [
-                          SwitchListTile(
-                            key: const Key('cHasLimit'),
-                            contentPadding: EdgeInsets.zero,
-                            value: _hasLimit,
-                            onChanged: canLimit ? (v) => setState(() => _hasLimit = v) : null,
-                            title: const Text('Plafond de crédit', style: TextStyle(fontWeight: FontWeight.w700)),
-                            subtitle: Text(
-                              canLimit
-                                  ? 'La caisse refuse une vente à crédit qui dépasse ce montant'
-                                  : 'Seul le gérant ou le propriétaire peut le modifier',
-                              style: const TextStyle(fontSize: 12),
-                            ),
-                          ),
-                          if (_hasLimit) ...[
-                            const SizedBox(height: 4),
-                            TextField(
-                              key: const Key('cLimit'),
-                              controller: _limit,
-                              enabled: canLimit,
-                              keyboardType: TextInputType.number,
-                              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                              decoration: InputDecoration(
-                                labelText: 'Dette maximum autorisée',
-                                suffixText: 'FCFA',
-                                errorText: _errors['limit'],
+                      if (!_supplier) const SizedBox(height: 12),
+                      if (!_supplier)
+                        _Section(
+                          title: 'Crédit',
+                          children: [
+                            SwitchListTile(
+                              key: const Key('cHasLimit'),
+                              contentPadding: EdgeInsets.zero,
+                              value: _hasLimit,
+                              onChanged: canLimit ? (v) => setState(() => _hasLimit = v) : null,
+                              title: const Text('Plafond de crédit', style: TextStyle(fontWeight: FontWeight.w700)),
+                              subtitle: Text(
+                                canLimit
+                                    ? 'La caisse refuse une vente à crédit qui dépasse ce montant'
+                                    : 'Seul le gérant ou le propriétaire peut le modifier',
+                                style: const TextStyle(fontSize: 12),
                               ),
                             ),
+                            if (_hasLimit) ...[
+                              const SizedBox(height: 4),
+                              TextField(
+                                key: const Key('cLimit'),
+                                controller: _limit,
+                                enabled: canLimit,
+                                keyboardType: TextInputType.number,
+                                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                                decoration: InputDecoration(
+                                  labelText: 'Dette maximum autorisée',
+                                  suffixText: 'FCFA',
+                                  errorText: _errors['limit'],
+                                ),
+                              ),
+                            ],
                           ],
-                        ],
-                      ),
+                        ),
                       const SizedBox(height: 12),
                       _Section(
                         title: 'Notes',
@@ -258,8 +288,10 @@ class _CustomerEditorScreenState extends ConsumerState<CustomerEditorScreen> {
                             minLines: 2,
                             maxLines: 5,
                             textCapitalization: TextCapitalization.sentences,
-                            decoration: const InputDecoration(
-                              hintText: 'Préférences, jour de paie, personne à contacter…',
+                            decoration: InputDecoration(
+                              hintText: _supplier
+                                  ? 'Jours de livraison, délai de paiement, contact commercial…'
+                                  : 'Préférences, jour de paie, personne à contacter…',
                             ),
                           ),
                         ],
@@ -273,7 +305,7 @@ class _CustomerEditorScreenState extends ConsumerState<CustomerEditorScreen> {
                     radius: 28,
                     padding: const EdgeInsets.all(14),
                     child: BusyButton(
-                      label: _editing ? 'Enregistrer' : 'Ajouter le client',
+                      label: _editing ? 'Enregistrer' : 'Ajouter le $who',
                       busy: _busy,
                       onPressed: _save,
                     ),

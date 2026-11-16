@@ -1133,6 +1133,189 @@ describe('Socle Sama360 (e2e)', () => {
     });
   });
 
+  describe('Fournisseurs et achats', () => {
+    const A = () => auth(awa.accessToken, awaBiz);
+    let cashier: string;
+    let supplier: string;
+    let huile: string;
+    let sachet: string;
+    let order: string;
+    const year = new Date().getUTCFullYear();
+    const stockOf = async (productId: string) =>
+      Number(
+        ((await http.get('/v1/inventory/stock').set(A()).expect(200)).body.items as { productId: string; onHand: number }[]).find(
+          (i) => i.productId === productId,
+        )!.onHand,
+      );
+    const costOf = async (productId: string) =>
+      (await http.get(`/v1/catalog/products/${productId}`).set(A()).expect(200)).body.cost as number;
+
+    beforeAll(async () => {
+      await http.post('/v1/members').set(A()).send({ phone: '+221770007766', fullName: 'Aliou Ba', roleKey: 'cashier' }).expect(201);
+      cashier = (await login('+221770007766')).accessToken;
+      supplier = (
+        await http.post('/v1/contacts').set(A()).send({ type: 'supplier', name: 'Grossiste Sandaga', phone: '77 300 40 50' }).expect(201)
+      ).body.id;
+      huile = (await http.post('/v1/catalog/products').set(A()).send({ name: 'Huile 1 L', price: 2000, cost: 1000 }).expect(201))
+        .body.id;
+      sachet = (
+        await http
+          .post('/v1/catalog/products')
+          .set(A())
+          .send({ name: 'Sachets plastique (lot)', price: 0, cost: 500, trackStock: false })
+          .expect(201)
+      ).body.id;
+      await http.post('/v1/inventory/movements').set(A()).send({ productId: huile, type: 'purchase', quantity: 10, unitCost: 1000 }).expect(201);
+    });
+
+    it('bon de commande : brouillon, modification, confirmation ; caissier en lecture seule', async () => {
+      await http
+        .post('/v1/purchases')
+        .set(auth(cashier, awaBiz))
+        .send({ supplierId: supplier, lines: [{ productId: huile, quantity: 1 }] })
+        .expect(403);
+
+      const draft = await http
+        .post('/v1/purchases')
+        .set(A())
+        .send({ supplierId: supplier, draft: true, lines: [{ productId: huile, quantity: 20, unitCost: 1400 }] })
+        .expect(201);
+      order = draft.body.id;
+      expect(draft.body).toMatchObject({ number: `BC-${year}-0001`, status: 'draft', total: 28000, due: 0 });
+      expect(draft.body.supplier.name).toBe('Grossiste Sandaga');
+
+      const early = await http.post(`/v1/purchases/${order}/payments`).set(A()).send({ amount: 1000, method: 'cash' }).expect(409);
+      expect(early.body.error.message).toBe('Confirmez la commande avant de la payer');
+
+      const edited = await http
+        .patch(`/v1/purchases/${order}`)
+        .set(A())
+        .send({
+          lines: [
+            { productId: huile, quantity: 30, unitCost: 1400 },
+            { productId: sachet, quantity: 5 },
+          ],
+          expectedDate: '2026-12-01',
+        })
+        .expect(200);
+      expect(edited.body).toMatchObject({ total: 44500, expectedDate: '2026-12-01', lineCount: 2 });
+      expect(edited.body.lines[1]).toMatchObject({ name: 'Sachets plastique (lot)', unitCost: 500, quantity: 5 });
+
+      const confirmed = await http.post(`/v1/purchases/${order}/confirm`).set(A()).expect(200);
+      expect(confirmed.body.status).toBe('ordered');
+      expect((await http.get('/v1/purchases?filter=open').set(auth(cashier, awaBiz)).expect(200)).body.totals).toMatchObject({
+        openOrders: 1,
+        toReceive: 44500,
+        totalDue: 0,
+      });
+    });
+
+    it('réception partielle puis complète : stock, coût moyen, statut, paiement à la livraison', async () => {
+      const detail = (await http.get(`/v1/purchases/${order}`).set(A()).expect(200)).body;
+      const huileLine = detail.lines.find((l: { productId: string }) => l.productId === huile).id;
+
+      const part = await http
+        .post(`/v1/purchases/${order}/receive`)
+        .set(A())
+        .send({ lines: [{ lineId: huileLine, quantity: 10 }], note: 'Premier camion' })
+        .expect(201);
+      expect(part.body.order).toMatchObject({ status: 'partial', receivedTotal: 14000, due: 14000 });
+      expect(await stockOf(huile)).toBe(20);
+      expect(await costOf(huile)).toBe(1200); // (10 × 1 000 + 10 × 1 400) / 20
+
+      const over = await http
+        .post(`/v1/purchases/${order}/receive`)
+        .set(A())
+        .send({ lines: [{ lineId: huileLine, quantity: 25 }] })
+        .expect(422);
+      expect(over.body.error.message).toBe('« Huile 1 L » : 25 reçu(s) pour 20 restant(s) à recevoir');
+
+      // Le reste, avec un prix négocié à la livraison pour l'huile, et 20 000 F payés au livreur
+      const rest = await http
+        .post(`/v1/purchases/${order}/receive`)
+        .set(A())
+        .send({
+          lines: [
+            { lineId: huileLine, quantity: 20, unitCost: 1300 },
+            { lineId: detail.lines[1].id, quantity: 5 },
+          ],
+          payment: { amount: 20000, method: 'cash' },
+        })
+        .expect(201);
+      expect(rest.body.order).toMatchObject({ status: 'received', receivedTotal: 42500, paid: 20000, due: 22500 });
+      expect(rest.body.order.receipts).toHaveLength(2);
+      expect(rest.body.order.receipts[0]).toMatchObject({ total: 14000, note: 'Premier camion', receivedBy: 'Awa Diallo' });
+      expect(await stockOf(huile)).toBe(40);
+      expect(await costOf(huile)).toBe(1250); // (20 × 1 200 + 20 × 1 300) / 40
+      expect(await costOf(sachet)).toBe(500); // non suivi en stock : dernier prix
+
+      const moves = (await http.get(`/v1/inventory/products/${huile}/movements`).set(A()).expect(200)).body.data;
+      expect(moves[0]).toMatchObject({ type: 'purchase', quantity: 20, unitCost: 1300, note: `BC-${year}-0001` });
+
+      await http.post(`/v1/purchases/${order}/receive`).set(A()).send({}).expect(409);
+      const cancel = await http.post(`/v1/purchases/${order}/cancel`).set(A()).expect(409);
+      expect(cancel.body.error.message).toContain('déjà été reçue');
+      await http.patch(`/v1/purchases/${order}`).set(A()).send({ note: 'x' }).expect(409);
+    });
+
+    it('achat direct, fiche fournisseur et paiement global réparti du plus ancien au plus récent', async () => {
+      const id = '01938000-0000-7000-8000-00000000ab01';
+      const direct = await http
+        .post('/v1/purchases')
+        .set(A())
+        .send({ id, supplierId: supplier, receive: true, lines: [{ productId: huile, quantity: 5, unitCost: 1500 }] })
+        .expect(201);
+      expect(direct.body).toMatchObject({ number: `BC-${year}-0002`, status: 'received', receivedTotal: 7500, due: 7500 });
+      // Renvoi du même achat (réseau coupé) : pas de doublon, pas de stock en double
+      const again = await http
+        .post('/v1/purchases')
+        .set(A())
+        .send({ id, supplierId: supplier, receive: true, lines: [{ productId: huile, quantity: 5, unitCost: 1500 }] })
+        .expect(200);
+      expect(again.body.number).toBe(`BC-${year}-0002`);
+      expect(await stockOf(huile)).toBe(45);
+
+      const list = (await http.get('/v1/suppliers').set(A()).expect(200)).body;
+      expect(list[0]).toMatchObject({ id: supplier, due: 30000, purchased: 50000, ordersCount: 2, openOrders: 0 });
+
+      const tooMuch = await http.post(`/v1/suppliers/${supplier}/payments`).set(A()).send({ amount: 30001, method: 'wave' }).expect(422);
+      expect(tooMuch.body.error.message).toBe('Le montant dépasse ce que vous devez à ce fournisseur');
+      const paid = await http.post(`/v1/suppliers/${supplier}/payments`).set(A()).send({ amount: 25000, method: 'wave' }).expect(201);
+      expect(paid.body.allocations).toEqual([
+        { orderId: order, amount: 22500 },
+        { orderId: id, amount: 2500 },
+      ]);
+      expect(paid.body.due).toBe(5000);
+
+      const o = (await http.get(`/v1/suppliers/${supplier}`).set(A()).expect(200)).body;
+      expect(o.supplier).toMatchObject({ name: 'Grossiste Sandaga', phone: '+221773004050' });
+      expect(o.due).toBe(5000);
+      expect(o.stats).toMatchObject({ ordersCount: 2, purchased: 50000, paid: 45000 });
+      expect(o.orders.map((x: { number: string }) => x.number)).toEqual([`BC-${year}-0002`, `BC-${year}-0001`]);
+      expect(o.payments).toHaveLength(3);
+      expect(o.products[0]).toMatchObject({ name: 'Huile 1 L', quantity: 35, lastCost: 1500 });
+
+      const unpaid = (await http.get('/v1/purchases?filter=unpaid').set(A()).expect(200)).body;
+      expect(unpaid.data.map((x: { id: string }) => x.id)).toEqual([id]);
+      expect(unpaid.totals).toMatchObject({ totalDue: 5000, suppliersOwed: 1, openOrders: 0 });
+    });
+
+    it('annulation d’un bon non reçu ; un client peut devenir fournisseur', async () => {
+      const client = (await http.post('/v1/contacts').set(A()).send({ name: 'Moussa revendeur' }).expect(201)).body.id;
+      const o = await http
+        .post('/v1/purchases')
+        .set(A())
+        .send({ supplierId: client, lines: [{ productId: huile, quantity: 2 }] })
+        .expect(201);
+      expect(o.body.lines[0].unitCost).toBe(1278); // coût moyen actuel par défaut : 57 500 / 45
+      expect((await http.get(`/v1/contacts/${client}`).set(A())).body.type).toBe('both');
+      const cancelled = await http.post(`/v1/purchases/${o.body.id}/cancel`).set(A()).expect(200);
+      expect(cancelled.body).toMatchObject({ status: 'cancelled', due: 0 });
+      await http.post(`/v1/purchases/${o.body.id}/cancel`).set(A()).expect(409);
+      await http.post(`/v1/purchases/${o.body.id}/payments`).set(A()).send({ amount: 100, method: 'cash' }).expect(409);
+    });
+  });
+
   describe('Photos produit', () => {
     // PNG 1×1 valide et en-tête JPEG minimal
     const png = Buffer.from(

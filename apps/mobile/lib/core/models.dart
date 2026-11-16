@@ -3,6 +3,7 @@ library;
 
 int _int(Object? v) => v is num ? v.toInt() : int.tryParse('$v') ?? 0;
 double _num(Object? v) => v is num ? v.toDouble() : double.tryParse('$v') ?? 0;
+double _dbl(Object? v) => v is num ? v.toDouble() : double.tryParse('$v') ?? 0;
 DateTime? _date(Object? v) => v == null ? null : DateTime.tryParse('$v');
 
 class Me {
@@ -625,7 +626,7 @@ class CustomerTopProduct {
 
   factory CustomerTopProduct.fromJson(Map<String, dynamic> j) => CustomerTopProduct(
     name: j['name'] as String,
-    quantity: (j['quantity'] as num?)?.toDouble() ?? 0,
+    quantity: _dbl(j['quantity']),
     total: _int(j['total']),
   );
 }
@@ -1265,6 +1266,365 @@ class ReportOverview {
       invoiced: _int(inv['invoiced']),
       invoiceCount: _int(inv['count']),
       invoicePayments: _int(inv['received']),
+    );
+  }
+}
+
+// =====================================================================
+// Achats et fournisseurs
+// =====================================================================
+
+DateTime? _day(Object? v) {
+  if (v == null) return null;
+  final s = '$v';
+  return DateTime.tryParse(s.length >= 10 ? s.substring(0, 10) : s);
+}
+
+enum PurchaseStatus {
+  draft('draft', 'Brouillon'),
+  ordered('ordered', 'Commandé'),
+  partial('partial', 'Reçu en partie'),
+  received('received', 'Reçu'),
+  cancelled('cancelled', 'Annulé');
+
+  const PurchaseStatus(this.api, this.label);
+  final String api;
+  final String label;
+
+  static PurchaseStatus fromApi(String? v) => values.firstWhere((s) => s.api == v, orElse: () => ordered);
+
+  bool get open => this == draft || this == ordered || this == partial;
+  bool get canReceive => this == ordered || this == partial;
+}
+
+enum PurchaseFilter {
+  open('open', 'En cours'),
+  unpaid('unpaid', 'À payer'),
+  received('received', 'Reçues'),
+  all('all', 'Toutes');
+
+  const PurchaseFilter(this.api, this.label);
+  final String api;
+  final String label;
+}
+
+class PurchaseSummary {
+  const PurchaseSummary({
+    required this.id,
+    required this.number,
+    required this.status,
+    required this.supplierId,
+    required this.supplierName,
+    required this.orderDate,
+    this.expectedDate,
+    required this.total,
+    this.receivedTotal = 0,
+    this.paid = 0,
+    this.due = 0,
+    this.lineCount = 0,
+  });
+  final String id;
+  final String number;
+  final PurchaseStatus status;
+  final String supplierId;
+  final String supplierName;
+  final DateTime orderDate;
+  final DateTime? expectedDate;
+  final int total;
+  final int receivedTotal;
+  final int paid;
+  final int due;
+  final int lineCount;
+
+  /// Livraison attendue dépassée et marchandise pas encore toute reçue.
+  bool late([DateTime? now]) {
+    if (expectedDate == null || !status.canReceive) return false;
+    final n = now ?? DateTime.now();
+    return expectedDate!.isBefore(DateTime(n.year, n.month, n.day));
+  }
+
+  factory PurchaseSummary.fromJson(Map<String, dynamic> j) => PurchaseSummary(
+    id: j['id'] as String,
+    number: j['number'] as String,
+    status: PurchaseStatus.fromApi(j['status'] as String?),
+    supplierId: j['supplierId'] as String,
+    supplierName: j['supplierName'] as String? ?? '',
+    orderDate: _day(j['orderDate']) ?? DateTime.now(),
+    expectedDate: _day(j['expectedDate']),
+    total: _int(j['total']),
+    receivedTotal: _int(j['receivedTotal']),
+    paid: _int(j['paid']),
+    due: _int(j['due']),
+    lineCount: _int(j['lineCount']),
+  );
+}
+
+class PurchaseTotals {
+  const PurchaseTotals({this.openOrders = 0, this.toReceive = 0, this.totalDue = 0, this.suppliersOwed = 0});
+  final int openOrders;
+  final int toReceive;
+  final int totalDue;
+  final int suppliersOwed;
+
+  factory PurchaseTotals.fromJson(Map<String, dynamic> j) => PurchaseTotals(
+    openOrders: _int(j['openOrders']),
+    toReceive: _int(j['toReceive']),
+    totalDue: _int(j['totalDue']),
+    suppliersOwed: _int(j['suppliersOwed']),
+  );
+}
+
+class PurchaseList {
+  const PurchaseList({required this.data, required this.totals});
+  final List<PurchaseSummary> data;
+  final PurchaseTotals totals;
+
+  factory PurchaseList.fromJson(Map<String, dynamic> j) => PurchaseList(
+    data: (j['data'] as List).map((e) => PurchaseSummary.fromJson(e as Map<String, dynamic>)).toList(),
+    totals: PurchaseTotals.fromJson(j['totals'] as Map<String, dynamic>),
+  );
+}
+
+class PurchaseLine {
+  const PurchaseLine({
+    required this.id,
+    required this.productId,
+    required this.name,
+    this.unit = 'pièce',
+    required this.quantity,
+    this.receivedQty = 0,
+    required this.unitCost,
+    required this.total,
+  });
+  final String id;
+  final String productId;
+  final String name;
+  final String unit;
+  final double quantity;
+  final double receivedQty;
+  final int unitCost;
+  final int total;
+
+  double get remaining => ((quantity - receivedQty) * 1000).round() / 1000;
+
+  factory PurchaseLine.fromJson(Map<String, dynamic> j) => PurchaseLine(
+    id: j['id'] as String,
+    productId: j['productId'] as String,
+    name: j['name'] as String,
+    unit: j['unit'] as String? ?? 'pièce',
+    quantity: _dbl(j['quantity']),
+    receivedQty: _dbl(j['receivedQty']),
+    unitCost: _int(j['unitCost']),
+    total: _int(j['total']),
+  );
+}
+
+class PurchaseReceipt {
+  const PurchaseReceipt({required this.id, required this.total, this.note, required this.receivedAt, this.receivedBy});
+  final String id;
+  final int total;
+  final String? note;
+  final DateTime receivedAt;
+  final String? receivedBy;
+
+  factory PurchaseReceipt.fromJson(Map<String, dynamic> j) => PurchaseReceipt(
+    id: j['id'] as String,
+    total: _int(j['total']),
+    note: j['note'] as String?,
+    receivedAt: _date(j['receivedAt']) ?? DateTime.now(),
+    receivedBy: j['receivedBy'] as String?,
+  );
+}
+
+class PurchasePayment {
+  const PurchasePayment({
+    required this.id,
+    required this.method,
+    required this.amount,
+    this.reference,
+    required this.paidAt,
+    this.number,
+    this.orderId,
+  });
+  final String id;
+  final PayMethod? method;
+  final int amount;
+  final String? reference;
+  final DateTime paidAt;
+
+  /// Fiche fournisseur : bon concerné.
+  final String? number;
+  final String? orderId;
+
+  factory PurchasePayment.fromJson(Map<String, dynamic> j) => PurchasePayment(
+    id: j['id'] as String,
+    method: PayMethod.fromApi(j['method'] as String?),
+    amount: _int(j['amount']),
+    reference: j['reference'] as String?,
+    paidAt: _date(j['paidAt']) ?? DateTime.now(),
+    number: j['number'] as String?,
+    orderId: j['orderId'] as String?,
+  );
+}
+
+class PurchaseDetail {
+  const PurchaseDetail({
+    required this.summary,
+    required this.supplier,
+    this.note,
+    this.lines = const [],
+    this.receipts = const [],
+    this.payments = const [],
+  });
+  final PurchaseSummary summary;
+  final Contact supplier;
+  final String? note;
+  final List<PurchaseLine> lines;
+  final List<PurchaseReceipt> receipts;
+  final List<PurchasePayment> payments;
+
+  String get id => summary.id;
+  String get number => summary.number;
+  PurchaseStatus get status => summary.status;
+
+  /// On peut payer d'avance jusqu'au montant commandé, ou ce qui a été reçu s'il est plus élevé.
+  int get payable => summary.status == PurchaseStatus.cancelled || summary.status == PurchaseStatus.draft
+      ? 0
+      : (summary.total > summary.receivedTotal ? summary.total : summary.receivedTotal) - summary.paid;
+
+  bool get editable =>
+      (status == PurchaseStatus.draft || status == PurchaseStatus.ordered) && summary.receivedTotal == 0 && summary.paid == 0;
+
+  factory PurchaseDetail.fromJson(Map<String, dynamic> j) => PurchaseDetail(
+    summary: PurchaseSummary.fromJson({...j, 'supplierName': (j['supplier'] as Map)['name']}),
+    supplier: Contact.fromJson(j['supplier'] as Map<String, dynamic>),
+    note: j['note'] as String?,
+    lines: ((j['lines'] as List?) ?? []).map((e) => PurchaseLine.fromJson(e as Map<String, dynamic>)).toList(),
+    receipts: ((j['receipts'] as List?) ?? []).map((e) => PurchaseReceipt.fromJson(e as Map<String, dynamic>)).toList(),
+    payments: ((j['payments'] as List?) ?? []).map((e) => PurchasePayment.fromJson(e as Map<String, dynamic>)).toList(),
+  );
+}
+
+/// Ligne d'un bon en cours de saisie.
+class PurchaseLineDraft {
+  const PurchaseLineDraft({
+    required this.productId,
+    required this.name,
+    required this.quantity,
+    required this.unitCost,
+    this.unit = 'pièce',
+  });
+  final String productId;
+  final String name;
+  final double quantity;
+  final int unitCost;
+  final String unit;
+
+  int get total => (quantity * unitCost).round();
+
+  PurchaseLineDraft copyWith({double? quantity, int? unitCost}) => PurchaseLineDraft(
+    productId: productId,
+    name: name,
+    quantity: quantity ?? this.quantity,
+    unitCost: unitCost ?? this.unitCost,
+    unit: unit,
+  );
+
+  Map<String, dynamic> toJson() => {'productId': productId, 'quantity': quantity, 'unitCost': unitCost};
+
+  factory PurchaseLineDraft.fromLine(PurchaseLine l) =>
+      PurchaseLineDraft(productId: l.productId, name: l.name, quantity: l.quantity, unitCost: l.unitCost, unit: l.unit);
+}
+
+class SupplierRow {
+  const SupplierRow({
+    required this.id,
+    required this.name,
+    this.phone,
+    this.address,
+    this.ordersCount = 0,
+    this.purchased = 0,
+    this.due = 0,
+    this.openOrders = 0,
+    this.lastOrderAt,
+  });
+  final String id;
+  final String name;
+  final String? phone;
+  final String? address;
+  final int ordersCount;
+  final int purchased;
+  final int due;
+  final int openOrders;
+  final DateTime? lastOrderAt;
+
+  Contact toContact() => Contact(id: id, name: name, phone: phone, address: address);
+
+  factory SupplierRow.fromJson(Map<String, dynamic> j) => SupplierRow(
+    id: j['id'] as String,
+    name: j['name'] as String,
+    phone: j['phone'] as String?,
+    address: j['address'] as String?,
+    ordersCount: _int(j['ordersCount']),
+    purchased: _int(j['purchased']),
+    due: _int(j['due']),
+    openOrders: _int(j['openOrders']),
+    lastOrderAt: _day(j['lastOrderAt']),
+  );
+}
+
+class SupplierProduct {
+  const SupplierProduct({required this.productId, required this.name, required this.quantity, required this.lastCost});
+  final String productId;
+  final String name;
+  final double quantity;
+  final int lastCost;
+
+  factory SupplierProduct.fromJson(Map<String, dynamic> j) => SupplierProduct(
+    productId: j['productId'] as String,
+    name: j['name'] as String,
+    quantity: _dbl(j['quantity']),
+    lastCost: _int(j['lastCost']),
+  );
+}
+
+class SupplierOverview {
+  const SupplierOverview({
+    required this.supplier,
+    required this.due,
+    this.ordersCount = 0,
+    this.purchased = 0,
+    this.paid = 0,
+    this.openOrders = 0,
+    this.lastOrderAt,
+    this.orders = const [],
+    this.payments = const [],
+    this.products = const [],
+  });
+  final Contact supplier;
+  final int due;
+  final int ordersCount;
+  final int purchased;
+  final int paid;
+  final int openOrders;
+  final DateTime? lastOrderAt;
+  final List<PurchaseSummary> orders;
+  final List<PurchasePayment> payments;
+  final List<SupplierProduct> products;
+
+  factory SupplierOverview.fromJson(Map<String, dynamic> j) {
+    final s = j['stats'] as Map<String, dynamic>;
+    return SupplierOverview(
+      supplier: Contact.fromJson(j['supplier'] as Map<String, dynamic>),
+      due: _int(j['due']),
+      ordersCount: _int(s['ordersCount']),
+      purchased: _int(s['purchased']),
+      paid: _int(s['paid']),
+      openOrders: _int(s['openOrders']),
+      lastOrderAt: _day(s['lastOrderAt']),
+      orders: ((j['orders'] as List?) ?? []).map((e) => PurchaseSummary.fromJson(e as Map<String, dynamic>)).toList(),
+      payments: ((j['payments'] as List?) ?? []).map((e) => PurchasePayment.fromJson(e as Map<String, dynamic>)).toList(),
+      products: ((j['products'] as List?) ?? []).map((e) => SupplierProduct.fromJson(e as Map<String, dynamic>)).toList(),
     );
   }
 }

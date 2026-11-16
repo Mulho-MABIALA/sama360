@@ -39,10 +39,12 @@ const _shopService = _Service('Boutique', Icons.storefront_rounded, Color(0xFF0E
 
 /// 7e tuile : l'équipe pour qui peut la voir, sinon les paiements (bientôt).
 const _teamService = _Service('Équipe', Icons.groups_rounded, Color(0xFFDB2777), route: '/team');
+const _purchasesService = _Service('Achats', Icons.local_shipping_rounded, Color(0xFF8A5A2B), route: '/purchases');
 const _paymentsService = _Service('Paiements', Icons.qr_code_2_rounded, Color(0xFF1D7AF0), soon: true);
 
 /// Services des vagues 2 et 3, listés derrière « Plus ».
 const _moreServices = [
+  _purchasesService,
   _paymentsService,
   _shopService,
   _Service('Documents', Icons.folder_rounded, Color(0xFF6B7280), soon: true),
@@ -67,7 +69,12 @@ class HomeScreen extends ConsumerWidget {
     final shown = [
       ..._mainServices,
       if (canReports) _reportsService else _shopService,
-      if (ref.can('members:read')) _teamService else _paymentsService,
+      if (ref.can('members:read'))
+        _teamService
+      else if (ref.can('inventory:read'))
+        _purchasesService
+      else
+        _paymentsService,
     ];
 
     void open(_Service s) {
@@ -75,7 +82,7 @@ class HomeScreen extends ConsumerWidget {
         showInfo(context, '${s.name} arrive bientôt sur Sama360');
       } else if (s.route == 'expense') {
         _addExpense(context, ref);
-      } else if (s.route == '/team' || s.route == '/invoices' || s.route == '/reports') {
+      } else if (s.route == '/team' || s.route == '/invoices' || s.route == '/reports' || s.route == '/purchases') {
         context.push(s.route!);
       } else {
         context.go(s.route!);

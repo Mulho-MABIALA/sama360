@@ -309,4 +309,36 @@ void main() {
     await pumpSama(tester, location: '/customers/k1/edit');
     await _shot(tester, '15c_modifier_client');
   });
+
+  testWidgets('achats', (tester) async {
+    phoneSize(tester);
+    await pumpSama(tester, location: '/purchases');
+    await _shot(tester, '16_achats');
+  });
+
+  testWidgets('bon de commande', (tester) async {
+    phoneSize(tester);
+    await pumpSama(tester, location: '/purchases/po2');
+    await _shot(tester, '16b_bon_commande');
+  });
+
+  testWidgets('réception', (tester) async {
+    phoneSize(tester);
+    await pumpSama(tester, location: '/purchases/po1');
+    await tester.tap(find.text('Réceptionner'));
+    await tester.pumpAndSettle();
+    await _shot(tester, '16c_reception');
+  });
+
+  testWidgets('fournisseur', (tester) async {
+    phoneSize(tester);
+    await pumpSama(tester, location: '/suppliers/s1');
+    await _shot(tester, '16d_fournisseur');
+  });
+
+  testWidgets('nouvel achat depuis le stock bas', (tester) async {
+    phoneSize(tester);
+    await pumpSama(tester, location: '/purchases/new?low=1&supplierId=s1');
+    await _shot(tester, '16e_nouvel_achat');
+  });
 }

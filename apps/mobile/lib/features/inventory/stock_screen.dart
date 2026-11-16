@@ -39,6 +39,12 @@ class _StockScreenState extends ConsumerState<StockScreen> {
       appBar: AppBar(
         title: const Text('Stock', style: TextStyle(fontWeight: FontWeight.w800)),
         actions: [
+          if (ref.can('inventory:read'))
+            IconButton(
+              tooltip: 'Achats et fournisseurs',
+              onPressed: () => context.push('/purchases'),
+              icon: const Icon(Icons.local_shipping_outlined),
+            ),
           IconButton(
             tooltip: 'Catégories',
             onPressed: () => context.push('/categories'),
@@ -100,6 +106,15 @@ class _StockScreenState extends ConsumerState<StockScreen> {
                     Pill(label: 'Stock bas', selected: _lowOnly, onTap: () => setState(() => _lowOnly = true)),
                   ],
                 ),
+                if (_lowOnly && s.lowStock > 0 && ref.can('inventory:write')) ...[
+                  const SizedBox(height: 10),
+                  FilledButton.tonalIcon(
+                    style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(44)),
+                    onPressed: () => context.push('/purchases/new?low=1'),
+                    icon: const Icon(Icons.add_shopping_cart_rounded, size: 18),
+                    label: const Text('Commander les produits en stock bas'),
+                  ),
+                ],
                 const SizedBox(height: 12),
                 if (items.isEmpty)
                   Padding(

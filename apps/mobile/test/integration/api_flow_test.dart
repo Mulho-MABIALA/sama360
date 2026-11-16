@@ -594,4 +594,67 @@ void main() {
     skip: skip,
     timeout: const Timeout(Duration(minutes: 1)),
   );
+
+  test(
+    'achats réels : commande, réception partielle, coût moyen, paiements fournisseur',
+    () async {
+      final store = MemorySessionStore();
+      final client = ApiClient(baseUrl: _api!, store: store);
+      final repo = SamaRepository(client);
+      final phone = '+22177${Random().nextInt(9000000) + 1000000}';
+      await repo.requestOtp(phone);
+      final t = await repo.verifyOtp(phone, await _otpFor(phone));
+      await store.save(Session(accessToken: t.access, refreshToken: t.refresh));
+      await repo.updateName('Coumba Ndiaye');
+      client.businessId = await repo.createBusiness(name: 'Ndiaye Quincaillerie test', category: 'boutique', city: 'Dakar');
+
+      final ciment = await repo.saveProduct(const ProductDraft(name: 'Ciment 50 kg', price: 5000, cost: 4000, unit: 'sac'));
+      await repo.addStock(ciment.id, 10); // 10 sacs à 4 000
+      final grossiste = await repo.saveCustomer(
+        const CustomerDraft(name: 'Sococim dépôt', phone: '+221776001122'),
+        type: 'supplier',
+        withLimit: false,
+      );
+
+      final order = await repo.createPurchase(
+        SamaRepository.purchaseBody(
+          id: const Uuid().v7(),
+          supplierId: grossiste.id,
+          lines: [PurchaseLineDraft(productId: ciment.id, name: ciment.name, quantity: 30, unitCost: 4400, unit: 'sac')],
+          expectedDate: DateTime.now().add(const Duration(days: 3)),
+        ),
+      );
+      expect((order.status, order.summary.total, order.lines.single.unit), (PurchaseStatus.ordered, 132000, 'sac'));
+      expect(order.number, startsWith('BC-'));
+
+      var d = await repo.receivePurchase(
+        order.id,
+        lines: [(lineId: order.lines.single.id, quantity: 10, unitCost: 4400)],
+        payment: (amount: 20000, method: PayMethod.wave),
+      );
+      expect((d.status, d.summary.receivedTotal, d.summary.paid, d.summary.due), (PurchaseStatus.partial, 44000, 20000, 24000));
+      expect((await repo.product(ciment.id)).cost, 4200); // (10 × 4 000 + 10 × 4 400) / 20
+      final stock = await repo.stock();
+      expect(stock.items.firstWhere((i) => i.productId == ciment.id).onHand, 20);
+
+      d = await repo.receivePurchase(order.id); // le reste
+      expect((d.status, d.summary.receivedTotal, d.lines.single.remaining), (PurchaseStatus.received, 132000, 0.0));
+
+      final suppliers = await repo.suppliers();
+      expect((suppliers.single.name, suppliers.single.due), ('Sococim dépôt', 112000));
+      expect(await repo.paySupplier(grossiste.id, amount: 100000, method: PayMethod.cash), 12000);
+      final o = await repo.supplierOverview(grossiste.id);
+      expect((o.due, o.paid, o.purchased, o.payments.length), (12000, 120000, 132000, 2));
+      expect(o.products.single.quantity, 30);
+
+      final unpaid = await repo.purchases(filter: PurchaseFilter.unpaid);
+      expect((unpaid.data.single.id, unpaid.totals.totalDue), (order.id, 12000));
+      await expectLater(
+        repo.cancelPurchase(order.id),
+        throwsA(isA<ApiException>().having((e) => e.message, 'message', contains('déjà été reçue'))),
+      );
+    },
+    skip: skip,
+    timeout: const Timeout(Duration(minutes: 1)),
+  );
 }

@@ -6,6 +6,9 @@ import 'features/auth/auth_controller.dart';
 import 'features/auth/login_screens.dart';
 import 'features/business/business_screen.dart';
 import 'features/customers/customer_editor.dart';
+import 'features/purchasing/purchase_editor.dart';
+import 'features/purchasing/purchase_screen.dart';
+import 'features/purchasing/purchases_screen.dart';
 import 'features/customers/customers_screens.dart';
 import 'features/home/home_screen.dart';
 import 'features/inventory/stock_screen.dart';
@@ -60,6 +63,34 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(path: '/profile', builder: (_, _) => const ProfileSetupScreen()),
       GoRoute(path: '/business', builder: (_, _) => const BusinessScreen()),
+      GoRoute(
+        path: '/purchases',
+        builder: (_, s) => PurchasesScreen(suppliersTab: s.uri.queryParameters['tab'] == 'suppliers'),
+      ),
+      GoRoute(
+        path: '/purchases/new',
+        builder: (_, s) => PurchaseEditorScreen(
+          supplierId: s.uri.queryParameters['supplierId'],
+          lowStock: s.uri.queryParameters['low'] == '1',
+        ),
+      ),
+      GoRoute(
+        path: '/purchases/:id',
+        builder: (_, s) => PurchaseScreen(purchaseId: s.pathParameters['id']!),
+      ),
+      GoRoute(
+        path: '/purchases/:id/edit',
+        builder: (_, s) => PurchaseEditorScreen(editId: s.pathParameters['id']!),
+      ),
+      GoRoute(path: '/suppliers/new', builder: (_, _) => const CustomerEditorScreen(supplier: true)),
+      GoRoute(
+        path: '/suppliers/:id',
+        builder: (_, s) => SupplierScreen(supplierId: s.pathParameters['id']!),
+      ),
+      GoRoute(
+        path: '/suppliers/:id/edit',
+        builder: (_, s) => CustomerEditorScreen(customerId: s.pathParameters['id']!, supplier: true),
+      ),
       GoRoute(
         path: '/customers/new',
         builder: (_, s) => CustomerEditorScreen(initialName: s.uri.queryParameters['name']),

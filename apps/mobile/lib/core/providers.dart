@@ -89,6 +89,37 @@ final customerOverviewProvider = FutureProvider.family<CustomerOverview, String>
   return ref.watch(repoProvider).customerOverview(id);
 });
 
+final purchasesProvider = FutureProvider.family<PurchaseList, ({PurchaseFilter filter, String? supplierId})>((ref, q) {
+  ref.watch(businessIdProvider);
+  return ref.watch(repoProvider).purchases(filter: q.filter, supplierId: q.supplierId);
+});
+
+final purchaseProvider = FutureProvider.family<PurchaseDetail, String>((ref, id) {
+  ref.watch(businessIdProvider);
+  return ref.watch(repoProvider).purchase(id);
+});
+
+final suppliersProvider = FutureProvider.family<List<SupplierRow>, String>((ref, search) {
+  ref.watch(businessIdProvider);
+  return ref.watch(repoProvider).suppliers(search: search);
+});
+
+final supplierProvider = FutureProvider.family<SupplierOverview, String>((ref, id) {
+  ref.watch(businessIdProvider);
+  return ref.watch(repoProvider).supplierOverview(id);
+});
+
+/// Après un achat, une réception ou un paiement fournisseur : rafraîchit les achats et le stock.
+void refreshPurchasing(WidgetRef ref) {
+  ref.invalidate(purchasesProvider);
+  ref.invalidate(purchaseProvider);
+  ref.invalidate(suppliersProvider);
+  ref.invalidate(supplierProvider);
+  ref.invalidate(stockRawProvider);
+  ref.invalidate(productsProvider);
+  ref.invalidate(productProvider);
+}
+
 final saleProvider = FutureProvider.family<SaleDetail, String>((ref, id) {
   ref.watch(businessIdProvider);
   return ref.watch(repoProvider).sale(id);

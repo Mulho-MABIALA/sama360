@@ -75,6 +75,18 @@ export type CustomerBalanceAdjusted = DomainEvent<
   { entryId: string; customerId: string; amount: number; reason: string }
 >;
 
+/** Marchandise reçue d'un fournisseur : elle est entrée en stock dans la même transaction. */
+export type PurchaseReceived = DomainEvent<
+  'purchase.received',
+  { orderId: string; receiptId: string; number: string; supplierId: string; total: number; complete: boolean }
+>;
+
+/** Paiement à un fournisseur. */
+export type SupplierPaymentRecorded = DomainEvent<
+  'supplier.payment_recorded',
+  { paymentId: string; orderId: string; supplierId: string; amount: number; method: string }
+>;
+
 /** Facture émise : la marchandise sort du stock. */
 export type InvoiceIssued = DomainEvent<
   'invoice.issued',
@@ -107,6 +119,8 @@ export interface EventMap {
   'sale.voided': SaleVoided;
   'customer.repayment_recorded': CustomerRepaymentRecorded;
   'customer.balance_adjusted': CustomerBalanceAdjusted;
+  'purchase.received': PurchaseReceived;
+  'supplier.payment_recorded': SupplierPaymentRecorded;
   'invoice.issued': InvoiceIssued;
   'invoice.cancelled': InvoiceCancelled;
   'stock.low': StockLow;

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:dio/dio.dart' show Options, ResponseType;
+import 'package:intl/intl.dart' show DateFormat;
 
 import 'api/api_client.dart';
 import 'models.dart';
@@ -317,8 +318,8 @@ class SamaRepository {
       CustomerOverview.fromJson(await _cachedGet<Map<String, dynamic>>('/v1/customers/$id'));
 
   /// Crée ou modifie une fiche client. Le plafond n'est envoyé que si l'utilisateur peut le fixer.
-  Future<Contact> saveCustomer(CustomerDraft draft, {String? id, bool withLimit = true}) async {
-    final data = {...draft.toJson(withLimit: withLimit), if (id == null) 'type': 'customer'};
+  Future<Contact> saveCustomer(CustomerDraft draft, {String? id, bool withLimit = true, String type = 'customer'}) async {
+    final data = {...draft.toJson(withLimit: withLimit), if (id == null) 'type': type};
     return Contact.fromJson(
       id == null
           ? await api.post<Map<String, dynamic>>('/v1/contacts', data: data)
@@ -357,6 +358,99 @@ class SamaRepository {
       data: {'amount': amount, 'method': method.api},
     );
     return (r['balance'] as num).toInt();
+  }
+
+  // ---------- Achats et fournisseurs ----------
+  Future<PurchaseList> purchases({PurchaseFilter filter = PurchaseFilter.all, String? supplierId}) async =>
+      PurchaseList.fromJson(
+        await _cachedGet<Map<String, dynamic>>(
+          '/v1/purchases',
+          query: {'filter': filter.api, 'limit': 100, 'supplierId': ?supplierId},
+        ),
+      );
+
+  Future<PurchaseDetail> purchase(String id) async =>
+      PurchaseDetail.fromJson(await _cachedGet<Map<String, dynamic>>('/v1/purchases/$id'));
+
+  /// Corps de POST /v1/purchases (et PATCH, sans id, réception ni paiement).
+  static Map<String, dynamic> purchaseBody({
+    String? id,
+    required String supplierId,
+    required List<PurchaseLineDraft> lines,
+    DateTime? expectedDate,
+    String? note,
+    bool draft = false,
+    bool receive = false,
+    ({int amount, PayMethod method})? payment,
+  }) => {
+    'id': ?id,
+    'supplierId': supplierId,
+    'lines': [for (final l in lines) l.toJson()],
+    'expectedDate': expectedDate == null ? null : DateFormat('yyyy-MM-dd').format(expectedDate),
+    'note': (note ?? '').trim().isEmpty ? null : note!.trim(),
+    'draft': draft,
+    if (receive) 'receive': true,
+    if (payment != null) 'payment': {'amount': payment.amount, 'method': payment.method.api},
+  };
+
+  Future<PurchaseDetail> createPurchase(Map<String, dynamic> body) async =>
+      PurchaseDetail.fromJson(await api.post<Map<String, dynamic>>('/v1/purchases', data: body));
+
+  Future<PurchaseDetail> updatePurchase(String id, Map<String, dynamic> body) async {
+    final data = Map<String, dynamic>.of(body)..removeWhere((k, _) => k == 'id' || k == 'receive' || k == 'payment');
+    return PurchaseDetail.fromJson(await api.patch<Map<String, dynamic>>('/v1/purchases/$id', data: data));
+  }
+
+  Future<PurchaseDetail> confirmPurchase(String id) async =>
+      PurchaseDetail.fromJson(await api.post<Map<String, dynamic>>('/v1/purchases/$id/confirm'));
+
+  Future<PurchaseDetail> cancelPurchase(String id) async =>
+      PurchaseDetail.fromJson(await api.post<Map<String, dynamic>>('/v1/purchases/$id/cancel'));
+
+  /// Réception (tout ce qui reste si [lines] est vide), avec paiement au livreur éventuel.
+  Future<PurchaseDetail> receivePurchase(
+    String id, {
+    List<({String lineId, double quantity, int unitCost})> lines = const [],
+    String? note,
+    ({int amount, PayMethod method})? payment,
+  }) async {
+    final r = await api.post<Map<String, dynamic>>(
+      '/v1/purchases/$id/receive',
+      data: {
+        if (lines.isNotEmpty)
+          'lines': [
+            for (final l in lines) {'lineId': l.lineId, 'quantity': l.quantity, 'unitCost': l.unitCost},
+          ],
+        'note': (note ?? '').trim().isEmpty ? null : note!.trim(),
+        if (payment != null) 'payment': {'amount': payment.amount, 'method': payment.method.api},
+      },
+    );
+    return PurchaseDetail.fromJson(r['order'] as Map<String, dynamic>);
+  }
+
+  Future<PurchaseDetail> payPurchase(String id, {required int amount, required PayMethod method, String? paymentId}) async =>
+      PurchaseDetail.fromJson(
+        await api.post<Map<String, dynamic>>(
+          '/v1/purchases/$id/payments',
+          data: {'id': ?paymentId, 'amount': amount, 'method': method.api},
+        ),
+      );
+
+  Future<List<SupplierRow>> suppliers({String? search}) async => (await _cachedGet<List<dynamic>>(
+    '/v1/suppliers',
+    query: {'search': ?(search?.isEmpty ?? true ? null : search)},
+  )).map((e) => SupplierRow.fromJson(e as Map<String, dynamic>)).toList();
+
+  Future<SupplierOverview> supplierOverview(String id) async =>
+      SupplierOverview.fromJson(await _cachedGet<Map<String, dynamic>>('/v1/suppliers/$id'));
+
+  /// Paiement global : réparti sur les bons impayés, du plus ancien au plus récent. Renvoie la dette restante.
+  Future<int> paySupplier(String id, {required int amount, required PayMethod method}) async {
+    final r = await api.post<Map<String, dynamic>>(
+      '/v1/suppliers/$id/payments',
+      data: {'amount': amount, 'method': method.api},
+    );
+    return (r['due'] as num).toInt();
   }
 
   // ---------- Équipe ----------

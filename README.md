@@ -100,6 +100,13 @@ Toutes les erreurs : `{ "error": { "code", "message", "details?" } }`.
 | GET | `/v1/reports/overview` | `reports:read` — rapport d'une période (`?from=&to=`, 400 jours max) : totaux, évolution vs période précédente, série jour/mois, moyens de paiement, top produits, vendeurs, dépenses, factures |
 | GET | `/v1/sales/my-day` | `sales:create` — ma journée de vendeur (nombre, montant) |
 | GET | `/v1/sales/debtors` | `sales:read` — clients qui doivent de l'argent |
+| GET / POST | `/v1/purchases` | `inventory:read` / `inventory:write` — bons de commande BC-… (`?filter=open\|unpaid\|received\|all&supplierId=`), totaux ; création idempotente si `id` fourni, `draft`, achat direct `receive: true` + `payment` |
+| GET / PATCH | `/v1/purchases/:id` | détail (lignes commandées / reçues, réceptions, paiements) ; modification tant que rien n'est reçu ni payé |
+| POST | `/v1/purchases/:id/confirm` · `/cancel` | `inventory:write` — brouillon → commandé ; annulation si rien reçu ni payé |
+| POST | `/v1/purchases/:id/receive` | `inventory:write` — réception (tout le reste par défaut, ou `lines` avec quantité et prix réel) : entrée en stock, coût moyen pondéré recalculé, paiement au livreur facultatif |
+| POST | `/v1/purchases/:id/payments` | `inventory:write` — paiement fournisseur (avance possible jusqu'au montant commandé) |
+| GET | `/v1/suppliers` · `/v1/suppliers/:id` | `inventory:read` — fournisseurs avec dette, achats, commandes en cours ; fiche avec commandes, paiements et produits achetés (dernier prix) |
+| POST | `/v1/suppliers/:id/payments` | `inventory:write` — paiement global réparti sur les bons impayés, du plus ancien au plus récent |
 | GET / POST | `/v1/invoicing/documents` | `invoicing:read` / `invoicing:write` — devis (DEV-…) et factures (FAC-…), idempotent si `id` fourni |
 | GET / PATCH | `/v1/invoicing/documents/:id` | lecture ; modification d'un devis tant qu'il n'est pas facturé |
 | POST | `/v1/invoicing/documents/:id/accept` · `/decline` · `/reopen` | `invoicing:write` — réponse du client à un devis |
