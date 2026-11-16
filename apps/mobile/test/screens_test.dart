@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:ui' show Tristate;
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
@@ -114,5 +115,34 @@ void main() {
     expect(repo.createdProducts, ['Beurre de karité 500 g']);
     expect(repo.uploads, {'new-1': png.length});
     expect(find.text('Produit ajouté'), findsOneWidget);
+  });
+
+  testWidgets("carrousel : 4 bannières, glisser change l'indicateur, l'action ouvre l'écran", (tester) async {
+    phoneSize(tester);
+    final (c, _) = await pumpSama(tester);
+    await tester.scrollUntilVisible(find.text('Passez à Sama360 Pro'), 200, scrollable: find.byType(Scrollable).first);
+    await tester.pumpAndSettle();
+    expect(find.bySemanticsLabel('Bannière 1 sur 4'), findsOneWidget);
+
+    // Glisser vers la gauche : 2e bannière
+    await tester.drag(find.text('Passez à Sama360 Pro'), const Offset(-300, 0));
+    await tester.pumpAndSettle();
+    expect(find.text('Ajoutez vos photos'), findsOneWidget);
+    final second = tester.getSemantics(find.bySemanticsLabel('Bannière 2 sur 4'));
+    expect(second.flagsCollection.isSelected, Tristate.isTrue);
+
+    // L'action de la bannière « photos » ouvre le stock
+    await tester.tap(find.text('Ajoutez vos photos'));
+    await tester.pumpAndSettle();
+    expect(routerOf(c).state.matchedLocation, '/stock');
+  });
+
+  testWidgets('carrousel : défilement automatique (désactivé si animations réduites)', (tester) async {
+    phoneSize(tester);
+    await pumpSama(tester);
+    await tester.scrollUntilVisible(find.text('Passez à Sama360 Pro'), 200, scrollable: find.byType(Scrollable).first);
+    await tester.pump(const Duration(seconds: 5));
+    await tester.pumpAndSettle();
+    expect(find.text('Ajoutez vos photos'), findsOneWidget);
   });
 }

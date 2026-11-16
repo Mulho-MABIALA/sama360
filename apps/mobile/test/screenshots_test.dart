@@ -52,6 +52,13 @@ void main() {
     await _shot(tester, '2_accueil');
   });
 
+  testWidgets('accueil (bas, carrousel)', (tester) async {
+    phoneSize(tester);
+    await pumpSama(tester);
+    await tester.drag(find.byType(Scrollable).first, const Offset(0, -420));
+    await _shot(tester, '2b_accueil_carrousel');
+  });
+
   testWidgets('caisse', (tester) async {
     phoneSize(tester);
     await pumpSama(tester, location: '/pos');

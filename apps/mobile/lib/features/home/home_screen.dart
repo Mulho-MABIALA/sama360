@@ -10,6 +10,7 @@ import '../../core/theme.dart';
 import '../../core/widgets.dart';
 import '../auth/auth_controller.dart';
 import 'city_illustration.dart';
+import 'promo_carousel.dart';
 
 class _Service {
   const _Service(this.name, this.icon, this.color, {this.route, this.soon = false});
@@ -96,7 +97,7 @@ class HomeScreen extends ConsumerWidget {
                     ],
                   ),
                   const SizedBox(height: 16),
-                  const _ProBanner(),
+                  const PromoCarousel(),
                 ],
               ),
             ),
@@ -606,59 +607,6 @@ class _ServiceTile extends StatelessWidget {
       ),
     );
   }
-}
-
-/// Bannière promotionnelle (offre Pro).
-class _ProBanner extends StatelessWidget {
-  const _ProBanner();
-
-  @override
-  Widget build(BuildContext context) => Material(
-    color: Colors.transparent,
-    child: InkWell(
-      borderRadius: BorderRadius.circular(20),
-      onTap: () => showInfo(context, 'Les offres Sama360 Pro arrivent bientôt'),
-      child: Ink(
-        padding: const EdgeInsets.fromLTRB(16, 16, 12, 16),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(20),
-          gradient: const LinearGradient(colors: [Color(0xFFFFF1E2), Color(0xFFFFDDBF)]),
-        ),
-        child: Row(
-          children: [
-            const Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Passez à Sama360 Pro',
-                    style: TextStyle(color: Color(0xFF8A3A00), fontSize: 16, fontWeight: FontWeight.w800),
-                  ),
-                  SizedBox(height: 4),
-                  Text(
-                    'Plusieurs vendeurs, factures illimitées et rapports détaillés.',
-                    style: TextStyle(color: Color(0xFF5C2E0B), fontSize: 12.5, height: 1.3),
-                  ),
-                  SizedBox(height: 10),
-                  Text(
-                    'Découvrir →',
-                    style: TextStyle(color: Color(0xFF8A3A00), fontWeight: FontWeight.w800, fontSize: 13),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 8),
-            Container(
-              width: 72,
-              height: 72,
-              decoration: const BoxDecoration(shape: BoxShape.circle, color: Color(0x33FF8A3D)),
-              child: const Icon(Icons.rocket_launch_rounded, size: 38, color: AppColors.orange),
-            ),
-          ],
-        ),
-      ),
-    ),
-  );
 }
 
 const _expenseCategories = ['Transport', 'Loyer', 'Électricité', 'Salaire', 'Achat divers', 'Autre'];
