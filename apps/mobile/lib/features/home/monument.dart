@@ -72,12 +72,7 @@ class MonumentBackdrop extends ConsumerWidget {
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
                 stops: [0, 0.3, 0.6, 1],
-                colors: [
-                  Color(0x8C000000),
-                  Color(0x1A000000),
-                  Color(0x33052A1F),
-                  Color(0xB3052A1F),
-                ],
+                colors: [Color(0x8C000000), Color(0x1A000000), Color(0x33052A1F), Color(0xB3052A1F)],
               ),
             ),
           ),
@@ -150,7 +145,9 @@ Future<void> showMonumentCredits(BuildContext context, Monument m) => showModalB
             children: [
               const Icon(Icons.place_rounded, size: 16, color: AppColors.green),
               const SizedBox(width: 4),
-              Expanded(child: Text(m.place, style: const TextStyle(color: AppColors.muted))),
+              Expanded(
+                child: Text(m.place, style: const TextStyle(color: AppColors.muted)),
+              ),
             ],
           ),
           const SizedBox(height: 12),

@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:sama360/core/models.dart';
+import 'package:sama360/core/widgets.dart';
 import 'package:sama360/features/catalog/barcode_scanner.dart';
 import 'package:sama360/features/sales/cart.dart';
 
@@ -105,22 +106,89 @@ void main() {
     expect(repo.deletedProducts, ['p6']);
   });
 
-  testWidgets('caisse : scan d’un produit connu → panier ; inconnu → créer la fiche', (tester) async {
+  testWidgets('caisse : scan en continu → panier ; code inconnu → créer la fiche à la fin', (tester) async {
     phoneSize(tester);
-    var next = '6001234567891';
-    await pumpSama(tester, location: '/pos', overrides: [barcodeScannerProvider.overrideWithValue((_) async => next)]);
+    final feedbacks = <ScanFeedback>[];
+    await pumpSama(
+      tester,
+      location: '/pos',
+      overrides: [
+        continuousScannerProvider.overrideWithValue((_, onCode) async {
+          for (final code in ['6001234567891', '6001234567891', '999']) {
+            feedbacks.add(await onCode(code));
+          }
+          return feedbacks.where((f) => f.ok).length;
+        }),
+      ],
+    );
     await tester.tap(find.byTooltip('Scanner un code-barres'));
     await tester.pumpAndSettle();
-    expect(find.text('Savon noir ajouté au panier'), findsOneWidget);
-
-    next = '123';
-    await tester.tap(find.byTooltip('Scanner un code-barres'));
-    await tester.pumpAndSettle();
+    expect(feedbacks.map((f) => (f.message, f.ok)).toList(), [
+      ('Savon noir ajouté', true),
+      ('Savon noir ajouté · 2 au panier', true),
+      ('Code inconnu : 999', false),
+    ]);
     expect(find.text('Produit inconnu'), findsOneWidget);
     await tester.tap(find.text('Créer la fiche'));
     await tester.pumpAndSettle();
     expect(find.text('Nouveau produit'), findsOneWidget);
-    expect(find.text('123'), findsOneWidget);
+    expect(find.text('999'), findsOneWidget);
+  });
+
+  testWidgets('accueil : scanner un article → prix, stock, vendre', (tester) async {
+    phoneSize(tester);
+    final (c, _) = await pumpSama(
+      tester,
+      overrides: [barcodeScannerProvider.overrideWithValue((_) async => '6001234567891')],
+    );
+    await tester.tap(find.byTooltip('Scanner un article'));
+    await tester.pumpAndSettle();
+    expect(find.text('Savon noir'), findsOneWidget);
+    expect(find.text('Voir la fiche'), findsOneWidget);
+    await tester.tap(find.widgetWithText(ConfirmButton, 'Vendre'));
+    await tester.pumpAndSettle();
+    expect(routerOf(c).state.uri.path, '/pos');
+    expect(c.read(cartProvider).lines.keys, ['p2']);
+  });
+
+  testWidgets('accueil : code inconnu → créer la fiche', (tester) async {
+    phoneSize(tester);
+    await pumpSama(tester, overrides: [barcodeScannerProvider.overrideWithValue((_) async => '42')]);
+    await tester.tap(find.byTooltip('Scanner un article'));
+    await tester.pumpAndSettle();
+    expect(find.text('Produit inconnu'), findsOneWidget);
+    await tester.tap(find.text('Fermer'));
+    await tester.pumpAndSettle();
+    expect(find.text('Produit inconnu'), findsNothing);
+  });
+
+  testWidgets('stock : scanner un article ouvre son entrée de stock', (tester) async {
+    phoneSize(tester);
+    await pumpSama(
+      tester,
+      location: '/stock',
+      overrides: [barcodeScannerProvider.overrideWithValue((_) async => '6001234567891')],
+    );
+    await tester.tap(find.byTooltip('Scanner un article'));
+    await tester.pumpAndSettle();
+    expect(find.text('Entrée de stock'), findsOneWidget);
+  });
+
+  testWidgets('bandeau du scanner continu', (tester) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: Column(
+            children: [
+              ScanFeedbackBanner(feedback: ScanFeedback('Savon noir ajouté')),
+              ScanFeedbackBanner(feedback: ScanFeedback('Code inconnu : 42', ok: false)),
+            ],
+          ),
+        ),
+      ),
+    );
+    expect(find.byIcon(Icons.check_circle_rounded), findsOneWidget);
+    expect(find.byIcon(Icons.help_rounded), findsOneWidget);
   });
 
   testWidgets('catégories : liste avec nombre de produits, ajout, renommage, suppression', (tester) async {

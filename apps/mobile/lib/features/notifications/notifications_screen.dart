@@ -62,10 +62,10 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
   Future<void> _open(AppNotification n) async {
     if (!n.read && !_readHere.contains(n.id)) {
       setState(() => _readHere.add(n.id));
-      ref.read(repoProvider).markNotificationRead(n.id).then(
-        (_) => ref.invalidate(unreadNotificationsProvider),
-        onError: (_) {},
-      );
+      ref
+          .read(repoProvider)
+          .markNotificationRead(n.id)
+          .then((_) => ref.invalidate(unreadNotificationsProvider), onError: (_) {});
     }
     final link = n.link;
     if (link == null || !mounted) return;
@@ -141,7 +141,11 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
             rows.add(
               Padding(
                 padding: const EdgeInsets.only(bottom: 8),
-                child: NotificationTile(notification: n.copyWith(read: read), now: now, onTap: () => _open(n)),
+                child: NotificationTile(
+                  notification: n.copyWith(read: read),
+                  now: now,
+                  onTap: () => _open(n),
+                ),
               ),
             );
           }

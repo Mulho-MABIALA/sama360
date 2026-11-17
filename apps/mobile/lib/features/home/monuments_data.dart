@@ -84,7 +84,8 @@ const monuments = <Monument>[
     asset: 'assets/monuments/mosquee-hassan-ii.jpg',
     author: 'Milamber\'s portfolio',
     license: 'CC BY 2.0',
-    source: 'https://commons.wikimedia.org/wiki/File:Sunshine_on_mosque_Hassan_II_in_Casablanca,_Morocco_-_Flickr_-_Milamber%27s_portfolio.jpg',
+    source:
+        'https://commons.wikimedia.org/wiki/File:Sunshine_on_mosque_Hassan_II_in_Casablanca,_Morocco_-_Flickr_-_Milamber%27s_portfolio.jpg',
   ),
   Monument(
     name: 'Grand Zimbabwe',
@@ -204,7 +205,8 @@ const monuments = <Monument>[
     asset: 'assets/monuments/ksar-dait-ben-haddou.jpg',
     author: 'Petar Milošević',
     license: 'CC BY-SA 4.0',
-    source: 'https://commons.wikimedia.org/wiki/File:Ksar_A%C3%AFt_Benhaddou,_Marocco_(%D8%A3%D9%8A%D8%AA_%D8%A8%D9%86_%D8%AD%D8%AF%D9%88%D8%8C_%D8%A7%D9%84%D9%85%D8%BA%D8%B1%D8%A8,_%E2%B4%B0%E2%B5%A2%E2%B5%9C_%E2%B5%83%E2%B4%B0%E2%B4%B7%E2%B4%B7%E2%B5%93).jpg',
+    source:
+        'https://commons.wikimedia.org/wiki/File:Ksar_A%C3%AFt_Benhaddou,_Marocco_(%D8%A3%D9%8A%D8%AA_%D8%A8%D9%86_%D8%AD%D8%AF%D9%88%D8%8C_%D8%A7%D9%84%D9%85%D8%BA%D8%B1%D8%A8,_%E2%B4%B0%E2%B5%A2%E2%B5%9C_%E2%B5%83%E2%B4%B0%E2%B4%B7%E2%B4%B7%E2%B5%93).jpg',
   ),
   Monument(
     name: 'Grande Mosquée de Touba',

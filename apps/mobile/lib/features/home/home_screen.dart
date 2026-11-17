@@ -14,6 +14,7 @@ import '../../core/offline/pending_sales.dart';
 import '../offline/offline_ui.dart';
 import '../profile/profile_screen.dart';
 import '../notifications/notifications_screen.dart' show tabRoutes;
+import '../catalog/scan_lookup.dart';
 import 'monument.dart';
 import 'promo_carousel.dart';
 
@@ -330,17 +331,17 @@ class _Hero extends StatelessWidget {
             radius: 20,
             onTap: () => context.go('/pos'),
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
-            child: const Row(
+            child: Row(
               children: [
-                Icon(Icons.search_rounded, color: AppColors.green),
-                SizedBox(width: 10),
-                Expanded(
+                const Icon(Icons.search_rounded, color: AppColors.green),
+                const SizedBox(width: 10),
+                const Expanded(
                   child: Text(
                     'Rechercher un produit, un service…',
                     style: TextStyle(color: AppColors.muted, fontSize: 14),
                   ),
                 ),
-                Icon(Icons.qr_code_scanner_rounded, color: AppColors.ink, size: 20),
+                const _ScanButton(),
               ],
             ),
           ),
@@ -348,6 +349,24 @@ class _Hero extends StatelessWidget {
       ],
     );
   }
+}
+
+/// Scanner un article depuis l'accueil : prix, stock, vendre ou ouvrir la fiche.
+class _ScanButton extends ConsumerWidget {
+  const _ScanButton();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) => Tooltip(
+    message: 'Scanner un article',
+    child: InkResponse(
+      radius: 22,
+      onTap: () => scanAndShowProduct(context, ref),
+      child: const Padding(
+        padding: EdgeInsets.all(4),
+        child: Icon(Icons.qr_code_scanner_rounded, color: AppColors.ink, size: 22),
+      ),
+    ),
+  );
 }
 
 /// Cloche avec pastille du nombre de notifications non lues.

@@ -10,6 +10,7 @@ import '../../core/providers.dart';
 import '../../core/theme.dart';
 import '../../core/widgets.dart';
 import '../catalog/product_photo.dart';
+import '../catalog/scan_lookup.dart';
 
 /// Stock (maquette « Stock ») : valeur, stock bas, liste des produits, entrées et nouveaux produits.
 class StockScreen extends ConsumerStatefulWidget {
@@ -22,6 +23,13 @@ class StockScreen extends ConsumerStatefulWidget {
 class _StockScreenState extends ConsumerState<StockScreen> {
   late bool _lowOnly = widget.lowOnly;
   String _search = '';
+  final _searchCtrl = TextEditingController();
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
+  }
 
   @override
   void didUpdateWidget(covariant StockScreen old) {
@@ -91,10 +99,16 @@ class _StockScreenState extends ConsumerState<StockScreen> {
                 ),
                 const SizedBox(height: 12),
                 TextField(
-                  decoration: const InputDecoration(
+                  controller: _searchCtrl,
+                  decoration: InputDecoration(
                     hintText: 'Rechercher',
-                    prefixIcon: Icon(Icons.search),
+                    prefixIcon: const Icon(Icons.search),
                     isDense: true,
+                    suffixIcon: IconButton(
+                      tooltip: 'Scanner un article',
+                      onPressed: () => _scan(context, s),
+                      icon: const Icon(Icons.qr_code_scanner_rounded),
+                    ),
                   ),
                   onChanged: (v) => setState(() => _search = v.trim().toLowerCase()),
                 ),
@@ -155,6 +169,24 @@ class _StockScreenState extends ConsumerState<StockScreen> {
   }
 
   Future<void> _openNewProduct(BuildContext context) => context.push('/products/new');
+
+  /// Scan en réserve : ouvre l'entrée de stock de l'article (ou le retrouve dans la liste).
+  Future<void> _scan(BuildContext context, StockOverview overview) async {
+    final product = await scanForProduct(context, ref);
+    if (product == null || !context.mounted) return;
+    final item = overview.items.where((i) => i.productId == product.id).firstOrNull;
+    if (item != null && ref.read(canProvider('inventory:write'))) {
+      await _openEntry(context, item);
+      return;
+    }
+    // Pas de droit d'écriture, ou produit absent de la liste : on le montre via la recherche
+    _searchCtrl.text = product.name;
+    setState(() {
+      _search = product.name.toLowerCase();
+      _lowOnly = false;
+    });
+    if (item == null) showInfo(context, '${product.name} n’est pas suivi en stock');
+  }
 }
 
 class _StockRow extends StatelessWidget {

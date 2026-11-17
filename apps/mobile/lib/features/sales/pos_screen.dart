@@ -71,24 +71,29 @@ class _PosScreenState extends ConsumerState<PosScreen> {
     }
   }
 
-  /// Scan en caisse : le produit trouvé va au panier ; un code inconnu propose de créer la fiche.
+  /// Scan en caisse, en continu : chaque article reconnu va au panier sans refermer la caméra.
+  /// À la fin, un code inconnu propose de créer la fiche.
   Future<void> _scan() async {
-    final code = await ref.read(barcodeScannerProvider)(context);
-    if (code == null || !mounted) return;
-    Product? product;
-    try {
-      product = await ref.read(repoProvider).productByCode(code);
-    } catch (e) {
-      if (mounted) showError(context, e);
-      return;
-    }
-    if (!mounted) return;
-    if (product != null) {
-      HapticFeedback.mediumImpact();
-      ref.read(cartProvider.notifier).add(product);
-      showInfo(context, '${product.name} ajouté au panier');
-      return;
-    }
+    final unknown = <String>[];
+    final repo = ref.read(repoProvider);
+    final cart = ref.read(cartProvider.notifier);
+    await ref.read(continuousScannerProvider)(context, (code) async {
+      Product? product;
+      try {
+        product = await repo.productByCode(code);
+      } catch (e) {
+        return ScanFeedback(errorMessage(e), ok: false);
+      }
+      if (product == null) {
+        if (!unknown.contains(code)) unknown.add(code);
+        return ScanFeedback('Code inconnu : $code', ok: false);
+      }
+      cart.add(product);
+      final q = ref.read(cartProvider).lines[product.id]?.quantity ?? 1;
+      return ScanFeedback('${product.name} ajouté${q > 1 ? ' · ${qty(q)} au panier' : ''}');
+    });
+    if (!mounted || unknown.isEmpty) return;
+    final code = unknown.last;
     final create = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -548,7 +553,10 @@ class _CashClosedBanner extends ConsumerWidget {
                 style: TextStyle(color: AppColors.warnText, fontWeight: FontWeight.w700, fontSize: 13),
               ),
             ),
-            Text('Ouvrir', style: TextStyle(color: AppColors.green, fontWeight: FontWeight.w800)),
+            Text(
+              'Ouvrir',
+              style: TextStyle(color: AppColors.green, fontWeight: FontWeight.w800),
+            ),
           ],
         ),
       ),

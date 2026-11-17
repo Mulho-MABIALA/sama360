@@ -14,6 +14,7 @@ import 'package:sama360/core/models.dart';
 import 'package:sama360/core/offline/pending_sales.dart';
 import 'package:sama360/core/providers.dart';
 import 'package:sama360/features/auth/auth_controller.dart';
+import 'package:sama360/features/catalog/barcode_scanner.dart';
 import 'package:sama360/features/home/monument.dart';
 import 'package:sama360/main.dart';
 
@@ -424,5 +425,13 @@ void main() {
     await tester.tap(find.text('WhatsApp').first);
     await tester.pumpAndSettle();
     await _shot(tester, '25_relance_whatsapp');
+  });
+
+  testWidgets('scan depuis l’accueil', (tester) async {
+    phoneSize(tester);
+    await pumpSama(tester, overrides: [barcodeScannerProvider.overrideWithValue((_) async => '6001234567891')]);
+    await tester.tap(find.byTooltip('Scanner un article'));
+    await tester.pumpAndSettle();
+    await _shot(tester, '26_scan_accueil');
   });
 }
