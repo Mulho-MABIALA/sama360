@@ -200,14 +200,17 @@ describe('Socle Sama360 (e2e)', () => {
       expect(published).toBeGreaterThanOrEqual(1);
 
       const cats = await waitFor(
-        async () => (await http.get('/v1/catalog/categories').set(auth(awa.accessToken, awaBiz))).body as { name: string }[],
+        async () =>
+          (await http.get('/v1/catalog/categories').set(auth(awa.accessToken, awaBiz))).body as { name: string }[],
         (list) => list.length >= 2,
       );
       expect(cats.map((c) => c.name)).toEqual(['Général', 'Nouveautés']);
 
       // Re-livraison du même job : l'abonné ne s'exécute pas deux fois
       const [evt] = (
-        await dbs.db.execute(sql`SELECT id FROM core.outbox_events WHERE type = 'business.created' AND business_id = ${awaBiz}`)
+        await dbs.db.execute(
+          sql`SELECT id FROM core.outbox_events WHERE type = 'business.created' AND business_id = ${awaBiz}`,
+        )
       ).rows as { id: string }[];
       const replay = await worker.process({
         data: { eventId: evt.id, handler: 'CatalogEventHandlers.createDefaultCategories' },
@@ -299,7 +302,9 @@ describe('Socle Sama360 (e2e)', () => {
       // Écrire pour une autre entreprise est refusé par la politique
       await expect(
         dbs.withTenant(moussaBiz, (tx) =>
-          tx.insert(contacts).values({ id: '01930000-0000-7000-8000-0000000000aa', businessId: awaBiz, name: 'Intrus' }),
+          tx
+            .insert(contacts)
+            .values({ id: '01930000-0000-7000-8000-0000000000aa', businessId: awaBiz, name: 'Intrus' }),
         ),
       ).rejects.toThrow(/row-level security/);
     });
@@ -327,8 +332,15 @@ describe('Socle Sama360 (e2e)', () => {
         .set(auth(moussa.accessToken, awaBiz))
         .send({ name: 'Test', price: 100 })
         .expect(403);
-      expect(forbidden.body.error).toMatchObject({ code: 'INSUFFICIENT_PERMISSION', details: { permission: 'catalog:write' } });
-      await http.post('/v1/contacts').set(auth(moussa.accessToken, awaBiz)).send({ name: 'Client comptoir' }).expect(201);
+      expect(forbidden.body.error).toMatchObject({
+        code: 'INSUFFICIENT_PERMISSION',
+        details: { permission: 'catalog:write' },
+      });
+      await http
+        .post('/v1/contacts')
+        .set(auth(moussa.accessToken, awaBiz))
+        .send({ name: 'Client comptoir' })
+        .expect(201);
 
       const me = await http.get('/v1/me').set(auth(moussa.accessToken)).expect(200);
       expect(me.body.businesses.map((b: { role: string }) => b.role).sort()).toEqual(['cashier', 'owner']);
@@ -365,16 +377,28 @@ describe('Socle Sama360 (e2e)', () => {
         .set(auth(moussa.accessToken, awaBiz))
         .send({ status: 'suspended' })
         .expect(403);
-      await http.patch(`/v1/members/${owner.id}`).set(auth(awa.accessToken, awaBiz)).send({ roleKey: 'manager' }).expect(403);
+      await http
+        .patch(`/v1/members/${owner.id}`)
+        .set(auth(awa.accessToken, awaBiz))
+        .send({ roleKey: 'manager' })
+        .expect(403);
 
-      await http.patch(`/v1/members/${cashier.id}`).set(auth(awa.accessToken, awaBiz)).send({ status: 'suspended' }).expect(200);
+      await http
+        .patch(`/v1/members/${cashier.id}`)
+        .set(auth(awa.accessToken, awaBiz))
+        .send({ status: 'suspended' })
+        .expect(200);
       const blocked = await http.get('/v1/catalog/products').set(auth(moussa.accessToken, awaBiz)).expect(403);
       expect(blocked.body.error.code).toBe('NOT_A_MEMBER');
     });
 
     it('retire un membre (pas le propriétaire) et liste l’équipe avec les photos', async () => {
       const A = auth(awa.accessToken, awaBiz);
-      const inv = await http.post('/v1/members').set(A).send({ phone: '77 000 00 77', roleKey: 'accountant' }).expect(201);
+      const inv = await http
+        .post('/v1/members')
+        .set(A)
+        .send({ phone: '77 000 00 77', roleKey: 'accountant' })
+        .expect(201);
       const list = (await http.get('/v1/members').set(A).expect(200)).body as { id: string; role: string }[];
       expect(list.find((m) => m.id === inv.body.id)).toMatchObject({ role: 'accountant', avatarFileId: null });
 
@@ -429,7 +453,11 @@ describe('Socle Sama360 (e2e)', () => {
         .send({ productId: huile, type: 'purchase', quantity: 10 })
         .expect(201);
       expect(entry.body).toMatchObject({ before: 0, onHand: 10 });
-      await http.post('/v1/inventory/movements').set(A()).send({ productId: karite, type: 'purchase', quantity: 20 }).expect(201);
+      await http
+        .post('/v1/inventory/movements')
+        .set(A())
+        .send({ productId: karite, type: 'purchase', quantity: 20 })
+        .expect(201);
       const bad = await http
         .post('/v1/inventory/movements')
         .set(A())
@@ -437,7 +465,9 @@ describe('Socle Sama360 (e2e)', () => {
         .expect(422);
       expect(bad.body.error.code).toBe('VALIDATION_FAILED');
 
-      aminata = (await http.post('/v1/contacts').set(A()).send({ name: 'Aminata Ba', phone: '76 555 12 34' }).expect(201)).body.id;
+      aminata = (
+        await http.post('/v1/contacts').set(A()).send({ name: 'Aminata Ba', phone: '76 555 12 34' }).expect(201)
+      ).body.id;
 
       await http.post('/v1/members').set(A()).send({ phone: CAISSIER, roleKey: 'cashier' }).expect(201);
       cashier = await login(CAISSIER);
@@ -503,20 +533,29 @@ describe('Socle Sama360 (e2e)', () => {
       const res = await http
         .post('/v1/sales')
         .set(A())
-        .send({ customerId: aminata, items: [{ productId: huile, quantity: 5 }], payments: [{ method: 'wave', amount: 5000 }] })
+        .send({
+          customerId: aminata,
+          items: [{ productId: huile, quantity: 5 }],
+          payments: [{ method: 'wave', amount: 5000 }],
+        })
         .expect(201);
       creditSaleId = res.body.id;
       expect(res.body).toMatchObject({ number: `VEN-${year}-0002`, total: 20000, paid: 5000, due: 15000 });
       expect(await balanceOf(aminata)).toBe(15000); // carnet écrit dans la même transaction
 
       // Le stock est mis à jour par l'abonné inventory (10 − 1 − 5 = 4 ; 20 − 2 = 18)
-      await settle(() => stockOf(huile), (q) => q === 4);
+      await settle(
+        () => stockOf(huile),
+        (q) => q === 4,
+      );
       expect(await stockOf(karite)).toBe(18);
 
       const low = await http.get('/v1/inventory/stock?lowOnly=true').set(A()).expect(200);
       expect(low.body.items.map((i: { name: string }) => i.name)).toEqual(['Huile de coco 500 ml']);
       const alerts = (
-        await dbs.db.execute(sql`SELECT payload FROM core.outbox_events WHERE type = 'stock.low' AND aggregate_id = ${huile}`)
+        await dbs.db.execute(
+          sql`SELECT payload FROM core.outbox_events WHERE type = 'stock.low' AND aggregate_id = ${huile}`,
+        )
       ).rows as { payload: { onHand: number; threshold: number } }[];
       expect(alerts).toHaveLength(1);
       // Le worker traite les deux ventes en parallèle : le seuil est franchi à 5 ou à 4 selon l'ordre
@@ -533,9 +572,13 @@ describe('Socle Sama360 (e2e)', () => {
 
     it('un abonné ne décrémente jamais deux fois la même vente', async () => {
       const [evt] = (
-        await dbs.db.execute(sql`SELECT id FROM core.outbox_events WHERE type = 'sale.completed' AND aggregate_id = ${creditSaleId}`)
+        await dbs.db.execute(
+          sql`SELECT id FROM core.outbox_events WHERE type = 'sale.completed' AND aggregate_id = ${creditSaleId}`,
+        )
       ).rows as { id: string }[];
-      expect(await worker.process({ data: { eventId: evt.id, handler: 'InventoryEventHandlers.decrementOnSale' } })).toBe(false);
+      expect(
+        await worker.process({ data: { eventId: evt.id, handler: 'InventoryEventHandlers.decrementOnSale' } }),
+      ).toBe(false);
       expect(await stockOf(huile)).toBe(4);
     });
 
@@ -555,12 +598,21 @@ describe('Socle Sama360 (e2e)', () => {
       expect(ok.body.balance).toBe(10000);
 
       const debtors = await http.get('/v1/sales/debtors').set(A()).expect(200);
-      expect(debtors.body).toEqual([expect.objectContaining({ customerId: aminata, name: 'Aminata Ba', balance: 10000 })]);
-      await settle(async () => (await http.get(`/v1/contacts/${aminata}`).set(A())).body.balance, (b) => b === 10000);
+      expect(debtors.body).toEqual([
+        expect.objectContaining({ customerId: aminata, name: 'Aminata Ba', balance: 10000 }),
+      ]);
+      await settle(
+        async () => (await http.get(`/v1/contacts/${aminata}`).set(A())).body.balance,
+        (b) => b === 10000,
+      );
     });
 
     it('calcule le résumé du jour : CA, bénéfice, encaissements, crédit', async () => {
-      await http.post('/v1/sales/expenses').set(A()).send({ category: 'transport', amount: 2000, method: 'cash' }).expect(201);
+      await http
+        .post('/v1/sales/expenses')
+        .set(A())
+        .send({ category: 'transport', amount: 2000, method: 'cash' })
+        .expect(201);
       const s = (await http.get('/v1/sales/summary').set(A()).expect(200)).body;
       expect(s).toMatchObject({
         salesCount: 2,
@@ -605,7 +657,10 @@ describe('Socle Sama360 (e2e)', () => {
         .expect(200);
       expect(res.body).toMatchObject({ status: 'voided', voidReason: 'Client a rendu la marchandise' });
 
-      await settle(() => stockOf(huile), (q) => q === 9);
+      await settle(
+        () => stockOf(huile),
+        (q) => q === 9,
+      );
       // 10 000 dus − 15 000 annulés : la boutique doit 5 000 à la cliente (déjà payés)
       expect(await balanceOf(aminata)).toBe(-5000);
 
@@ -662,7 +717,12 @@ describe('Socle Sama360 (e2e)', () => {
 
     it('rapport sur 7 jours : totaux, série jour par jour, comparaison, droits', async () => {
       const d = (n: number) => new Date(Date.now() + n * 86_400_000).toISOString().slice(0, 10);
-      const r = (await http.get(`/v1/reports/overview?from=${d(-6)}&to=${d(0)}`).set(A()).expect(200)).body;
+      const r = (
+        await http
+          .get(`/v1/reports/overview?from=${d(-6)}&to=${d(0)}`)
+          .set(A())
+          .expect(200)
+      ).body;
       // Aujourd'hui : 11 600 + 100 ; il y a 2 jours : 500 (vente hors ligne) ; la vente annulée ne compte pas
       expect(r).toMatchObject({
         period: { from: d(-6), to: d(0), days: 7, granularity: 'day' },
@@ -683,12 +743,26 @@ describe('Socle Sama360 (e2e)', () => {
       expect(r.expensesByCategory).toEqual([{ category: 'transport', amount: 2000, count: 1 }]);
 
       // Hier seul : la vente hors ligne n'y est pas, et aujourd'hui est comparé à hier
-      const today = (await http.get(`/v1/reports/overview?from=${d(0)}&to=${d(0)}`).set(A()).expect(200)).body;
+      const today = (
+        await http
+          .get(`/v1/reports/overview?from=${d(0)}&to=${d(0)}`)
+          .set(A())
+          .expect(200)
+      ).body;
       expect(today.previous).toMatchObject({ from: d(-1), to: d(-1), revenue: 0 });
 
-      await http.get(`/v1/reports/overview?from=${d(0)}&to=${d(-3)}`).set(A()).expect(422);
-      await http.get(`/v1/reports/overview?from=2020-01-01&to=${d(0)}`).set(A()).expect(422);
-      await http.get(`/v1/reports/overview?from=${d(-6)}&to=${d(0)}`).set(auth(cashier.accessToken, awaBiz)).expect(403);
+      await http
+        .get(`/v1/reports/overview?from=${d(0)}&to=${d(-3)}`)
+        .set(A())
+        .expect(422);
+      await http
+        .get(`/v1/reports/overview?from=2020-01-01&to=${d(0)}`)
+        .set(A())
+        .expect(422);
+      await http
+        .get(`/v1/reports/overview?from=${d(-6)}&to=${d(0)}`)
+        .set(auth(cashier.accessToken, awaBiz))
+        .expect(403);
     });
 
     it('ajuste le stock par inventaire physique', async () => {
@@ -714,11 +788,19 @@ describe('Socle Sama360 (e2e)', () => {
     );
     it('ajoute, remplace et retire le logo ; réservé au propriétaire ou gérant', async () => {
       const A = auth(awa.accessToken, awaBiz);
-      const first = await http.post('/v1/business/logo').set(A).attach('file', png, { filename: 'logo.png' }).expect(201);
+      const first = await http
+        .post('/v1/business/logo')
+        .set(A)
+        .attach('file', png, { filename: 'logo.png' })
+        .expect(201);
       expect((await http.get('/v1/business').set(A).expect(200)).body.business.logoFileId).toBe(first.body.logoFileId);
       await http.get(`/v1/files/${first.body.logoFileId}`).expect(200);
 
-      const second = await http.post('/v1/business/logo').set(A).attach('file', png, { filename: 'logo.png' }).expect(201);
+      const second = await http
+        .post('/v1/business/logo')
+        .set(A)
+        .attach('file', png, { filename: 'logo.png' })
+        .expect(201);
       expect(second.body.logoFileId).not.toBe(first.body.logoFileId);
       await http.get(`/v1/files/${first.body.logoFileId}`).expect(404);
 
@@ -748,14 +830,29 @@ describe('Socle Sama360 (e2e)', () => {
     let quoteId: string;
     let invoiceId: string;
     const stockOf = async (productId: string) =>
-      ((await http.get('/v1/inventory/stock').set(A()).expect(200)).body.items as { productId: string; onHand: number }[]).find(
-        (i) => i.productId === productId,
-      )!.onHand;
+      (
+        (await http.get('/v1/inventory/stock').set(A()).expect(200)).body.items as {
+          productId: string;
+          onHand: number;
+        }[]
+      ).find((i) => i.productId === productId)!.onHand;
 
     it('crée un devis : numéro, lignes du catalogue et libres, remise, validité 30 jours', async () => {
-      client = (await http.post('/v1/contacts').set(A()).send({ name: 'Hôtel Teranga', phone: '33 820 00 00' }).expect(201)).body.id;
-      tissu = (await http.post('/v1/catalog/products').set(A()).send({ name: 'Nappe brodée', price: 15000, cost: 9000 }).expect(201)).body.id;
-      await http.post('/v1/inventory/movements').set(A()).send({ productId: tissu, type: 'purchase', quantity: 20 }).expect(201);
+      client = (
+        await http.post('/v1/contacts').set(A()).send({ name: 'Hôtel Teranga', phone: '33 820 00 00' }).expect(201)
+      ).body.id;
+      tissu = (
+        await http
+          .post('/v1/catalog/products')
+          .set(A())
+          .send({ name: 'Nappe brodée', price: 15000, cost: 9000 })
+          .expect(201)
+      ).body.id;
+      await http
+        .post('/v1/inventory/movements')
+        .set(A())
+        .send({ productId: tissu, type: 'purchase', quantity: 20 })
+        .expect(201);
 
       const res = await http
         .post('/v1/invoicing/documents')
@@ -831,7 +928,10 @@ describe('Socle Sama360 (e2e)', () => {
 
       // La facture fait sortir la marchandise : 20 − 5
       await relay.relayOnce();
-      await waitFor(() => stockOf(tissu), (q) => q === 15);
+      await waitFor(
+        () => stockOf(tissu),
+        (q) => q === 15,
+      );
     });
 
     it('encaisse la facture en plusieurs fois, sans dépasser ni doubler', async () => {
@@ -864,7 +964,11 @@ describe('Socle Sama360 (e2e)', () => {
       expect(full.body).toMatchObject({ status: 'paid', due: 0 });
       expect(full.body.payments).toHaveLength(2);
 
-      const cancel = await http.post(`/v1/invoicing/documents/${invoiceId}/cancel`).set(A()).send({ reason: 'erreur' }).expect(409);
+      const cancel = await http
+        .post(`/v1/invoicing/documents/${invoiceId}/cancel`)
+        .set(A())
+        .send({ reason: 'erreur' })
+        .expect(409);
       expect(cancel.body.error.code).toBe('INVOICE_HAS_PAYMENTS');
     });
 
@@ -883,15 +987,25 @@ describe('Socle Sama360 (e2e)', () => {
       expect(late.body).toMatchObject({ number: `FAC-${year}-0002`, status: 'unpaid', overdue: true, total: 30000 });
 
       const summary = (await http.get('/v1/invoicing/summary').set(A()).expect(200)).body;
-      expect(summary).toMatchObject({ receivable: 30000, openInvoices: 1, overdue: 30000, overdueInvoices: 1, openQuotes: 0 });
+      expect(summary).toMatchObject({
+        receivable: 30000,
+        openInvoices: 1,
+        overdue: 30000,
+        overdueInvoices: 1,
+        openQuotes: 0,
+      });
 
       const overdue = (await http.get('/v1/invoicing/documents?overdue=true').set(A()).expect(200)).body.data;
       expect(overdue.map((d: { id: string }) => d.id)).toEqual([late.body.id]);
-      const found = (await http.get('/v1/invoicing/documents?kind=quote&search=teranga').set(A()).expect(200)).body.data;
+      const found = (await http.get('/v1/invoicing/documents?kind=quote&search=teranga').set(A()).expect(200)).body
+        .data;
       expect(found.map((d: { number: string }) => d.number)).toEqual([`DEV-${year}-0001`]);
 
       await relay.relayOnce();
-      await waitFor(() => stockOf(tissu), (q) => q === 13);
+      await waitFor(
+        () => stockOf(tissu),
+        (q) => q === 13,
+      );
       const cancelled = await http
         .post(`/v1/invoicing/documents/${late.body.id}/cancel`)
         .set(A())
@@ -899,8 +1013,15 @@ describe('Socle Sama360 (e2e)', () => {
         .expect(200);
       expect(cancelled.body).toMatchObject({ status: 'cancelled', cancelReason: 'Commande annulée par le client' });
       await relay.relayOnce();
-      await waitFor(() => stockOf(tissu), (q) => q === 15);
-      await http.post(`/v1/invoicing/documents/${late.body.id}/payments`).set(A()).send({ amount: 100, method: 'cash' }).expect(409);
+      await waitFor(
+        () => stockOf(tissu),
+        (q) => q === 15,
+      );
+      await http
+        .post(`/v1/invoicing/documents/${late.body.id}/payments`)
+        .set(A())
+        .send({ amount: 100, method: 'cash' })
+        .expect(409);
     });
 
     it('droits et isolation : le caissier consulte sans facturer, un autre commerçant ne voit rien', async () => {
@@ -912,7 +1033,8 @@ describe('Socle Sama360 (e2e)', () => {
         .expect(403);
       expect(denied.body.error.code).toBe('INSUFFICIENT_PERMISSION');
       await http.get(`/v1/invoicing/documents/${invoiceId}`).set(auth(moussa.accessToken, moussaBiz)).expect(404);
-      const other = (await http.get('/v1/invoicing/documents').set(auth(moussa.accessToken, moussaBiz)).expect(200)).body.data;
+      const other = (await http.get('/v1/invoicing/documents').set(auth(moussa.accessToken, moussaBiz)).expect(200))
+        .body.data;
       expect(other).toEqual([]);
     });
   });
@@ -946,9 +1068,16 @@ describe('Socle Sama360 (e2e)', () => {
           .expect(201)
       ).body.id;
 
-      const renamed = await http.patch(`/v1/catalog/categories/${cat}`).set(A()).send({ name: 'Alimentation' }).expect(200);
+      const renamed = await http
+        .patch(`/v1/catalog/categories/${cat}`)
+        .set(A())
+        .send({ name: 'Alimentation' })
+        .expect(200);
       expect(renamed.body.name).toBe('Alimentation');
-      const list = (await http.get('/v1/catalog/categories').set(A()).expect(200)).body as { id: string; productCount: number }[];
+      const list = (await http.get('/v1/catalog/categories').set(A()).expect(200)).body as {
+        id: string;
+        productCount: number;
+      }[];
       expect(list.find((c) => c.id === cat)?.productCount).toBe(1);
 
       const tmp = (await http.post('/v1/catalog/categories').set(A()).send({ name: 'Temporaire' }).expect(201)).body.id;
@@ -969,7 +1098,11 @@ describe('Socle Sama360 (e2e)', () => {
         .expect(409);
       expect(dup.body.error.message).toBe('Ce code-barres est déjà utilisé par « Riz parfumé 5 kg »');
       // Le produit garde son propre code en modification
-      await http.patch(`/v1/catalog/products/${riz}`).set(A()).send({ barcode: '6111234567890', price: 5200 }).expect(200);
+      await http
+        .patch(`/v1/catalog/products/${riz}`)
+        .set(A())
+        .send({ barcode: '6111234567890', price: 5200 })
+        .expect(200);
     });
 
     it('prix de gros : appliqué en caisse dès la quantité minimale', async () => {
@@ -1013,7 +1146,13 @@ describe('Socle Sama360 (e2e)', () => {
     let cashier: string;
     let binta: string;
     let product: string;
-    const sell = (customerId: string, total: number, paid: number, extra: Record<string, unknown> = {}, token?: string) =>
+    const sell = (
+      customerId: string,
+      total: number,
+      paid: number,
+      extra: Record<string, unknown> = {},
+      token?: string,
+    ) =>
       http
         .post('/v1/sales')
         .set(token ? auth(token, awaBiz) : A())
@@ -1066,7 +1205,11 @@ describe('Socle Sama360 (e2e)', () => {
       expect(full.body.error.message).toBe('Binta Sow a atteint son plafond de crédit (25 000 F)');
 
       // Le caissier peut modifier le client mais pas son plafond
-      await http.patch(`/v1/contacts/${binta}`).set(auth(cashier, awaBiz)).send({ address: 'Marché Sandaga' }).expect(200);
+      await http
+        .patch(`/v1/contacts/${binta}`)
+        .set(auth(cashier, awaBiz))
+        .send({ address: 'Marché Sandaga' })
+        .expect(200);
       await http.patch(`/v1/contacts/${binta}`).set(auth(cashier, awaBiz)).send({ creditLimit: null }).expect(403);
     });
 
@@ -1083,7 +1226,11 @@ describe('Socle Sama360 (e2e)', () => {
       expect(new Date(o.oldestUnpaidAt).getTime()).toBeLessThan(Date.now());
 
       // Remboursement de 22 000 F : la dette la plus ancienne (8 000) est soldée, la suivante devient la plus ancienne
-      await http.post(`/v1/sales/customers/${binta}/repayments`).set(A()).send({ amount: 22000, method: 'wave' }).expect(201);
+      await http
+        .post(`/v1/sales/customers/${binta}/repayments`)
+        .set(A())
+        .send({ amount: 22000, method: 'wave' })
+        .expect(201);
       const after = (await http.get(`/v1/customers/${binta}`).set(A()).expect(200)).body;
       expect(after.balance).toBe(11000);
       expect(after.availableCredit).toBe(14000);
@@ -1116,7 +1263,12 @@ describe('Socle Sama360 (e2e)', () => {
         .expect(201);
       const o = (await http.get(`/v1/customers/${binta}`).set(A()).expect(200)).body;
       expect(o.balance).toBe(14000);
-      expect(o.entries[0]).toMatchObject({ entryType: 'adjustment', amount: -1000, refType: 'write_off', balanceAfter: 14000 });
+      expect(o.entries[0]).toMatchObject({
+        entryType: 'adjustment',
+        amount: -1000,
+        refType: 'write_off',
+        balanceAfter: 14000,
+      });
       // Le solde en cache de l'annuaire suit (via l'événement)
       await relay.relayOnce();
       const contact = await waitFor(
@@ -1147,7 +1299,11 @@ describe('Socle Sama360 (e2e)', () => {
       const found = (await http.get('/v1/customers?search=binta').set(A()).expect(200)).body;
       expect(found.data).toHaveLength(1);
 
-      const r = await http.post(`/v1/customers/${binta}/reminders`).set(auth(cashier, awaBiz)).send({ channel: 'whatsapp' }).expect(201);
+      const r = await http
+        .post(`/v1/customers/${binta}/reminders`)
+        .set(auth(cashier, awaBiz))
+        .send({ channel: 'whatsapp' })
+        .expect(201);
       expect(r.body.lastRemindedAt).toBeTruthy();
       expect((await http.get(`/v1/customers/${binta}`).set(A())).body.customer.lastRemindedAt).toBeTruthy();
 
@@ -1169,21 +1325,37 @@ describe('Socle Sama360 (e2e)', () => {
     const year = new Date().getUTCFullYear();
     const stockOf = async (productId: string) =>
       Number(
-        ((await http.get('/v1/inventory/stock').set(A()).expect(200)).body.items as { productId: string; onHand: number }[]).find(
-          (i) => i.productId === productId,
-        )!.onHand,
+        (
+          (await http.get('/v1/inventory/stock').set(A()).expect(200)).body.items as {
+            productId: string;
+            onHand: number;
+          }[]
+        ).find((i) => i.productId === productId)!.onHand,
       );
     const costOf = async (productId: string) =>
       (await http.get(`/v1/catalog/products/${productId}`).set(A()).expect(200)).body.cost as number;
 
     beforeAll(async () => {
-      await http.post('/v1/members').set(A()).send({ phone: '+221770007766', fullName: 'Aliou Ba', roleKey: 'cashier' }).expect(201);
+      await http
+        .post('/v1/members')
+        .set(A())
+        .send({ phone: '+221770007766', fullName: 'Aliou Ba', roleKey: 'cashier' })
+        .expect(201);
       cashier = (await login('+221770007766')).accessToken;
       supplier = (
-        await http.post('/v1/contacts').set(A()).send({ type: 'supplier', name: 'Grossiste Sandaga', phone: '77 300 40 50' }).expect(201)
+        await http
+          .post('/v1/contacts')
+          .set(A())
+          .send({ type: 'supplier', name: 'Grossiste Sandaga', phone: '77 300 40 50' })
+          .expect(201)
       ).body.id;
-      huile = (await http.post('/v1/catalog/products').set(A()).send({ name: 'Huile 1 L', price: 2000, cost: 1000 }).expect(201))
-        .body.id;
+      huile = (
+        await http
+          .post('/v1/catalog/products')
+          .set(A())
+          .send({ name: 'Huile 1 L', price: 2000, cost: 1000 })
+          .expect(201)
+      ).body.id;
       sachet = (
         await http
           .post('/v1/catalog/products')
@@ -1191,7 +1363,11 @@ describe('Socle Sama360 (e2e)', () => {
           .send({ name: 'Sachets plastique (lot)', price: 0, cost: 500, trackStock: false })
           .expect(201)
       ).body.id;
-      await http.post('/v1/inventory/movements').set(A()).send({ productId: huile, type: 'purchase', quantity: 10, unitCost: 1000 }).expect(201);
+      await http
+        .post('/v1/inventory/movements')
+        .set(A())
+        .send({ productId: huile, type: 'purchase', quantity: 10, unitCost: 1000 })
+        .expect(201);
     });
 
     it('bon de commande : brouillon, modification, confirmation ; caissier en lecture seule', async () => {
@@ -1210,7 +1386,11 @@ describe('Socle Sama360 (e2e)', () => {
       expect(draft.body).toMatchObject({ number: `BC-${year}-0001`, status: 'draft', total: 28000, due: 0 });
       expect(draft.body.supplier.name).toBe('Grossiste Sandaga');
 
-      const early = await http.post(`/v1/purchases/${order}/payments`).set(A()).send({ amount: 1000, method: 'cash' }).expect(409);
+      const early = await http
+        .post(`/v1/purchases/${order}/payments`)
+        .set(A())
+        .send({ amount: 1000, method: 'cash' })
+        .expect(409);
       expect(early.body.error.message).toBe('Confirmez la commande avant de la payer');
 
       const edited = await http
@@ -1229,7 +1409,9 @@ describe('Socle Sama360 (e2e)', () => {
 
       const confirmed = await http.post(`/v1/purchases/${order}/confirm`).set(A()).expect(200);
       expect(confirmed.body.status).toBe('ordered');
-      expect((await http.get('/v1/purchases?filter=open').set(auth(cashier, awaBiz)).expect(200)).body.totals).toMatchObject({
+      expect(
+        (await http.get('/v1/purchases?filter=open').set(auth(cashier, awaBiz)).expect(200)).body.totals,
+      ).toMatchObject({
         openOrders: 1,
         toReceive: 44500,
         totalDue: 0,
@@ -1270,7 +1452,11 @@ describe('Socle Sama360 (e2e)', () => {
         .expect(201);
       expect(rest.body.order).toMatchObject({ status: 'received', receivedTotal: 42500, paid: 20000, due: 22500 });
       expect(rest.body.order.receipts).toHaveLength(2);
-      expect(rest.body.order.receipts[0]).toMatchObject({ total: 14000, note: 'Premier camion', receivedBy: 'Awa Diallo' });
+      expect(rest.body.order.receipts[0]).toMatchObject({
+        total: 14000,
+        note: 'Premier camion',
+        receivedBy: 'Awa Diallo',
+      });
       expect(await stockOf(huile)).toBe(40);
       expect(await costOf(huile)).toBe(1250); // (20 × 1 200 + 20 × 1 300) / 40
       expect(await costOf(sachet)).toBe(500); // non suivi en stock : dernier prix
@@ -1291,7 +1477,12 @@ describe('Socle Sama360 (e2e)', () => {
         .set(A())
         .send({ id, supplierId: supplier, receive: true, lines: [{ productId: huile, quantity: 5, unitCost: 1500 }] })
         .expect(201);
-      expect(direct.body).toMatchObject({ number: `BC-${year}-0002`, status: 'received', receivedTotal: 7500, due: 7500 });
+      expect(direct.body).toMatchObject({
+        number: `BC-${year}-0002`,
+        status: 'received',
+        receivedTotal: 7500,
+        due: 7500,
+      });
       // Renvoi du même achat (réseau coupé) : pas de doublon, pas de stock en double
       const again = await http
         .post('/v1/purchases')
@@ -1304,9 +1495,17 @@ describe('Socle Sama360 (e2e)', () => {
       const list = (await http.get('/v1/suppliers').set(A()).expect(200)).body;
       expect(list[0]).toMatchObject({ id: supplier, due: 30000, purchased: 50000, ordersCount: 2, openOrders: 0 });
 
-      const tooMuch = await http.post(`/v1/suppliers/${supplier}/payments`).set(A()).send({ amount: 30001, method: 'wave' }).expect(422);
+      const tooMuch = await http
+        .post(`/v1/suppliers/${supplier}/payments`)
+        .set(A())
+        .send({ amount: 30001, method: 'wave' })
+        .expect(422);
       expect(tooMuch.body.error.message).toBe('Le montant dépasse ce que vous devez à ce fournisseur');
-      const paid = await http.post(`/v1/suppliers/${supplier}/payments`).set(A()).send({ amount: 25000, method: 'wave' }).expect(201);
+      const paid = await http
+        .post(`/v1/suppliers/${supplier}/payments`)
+        .set(A())
+        .send({ amount: 25000, method: 'wave' })
+        .expect(201);
       expect(paid.body.allocations).toEqual([
         { orderId: order, amount: 22500 },
         { orderId: id, amount: 2500 },
@@ -1354,14 +1553,29 @@ describe('Socle Sama360 (e2e)', () => {
     const pub = () => `/v1/public/shops/${slug}`;
 
     beforeAll(async () => {
-      await http.post('/v1/members').set(A()).send({ phone: '+221770005544', fullName: 'Sokhna Diop', roleKey: 'cashier' }).expect(201);
+      await http
+        .post('/v1/members')
+        .set(A())
+        .send({ phone: '+221770005544', fullName: 'Sokhna Diop', roleKey: 'cashier' })
+        .expect(201);
       cashier = (await login('+221770005544')).accessToken;
       slug = (await http.get('/v1/shop').set(A()).expect(200)).body.slug;
-      pagne = (await http.post('/v1/catalog/products').set(A()).send({ name: 'Pagne tissé', price: 7500 }).expect(201)).body.id;
-      bazin = (await http.post('/v1/catalog/products').set(A()).send({ name: 'Bazin riche', price: 15000 }).expect(201)).body.id;
-      cache = (await http.post('/v1/catalog/products').set(A()).send({ name: 'Produit caché', price: 100 }).expect(201)).body.id;
-      await http.post('/v1/inventory/movements').set(A()).send({ productId: pagne, type: 'purchase', quantity: 5 }).expect(201);
-      await http.post('/v1/inventory/movements').set(A()).send({ productId: bazin, type: 'purchase', quantity: 3 }).expect(201);
+      pagne = (await http.post('/v1/catalog/products').set(A()).send({ name: 'Pagne tissé', price: 7500 }).expect(201))
+        .body.id;
+      bazin = (await http.post('/v1/catalog/products').set(A()).send({ name: 'Bazin riche', price: 15000 }).expect(201))
+        .body.id;
+      cache = (await http.post('/v1/catalog/products').set(A()).send({ name: 'Produit caché', price: 100 }).expect(201))
+        .body.id;
+      await http
+        .post('/v1/inventory/movements')
+        .set(A())
+        .send({ productId: pagne, type: 'purchase', quantity: 5 })
+        .expect(201);
+      await http
+        .post('/v1/inventory/movements')
+        .set(A())
+        .send({ productId: bazin, type: 'purchase', quantity: 3 })
+        .expect(201);
     });
 
     it('boutique fermée par défaut ; ouverture, réglages et publication', async () => {
@@ -1373,11 +1587,28 @@ describe('Socle Sama360 (e2e)', () => {
       const s = await http
         .put('/v1/shop/settings')
         .set(A())
-        .send({ enabled: true, title: 'Awa Beauté en ligne', whatsapp: '77 111 22 33', deliveryFee: 1000, deliveryZone: 'Dakar', minOrder: 10000 })
+        .send({
+          enabled: true,
+          title: 'Awa Beauté en ligne',
+          whatsapp: '77 111 22 33',
+          deliveryFee: 1000,
+          deliveryZone: 'Dakar',
+          minOrder: 10000,
+        })
         .expect(200);
-      expect(s.body).toMatchObject({ enabled: true, whatsapp: '+221771112233', deliveryFee: 1000, pickup: true, delivery: true });
+      expect(s.body).toMatchObject({
+        enabled: true,
+        whatsapp: '+221771112233',
+        deliveryFee: 1000,
+        pickup: true,
+        delivery: true,
+      });
 
-      const pubd = await http.post('/v1/shop/publish').set(A()).send({ productIds: [pagne, bazin], published: true }).expect(200);
+      const pubd = await http
+        .post('/v1/shop/publish')
+        .set(A())
+        .send({ productIds: [pagne, bazin], published: true })
+        .expect(200);
       expect(pubd.body.updated).toBe(2);
       // Le caissier ne publie pas
       await http.post('/v1/shop/publish').set(auth(cashier, awaBiz)).send({ published: true }).expect(403);
@@ -1390,11 +1621,21 @@ describe('Socle Sama360 (e2e)', () => {
 
     it('vitrine publique et page web', async () => {
       const v = (await http.get(pub()).expect(200)).body;
-      expect(v.shop).toMatchObject({ slug, name: 'Awa Beauté en ligne', whatsapp: '+221771112233', deliveryFee: 1000, minOrder: 10000 });
+      expect(v.shop).toMatchObject({
+        slug,
+        name: 'Awa Beauté en ligne',
+        whatsapp: '+221771112233',
+        deliveryFee: 1000,
+        minOrder: 10000,
+      });
       const names = v.products.map((p: { name: string }) => p.name);
       expect(names).toEqual(expect.arrayContaining(['Pagne tissé', 'Bazin riche']));
       expect(names).not.toContain('Produit caché');
-      expect(v.products.find((p: { id: string }) => p.id === bazin)).toMatchObject({ available: true, maxQuantity: 3, price: 15000 });
+      expect(v.products.find((p: { id: string }) => p.id === bazin)).toMatchObject({
+        available: true,
+        maxQuantity: 3,
+        price: 15000,
+      });
       expect(JSON.stringify(v)).not.toMatch(/cost|onHand/); // ni coût d'achat ni stock exact
 
       const page = await http.get(`/s/${slug}`).expect(200);
@@ -1407,20 +1648,38 @@ describe('Socle Sama360 (e2e)', () => {
     it('commande d’un client : contrôles, prix serveur, fiche client créée, sans doublon', async () => {
       order = '01938000-0000-7000-8000-00000000cd01';
       const base = { id: order, customerName: 'Ndèye Sarr', customerPhone: '76 555 44 33', mode: 'delivery' };
-      const noAddress = await http.post(`${pub()}/orders`).send({ ...base, items: [{ productId: bazin, quantity: 1 }] }).expect(422);
+      const noAddress = await http
+        .post(`${pub()}/orders`)
+        .send({ ...base, items: [{ productId: bazin, quantity: 1 }] })
+        .expect(422);
       expect(noAddress.body.error.message).toBe('Indiquez l’adresse de livraison');
       const tooMany = await http
         .post(`${pub()}/orders`)
         .send({ ...base, address: 'Ouakam', items: [{ productId: bazin, quantity: 4 }] })
         .expect(422);
       expect(tooMany.body.error.message).toBe('« Bazin riche » : 3 disponible(s) seulement');
-      await http.post(`${pub()}/orders`).send({ ...base, address: 'Ouakam', items: [{ productId: cache, quantity: 1 }] }).expect(404);
-      const small = await http.post(`${pub()}/orders`).send({ ...base, address: 'Ouakam', items: [{ productId: pagne, quantity: 0 }] }).expect(422);
+      await http
+        .post(`${pub()}/orders`)
+        .send({ ...base, address: 'Ouakam', items: [{ productId: cache, quantity: 1 }] })
+        .expect(404);
+      const small = await http
+        .post(`${pub()}/orders`)
+        .send({ ...base, address: 'Ouakam', items: [{ productId: pagne, quantity: 0 }] })
+        .expect(422);
       expect(small.body.error.code).toBe('VALIDATION_FAILED');
-      const min = await http.post(`${pub()}/orders`).send({ ...base, address: 'Ouakam', items: [{ productId: pagne, quantity: 0.5 }] }).expect(422);
+      const min = await http
+        .post(`${pub()}/orders`)
+        .send({ ...base, address: 'Ouakam', items: [{ productId: pagne, quantity: 0.5 }] })
+        .expect(422);
       expect(min.body.error.code).toBe('VALIDATION_FAILED');
-      await http.post(`${pub()}/orders`).send({ ...base, customerPhone: '12', address: 'Ouakam', items: [{ productId: pagne, quantity: 1 }] }).expect(422);
-      const below = await http.post(`${pub()}/orders`).send({ ...base, address: 'Ouakam', items: [{ productId: pagne, quantity: 1 }] }).expect(422);
+      await http
+        .post(`${pub()}/orders`)
+        .send({ ...base, customerPhone: '12', address: 'Ouakam', items: [{ productId: pagne, quantity: 1 }] })
+        .expect(422);
+      const below = await http
+        .post(`${pub()}/orders`)
+        .send({ ...base, address: 'Ouakam', items: [{ productId: pagne, quantity: 1 }] })
+        .expect(422);
       expect(below.body.error.message).toBe('Commande minimum : 10 000 F');
 
       const body = {
@@ -1446,7 +1705,9 @@ describe('Socle Sama360 (e2e)', () => {
       expect(again.body.number).toBe(`CMD-${year}-0001`);
 
       const contacts = (await http.get('/v1/contacts?search=Ndèye').set(A()).expect(200)).body.data;
-      expect(contacts).toEqual([expect.objectContaining({ name: 'Ndèye Sarr', phone: '+221765554433', type: 'customer' })]);
+      expect(contacts).toEqual([
+        expect.objectContaining({ name: 'Ndèye Sarr', phone: '+221765554433', type: 'customer' }),
+      ]);
       expect((await http.get('/v1/shop').set(A())).body.stats.newOrders).toBe(1);
     });
 
@@ -1458,13 +1719,20 @@ describe('Socle Sama360 (e2e)', () => {
       const detail = (await http.get(`/v1/shop/orders/${order}`).set(auth(cashier, awaBiz)).expect(200)).body;
       expect(detail).toMatchObject({ address: 'Ouakam, près de la mosquée', note: 'Appeler avant', deliveryFee: 1000 });
       expect(detail.lines[1]).toMatchObject({ name: 'Bazin riche', quantity: 1, unitPrice: 15000 });
-      const early = await http.post(`/v1/shop/orders/${order}/status`).set(A()).send({ status: 'completed' }).expect(409);
+      const early = await http
+        .post(`/v1/shop/orders/${order}/status`)
+        .set(A())
+        .send({ status: 'completed' })
+        .expect(409);
       expect(early.body.error.message).toBe('Une commande « nouvelle » ne peut pas passer à « livrée »');
 
       await http.post(`/v1/shop/orders/${order}/status`).set(A()).send({ status: 'confirmed' }).expect(200);
       await http.post(`/v1/shop/orders/${order}/status`).set(A()).send({ status: 'ready' }).expect(200);
       await http.post(`/v1/shop/orders/${order}/status`).set(A()).send({ status: 'delivering' }).expect(200);
-      expect((await http.get(`${pub()}/orders/${order}`).expect(200)).body).toMatchObject({ status: 'delivering', statusLabel: 'En livraison' });
+      expect((await http.get(`${pub()}/orders/${order}`).expect(200)).body).toMatchObject({
+        status: 'delivering',
+        statusLabel: 'En livraison',
+      });
 
       // Le livreur encaisse 20 000 F par Wave : le reste (11 000 F) passe au carnet de crédit
       const done = await http
@@ -1478,7 +1746,8 @@ describe('Socle Sama360 (e2e)', () => {
       expect(sale.items.map((i: { name: string }) => i.name)).toEqual(['Pagne tissé', 'Bazin riche', 'Livraison']);
       await relay.relayOnce();
       const stock = await waitFor(
-        async () => (await http.get('/v1/inventory/stock').set(A())).body.items as { productId: string; onHand: number }[],
+        async () =>
+          (await http.get('/v1/inventory/stock').set(A())).body.items as { productId: string; onHand: number }[],
         (items) => Number(items.find((i) => i.productId === bazin)?.onHand) === 2,
       );
       expect(Number(stock.find((i) => i.productId === pagne)?.onHand)).toBe(3);
@@ -1491,14 +1760,24 @@ describe('Socle Sama360 (e2e)', () => {
       const id = '01938000-0000-7000-8000-00000000cd02';
       const placed = await http
         .post(`${pub()}/orders`)
-        .send({ id, customerName: 'Ndèye Sarr', customerPhone: '+221765554433', mode: 'pickup', items: [{ productId: pagne, quantity: 2 }] })
+        .send({
+          id,
+          customerName: 'Ndèye Sarr',
+          customerPhone: '+221765554433',
+          mode: 'pickup',
+          items: [{ productId: pagne, quantity: 2 }],
+        })
         .expect(201);
       expect(placed.body).toMatchObject({ number: `CMD-${year}-0002`, deliveryFee: 0, total: 15000, address: null });
       // Même client : pas de doublon dans l'annuaire
       expect((await http.get('/v1/contacts?search=Ndèye').set(A())).body.data).toHaveLength(1);
 
       await http.post(`/v1/shop/orders/${id}/status`).set(A()).send({ status: 'confirmed' }).expect(200);
-      const noRide = await http.post(`/v1/shop/orders/${id}/status`).set(A()).send({ status: 'delivering' }).expect(409);
+      const noRide = await http
+        .post(`/v1/shop/orders/${id}/status`)
+        .set(A())
+        .send({ status: 'delivering' })
+        .expect(409);
       expect(noRide.body.error.message).toBe('Une commande « confirmée » ne peut pas passer à « en livraison »');
       const cancelled = await http
         .post(`/v1/shop/orders/${id}/status`)
@@ -1542,28 +1821,56 @@ describe('Socle Sama360 (e2e)', () => {
     const C = () => auth(cashier, awaBiz);
 
     beforeAll(async () => {
-      await http.post('/v1/members').set(A()).send({ phone: '+221770003322', fullName: 'Modou Gaye', roleKey: 'cashier' }).expect(201);
-      await http.post('/v1/members').set(A()).send({ phone: '+221770003311', fullName: 'Fama Ndao', roleKey: 'cashier' }).expect(201);
+      await http
+        .post('/v1/members')
+        .set(A())
+        .send({ phone: '+221770003322', fullName: 'Modou Gaye', roleKey: 'cashier' })
+        .expect(201);
+      await http
+        .post('/v1/members')
+        .set(A())
+        .send({ phone: '+221770003311', fullName: 'Fama Ndao', roleKey: 'cashier' })
+        .expect(201);
       cashier = (await login('+221770003322')).accessToken;
       modouToken = cashier;
       other = (await login('+221770003311')).accessToken;
-      product = (await http.post('/v1/catalog/products').set(A()).send({ name: 'Thé Ataya', price: 5000, trackStock: false }).expect(201)).body.id;
+      product = (
+        await http
+          .post('/v1/catalog/products')
+          .set(A())
+          .send({ name: 'Thé Ataya', price: 5000, trackStock: false })
+          .expect(201)
+      ).body.id;
       client = (await http.post('/v1/contacts').set(A()).send({ name: 'Pape Diouf' }).expect(201)).body.id;
     });
 
     it('ouverture avec fond de caisse, une seule caisse ouverte par vendeur', async () => {
       expect((await http.get('/v1/cash/current').set(C()).expect(200)).body.session).toBeNull();
-      await http.post('/v1/cash/current/movements').set(C()).send({ direction: 'in', amount: 100, reason: 'Monnaie' }).expect(409);
-      const opened = await http.post('/v1/cash/open').set(C()).send({ openingFloat: 10000, note: 'Monnaie du matin' }).expect(201);
+      await http
+        .post('/v1/cash/current/movements')
+        .set(C())
+        .send({ direction: 'in', amount: 100, reason: 'Monnaie' })
+        .expect(409);
+      const opened = await http
+        .post('/v1/cash/open')
+        .set(C())
+        .send({ openingFloat: 10000, note: 'Monnaie du matin' })
+        .expect(201);
       session = opened.body.id;
-      expect(opened.body).toMatchObject({ number: `Z-${year}-0001`, status: 'open', openingFloat: 10000, userName: 'Modou Gaye' });
+      expect(opened.body).toMatchObject({
+        number: `Z-${year}-0001`,
+        status: 'open',
+        openingFloat: 10000,
+        userName: 'Modou Gaye',
+      });
       expect(opened.body.report.methods).toEqual([expect.objectContaining({ method: 'cash', expected: 10000 })]);
       const again = await http.post('/v1/cash/open').set(C()).send({ openingFloat: 0 }).expect(409);
       expect(again.body.error.message).toBe(`Votre caisse est déjà ouverte depuis Z-${year}-0001`);
     });
 
     it('attendu en direct : ventes, crédit, remboursements, dépenses, mouvements', async () => {
-      const sell = (body: Record<string, unknown>, token = cashier) => http.post('/v1/sales').set(auth(token, awaBiz)).send(body).expect(201);
+      const sell = (body: Record<string, unknown>, token = cashier) =>
+        http.post('/v1/sales').set(auth(token, awaBiz)).send(body).expect(201);
       await sell({
         items: [{ productId: product, quantity: 2 }],
         payments: [
@@ -1571,19 +1878,47 @@ describe('Socle Sama360 (e2e)', () => {
           { method: 'wave', amount: 4000 },
         ],
       });
-      await sell({ customerId: client, items: [{ productId: product, quantity: 1 }], payments: [{ method: 'cash', amount: 1000 }] });
+      await sell({
+        customerId: client,
+        items: [{ productId: product, quantity: 1 }],
+        payments: [{ method: 'cash', amount: 1000 }],
+      });
       // Vente d'un autre vendeur : pas dans cette caisse
       await sell({ items: [{ productId: product, quantity: 1 }], payments: [{ method: 'cash', amount: 5000 }] }, other);
-      await http.post(`/v1/sales/customers/${client}/repayments`).set(C()).send({ amount: 1500, method: 'orange_money' }).expect(201);
-      await http.post('/v1/sales/expenses').set(C()).send({ category: 'Transport', amount: 2000, method: 'cash' }).expect(201);
+      await http
+        .post(`/v1/sales/customers/${client}/repayments`)
+        .set(C())
+        .send({ amount: 1500, method: 'orange_money' })
+        .expect(201);
+      await http
+        .post('/v1/sales/expenses')
+        .set(C())
+        .send({ category: 'Transport', amount: 2000, method: 'cash' })
+        .expect(201);
 
-      const tooMuch = await http.post('/v1/cash/current/movements').set(C()).send({ direction: 'out', amount: 50000, reason: 'Dépôt banque' }).expect(422);
+      const tooMuch = await http
+        .post('/v1/cash/current/movements')
+        .set(C())
+        .send({ direction: 'out', amount: 50000, reason: 'Dépôt banque' })
+        .expect(422);
       expect(tooMuch.body.error.message).toBe('Il n’y a que 15 000 F en espèces dans la caisse');
-      await http.post('/v1/cash/current/movements').set(C()).send({ direction: 'out', amount: 3000, reason: 'Dépôt à la banque' }).expect(201);
-      const cur = (await http.post('/v1/cash/current/movements').set(C()).send({ direction: 'in', amount: 500, reason: 'Appoint du gérant' }).expect(201)).body;
+      await http
+        .post('/v1/cash/current/movements')
+        .set(C())
+        .send({ direction: 'out', amount: 3000, reason: 'Dépôt à la banque' })
+        .expect(201);
+      const cur = (
+        await http
+          .post('/v1/cash/current/movements')
+          .set(C())
+          .send({ direction: 'in', amount: 500, reason: 'Appoint du gérant' })
+          .expect(201)
+      ).body;
 
       expect(cur.report).toMatchObject({ salesCount: 2, salesTotal: 15000, creditTotal: 4000 });
-      const by = Object.fromEntries(cur.report.methods.map((m: { method: string; expected: number }) => [m.method, m.expected]));
+      const by = Object.fromEntries(
+        cur.report.methods.map((m: { method: string; expected: number }) => [m.method, m.expected]),
+      );
       expect(by).toEqual({ cash: 10000 + 6000 + 1000 - 2000 - 3000 + 500, wave: 4000, orange_money: 1500 });
       expect(cur.movements.map((m: { direction: string; amount: number }) => [m.direction, m.amount])).toEqual([
         ['out', 3000],
@@ -1601,7 +1936,12 @@ describe('Socle Sama360 (e2e)', () => {
         .set(C())
         .send({ counted: { cash: 12000, wave: 4000 }, note: 'Manque 500 F' })
         .expect(200);
-      expect(closed.body).toMatchObject({ status: 'closed', difference: -500, closingNote: 'Manque 500 F', closedByName: 'Modou Gaye' });
+      expect(closed.body).toMatchObject({
+        status: 'closed',
+        difference: -500,
+        closingNote: 'Manque 500 F',
+        closedByName: 'Modou Gaye',
+      });
       expect(closed.body.lines).toEqual([
         { method: 'cash', expected: 12500, counted: 12000, difference: -500 },
         { method: 'wave', expected: 4000, counted: 4000, difference: 0 },
@@ -1611,20 +1951,38 @@ describe('Socle Sama360 (e2e)', () => {
       expect((await http.get('/v1/cash/current').set(C())).body.session).toBeNull();
 
       // Une vente après la clôture ne change pas le rapport figé
-      await http.post('/v1/sales').set(C()).send({ items: [{ productId: product, quantity: 1 }], payments: [{ method: 'cash', amount: 5000 }] }).expect(201);
+      await http
+        .post('/v1/sales')
+        .set(C())
+        .send({ items: [{ productId: product, quantity: 1 }], payments: [{ method: 'cash', amount: 5000 }] })
+        .expect(201);
       const z = (await http.get(`/v1/cash/sessions/${session}`).set(C()).expect(200)).body;
       expect(z.report.salesTotal).toBe(15000);
 
       const mine = (await http.get('/v1/cash/sessions').set(C()).expect(200)).body.data;
-      expect(mine).toEqual([expect.objectContaining({ id: session, salesTotal: 15000, countedTotal: 17500, difference: -500 })]);
+      expect(mine).toEqual([
+        expect.objectContaining({ id: session, salesTotal: 15000, countedTotal: 17500, difference: -500 }),
+      ]);
     });
 
     it('le gérant voit toutes les caisses et clôture celle d’un vendeur parti', async () => {
-      const s2 = (await http.post('/v1/cash/open').set(auth(other, awaBiz)).send({ openingFloat: 5000 }).expect(201)).body.id;
+      const s2 = (await http.post('/v1/cash/open').set(auth(other, awaBiz)).send({ openingFloat: 5000 }).expect(201))
+        .body.id;
       const all = (await http.get('/v1/cash/sessions').set(A()).expect(200)).body.data;
-      expect(all.map((x: { userName: string }) => x.userName)).toEqual(expect.arrayContaining(['Modou Gaye', 'Fama Ndao']));
-      const z = await http.post(`/v1/cash/sessions/${s2}/close`).set(A()).send({ counted: { cash: 5000 } }).expect(200);
-      expect(z.body).toMatchObject({ status: 'closed', userName: 'Fama Ndao', closedByName: 'Awa Diallo', difference: 0 });
+      expect(all.map((x: { userName: string }) => x.userName)).toEqual(
+        expect.arrayContaining(['Modou Gaye', 'Fama Ndao']),
+      );
+      const z = await http
+        .post(`/v1/cash/sessions/${s2}/close`)
+        .set(A())
+        .send({ counted: { cash: 5000 } })
+        .expect(200);
+      expect(z.body).toMatchObject({
+        status: 'closed',
+        userName: 'Fama Ndao',
+        closedByName: 'Awa Diallo',
+        difference: 0,
+      });
     });
   });
 
@@ -1655,7 +2013,9 @@ describe('Socle Sama360 (e2e)', () => {
       expect(Buffer.compare(file.body as Buffer, png)).toBe(0);
 
       const stock = await http.get('/v1/inventory/stock').set(A()).expect(200);
-      expect(stock.body.items.find((i: { productId: string }) => i.productId === productId).imageFileId).toBe(firstFile);
+      expect(stock.body.items.find((i: { productId: string }) => i.productId === productId).imageFileId).toBe(
+        firstFile,
+      );
     });
 
     it('remplace la photo : l’ancienne disparaît', async () => {
@@ -1766,16 +2126,30 @@ describe('Socle Sama360 (e2e)', () => {
     const C = () => auth(cashier, awaBiz);
     type N = { id: string; kind: string; title: string; body: string; link: string | null; read: boolean };
     const list = async (h: Record<string, string>) =>
-      (await http.get('/v1/notifications').set(h).expect((r) => { if (r.status !== 200) throw new Error(JSON.stringify(r.body)); })).body as { items: N[]; unread: number };
+      (
+        await http
+          .get('/v1/notifications')
+          .set(h)
+          .expect((r) => {
+            if (r.status !== 200) throw new Error(JSON.stringify(r.body));
+          })
+      ).body as { items: N[]; unread: number };
 
     beforeAll(async () => {
-      await http.post('/v1/members').set(A()).send({ phone: '+221770004411', fullName: 'Ndèye Fall', roleKey: 'manager' }).expect(201);
+      await http
+        .post('/v1/members')
+        .set(A())
+        .send({ phone: '+221770004411', fullName: 'Ndèye Fall', roleKey: 'manager' })
+        .expect(201);
       manager = (await login('+221770004411')).accessToken;
       cashier = modouToken; // Modou Gaye, vendeur
     });
 
     it('les événements deviennent des notifications selon le rôle', async () => {
-      const mine = await waitFor(() => list(A()), (l) => l.items.some((n) => n.kind === 'shop_order'));
+      const mine = await waitFor(
+        () => list(A()),
+        (l) => l.items.some((n) => n.kind === 'shop_order'),
+      );
       const kinds = new Set(mine.items.map((n) => n.kind));
       expect([...kinds]).toEqual(expect.arrayContaining(['welcome', 'stock_low', 'shop_order']));
       const low = mine.items.find((n) => n.title === 'Stock bas : Huile de coco 500 ml');
@@ -1785,14 +2159,22 @@ describe('Socle Sama360 (e2e)', () => {
       expect((await http.get('/v1/notifications/unread-count').set(A()).expect(200)).body.unread).toBe(mine.unread);
 
       // Le vendeur voit le stock et les commandes, mais pas les annulations de ventes
-      const sale = (await http.post('/v1/sales').set(C()).send({
-        items: [{ name: 'Sachet de bissap', quantity: 1, unitPrice: 500 }],
-        payments: [{ method: 'cash', amount: 500 }],
-      })).body;
+      const sale = (
+        await http
+          .post('/v1/sales')
+          .set(C())
+          .send({
+            items: [{ name: 'Sachet de bissap', quantity: 1, unitPrice: 500 }],
+            payments: [{ method: 'cash', amount: 500 }],
+          })
+      ).body;
       if (sale.id) await http.post(`/v1/sales/${sale.id}/void`).set(A()).send({ reason: 'Erreur de prix' }).expect(200);
       await relay.relayOnce();
       const forManager = sale.id
-        ? await waitFor(() => list(M()), (l) => l.items.some((n) => n.link === `/sales/${sale.id}`))
+        ? await waitFor(
+            () => list(M()),
+            (l) => l.items.some((n) => n.link === `/sales/${sale.id}`),
+          )
         : await list(M());
       if (sale.id) {
         expect(forManager.items.find((n) => n.link === `/sales/${sale.id}`)).toMatchObject({
@@ -1811,16 +2193,24 @@ describe('Socle Sama360 (e2e)', () => {
 
     it('rappels : caisse restée ouverte, factures en retard, crédits anciens — une fois par jour', async () => {
       const cur = (await http.get('/v1/cash/current').set(C()).expect(200)).body.session;
-      const sessionId = cur?.id ?? (await http.post('/v1/cash/open').set(C()).send({ openingFloat: 0 }).expect(201)).body.id;
+      const sessionId =
+        cur?.id ?? (await http.post('/v1/cash/open').set(C()).send({ openingFloat: 0 }).expect(201)).body.id;
       await dbs.withTenant(awaBiz, async (tx) => {
-        await tx.execute(sql`UPDATE sales.cash_sessions SET opened_at = now() - interval '1 day' WHERE id = ${sessionId}`);
+        await tx.execute(
+          sql`UPDATE sales.cash_sessions SET opened_at = now() - interval '1 day' WHERE id = ${sessionId}`,
+        );
         await tx.execute(sql`UPDATE invoicing.documents SET due_date = current_date - 3
           WHERE kind = 'invoice' AND status IN ('unpaid', 'partial')`);
         await tx.execute(sql`UPDATE sales.customer_ledger SET occurred_at = occurred_at - interval '40 days'`);
       });
-      const unpaid = await dbs.withTenant(awaBiz, async (tx) =>
-        (await tx.execute(sql`SELECT count(*)::int AS n FROM invoicing.documents
-          WHERE kind = 'invoice' AND status IN ('unpaid', 'partial')`)).rows[0] as { n: number });
+      const unpaid = await dbs.withTenant(
+        awaBiz,
+        async (tx) =>
+          (
+            await tx.execute(sql`SELECT count(*)::int AS n FROM invoicing.documents
+          WHERE kind = 'invoice' AND status IN ('unpaid', 'partial')`)
+          ).rows[0] as { n: number },
+      );
 
       const forCashier = await list(C());
       expect(forCashier.items.find((n) => n.kind === 'cash_open')).toMatchObject({
@@ -1869,21 +2259,52 @@ describe('Socle Sama360 (e2e)', () => {
 
   describe('Relances', () => {
     const A = () => auth(awa.accessToken, awaBiz);
-    type Item = { kind: string; id: string; customerId: string; name: string; amount: number; daysLate: number;
-      due: boolean; lastRemindedAt: string | null; invoiceNumber: string | null };
-    type Queue = { items: Item[]; summary: { dueCount: number; dueAmount: number; totalCount: number; remindedThisWeek: number };
-      history: { channel: string; amount: number; customerName: string; invoiceNumber: string | null; byName: string | null }[] };
+    type Item = {
+      kind: string;
+      id: string;
+      customerId: string;
+      name: string;
+      amount: number;
+      daysLate: number;
+      due: boolean;
+      lastRemindedAt: string | null;
+      invoiceNumber: string | null;
+    };
+    type Queue = {
+      items: Item[];
+      summary: { dueCount: number; dueAmount: number; totalCount: number; remindedThisWeek: number };
+      history: {
+        channel: string;
+        amount: number;
+        customerName: string;
+        invoiceNumber: string | null;
+        byName: string | null;
+      }[];
+    };
     const queue = async () => (await http.get('/v1/reminders').set(A()).expect(200)).body as Queue;
 
     beforeAll(async () => {
-      const client = (await http.post('/v1/contacts').set(A()).send({ name: 'Restaurant Le Lagon', phone: '33 821 00 00' }).expect(201)).body.id;
+      const client = (
+        await http
+          .post('/v1/contacts')
+          .set(A())
+          .send({ name: 'Restaurant Le Lagon', phone: '33 821 00 00' })
+          .expect(201)
+      ).body.id;
       const inv = (
-        await http.post('/v1/invoicing/documents').set(A())
-          .send({ kind: 'invoice', customerId: client, lines: [{ name: 'Traiteur 40 couverts', quantity: 1, unitPrice: 120000 }] })
+        await http
+          .post('/v1/invoicing/documents')
+          .set(A())
+          .send({
+            kind: 'invoice',
+            customerId: client,
+            lines: [{ name: 'Traiteur 40 couverts', quantity: 1, unitPrice: 120000 }],
+          })
           .expect(201)
       ).body;
       await dbs.withTenant(awaBiz, (tx) =>
-        tx.execute(sql`UPDATE invoicing.documents SET due_date = current_date - 3 WHERE id = ${inv.id}`));
+        tx.execute(sql`UPDATE invoicing.documents SET due_date = current_date - 3 WHERE id = ${inv.id}`),
+      );
     });
 
     it('réunit crédits et factures impayées, à relancer d’abord', async () => {
@@ -1912,7 +2333,11 @@ describe('Socle Sama360 (e2e)', () => {
       const credit = q.items.find((i) => i.kind === 'credit' && i.name === 'Ndèye Sarr')!;
       const invoice = q.items.find((i) => i.kind === 'invoice')!;
 
-      await http.post('/v1/reminders').set(A()).send({ kind: 'credit', id: credit.id, channel: 'whatsapp' }).expect(201);
+      await http
+        .post('/v1/reminders')
+        .set(A())
+        .send({ kind: 'credit', id: credit.id, channel: 'whatsapp' })
+        .expect(201);
       await http.post('/v1/reminders').set(A()).send({ kind: 'invoice', id: invoice.id, channel: 'sms' }).expect(201);
       // L'ancienne route de la fiche client passe aussi par l'historique
       await http.post(`/v1/customers/${credit.id}/reminders`).set(A()).send({ channel: 'call' }).expect(201);
@@ -1924,12 +2349,21 @@ describe('Socle Sama360 (e2e)', () => {
       expect(after.summary.dueCount).toBe(q.summary.dueCount - 2);
       expect(after.summary.remindedThisWeek).toBe(q.summary.remindedThisWeek + 3);
       expect(after.history.slice(0, 3)).toEqual([
-        expect.objectContaining({ channel: 'call', customerName: 'Ndèye Sarr', invoiceNumber: null, byName: 'Awa Diallo' }),
+        expect.objectContaining({
+          channel: 'call',
+          customerName: 'Ndèye Sarr',
+          invoiceNumber: null,
+          byName: 'Awa Diallo',
+        }),
         expect.objectContaining({ channel: 'sms', invoiceNumber: invoice.invoiceNumber, amount: invoice.amount }),
         expect.objectContaining({ channel: 'whatsapp', customerName: 'Ndèye Sarr', amount: credit.amount }),
       ]);
 
-      await http.post('/v1/reminders').set(A()).send({ kind: 'invoice', id: '0193aaaa-0000-7000-8000-000000000000' }).expect(404);
+      await http
+        .post('/v1/reminders')
+        .set(A())
+        .send({ kind: 'invoice', id: '0193aaaa-0000-7000-8000-000000000000' })
+        .expect(404);
       await http.post('/v1/reminders').set(A()).send({ kind: 'devis', id: invoice.id }).expect(422);
     });
   });
@@ -1946,19 +2380,40 @@ describe('Socle Sama360 (e2e)', () => {
         await http
           .post('/v1/contacts')
           .set(A())
-          .send({ name: 'Khady Ndiaye', phone: '77 640 11 22', birthDay: now.getUTCDate(), birthMonth: now.getUTCMonth() + 1 })
+          .send({
+            name: 'Khady Ndiaye',
+            phone: '77 640 11 22',
+            birthDay: now.getUTCDate(),
+            birthMonth: now.getUTCMonth() + 1,
+          })
           .expect(201)
       ).body.id;
     });
 
     it('programme désactivé par défaut ; réglages réservés au gérant et vérifiés', async () => {
       expect((await http.get('/v1/loyalty/settings').set(A()).expect(200)).body.enabled).toBe(false);
-      const s = await sell({ customerId: khady, items: [{ name: 'Thiouraye', quantity: 1, unitPrice: 5000 }], payments: [{ method: 'cash', amount: 5000 }] }).expect(201);
+      const s = await sell({
+        customerId: khady,
+        items: [{ name: 'Thiouraye', quantity: 1, unitPrice: 5000 }],
+        payments: [{ method: 'cash', amount: 5000 }],
+      }).expect(201);
       expect(s.body.loyalty).toBeNull();
 
-      await http.put('/v1/loyalty/settings').set(auth(modouToken, awaBiz)).send({ enabled: true, earnPer: 1000, rewardPoints: 10, rewardValue: 500 }).expect(403);
-      await http.put('/v1/loyalty/settings').set(A()).send({ enabled: true, earnPer: 100, rewardPoints: 1, rewardValue: 500 }).expect(422);
-      const r = await http.put('/v1/loyalty/settings').set(A()).send({ enabled: true, earnPer: 1000, rewardPoints: 10, rewardValue: 500 }).expect(200);
+      await http
+        .put('/v1/loyalty/settings')
+        .set(auth(modouToken, awaBiz))
+        .send({ enabled: true, earnPer: 1000, rewardPoints: 10, rewardValue: 500 })
+        .expect(403);
+      await http
+        .put('/v1/loyalty/settings')
+        .set(A())
+        .send({ enabled: true, earnPer: 100, rewardPoints: 1, rewardValue: 500 })
+        .expect(422);
+      const r = await http
+        .put('/v1/loyalty/settings')
+        .set(A())
+        .send({ enabled: true, earnPer: 1000, rewardPoints: 10, rewardValue: 500 })
+        .expect(200);
       expect(r.body).toEqual({ enabled: true, earnPer: 1000, rewardPoints: 10, rewardValue: 500 });
       expect((await http.get(`/v1/customers/${khady}`).set(A()).expect(200)).body.customer).toMatchObject({
         birthDay: now.getUTCDate(),
@@ -1969,7 +2424,11 @@ describe('Socle Sama360 (e2e)', () => {
     let firstSale: string;
     let secondSale: string;
     it('points gagnés à l’achat, récompense utilisée en remise', async () => {
-      const s1 = await sell({ customerId: khady, items: [{ name: 'Bazin', quantity: 1, unitPrice: 12500 }], payments: [{ method: 'cash', amount: 12500 }] }).expect(201);
+      const s1 = await sell({
+        customerId: khady,
+        items: [{ name: 'Bazin', quantity: 1, unitPrice: 12500 }],
+        payments: [{ method: 'cash', amount: 12500 }],
+      }).expect(201);
       firstSale = s1.body.id;
       expect(s1.body.loyalty).toEqual({ earned: 12, redeemed: 0, balance: 12 });
       expect(await card()).toMatchObject({ balance: 12, rewardsAvailable: 1, pointsToNextReward: 8 });
@@ -1984,9 +2443,18 @@ describe('Socle Sama360 (e2e)', () => {
       expect(s2.body).toMatchObject({ subtotal: 3000, discount: 500, total: 2500, paid: 2500 });
       expect(s2.body.loyalty).toEqual({ earned: 2, redeemed: 10, balance: 4 });
 
-      const refused = await sell({ customerId: khady, items: [{ name: 'Encens', quantity: 1, unitPrice: 3000 }], redeemRewards: 1, payments: [{ method: 'cash', amount: 2500 }] }).expect(409);
+      const refused = await sell({
+        customerId: khady,
+        items: [{ name: 'Encens', quantity: 1, unitPrice: 3000 }],
+        redeemRewards: 1,
+        payments: [{ method: 'cash', amount: 2500 }],
+      }).expect(409);
       expect(refused.body.error.details).toEqual({ balance: 4, points: 10 });
-      await sell({ items: [{ name: 'Encens', quantity: 1, unitPrice: 3000 }], redeemRewards: 1, payments: [{ method: 'cash', amount: 2500 }] }).expect(422);
+      await sell({
+        items: [{ name: 'Encens', quantity: 1, unitPrice: 3000 }],
+        redeemRewards: 1,
+        payments: [{ method: 'cash', amount: 2500 }],
+      }).expect(422);
       expect(firstSale).toBeTruthy();
     });
 
@@ -1998,9 +2466,25 @@ describe('Socle Sama360 (e2e)', () => {
     });
 
     it('cadeau du gérant, pas de solde négatif', async () => {
-      expect((await http.post(`/v1/loyalty/customers/${khady}/adjust`).set(A()).send({ points: 5, reason: 'Cadeau fidélité' }).expect(201)).body.balance).toBe(17);
-      await http.post(`/v1/loyalty/customers/${khady}/adjust`).set(A()).send({ points: -100, reason: 'Erreur' }).expect(409);
-      await http.post(`/v1/loyalty/customers/${khady}/adjust`).set(auth(modouToken, awaBiz)).send({ points: 5, reason: 'Moi' }).expect(403);
+      expect(
+        (
+          await http
+            .post(`/v1/loyalty/customers/${khady}/adjust`)
+            .set(A())
+            .send({ points: 5, reason: 'Cadeau fidélité' })
+            .expect(201)
+        ).body.balance,
+      ).toBe(17);
+      await http
+        .post(`/v1/loyalty/customers/${khady}/adjust`)
+        .set(A())
+        .send({ points: -100, reason: 'Erreur' })
+        .expect(409);
+      await http
+        .post(`/v1/loyalty/customers/${khady}/adjust`)
+        .set(auth(modouToken, awaBiz))
+        .send({ points: 5, reason: 'Moi' })
+        .expect(403);
     });
 
     it('tableau de bord : meilleurs clients, anniversaires, et notification du jour', async () => {
@@ -2009,7 +2493,10 @@ describe('Socle Sama360 (e2e)', () => {
       expect(d.top.find((t: { name: string }) => t.name === 'Khady Ndiaye')).toMatchObject({ visits: 2, points: 17 });
       expect(d.birthdays[0]).toMatchObject({ name: 'Khady Ndiaye', inDays: 0, points: 17 });
       expect(d.stats.members).toBeGreaterThanOrEqual(1);
-      const notifs = (await http.get('/v1/notifications').set(A()).expect(200)).body.items as { kind: string; title: string }[];
+      const notifs = (await http.get('/v1/notifications').set(A()).expect(200)).body.items as {
+        kind: string;
+        title: string;
+      }[];
       expect(notifs.find((n) => n.kind === 'birthday')?.title).toBe('Anniversaire de Khady Ndiaye aujourd’hui');
     });
   });
@@ -2048,7 +2535,7 @@ describe('Socle Sama360 (e2e)', () => {
       expect(w.businessName).toBeTruthy();
       expect(w.salesCount).toBeGreaterThan(0);
       expect(w.text).toContain(`*${w.businessName} — semaine du`);
-      expect(w.text).toContain('Chiffre d\'affaires');
+      expect(w.text).toContain("Chiffre d'affaires");
       expect(w.text).toContain('Envoyé depuis Sama360');
       // Sans date : la semaine complète précédente (lundi → dimanche)
       const last = (await http.get('/v1/reports/weekly').set(A()).expect(200)).body;

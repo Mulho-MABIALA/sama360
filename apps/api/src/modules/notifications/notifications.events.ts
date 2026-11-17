@@ -70,9 +70,10 @@ export class NotificationEventHandlers {
   async saleVoided(event: SaleVoided, tx: Tx): Promise<void> {
     const p = event.payload;
     const who = event.actorId
-      ? ((
-          await tx.execute(sql`SELECT full_name FROM core.users WHERE id = ${event.actorId}`)
-        ).rows[0] as { full_name: string | null } | undefined)?.full_name
+      ? (
+          (await tx.execute(sql`SELECT full_name FROM core.users WHERE id = ${event.actorId}`)).rows[0] as
+            { full_name: string | null } | undefined
+        )?.full_name
       : null;
     await this.notifications.push(tx, event.businessId, {
       kind: 'sale_voided',
