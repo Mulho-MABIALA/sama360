@@ -40,6 +40,12 @@ Future<void> _shot(WidgetTester tester, String name) async {
   }
 }
 
+Future<void> _precacheMonument(WidgetTester tester, DateTime day) async {
+  final ctx = tester.element(find.byType(MonumentBackdrop));
+  await tester.runAsync(() => precacheImage(AssetImage(monumentOfDay(day).asset), ctx));
+  await tester.pumpAndSettle();
+}
+
 void main() {
   if (Platform.environment['SAMA_SCREENSHOTS'] != '1') return; // rendu dépendant de la machine
   setUpAll(loadTestFonts);
@@ -292,7 +298,9 @@ void main() {
     await pumpSama(
       tester,
       pinStore: MemoryPinStore(StoredPin(userId: 'u1', hash: hashPin('2580'))),
+      overrides: [monumentDateProvider.overrideWithValue(DateTime(2026, 11, 17))],
     );
+    await _precacheMonument(tester, DateTime(2026, 11, 17));
     await tester.tap(find.byKey(const Key('pin_key_2')));
     await tester.tap(find.byKey(const Key('pin_key_5')));
     await tester.pumpAndSettle();
@@ -301,7 +309,12 @@ void main() {
 
   testWidgets('code secret (création)', (tester) async {
     phoneSize(tester);
-    await pumpSama(tester, pinStore: MemoryPinStore());
+    await pumpSama(
+      tester,
+      pinStore: MemoryPinStore(),
+      overrides: [monumentDateProvider.overrideWithValue(DateTime(2026, 11, 20))],
+    );
+    await _precacheMonument(tester, DateTime(2026, 11, 20));
     await _shot(tester, '0d_code_creation');
   });
 

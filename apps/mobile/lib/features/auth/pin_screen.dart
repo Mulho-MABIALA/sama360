@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+import 'dart:ui' show ImageFilter;
 
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -9,6 +10,7 @@ import '../../core/glass.dart';
 import '../../core/pin_lock.dart';
 import '../../core/theme.dart';
 import '../../core/widgets.dart';
+import '../home/monument.dart';
 import 'auth_controller.dart';
 
 enum PinMode { unlock, create, change }
@@ -154,8 +156,13 @@ class _PinScreenState extends ConsumerState<PinScreen> with SingleTickerProvider
   @override
   Widget build(BuildContext context) {
     final unlock = widget.mode == PinMode.unlock;
-    return Scaffold(
-      backgroundColor: AppColors.ground,
+    // Ouverture et création : monument du jour en fond, touches en verre (comme l'accueil)
+    final photo = widget.mode != PinMode.change;
+    final ink = photo ? Colors.white : AppColors.ink;
+    final soft = photo ? Colors.white.withValues(alpha: 0.85) : AppColors.muted;
+    final errorColor = photo ? const Color(0xFFFFB4A8) : AppColors.danger;
+    final screen = Scaffold(
+      backgroundColor: photo ? Colors.transparent : AppColors.ground,
       appBar: widget.mode == PinMode.change
           ? AppBar(backgroundColor: Colors.transparent, title: const Text('Code secret'))
           : null,
@@ -172,13 +179,21 @@ class _PinScreenState extends ConsumerState<PinScreen> with SingleTickerProvider
                   _title,
                   key: const Key('pin_title'),
                   textAlign: TextAlign.center,
-                  style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800),
+                  style: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w800,
+                    color: ink,
+                    shadows: photo ? const [Shadow(color: Color(0x80000000), blurRadius: 14)] : null,
+                  ),
                 ),
                 const SizedBox(height: 4),
                 Text(
                   _subtitle,
                   textAlign: TextAlign.center,
-                  style: TextStyle(color: AppColors.muted),
+                  style: TextStyle(
+                    color: soft,
+                    shadows: photo ? const [Shadow(color: Color(0x80000000), blurRadius: 10)] : null,
+                  ),
                 ),
                 SizedBox(height: compact ? 22 : 34),
                 AnimatedBuilder(
@@ -187,7 +202,7 @@ class _PinScreenState extends ConsumerState<PinScreen> with SingleTickerProvider
                     offset: Offset(math.sin(_shake.value * math.pi * 6) * 12 * (1 - _shake.value), 0),
                     child: child,
                   ),
-                  child: _Dots(filled: _digits.length, error: _error != null),
+                  child: _Dots(filled: _digits.length, error: _error != null, onPhoto: photo),
                 ),
                 SizedBox(
                   height: 44,
@@ -200,7 +215,7 @@ class _PinScreenState extends ConsumerState<PinScreen> with SingleTickerProvider
                               _error!,
                               key: const Key('pin_error'),
                               textAlign: TextAlign.center,
-                              style: TextStyle(color: AppColors.danger, fontWeight: FontWeight.w700, fontSize: 13),
+                              style: TextStyle(color: errorColor, fontWeight: FontWeight.w700, fontSize: 13),
                             ),
                           ),
                   ),
@@ -209,22 +224,26 @@ class _PinScreenState extends ConsumerState<PinScreen> with SingleTickerProvider
                 if (_confirmForgot)
                   _ForgotPanel(onCancel: () => setState(() => _confirmForgot = false), onConfirm: _signOut)
                 else ...[
-                  _Keypad(onDigit: _tap, onErase: _erase, keySize: compact ? 64 : 74),
+                  _Keypad(onDigit: _tap, onErase: _erase, keySize: compact ? 64 : 74, glass: photo),
                   const SizedBox(height: 8),
                   SizedBox(
                     height: 48,
                     child: unlock
                         ? TextButton(
                             onPressed: _busy ? null : () => setState(() => _confirmForgot = true),
-                            child: const Text(
+                            child: Text(
                               'Code secret oublié ?',
-                              style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
+                              style: TextStyle(
+                                fontWeight: FontWeight.w700,
+                                fontSize: 15,
+                                color: photo ? Colors.white : null,
+                              ),
                             ),
                           )
                         : widget.mode == PinMode.create
                         ? TextButton(
                             onPressed: _busy ? null : _signOut,
-                            child: Text('Se déconnecter', style: TextStyle(color: AppColors.muted)),
+                            child: Text('Se déconnecter', style: TextStyle(color: soft)),
                           )
                         : null,
                   ),
@@ -236,13 +255,33 @@ class _PinScreenState extends ConsumerState<PinScreen> with SingleTickerProvider
         ),
       ),
     );
+    if (!photo) return screen;
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        const MonumentBackdrop(),
+        // Voile plus marqué en bas : le pavé reste lisible sur toutes les photos
+        const DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              stops: [0, 0.45, 1],
+              colors: [Color(0x26000000), Color(0x40052A1F), Color(0xA6052A1F)],
+            ),
+          ),
+        ),
+        screen,
+      ],
+    );
   }
 }
 
 class _Dots extends StatelessWidget {
-  const _Dots({required this.filled, required this.error});
+  const _Dots({required this.filled, required this.error, this.onPhoto = false});
   final int filled;
   final bool error;
+  final bool onPhoto;
 
   @override
   Widget build(BuildContext context) => Semantics(
@@ -259,9 +298,14 @@ class _Dots extends StatelessWidget {
             height: 16,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: i < filled
+              color: onPhoto
+                  ? (i < filled
+                        ? (error ? const Color(0xFFFFB4A8) : Colors.white)
+                        : Colors.white.withValues(alpha: 0.18))
+                  : i < filled
                   ? (error ? AppColors.danger : AppColors.green)
                   : (error ? AppColors.danger.withValues(alpha: 0.25) : AppColors.green.withValues(alpha: 0.22)),
+              border: onPhoto ? Border.all(color: Colors.white.withValues(alpha: 0.75), width: 1.5) : null,
             ),
           ),
       ],
@@ -270,18 +314,24 @@ class _Dots extends StatelessWidget {
 }
 
 class _Keypad extends StatelessWidget {
-  const _Keypad({required this.onDigit, required this.onErase, required this.keySize});
+  const _Keypad({required this.onDigit, required this.onErase, required this.keySize, this.glass = false});
   final ValueChanged<String> onDigit;
   final VoidCallback onErase;
   final double keySize;
+  final bool glass;
 
   @override
   Widget build(BuildContext context) {
+    final color = glass ? Colors.white : AppColors.ink;
     Widget key(String d) => _Key(
       size: keySize,
       label: d,
+      glass: glass,
       onTap: () => onDigit(d),
-      child: Text(d, style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w600)),
+      child: Text(
+        d,
+        style: TextStyle(fontSize: 28, fontWeight: FontWeight.w600, color: color),
+      ),
     );
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 36),
@@ -298,11 +348,12 @@ class _Keypad extends StatelessWidget {
             children: [
               SizedBox(width: keySize, height: keySize),
               key('0'),
+              // Effacer : sans bulle, pour bien le distinguer des chiffres
               _Key(
                 size: keySize,
                 label: 'Effacer',
                 onTap: onErase,
-                child: Icon(Icons.backspace_rounded, size: 26, color: AppColors.ink),
+                child: Icon(Icons.backspace_rounded, size: 26, color: color),
               ),
             ],
           ),
@@ -313,32 +364,57 @@ class _Keypad extends StatelessWidget {
 }
 
 class _Key extends StatelessWidget {
-  const _Key({required this.size, required this.label, required this.onTap, required this.child});
+  const _Key({required this.size, required this.label, required this.onTap, required this.child, this.glass = false});
   final double size;
   final String label;
   final VoidCallback onTap;
   final Widget child;
+  final bool glass;
 
   @override
-  Widget build(BuildContext context) => Semantics(
-    button: true,
-    label: label,
-    excludeSemantics: true,
-    child: Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: InkResponse(
-        key: Key('pin_key_$label'),
-        onTap: onTap,
-        radius: size / 2,
-        highlightShape: BoxShape.circle,
-        child: SizedBox(
-          width: size,
-          height: size,
-          child: Center(child: child),
-        ),
+  Widget build(BuildContext context) {
+    final tap = InkResponse(
+      key: Key('pin_key_$label'),
+      onTap: onTap,
+      radius: size / 2,
+      highlightShape: BoxShape.circle,
+      highlightColor: glass ? Colors.white.withValues(alpha: 0.22) : null,
+      splashColor: glass ? Colors.white.withValues(alpha: 0.28) : null,
+      child: SizedBox(
+        width: size,
+        height: size,
+        child: Center(child: child),
       ),
-    ),
-  );
+    );
+    return Semantics(
+      button: true,
+      label: label,
+      excludeSemantics: true,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 5),
+        child: !glass
+            ? tap
+            // Effet miroir : verre dépoli (la photo floutée dessous), reflet en haut à gauche, liseré clair
+            : ClipOval(
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [Colors.white.withValues(alpha: 0.32), Colors.white.withValues(alpha: 0.08)],
+                      ),
+                      border: Border.all(color: Colors.white.withValues(alpha: 0.38)),
+                    ),
+                    child: Material(type: MaterialType.transparency, child: tap),
+                  ),
+                ),
+              ),
+      ),
+    );
+  }
 }
 
 class _ForgotPanel extends StatelessWidget {
