@@ -1,6 +1,11 @@
 import { Module } from '@nestjs/common';
-import { BookingController } from './booking.controller';
+import { NotificationsModule } from '../notifications/notifications.module';
+import { BookingController, BookingPublicController } from './booking.controller';
 import { BookingService } from './booking.service';
 
-@Module({ controllers: [BookingController], providers: [BookingService] })
+@Module({
+  imports: [NotificationsModule],
+  controllers: [BookingController, BookingPublicController],
+  providers: [BookingService],
+})
 export class BookingModule {}

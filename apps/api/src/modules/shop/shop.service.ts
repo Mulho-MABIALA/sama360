@@ -130,9 +130,10 @@ export class ShopService {
           GROUP BY p.id ORDER BY lower(p.name)`)
       ).rows as Row[];
       const usedCategories = new Set(products.map((p) => p.category_id).filter(Boolean));
-      const categories = (
-        await tx.execute(sql`SELECT id, name FROM catalog.categories ORDER BY position, lower(name)`)
-      ).rows as Row[];
+      const booking = (await tx.execute(sql`SELECT online_enabled FROM sales.booking_settings`)).rows[0] as
+        Row | undefined;
+      const categories = (await tx.execute(sql`SELECT id, name FROM catalog.categories ORDER BY position, lower(name)`))
+        .rows as Row[];
       return {
         shop: {
           slug: slug.toLowerCase(),
@@ -148,6 +149,8 @@ export class ShopService {
           deliveryFee: settings.deliveryFee,
           deliveryZone: settings.deliveryZone,
           minOrder: settings.minOrder,
+          // Réservation en ligne ouverte : lien « Prendre rendez-vous » sur la vitrine
+          booking: booking?.online_enabled === true,
         },
         categories: categories.filter((c) => usedCategories.has(c.id)).map((c) => ({ id: c.id, name: c.name })),
         products: products.map((p) => {
@@ -186,7 +189,11 @@ export class ShopService {
         throw new AppError('VALIDATION_FAILED', 'Cette boutique ne livre pas : choisissez le retrait', 422);
       }
       if (input.mode === 'pickup' && !settings.pickup) {
-        throw new AppError('VALIDATION_FAILED', 'Cette boutique ne propose pas le retrait : choisissez la livraison', 422);
+        throw new AppError(
+          'VALIDATION_FAILED',
+          'Cette boutique ne propose pas le retrait : choisissez la livraison',
+          422,
+        );
       }
       if (input.mode === 'delivery' && !(input.address ?? '').trim()) {
         throw new AppError('VALIDATION_FAILED', 'Indiquez l’adresse de livraison', 422);
@@ -360,7 +367,14 @@ export class ShopService {
       const res = await tx.execute(sql`
         UPDATE catalog.products SET published = ${input.published}, updated_at = now(), version = version + 1
         WHERE deleted_at IS NULL AND published <> ${input.published}
-          ${ids ? sql`AND id IN (${sql.join(ids.map((i) => sql`${i}`), sql`, `)})` : sql``}
+          ${
+            ids
+              ? sql`AND id IN (${sql.join(
+                  ids.map((i) => sql`${i}`),
+                  sql`, `,
+                )})`
+              : sql``
+          }
         RETURNING id`);
       return { updated: res.rows.length };
     });
@@ -437,9 +451,9 @@ export class ShopService {
     }
 
     return this.dbs.withTenant(businessId, async (tx) => {
-      const [locked] = (
-        await tx.execute(sql`SELECT status FROM shop.orders WHERE id = ${id} FOR UPDATE`)
-      ).rows as { status: ShopOrderStatus }[];
+      const [locked] = (await tx.execute(sql`SELECT status FROM shop.orders WHERE id = ${id} FOR UPDATE`)).rows as {
+        status: ShopOrderStatus;
+      }[];
       if (locked.status !== from) {
         throw new AppError('CONFLICT', 'La commande vient d’être modifiée : actualisez', 409);
       }
@@ -473,7 +487,17 @@ export class ShopService {
     ).rows as Row[];
     const moduleOn = s?.module_on as boolean;
     if (s && s.business_id === null) {
-      return { enabled: false, title: null, description: null, whatsapp: null, pickup: true, delivery: true, deliveryFee: 0, deliveryZone: null, minOrder: 0 };
+      return {
+        enabled: false,
+        title: null,
+        description: null,
+        whatsapp: null,
+        pickup: true,
+        delivery: true,
+        deliveryFee: 0,
+        deliveryZone: null,
+        minOrder: 0,
+      };
     }
     return {
       enabled: s ? (s.enabled as boolean) && moduleOn : false,

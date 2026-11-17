@@ -37,6 +37,7 @@ class _ProductEditorScreenState extends ConsumerState<ProductEditorScreen> {
   final _wPrice = TextEditingController();
   final _wQty = TextEditingController();
   bool _isService = false;
+  int? _duration; // prestations : durée d'un rendez-vous
   String _unit = 'pièce';
   bool _trackStock = true;
   bool _published = true; // nouveau produit : visible dans la boutique en ligne
@@ -70,6 +71,7 @@ class _ProductEditorScreenState extends ConsumerState<ProductEditorScreen> {
         _sku.text = p.sku ?? '';
         _threshold.text = '${p.lowStockThreshold}';
         _isService = p.isService;
+        _duration = p.durationMinutes;
         _unit = p.unit;
         _trackStock = p.trackStock;
         _wholesale = p.hasWholesale;
@@ -125,6 +127,7 @@ class _ProductEditorScreenState extends ConsumerState<ProductEditorScreen> {
       cost: cost,
       categoryId: _category?.id,
       isService: _isService,
+      durationMinutes: _duration,
       unit: _unit,
       barcode: _barcode.text,
       sku: _sku.text,
@@ -270,6 +273,27 @@ class _ProductEditorScreenState extends ConsumerState<ProductEditorScreen> {
                                 ),
                             ],
                           ),
+                          if (_isService) ...[
+                            const SizedBox(height: 12),
+                            Text(
+                              'Durée d’un rendez-vous',
+                              style: TextStyle(color: AppColors.muted, fontWeight: FontWeight.w700, fontSize: 13),
+                            ),
+                            const SizedBox(height: 6),
+                            Wrap(
+                              spacing: 6,
+                              runSpacing: 6,
+                              children: [
+                                for (final m in const [15, 30, 45, 60, 90, 120, 180])
+                                  Pill(
+                                    key: Key('pDuration$m'),
+                                    label: m < 60 ? '$m min' : '${m ~/ 60} h${m % 60 == 0 ? '' : ' ${m % 60}'}',
+                                    selected: (_duration ?? 30) == m,
+                                    onTap: () => setState(() => _duration = m),
+                                  ),
+                              ],
+                            ),
+                          ],
                           const SizedBox(height: 10),
                           InkWell(
                             borderRadius: BorderRadius.circular(14),

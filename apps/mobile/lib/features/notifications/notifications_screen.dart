@@ -23,6 +23,7 @@ const tabRoutes = {'/', '/pos', '/stock', '/customers'};
   'welcome' => (Icons.celebration_rounded, const Color(0xFFE0533D)),
   'birthday' => (Icons.cake_rounded, const Color(0xFFE0A100)),
   'weekly_report' => (Icons.chat_rounded, AppColors.whatsapp),
+  'appointment_online' => (Icons.public_rounded, const Color(0xFF2F6FDB)),
   'appointments_today' => (Icons.event_available_rounded, const Color(0xFF2F6FDB)),
   'document_expiring' => (Icons.event_busy_rounded, const Color(0xFF6B7280)),
   _ => (Icons.notifications_rounded, AppColors.green),

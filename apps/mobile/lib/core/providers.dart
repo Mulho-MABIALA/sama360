@@ -396,3 +396,8 @@ final appointmentsProvider = FutureProvider.family<AppointmentList, DateTime>((r
   ref.watch(businessIdProvider);
   return ref.watch(repoProvider).appointments(day);
 });
+
+final bookingSettingsProvider = FutureProvider<BookingSettings>((ref) {
+  ref.watch(businessIdProvider);
+  return ref.watch(repoProvider).bookingSettings();
+});

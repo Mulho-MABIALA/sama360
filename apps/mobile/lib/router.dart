@@ -157,6 +157,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(path: '/reports', builder: (_, _) => const ReportsScreen()),
       GoRoute(path: '/booking', builder: (_, _) => const BookingScreen()),
+      GoRoute(path: '/booking/settings', builder: (_, _) => const BookingSettingsScreen()),
       GoRoute(
         path: '/booking/new',
         builder: (_, s) => AppointmentEditorScreen(day: DateTime.tryParse(s.uri.queryParameters['day'] ?? '')),

@@ -367,6 +367,16 @@ void main() {
     await _shot(tester, '18_reservations');
   });
 
+  testWidgets('réservation en ligne (réglages)', (tester) async {
+    phoneSize(tester);
+    const tresses = Product(id: 's1', name: 'Tresses', price: 15000, cost: 0, isService: true, trackStock: false);
+    final repo = FakeRepo()
+      ..extraProducts = const [tresses]
+      ..bookingSettingsValue = const BookingSettings(onlineEnabled: true, capacity: 2, bookingPath: '/r/awa-beaute');
+    await pumpSama(tester, location: '/booking/settings', repo: repo);
+    await _shot(tester, '18b_reservation_en_ligne');
+  });
+
   testWidgets('assistant', (tester) async {
     phoneSize(tester);
     await pumpSama(tester, location: '/assistant');

@@ -142,6 +142,7 @@ class Product {
     this.lowStockThreshold = 5,
     this.imageFileId,
     this.isService = false,
+    this.durationMinutes,
     this.unit = 'pièce',
     this.barcode,
     this.sku,
@@ -161,6 +162,9 @@ class Product {
   final int lowStockThreshold;
   final String? imageFileId; // photo principale (GET /v1/files/:id)
   final bool isService;
+
+  /// Prestation : durée d'un rendez-vous (réservation en ligne).
+  final int? durationMinutes;
   final String unit;
   final String? barcode;
   final String? sku;
@@ -187,6 +191,7 @@ class Product {
     lowStockThreshold: _int(j['lowStockThreshold']),
     imageFileId: ((j['imageFileIds'] as List?) ?? const []).cast<String>().firstOrNull,
     isService: j['type'] == 'service',
+    durationMinutes: (j['durationMinutes'] as num?)?.toInt(),
     unit: j['unit'] as String? ?? 'pièce',
     barcode: j['barcode'] as String?,
     sku: j['sku'] as String?,
@@ -204,6 +209,7 @@ class ProductDraft {
     this.cost = 0,
     this.categoryId,
     this.isService = false,
+    this.durationMinutes,
     this.unit = 'pièce',
     this.barcode,
     this.sku,
@@ -221,6 +227,7 @@ class ProductDraft {
   final int cost;
   final String? categoryId;
   final bool isService;
+  final int? durationMinutes;
   final String unit;
   final String? barcode;
   final String? sku;
@@ -242,6 +249,7 @@ class ProductDraft {
     'lowStockThreshold': lowStockThreshold,
     'wholesalePrice': wholesalePrice,
     'wholesaleMinQty': wholesaleMinQty,
+    if (isService) 'durationMinutes': durationMinutes,
     'published': ?published,
   };
 }
@@ -2805,6 +2813,7 @@ class Appointment {
     required this.status,
     this.note,
     this.overlaps = false,
+    this.online = false,
   });
   final String id;
   final String? customerId;
@@ -2821,6 +2830,9 @@ class Appointment {
   /// Croise un autre rendez-vous actif (avertissement, sans blocage).
   final bool overlaps;
 
+  /// Pris par le client sur la page de réservation en ligne.
+  final bool online;
+
   DateTime get endsAt => startsAt.add(Duration(minutes: durationMinutes));
 
   factory Appointment.fromJson(Map<String, dynamic> j) => Appointment(
@@ -2836,6 +2848,7 @@ class Appointment {
     status: AppointmentStatus.of(j['status'] as String),
     note: j['note'] as String?,
     overlaps: j['overlaps'] == true,
+    online: j['source'] == 'online',
   );
 }
 
@@ -2885,5 +2898,75 @@ class AppointmentDraft {
     'startsAt': startsAt.toUtc().toIso8601String(),
     'durationMinutes': durationMinutes,
     'note': (note ?? '').trim().isEmpty ? null : note!.trim(),
+  };
+}
+
+/// Réglages de la réservation en ligne.
+class BookingSettings {
+  const BookingSettings({
+    this.onlineEnabled = false,
+    this.openDays = const [1, 2, 3, 4, 5, 6],
+    this.openTime = '09:00',
+    this.closeTime = '19:00',
+    this.slotMinutes = 30,
+    this.capacity = 1,
+    this.minNoticeMinutes = 60,
+    this.maxDaysAhead = 30,
+    this.bookingPath,
+  });
+  final bool onlineEnabled;
+  final List<int> openDays; // 1 = lundi … 7 = dimanche
+  final String openTime;
+  final String closeTime;
+  final int slotMinutes;
+  final int capacity;
+  final int minNoticeMinutes;
+  final int maxDaysAhead;
+
+  /// « /r/awa-beaute » : page publique de réservation.
+  final String? bookingPath;
+
+  BookingSettings copyWith({
+    bool? onlineEnabled,
+    List<int>? openDays,
+    String? openTime,
+    String? closeTime,
+    int? slotMinutes,
+    int? capacity,
+    int? minNoticeMinutes,
+    int? maxDaysAhead,
+  }) => BookingSettings(
+    onlineEnabled: onlineEnabled ?? this.onlineEnabled,
+    openDays: openDays ?? this.openDays,
+    openTime: openTime ?? this.openTime,
+    closeTime: closeTime ?? this.closeTime,
+    slotMinutes: slotMinutes ?? this.slotMinutes,
+    capacity: capacity ?? this.capacity,
+    minNoticeMinutes: minNoticeMinutes ?? this.minNoticeMinutes,
+    maxDaysAhead: maxDaysAhead ?? this.maxDaysAhead,
+    bookingPath: bookingPath,
+  );
+
+  factory BookingSettings.fromJson(Map<String, dynamic> j) => BookingSettings(
+    onlineEnabled: j['onlineEnabled'] == true,
+    openDays: [for (final d in (j['openDays'] as List? ?? const [])) _int(d)],
+    openTime: j['openTime'] as String? ?? '09:00',
+    closeTime: j['closeTime'] as String? ?? '19:00',
+    slotMinutes: _int(j['slotMinutes']),
+    capacity: _int(j['capacity']),
+    minNoticeMinutes: _int(j['minNoticeMinutes']),
+    maxDaysAhead: _int(j['maxDaysAhead']),
+    bookingPath: j['bookingPath'] as String?,
+  );
+
+  Map<String, Object> toJson() => {
+    'onlineEnabled': onlineEnabled,
+    'openDays': openDays,
+    'openTime': openTime,
+    'closeTime': closeTime,
+    'slotMinutes': slotMinutes,
+    'capacity': capacity,
+    'minNoticeMinutes': minNoticeMinutes,
+    'maxDaysAhead': maxDaysAhead,
   };
 }

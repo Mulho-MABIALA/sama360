@@ -153,7 +153,8 @@ input:focus,textarea:focus{border-color:var(--green)}
       (s.delivery ? '<span class="tag">🛵 Livraison' + (s.deliveryFee ? ' ' + money(s.deliveryFee) : ' offerte') + (s.deliveryZone ? ' · ' + esc(s.deliveryZone) : '') + '</span>' : '') +
       (s.pickup ? '<span class="tag">🏬 Retrait en boutique</span>' : '') +
       (s.minOrder ? '<span class="tag">Minimum ' + money(s.minOrder) + '</span>' : '') +
-      (wa ? '<span class="tag"><a href="' + wa + '" target="_blank" rel="noopener">💬 WhatsApp</a></span>' : '') + '</div></header>' +
+      (wa ? '<span class="tag"><a href="' + wa + '" target="_blank" rel="noopener">💬 WhatsApp</a></span>' : '') +
+      (s.booking ? '<span class="tag"><a href="/r/' + SLUG + '">📅 Prendre rendez-vous</a></span>' : '') + '</div></header>' +
       '<div class="tools"><input class="search" id="q" placeholder="Rechercher un produit" value="' + esc(state.q) + '">' +
       (cats.length ? '<div class="chips"><button class="chip' + (state.cat ? '' : ' on') + '" data-cat="">Tout</button>' +
         cats.map(function(c){ return '<button class="chip' + (state.cat===c.id?' on':'') + '" data-cat="' + esc(c.id) + '">' + esc(c.name) + '</button>'; }).join('') + '</div>' : '') +

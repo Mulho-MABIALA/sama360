@@ -1307,6 +1307,18 @@ class FakeRepo extends SamaRepository {
   final reportRequests = <(DateTime, DateTime)>[];
 
   // ---------- Réservation ----------
+  BookingSettings bookingSettingsValue = const BookingSettings(bookingPath: '/r/awa-beaute');
+  final savedBookingSettings = <BookingSettings>[];
+
+  @override
+  Future<BookingSettings> bookingSettings() async => bookingSettingsValue;
+
+  @override
+  Future<BookingSettings> saveBookingSettings(BookingSettings s) async {
+    savedBookingSettings.add(s);
+    return bookingSettingsValue = BookingSettings.fromJson({...s.toJson(), 'bookingPath': '/r/awa-beaute'});
+  }
+
   final appointmentList = <Appointment>[];
   final createdAppointments = <Map<String, Object?>>[];
   final appointmentChanges = <(String, Map<String, Object?>)>[];

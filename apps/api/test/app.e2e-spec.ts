@@ -2864,6 +2864,111 @@ describe('Socle Sama360 (e2e)', () => {
     });
   });
 
+  describe('Réservation en ligne', () => {
+    const A = () => auth(awa.accessToken, awaBiz);
+    let slug: string;
+    let coupe: string;
+    // Un jour ouvré dans une semaine (créneaux du matin, sans souci de préavis)
+    const day = (() => {
+      const d = new Date(Date.now() + 7 * 86_400_000);
+      while (d.getUTCDay() === 0) d.setUTCDate(d.getUTCDate() + 1);
+      return d.toISOString().slice(0, 10);
+    })();
+    const settings = {
+      onlineEnabled: true,
+      openDays: [1, 2, 3, 4, 5, 6],
+      openTime: '09:00',
+      closeTime: '11:00',
+      slotMinutes: 30,
+      capacity: 1,
+      minNoticeMinutes: 60,
+      maxDaysAhead: 30,
+    };
+
+    it('fermée par défaut ; le patron l’ouvre (horaires, créneaux) ; durée des prestations', async () => {
+      slug = (await http.get('/v1/shop').set(A()).expect(200)).body.slug;
+      const def = (await http.get('/v1/appointments/settings').set(A()).expect(200)).body;
+      expect(def).toMatchObject({ onlineEnabled: false, openTime: '09:00', bookingPath: `/r/${slug}` });
+      await http.get(`/v1/public/shops/${slug}/booking`).expect(404);
+
+      await http.put('/v1/appointments/settings').set(auth(modouToken, awaBiz)).send(settings).expect(403);
+      await http
+        .put('/v1/appointments/settings')
+        .set(A())
+        .send({ ...settings, closeTime: '08:00' })
+        .expect(422);
+      const saved = (await http.put('/v1/appointments/settings').set(A()).send(settings).expect(200)).body;
+      expect(saved).toMatchObject({ onlineEnabled: true, closeTime: '11:00', slotMinutes: 30 });
+
+      coupe = (
+        await http
+          .post('/v1/catalog/products')
+          .set(A())
+          .send({ name: 'Coupe homme', price: 2000, type: 'service', trackStock: false, durationMinutes: 60 })
+          .expect(201)
+      ).body.id;
+      const info = (await http.get(`/v1/public/shops/${slug}/booking`).expect(200)).body;
+      expect(info.services).toEqual(
+        expect.arrayContaining([{ id: coupe, name: 'Coupe homme', price: 2000, duration: 60 }]),
+      );
+      expect(info.days).toContain(day);
+      expect((await http.get(`/v1/public/shops/${slug}`).expect(200)).body.shop.booking).toBe(true);
+      const page = await http.get(`/r/${slug}`).expect(200);
+      expect(page.headers['content-type']).toContain('text/html');
+    });
+
+    it('créneaux libres, réservation, créneau pris, renvoi idempotent, notification', async () => {
+      const slots = async () =>
+        (await http.get(`/v1/public/shops/${slug}/booking/slots?serviceId=${coupe}&day=${day}`).expect(200)).body.slots;
+      expect(await slots()).toEqual(['09:00', '09:30', '10:00']);
+
+      const body = {
+        id: '01937b00-0000-7000-8000-0000000bb001',
+        serviceId: coupe,
+        day,
+        time: '09:30',
+        name: 'Ousmane Diop',
+        phone: '77 444 55 66',
+        note: 'Dégradé',
+      };
+      const r = await http.post(`/v1/public/shops/${slug}/booking`).send(body).expect(201);
+      expect(r.body).toMatchObject({
+        serviceName: 'Coupe homme',
+        price: 2000,
+        durationMinutes: 60,
+        customerPhone: '+221774445566',
+        source: 'online',
+        status: 'booked',
+        startsAt: `${day}T09:30:00.000Z`,
+      });
+      await http.post(`/v1/public/shops/${slug}/booking`).send(body).expect(200);
+
+      // 9 h 30 – 10 h 30 pris : il ne reste aucun créneau d'1 h (capacité 1, fermeture à 11 h)
+      expect(await slots()).toEqual([]);
+      const taken = await http
+        .post(`/v1/public/shops/${slug}/booking`)
+        .send({ ...body, id: '01937b00-0000-7000-8000-0000000bb002', time: '09:00' })
+        .expect(409);
+      expect(taken.body.error.code).toBe('SLOT_TAKEN');
+      await http
+        .post(`/v1/public/shops/${slug}/booking`)
+        .send({ ...body, id: '01937b00-0000-7000-8000-0000000bb003', time: '07:00' })
+        .expect(409);
+      await http
+        .post(`/v1/public/shops/${slug}/booking`)
+        .send({ ...body, id: '01937b00-0000-7000-8000-0000000bb004', phone: '12' })
+        .expect(422);
+
+      const agenda = (await http.get(`/v1/appointments?from=${day}&to=${day}`).set(A()).expect(200)).body.items;
+      expect(agenda).toEqual([expect.objectContaining({ customerName: 'Ousmane Diop', source: 'online' })]);
+      const notifs = (await http.get('/v1/notifications').set(A()).expect(200)).body.items as {
+        kind: string;
+        body: string;
+      }[];
+      expect(notifs.find((n) => n.kind === 'appointment_online')?.body).toContain('Ousmane Diop · Coupe homme ·');
+    });
+  });
+
   describe('Sessions', () => {
     it('déconnecte tous les appareils', async () => {
       // Session du caissier (les codes de connexion sont limités par minute : on réutilise sa session)

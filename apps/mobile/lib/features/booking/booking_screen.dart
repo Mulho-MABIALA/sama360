@@ -85,6 +85,12 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
         actions: [
           if (_day != today)
             TextButton(onPressed: () => setState(() => _day = today), child: const Text('Aujourd’hui')),
+          if (ref.can('business:update'))
+            IconButton(
+              tooltip: 'Réservation en ligne',
+              onPressed: () => context.push('/booking/settings'),
+              icon: const Icon(Icons.public_rounded),
+            ),
         ],
       ),
       floatingActionButton: canBook
@@ -460,6 +466,11 @@ class _AppointmentTile extends StatelessWidget {
                           decoration: faded ? TextDecoration.lineThrough : null,
                         ),
                       ),
+                      if (a.online)
+                        Text(
+                          'Réservé en ligne',
+                          style: TextStyle(color: _blue, fontSize: 11.5, fontWeight: FontWeight.w800),
+                        ),
                       Text(
                         a.price > 0 ? '${a.serviceName} · ${moneyShort(a.price)}' : a.serviceName,
                         maxLines: 1,
@@ -827,4 +838,323 @@ class _Label extends StatelessWidget {
       style: TextStyle(color: AppColors.muted, fontWeight: FontWeight.w700),
     ),
   );
+}
+
+// ---------- Réglages de la réservation en ligne ----------
+
+const _dayNames = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
+
+/// « 09:00 » → « 9 h », « 18:30 » → « 18 h 30 ».
+String hourText(String hhmm) {
+  final p = hhmm.split(':');
+  final h = int.parse(p[0]);
+  return p[1] == '00' ? '$h h' : '$h h ${p[1]}';
+}
+
+/// « 1 h avant », « la veille »…
+String noticeLabel(int minutes) => switch (minutes) {
+  0 => 'Sans délai',
+  < 60 => '$minutes min avant',
+  1440 => 'La veille',
+  _ => '${minutes ~/ 60} h avant',
+};
+
+class BookingSettingsScreen extends ConsumerStatefulWidget {
+  const BookingSettingsScreen({super.key});
+
+  @override
+  ConsumerState<BookingSettingsScreen> createState() => _BookingSettingsScreenState();
+}
+
+class _BookingSettingsScreenState extends ConsumerState<BookingSettingsScreen> {
+  BookingSettings? _s;
+  bool _busy = false;
+
+  Future<void> _time(bool open) async {
+    final s = _s!;
+    final parts = (open ? s.openTime : s.closeTime).split(':').map(int.parse).toList();
+    final t = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay(hour: parts[0], minute: parts[1]),
+    );
+    if (t == null) return;
+    final v = '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
+    setState(() => _s = open ? _s!.copyWith(openTime: v) : _s!.copyWith(closeTime: v));
+  }
+
+  Future<void> _save() async {
+    final s = _s!;
+    if (s.closeTime.compareTo(s.openTime) <= 0) {
+      return showInfo(context, 'L’heure de fermeture doit suivre l’ouverture');
+    }
+    if (s.openDays.isEmpty) return showInfo(context, 'Choisissez au moins un jour');
+    setState(() => _busy = true);
+    try {
+      final saved = await ref.read(repoProvider).saveBookingSettings(s);
+      ref.invalidate(bookingSettingsProvider);
+      if (!mounted) return;
+      setState(() {
+        _s = saved;
+        _busy = false;
+      });
+      showInfo(context, saved.onlineEnabled ? 'Réservation en ligne ouverte' : 'Réglages enregistrés');
+    } catch (e) {
+      if (mounted) {
+        setState(() => _busy = false);
+        showError(context, e);
+      }
+    }
+  }
+
+  Future<void> _share(String url) async {
+    final business = (await ref.read(currentBusinessProvider.future)).name;
+    final ok = await ref
+        .read(receiptActionsProvider)
+        .openWhatsApp(whatsAppUri('Prenez rendez-vous chez $business directement en ligne : $url'));
+    if (!ok && mounted) showInfo(context, 'Impossible d’ouvrir WhatsApp');
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final async = ref.watch(bookingSettingsProvider);
+    if (_s == null && async.value != null) _s = async.value;
+    final services = (ref.watch(productsProvider).value ?? const <Product>[]).where((p) => p.isService).length;
+    return AuroraScaffold(
+      appBar: AppBar(
+        title: const Text('Réservation en ligne', style: TextStyle(fontWeight: FontWeight.w800)),
+      ),
+      body: _s == null
+          ? AsyncView<BookingSettings>(
+              value: async,
+              onRetry: () => ref.invalidate(bookingSettingsProvider),
+              data: (_) => const SizedBox.shrink(),
+            )
+          : Builder(
+              builder: (context) {
+                final s = _s!;
+                final url = s.bookingPath == null
+                    ? null
+                    : '${ref.watch(apiBaseUrlProvider).replaceAll(RegExp(r'/+$'), '')}${s.bookingPath}';
+                return ListView(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 32),
+                  children: [
+                    Glass(
+                      radius: 22,
+                      padding: const EdgeInsets.fromLTRB(14, 6, 6, 6),
+                      child: SwitchListTile(
+                        key: const Key('booking_online'),
+                        contentPadding: EdgeInsets.zero,
+                        value: s.onlineEnabled,
+                        onChanged: (v) => setState(() => _s = _s!.copyWith(onlineEnabled: v)),
+                        title: const Text(
+                          'Les clients réservent en ligne',
+                          style: TextStyle(fontWeight: FontWeight.w800),
+                        ),
+                        subtitle: Text(
+                          'Ils choisissent la prestation et un créneau libre ; le rendez-vous arrive dans votre agenda.',
+                          style: TextStyle(color: AppColors.muted, fontSize: 12.5),
+                        ),
+                      ),
+                    ),
+                    if (services == 0) ...[
+                      const SizedBox(height: 10),
+                      Material(
+                        color: AppColors.warnBg,
+                        borderRadius: BorderRadius.circular(16),
+                        child: Padding(
+                          padding: const EdgeInsets.all(12),
+                          child: Text(
+                            'Ajoutez d’abord vos prestations dans le catalogue (type « Service », avec leur durée) : '
+                            'ce sont elles que vos clients pourront réserver.',
+                            key: const Key('booking_no_services'),
+                            style: TextStyle(color: AppColors.warnText, fontWeight: FontWeight.w600, fontSize: 13),
+                          ),
+                        ),
+                      ),
+                    ],
+                    if (url != null && s.onlineEnabled) ...[
+                      const SizedBox(height: 10),
+                      Glass(
+                        radius: 20,
+                        padding: const EdgeInsets.all(14),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('Votre lien de réservation', style: TextStyle(color: AppColors.muted, fontSize: 12.5)),
+                            const SizedBox(height: 4),
+                            SelectableText(
+                              url,
+                              key: const Key('booking_url'),
+                              style: const TextStyle(fontWeight: FontWeight.w800),
+                            ),
+                            const SizedBox(height: 10),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: OutlinedButton.icon(
+                                    onPressed: () async {
+                                      await Clipboard.setData(ClipboardData(text: url));
+                                      if (context.mounted) showInfo(context, 'Lien copié');
+                                    },
+                                    icon: const Icon(Icons.copy_rounded, size: 18),
+                                    label: const Text('Copier'),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: FilledButton.icon(
+                                    style: FilledButton.styleFrom(
+                                      backgroundColor: AppColors.whatsapp,
+                                      foregroundColor: const Color(0xFF08361A),
+                                    ),
+                                    onPressed: () => _share(url),
+                                    icon: const Icon(Icons.chat_rounded, size: 18),
+                                    label: const Text('WhatsApp'),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 18),
+                    const _Label('Jours d’ouverture'),
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 6,
+                      children: [
+                        for (var d = 1; d <= 7; d++)
+                          Pill(
+                            label: _dayNames[d - 1],
+                            selected: s.openDays.contains(d),
+                            onTap: () => setState(
+                              () => _s = _s!.copyWith(
+                                openDays: _s!.openDays.contains(d)
+                                    ? (_s!.openDays.where((x) => x != d).toList())
+                                    : ([..._s!.openDays, d]..sort()),
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    const _Label('Horaires'),
+                    Row(
+                      children: [
+                        for (final open in [true, false]) ...[
+                          Expanded(
+                            child: Glass(
+                              radius: 16,
+                              onTap: () => _time(open),
+                              padding: const EdgeInsets.all(12),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    open ? 'Ouverture' : 'Fermeture',
+                                    style: TextStyle(color: AppColors.muted, fontSize: 12),
+                                  ),
+                                  Text(
+                                    hourText(open ? s.openTime : s.closeTime),
+                                    style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 17),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                          if (open) const SizedBox(width: 10),
+                        ],
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    const _Label('Créneaux proposés toutes les'),
+                    Wrap(
+                      spacing: 6,
+                      children: [
+                        for (final m in const [15, 30, 60])
+                          Pill(
+                            label: durationLabel(m),
+                            selected: s.slotMinutes == m,
+                            onTap: () => setState(() => _s = _s!.copyWith(slotMinutes: m)),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    const _Label('Clients reçus en même temps'),
+                    Glass(
+                      radius: 16,
+                      padding: const EdgeInsets.fromLTRB(14, 4, 4, 4),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              s.capacity == 1
+                                  ? '1 à la fois'
+                                  : '${s.capacity} à la fois (ex. ${s.capacity} coiffeuses)',
+                              style: const TextStyle(fontWeight: FontWeight.w700),
+                            ),
+                          ),
+                          IconButton(
+                            key: const Key('capacity_minus'),
+                            tooltip: 'Un client de moins en même temps',
+                            onPressed: s.capacity > 1
+                                ? () => setState(() => _s = _s!.copyWith(capacity: _s!.capacity - 1))
+                                : null,
+                            icon: const Icon(Icons.remove_circle_outline_rounded),
+                          ),
+                          Text(
+                            '${s.capacity}',
+                            key: const Key('booking_capacity'),
+                            style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
+                          ),
+                          IconButton(
+                            key: const Key('capacity_plus'),
+                            tooltip: 'Un client de plus en même temps',
+                            onPressed: s.capacity < 20
+                                ? () => setState(() => _s = _s!.copyWith(capacity: _s!.capacity + 1))
+                                : null,
+                            icon: const Icon(Icons.add_circle_outline_rounded),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    const _Label('Réserver au plus tard'),
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 6,
+                      children: [
+                        for (final m in const [0, 30, 60, 120, 1440])
+                          Pill(
+                            label: noticeLabel(m),
+                            selected: s.minNoticeMinutes == m,
+                            onTap: () => setState(() => _s = _s!.copyWith(minNoticeMinutes: m)),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    const _Label('Jusqu’à combien de jours à l’avance'),
+                    Wrap(
+                      spacing: 6,
+                      children: [
+                        for (final d in const [7, 14, 30, 60])
+                          Pill(
+                            label: '$d jours',
+                            selected: s.maxDaysAhead == d,
+                            onTap: () => setState(() => _s = _s!.copyWith(maxDaysAhead: d)),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 22),
+                    SizedBox(
+                      height: 52,
+                      child: BusyButton(icon: Icons.check_rounded, label: 'Enregistrer', busy: _busy, onPressed: _save),
+                    ),
+                  ],
+                );
+              },
+            ),
+    );
+  }
 }

@@ -45,6 +45,8 @@ void main() {
   group('textes', () {
     test('durées, jour, rappel', () {
       expect(durationLabel(45), '45 min');
+      expect(hourText('09:00'), '9 h');
+      expect(hourText('18:30'), '18 h 30');
       expect(durationLabel(90), '1 h 30');
       expect(durationLabel(120), '2 h');
       final now = DateTime(2026, 11, 17, 8);
@@ -150,5 +152,56 @@ void main() {
     expect(DateTime.parse(sent['startsAt']! as String).toLocal().hour, 10);
     expect(routerOf(c).state.uri.path, '/booking');
     expect(find.text('Awa Ndiaye'), findsOneWidget);
+  });
+
+  testWidgets('réservation en ligne : ouvrir, jours, capacité, lien à partager', (tester) async {
+    phoneSize(tester);
+    final actions = RecordingActions();
+    final repo = FakeRepo()..extraProducts = const [_tresses];
+    final (c, _) = await pumpSama(
+      tester,
+      location: '/booking',
+      repo: repo,
+      overrides: [receiptActionsProvider.overrideWithValue(actions)],
+    );
+    await tester.tap(find.byTooltip('Réservation en ligne'));
+    await tester.pumpAndSettle();
+    expect(routerOf(c).state.uri.path, '/booking/settings');
+    expect(find.byKey(const Key('booking_url')), findsNothing); // fermée : pas encore de lien
+
+    await tester.tap(find.byKey(const Key('booking_online')));
+    await tester.pump();
+    await tester.ensureVisible(find.text('Dim'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Dim'));
+    await tester.ensureVisible(find.byKey(const Key('capacity_plus')));
+    await tester.tap(find.byKey(const Key('capacity_plus')));
+    await tester.ensureVisible(find.text('La veille'));
+    await tester.tap(find.text('La veille'));
+    await tester.dragUntilVisible(find.text('Enregistrer'), find.byType(ListView).last, const Offset(0, -200));
+    await tester.tap(find.text('Enregistrer'));
+    await tester.pumpAndSettle();
+
+    final saved = repo.savedBookingSettings.single;
+    expect(saved.onlineEnabled, isTrue);
+    expect(saved.openDays, [1, 2, 3, 4, 5, 6, 7]);
+    expect(saved.capacity, 2);
+    expect(saved.minNoticeMinutes, 1440);
+
+    await tester.dragUntilVisible(
+      find.byKey(const Key('booking_url')),
+      find.byType(ListView).last,
+      const Offset(0, 200),
+    );
+    expect(tester.widget<SelectableText>(find.byKey(const Key('booking_url'))).data, endsWith('/r/awa-beaute'));
+    await tester.tap(find.text('WhatsApp'));
+    await tester.pumpAndSettle();
+    expect(Uri.decodeFull(actions.whatsApp.toString()), contains('/r/awa-beaute'));
+  });
+
+  testWidgets('réservation en ligne : sans prestation, on prévient', (tester) async {
+    phoneSize(tester);
+    await pumpSama(tester, location: '/booking/settings');
+    expect(find.byKey(const Key('booking_no_services')), findsOneWidget);
   });
 }

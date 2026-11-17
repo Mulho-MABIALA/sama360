@@ -217,6 +217,8 @@ export const products = catalogSchema.table('products', {
   wholesalePrice: money('wholesale_price'),
   wholesaleMinQty: qty('wholesale_min_qty'),
   published: boolean('published').notNull().default(false),
+  // Prestations : durée d'un rendez-vous (réservation en ligne)
+  durationMinutes: integer('duration_minutes'),
   imageFileIds: uuid('image_file_ids').array().notNull().default([]),
   version: integer('version').notNull().default(1),
   createdAt: ts('created_at').notNull().defaultNow(),

@@ -42,6 +42,7 @@ const ProductInput = z.object({
   published: z.boolean().default(false),
   wholesalePrice: amount.nullish(),
   wholesaleMinQty: z.coerce.number().positive().max(1_000_000).nullish(),
+  durationMinutes: z.number().int().min(5).max(720).nullish(),
 });
 // Les valeurs par défaut ne doivent pas s'appliquer lors d'une modification partielle.
 const ProductPatch = z.object({
@@ -58,6 +59,7 @@ const ProductPatch = z.object({
   published: z.boolean().optional(),
   wholesalePrice: amount.nullish(),
   wholesaleMinQty: z.coerce.number().positive().max(1_000_000).nullish(),
+  durationMinutes: z.number().int().min(5).max(720).nullish(),
 });
 const ListQuery = PageQuery.extend({
   search: z.string().trim().max(80).optional(),
