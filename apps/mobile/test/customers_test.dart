@@ -267,7 +267,7 @@ void main() {
       expect(actions.whatsApp!.host, 'wa.me');
       expect(actions.whatsApp!.path, '/221774120855');
       expect(actions.whatsApp!.queryParameters['text'], contains('Awa Beauté vous rappelle'));
-      expect(repo.reminders, [('k1', 'whatsapp')]);
+      expect(repo.customerReminders, [('k1', 'whatsapp')]);
 
       await tester.tap(find.text('Envoyer un rappel'));
       await tester.pumpAndSettle();
@@ -277,7 +277,7 @@ void main() {
       expect(actions.whatsApp!.scheme, 'sms');
       expect(actions.whatsApp!.path, '+221774120855');
       expect(actions.whatsApp!.queryParameters['body'], 'Bonjour Fatou, on se voit samedi ?');
-      expect(repo.reminders.last, ('k1', 'sms'));
+      expect(repo.customerReminders.last, ('k1', 'sms'));
     });
 
     testWidgets('ajustement : reprise d’ancienne dette par le gérant', (tester) async {

@@ -236,7 +236,7 @@ class FakeRepo extends SamaRepository {
   final savedTypes = <String>[];
   final deletedCustomers = <String>[];
   final adjustments = <(String, int, String)>[];
-  final reminders = <(String, String)>[];
+  final customerReminders = <(String, String)>[];
   final customerQueries = <(String?, CustomerFilter, CustomerSort)>[];
 
   static final demoCustomers = [
@@ -380,7 +380,7 @@ class FakeRepo extends SamaRepository {
   }
 
   @override
-  Future<void> markReminded(String customerId, String channel) async => reminders.add((customerId, channel));
+  Future<void> markReminded(String customerId, String channel) async => customerReminders.add((customerId, channel));
 
   // ---------- Achats et fournisseurs ----------
   final purchaseBodies = <Map<String, dynamic>>[];
@@ -770,6 +770,81 @@ class FakeRepo extends SamaRepository {
       CashCountLine(method: PayMethod.wave, expected: 12000, counted: 12000, difference: 0),
     ],
   );
+
+  // ---------- Relances ----------
+  late ReminderQueue demoReminders = ReminderQueue(
+    items: [
+      ReminderItem(
+        kind: 'credit',
+        id: 'k1',
+        customerId: 'k1',
+        name: 'Ndèye Sarr',
+        phone: '+221765554433',
+        amount: 11000,
+        since: DateTime.now().subtract(const Duration(days: 40)),
+        daysLate: 40,
+        due: true,
+      ),
+      ReminderItem(
+        kind: 'invoice',
+        id: 'inv7',
+        customerId: 'k9',
+        name: 'Restaurant Le Lagon',
+        phone: '+221338210000',
+        amount: 120000,
+        since: DateTime.now().subtract(const Duration(days: 3)),
+        daysLate: 3,
+        invoiceNumber: 'FAC-2026-0007',
+        due: true,
+      ),
+      ReminderItem(
+        kind: 'credit',
+        id: 'k5',
+        customerId: 'k5',
+        name: 'Pape Diouf',
+        amount: 2500,
+        since: DateTime.now().subtract(const Duration(days: 12)),
+        daysLate: 12,
+        due: true,
+      ),
+      ReminderItem(
+        kind: 'credit',
+        id: 'k3',
+        customerId: 'k3',
+        name: 'Binta Sow',
+        phone: '+221772223344',
+        amount: 14000,
+        since: DateTime.now().subtract(const Duration(days: 20)),
+        daysLate: 20,
+        lastRemindedAt: DateTime.now().subtract(const Duration(days: 2)),
+        due: false,
+      ),
+    ],
+    history: [
+      ReminderLog(
+        id: 'r1',
+        channel: 'whatsapp',
+        amount: 14000,
+        at: DateTime.now().subtract(const Duration(days: 2)),
+        customerId: 'k3',
+        customerName: 'Binta Sow',
+        byName: 'Awa Diallo',
+      ),
+    ],
+    dueCount: 3,
+    dueAmount: 133500,
+    totalAmount: 147500,
+    remindedThisWeek: 1,
+  );
+  final recordedReminders = <(String, String, String)>[];
+
+  @override
+  Future<ReminderQueue> reminders() async => demoReminders;
+
+  @override
+  Future<void> recordReminder({required String kind, required String id, required String channel}) async {
+    recordedReminders.add((kind, id, channel));
+  }
 
   // ---------- Notifications ----------
   late List<AppNotification> demoNotifications = [

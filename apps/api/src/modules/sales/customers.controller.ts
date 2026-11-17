@@ -4,6 +4,7 @@ import { AuthUser, TenantContext } from '../../shared/auth/auth.types';
 import { CurrentTenant, CurrentUser, RequireModule, RequirePermission } from '../../shared/auth/decorators';
 import { parse } from '../../shared/http/zod';
 import { CustomersService } from './customers.service';
+import { RemindersService } from './reminders.service';
 
 const ListCustomers = z.object({
   search: z.string().trim().max(80).optional(),
@@ -27,7 +28,10 @@ const Reminder = z.object({ channel: z.enum(['whatsapp', 'sms', 'call']).default
 @Controller('v1/customers')
 @RequireModule('sales')
 export class CustomersController {
-  constructor(private readonly customers: CustomersService) {}
+  constructor(
+    private readonly customers: CustomersService,
+    private readonly reminders: RemindersService,
+  ) {}
 
   @Get()
   @RequirePermission('contacts:read')
@@ -55,8 +59,14 @@ export class CustomersController {
 
   @Post(':id/reminders')
   @RequirePermission('contacts:write')
-  remind(@CurrentTenant() t: TenantContext, @Param('id', ParseUUIDPipe) id: string, @Body() body: unknown) {
-    parse(Reminder, body ?? {});
-    return this.customers.markReminded(t.businessId, id);
+  async remind(
+    @CurrentTenant() t: TenantContext,
+    @CurrentUser() u: AuthUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() body: unknown,
+  ) {
+    const { channel } = parse(Reminder, body ?? {});
+    const r = await this.reminders.record(t.businessId, u.id, t.permissions, { kind: 'credit', id, channel });
+    return { lastRemindedAt: r.lastRemindedAt };
   }
 }

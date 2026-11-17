@@ -274,18 +274,6 @@ export class CustomersService {
   }
 
   /** Note qu'un rappel de paiement vient d'être envoyé (WhatsApp ou SMS, depuis le téléphone). */
-  markReminded(businessId: string, customerId: string) {
-    return this.dbs.withTenant(businessId, async (tx) => {
-      const res = await tx.execute(sql`
-        UPDATE contacts.contacts SET last_reminded_at = now()
-        WHERE id = ${customerId} AND deleted_at IS NULL
-        RETURNING last_reminded_at`);
-      const row = res.rows[0] as { last_reminded_at: Date } | undefined;
-      if (!row) throw AppError.notFound('Client');
-      return { lastRemindedAt: row.last_reminded_at };
-    });
-  }
-
   private async ledgerAsc(tx: Tx, customerId: string): Promise<LedgerRow[]> {
     const rows = (
       await tx.execute(sql`

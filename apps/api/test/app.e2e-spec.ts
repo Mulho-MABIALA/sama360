@@ -1805,7 +1805,7 @@ describe('Socle Sama360 (e2e)', () => {
       if (unpaid.n > 0) {
         expect(forOwner.items.find((n) => n.kind === 'invoices_overdue')).toMatchObject({
           title: unpaid.n > 1 ? `${unpaid.n} factures en retard` : '1 facture en retard',
-          link: '/invoices',
+          link: '/reminders',
         });
       }
       expect(forOwner.items.find((n) => n.kind === 'credit_stale')?.title).toMatch(/rien remboursé depuis 30 jours/);
@@ -1834,6 +1834,73 @@ describe('Socle Sama360 (e2e)', () => {
       const after = await list(A());
       expect(after.unread).toBe(0);
       expect(after.items.every((n) => n.read)).toBe(true);
+    });
+  });
+
+  describe('Relances', () => {
+    const A = () => auth(awa.accessToken, awaBiz);
+    type Item = { kind: string; id: string; customerId: string; name: string; amount: number; daysLate: number;
+      due: boolean; lastRemindedAt: string | null; invoiceNumber: string | null };
+    type Queue = { items: Item[]; summary: { dueCount: number; dueAmount: number; totalCount: number; remindedThisWeek: number };
+      history: { channel: string; amount: number; customerName: string; invoiceNumber: string | null; byName: string | null }[] };
+    const queue = async () => (await http.get('/v1/reminders').set(A()).expect(200)).body as Queue;
+
+    beforeAll(async () => {
+      const client = (await http.post('/v1/contacts').set(A()).send({ name: 'Restaurant Le Lagon', phone: '33 821 00 00' }).expect(201)).body.id;
+      const inv = (
+        await http.post('/v1/invoicing/documents').set(A())
+          .send({ kind: 'invoice', customerId: client, lines: [{ name: 'Traiteur 40 couverts', quantity: 1, unitPrice: 120000 }] })
+          .expect(201)
+      ).body;
+      await dbs.withTenant(awaBiz, (tx) =>
+        tx.execute(sql`UPDATE invoicing.documents SET due_date = current_date - 3 WHERE id = ${inv.id}`));
+    });
+
+    it('réunit crédits et factures impayées, à relancer d’abord', async () => {
+      const q = await queue();
+      const credit = q.items.find((i) => i.kind === 'credit' && i.name === 'Ndèye Sarr')!;
+      expect(credit).toMatchObject({ due: true, lastRemindedAt: null });
+      expect(credit.amount).toBeGreaterThan(0);
+      expect(credit.daysLate).toBeGreaterThanOrEqual(40); // dettes reculées de 40 jours plus haut
+      const invoices = q.items.filter((i) => i.kind === 'invoice');
+      expect(invoices.length).toBeGreaterThan(0);
+      for (const i of invoices) {
+        expect(i.invoiceNumber).toMatch(/^FAC-/);
+        expect(i.daysLate).toBe(3);
+        expect(i.due).toBe(true);
+      }
+      // À relancer en tête de liste
+      const firstNotDue = q.items.findIndex((i) => !i.due);
+      if (firstNotDue >= 0) expect(q.items.slice(firstNotDue).every((i) => !i.due)).toBe(true);
+      expect(q.summary.dueCount).toBe(q.items.filter((i) => i.due).length);
+      expect(q.summary.dueAmount).toBe(q.items.filter((i) => i.due).reduce((s, i) => s + i.amount, 0));
+      expect(q.summary.totalCount).toBe(q.items.length);
+    });
+
+    it('un rappel sort la ligne de la file pour une semaine et entre dans l’historique', async () => {
+      const q = await queue();
+      const credit = q.items.find((i) => i.kind === 'credit' && i.name === 'Ndèye Sarr')!;
+      const invoice = q.items.find((i) => i.kind === 'invoice')!;
+
+      await http.post('/v1/reminders').set(A()).send({ kind: 'credit', id: credit.id, channel: 'whatsapp' }).expect(201);
+      await http.post('/v1/reminders').set(A()).send({ kind: 'invoice', id: invoice.id, channel: 'sms' }).expect(201);
+      // L'ancienne route de la fiche client passe aussi par l'historique
+      await http.post(`/v1/customers/${credit.id}/reminders`).set(A()).send({ channel: 'call' }).expect(201);
+
+      const after = await queue();
+      expect(after.items.find((i) => i.id === credit.id)).toMatchObject({ due: false });
+      expect(after.items.find((i) => i.id === credit.id)!.lastRemindedAt).not.toBeNull();
+      expect(after.items.find((i) => i.id === invoice.id)).toMatchObject({ due: false });
+      expect(after.summary.dueCount).toBe(q.summary.dueCount - 2);
+      expect(after.summary.remindedThisWeek).toBe(q.summary.remindedThisWeek + 3);
+      expect(after.history.slice(0, 3)).toEqual([
+        expect.objectContaining({ channel: 'call', customerName: 'Ndèye Sarr', invoiceNumber: null, byName: 'Awa Diallo' }),
+        expect.objectContaining({ channel: 'sms', invoiceNumber: invoice.invoiceNumber, amount: invoice.amount }),
+        expect.objectContaining({ channel: 'whatsapp', customerName: 'Ndèye Sarr', amount: credit.amount }),
+      ]);
+
+      await http.post('/v1/reminders').set(A()).send({ kind: 'invoice', id: '0193aaaa-0000-7000-8000-000000000000' }).expect(404);
+      await http.post('/v1/reminders').set(A()).send({ kind: 'devis', id: invoice.id }).expect(422);
     });
   });
 

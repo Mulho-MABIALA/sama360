@@ -13,6 +13,7 @@ import '../auth/auth_controller.dart';
 import '../../core/offline/pending_sales.dart';
 import '../offline/offline_ui.dart';
 import '../profile/profile_screen.dart';
+import '../notifications/notifications_screen.dart' show tabRoutes;
 import 'monument.dart';
 import 'promo_carousel.dart';
 
@@ -47,6 +48,7 @@ const _paymentsService = _Service('Paiements', Icons.qr_code_2_rounded, Color(0x
 const _cashService = _Service('Caisse', Icons.point_of_sale_rounded, Color(0xFF13241C), route: '/cash');
 const _moreServices = [
   _cashService,
+  _Service('Relances', Icons.campaign_rounded, Color(0xFFE5484D), route: '/reminders'),
   _purchasesService,
   _paymentsService,
   _shopService,
@@ -85,14 +87,10 @@ class HomeScreen extends ConsumerWidget {
         showInfo(context, '${s.name} arrive bientôt sur Sama360');
       } else if (s.route == 'expense') {
         _addExpense(context, ref);
-      } else if (s.route == '/team' ||
-          s.route == '/invoices' ||
-          s.route == '/reports' ||
-          s.route == '/purchases' ||
-          s.route == '/shop') {
-        context.push(s.route!);
+      } else if (tabRoutes.contains(s.route)) {
+        context.go(s.route!); // onglet de la barre du bas
       } else {
-        context.go(s.route!);
+        context.push(s.route!); // écran empilé : retour à l'accueil possible
       }
     }
 

@@ -2136,3 +2136,114 @@ class NotificationsPage {
     unread: _int(j['unread']),
   );
 }
+
+/// Une ligne de la file des relances : le crédit d'un client ou une facture impayée.
+class ReminderItem {
+  const ReminderItem({
+    required this.kind,
+    required this.id,
+    required this.customerId,
+    required this.name,
+    required this.amount,
+    required this.daysLate,
+    required this.due,
+    this.phone,
+    this.since,
+    this.invoiceNumber,
+    this.lastRemindedAt,
+  });
+  final String kind; // credit, invoice
+  final String id;
+  final String customerId;
+  final String name;
+  final String? phone;
+  final int amount;
+  final DateTime? since;
+  final int daysLate;
+  final String? invoiceNumber;
+  final DateTime? lastRemindedAt;
+  final bool due;
+
+  bool get isInvoice => kind == 'invoice';
+  bool get hasPhone => (phone ?? '').trim().isNotEmpty;
+
+  factory ReminderItem.fromJson(Map<String, dynamic> j) => ReminderItem(
+    kind: j['kind'] as String,
+    id: j['id'] as String,
+    customerId: j['customerId'] as String,
+    name: j['name'] as String,
+    phone: j['phone'] as String?,
+    amount: _int(j['amount']),
+    since: _date(j['since']),
+    daysLate: _int(j['daysLate']),
+    invoiceNumber: j['invoiceNumber'] as String?,
+    lastRemindedAt: _date(j['lastRemindedAt']),
+    due: j['due'] == true,
+  );
+}
+
+class ReminderLog {
+  const ReminderLog({
+    required this.id,
+    required this.channel,
+    required this.amount,
+    required this.at,
+    required this.customerId,
+    required this.customerName,
+    this.invoiceId,
+    this.invoiceNumber,
+    this.byName,
+  });
+  final String id;
+  final String channel; // whatsapp, sms, call
+  final int amount;
+  final DateTime at;
+  final String customerId;
+  final String customerName;
+  final String? invoiceId;
+  final String? invoiceNumber;
+  final String? byName;
+
+  factory ReminderLog.fromJson(Map<String, dynamic> j) => ReminderLog(
+    id: j['id'] as String,
+    channel: j['channel'] as String,
+    amount: _int(j['amount']),
+    at: _date(j['at']) ?? DateTime.now(),
+    customerId: j['customerId'] as String,
+    customerName: j['customerName'] as String,
+    invoiceId: j['invoiceId'] as String?,
+    invoiceNumber: j['invoiceNumber'] as String?,
+    byName: j['byName'] as String?,
+  );
+}
+
+class ReminderQueue {
+  const ReminderQueue({
+    required this.items,
+    required this.history,
+    required this.dueCount,
+    required this.dueAmount,
+    required this.totalAmount,
+    required this.remindedThisWeek,
+  });
+  final List<ReminderItem> items;
+  final List<ReminderLog> history;
+  final int dueCount;
+  final int dueAmount;
+  final int totalAmount;
+  final int remindedThisWeek;
+
+  List<ReminderItem> get dueItems => items.where((i) => i.due).toList();
+
+  factory ReminderQueue.fromJson(Map<String, dynamic> j) {
+    final s = (j['summary'] as Map<String, dynamic>?) ?? const {};
+    return ReminderQueue(
+      items: [for (final i in (j['items'] as List? ?? const [])) ReminderItem.fromJson(i as Map<String, dynamic>)],
+      history: [for (final h in (j['history'] as List? ?? const [])) ReminderLog.fromJson(h as Map<String, dynamic>)],
+      dueCount: _int(s['dueCount']),
+      dueAmount: _int(s['dueAmount']),
+      totalAmount: _int(s['totalAmount']),
+      remindedThisWeek: _int(s['remindedThisWeek']),
+    );
+  }
+}

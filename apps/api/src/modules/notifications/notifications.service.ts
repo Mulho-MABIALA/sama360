@@ -122,7 +122,7 @@ export class NotificationsService {
           kind: 'invoices_overdue',
           title: n > 1 ? `${n} factures en retard` : '1 facture en retard',
           body: `${francs(Number(due))} à encaisser. Relancez vos clients.`,
-          link: '/invoices',
+          link: '/reminders',
           audience: 'invoicing:read',
           dedupeKey: `invoices_overdue:${today}`,
         });
@@ -149,7 +149,7 @@ export class NotificationsService {
           kind: 'credit_stale',
           title: n > 1 ? `${n} clients n’ont rien remboursé depuis 30 jours` : '1 client n’a rien remboursé depuis 30 jours',
           body: `${francs(Number(due))} de crédit en attente.`,
-          link: '/customers',
+          link: '/reminders',
           audience: 'contacts:read',
           dedupeKey: `credit_stale:${isoWeek(now)}`,
         });

@@ -4,14 +4,16 @@ import { CashController } from './cash.controller';
 import { CashService } from './cash.service';
 import { CustomersController } from './customers.controller';
 import { CustomersService } from './customers.service';
+import { RemindersController } from './reminders.controller';
+import { RemindersService } from './reminders.service';
 import { ReportsController } from './reports.controller';
 import { SalesController } from './sales.controller';
 import { SalesService } from './sales.service';
 
 @Module({
   imports: [InventoryModule],
-  controllers: [SalesController, ReportsController, CustomersController, CashController],
-  providers: [SalesService, CustomersService, CashService],
+  controllers: [SalesController, ReportsController, CustomersController, CashController, RemindersController],
+  providers: [SalesService, CustomersService, CashService, RemindersService],
   exports: [SalesService],
 })
 export class SalesModule {}

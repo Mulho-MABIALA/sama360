@@ -499,6 +499,15 @@ class SamaRepository {
 
   // ---------- Caisse ----------
   /// Ma caisse ouverte (null si fermée).
+  // ---------- Relances ----------
+
+  Future<ReminderQueue> reminders() async =>
+      ReminderQueue.fromJson(await _cachedGet<Map<String, dynamic>>('/v1/reminders'));
+
+  /// Note qu'un crédit (kind = credit, id du client) ou une facture vient d'être relancé.
+  Future<void> recordReminder({required String kind, required String id, required String channel}) =>
+      api.post<Map<String, dynamic>>('/v1/reminders', data: {'kind': kind, 'id': id, 'channel': channel});
+
   // ---------- Notifications ----------
 
   Future<NotificationsPage> notifications() async =>

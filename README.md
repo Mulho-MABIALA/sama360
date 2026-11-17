@@ -129,6 +129,8 @@ Toutes les erreurs : `{ "error": { "code", "message", "details?" } }`.
 | POST | `/v1/cash/current/close` | `sales:create` — clôture avec le comptage par moyen ; le rapport Z est figé |
 | POST | `/v1/cash/sessions/:id/close` | `sales:void` — un gérant clôture la caisse d'un vendeur |
 | GET | `/v1/cash/sessions` · `/v1/cash/sessions/:id` | `sales:create` — historique (le gérant voit toutes les caisses) et rapport Z |
+| GET | `/v1/reminders` | `contacts:read` — file des relances : crédits clients et factures impayées, jours de retard, à relancer aujourd'hui (en retard et pas relancé depuis 7 jours), historique des 30 derniers rappels |
+| POST | `/v1/reminders` | `contacts:read` — note un rappel (`kind` credit ou invoice, `id`, `channel` whatsapp, sms ou call) |
 | GET | `/v1/notifications` | membre — notifications visibles pour son rôle (30 derniers jours) et nombre de non lues ; crée au passage les rappels du jour (caisse restée ouverte, factures en retard, crédits sans remboursement depuis 30 jours) |
 | GET | `/v1/notifications/unread-count` | membre — pastille de la cloche |
 | POST | `/v1/notifications/:id/read` · `/v1/notifications/read-all` | membre — marquer lue(s), pour soi seulement |

@@ -411,4 +411,18 @@ void main() {
     await pumpSama(tester, location: '/notifications');
     await _shot(tester, '23_notifications');
   });
+
+  testWidgets('relances', (tester) async {
+    phoneSize(tester);
+    await pumpSama(tester, location: '/reminders');
+    await _shot(tester, '24_relances');
+  });
+
+  testWidgets('relance WhatsApp', (tester) async {
+    phoneSize(tester);
+    await pumpSama(tester, location: '/reminders');
+    await tester.tap(find.text('WhatsApp').first);
+    await tester.pumpAndSettle();
+    await _shot(tester, '25_relance_whatsapp');
+  });
 }

@@ -141,6 +141,11 @@ void refreshShop(WidgetRef ref) {
   ref.invalidate(shopOrderProvider);
 }
 
+final remindersProvider = FutureProvider<ReminderQueue>((ref) {
+  ref.watch(businessIdProvider);
+  return ref.watch(repoProvider).reminders();
+});
+
 final notificationsProvider = FutureProvider<NotificationsPage>((ref) {
   ref.watch(businessIdProvider);
   return ref.watch(repoProvider).notifications();
@@ -255,6 +260,7 @@ void refreshBusinessData(WidgetRef ref) {
   ref.invalidate(myDayProvider);
   ref.invalidate(cashCurrentProvider);
   ref.invalidate(unreadNotificationsProvider);
+  ref.invalidate(remindersProvider);
 }
 
 /// Message lisible pour l'utilisateur à partir de n'importe quelle erreur.
