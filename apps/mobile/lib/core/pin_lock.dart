@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:math';
 
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart' show compute, kIsWeb;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -133,6 +134,18 @@ class SecurePinStore implements PinStore {
   Future<void> clear() => _storage.delete(key: _key);
 }
 
+/// Version web : préférences du navigateur (WebCrypto absent en http:// sur le Wi-Fi).
+/// Seule l'empreinte salée du code est gardée, jamais le code lui-même.
+class PrefsPinStore implements PinStore {
+  static const _key = 'sama_pin';
+  @override
+  Future<StoredPin?> read() async => StoredPin.decode((await SharedPreferences.getInstance()).getString(_key));
+  @override
+  Future<void> save(StoredPin pin) async => (await SharedPreferences.getInstance()).setString(_key, pin.encode());
+  @override
+  Future<void> clear() async => (await SharedPreferences.getInstance()).remove(_key);
+}
+
 /// Tests et prévisualisations.
 class MemoryPinStore implements PinStore {
   MemoryPinStore([this.pin]);
@@ -145,7 +158,7 @@ class MemoryPinStore implements PinStore {
   Future<void> clear() async => pin = null;
 }
 
-final pinStoreProvider = Provider<PinStore>((ref) => SecurePinStore());
+final pinStoreProvider = Provider<PinStore>((ref) => kIsWeb ? PrefsPinStore() : SecurePinStore());
 
 /// Verrou actif ? (désactivé dans la plupart des tests pour ne pas passer par le code)
 final pinLockEnabledProvider = Provider<bool>((ref) => true);

@@ -1,11 +1,11 @@
 {
-    "name": "sama360",
-    "short_name": "sama360",
+    "name": "Sama360",
+    "short_name": "Sama360",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "Sama360 — super app multiservice",
+    "background_color": "#0B6E47",
+    "theme_color": "#0A8453",
+    "description": "Sama360 — gérez votre commerce : ventes, stock, clients, boutique en ligne",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

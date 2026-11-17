@@ -55,6 +55,46 @@ class SecureSessionStore implements SessionStore {
   }
 }
 
+/// Version web : préférences du navigateur. Le stockage chiffré a besoin de WebCrypto,
+/// absent d'une page en http:// sur le Wi-Fi (http://192.168…:3000/app) ; c'est le cas des tests sur iPhone.
+class PrefsSessionStore implements SessionStore {
+  static const _access = 'sama_access';
+  static const _refresh = 'sama_refresh';
+  static const _business = 'sama_business';
+
+  @override
+  Future<Session?> read() async {
+    final p = await SharedPreferences.getInstance();
+    final a = p.getString(_access);
+    final r = p.getString(_refresh);
+    return a == null || r == null ? null : Session(accessToken: a, refreshToken: r);
+  }
+
+  @override
+  Future<void> save(Session s) async {
+    final p = await SharedPreferences.getInstance();
+    await p.setString(_access, s.accessToken);
+    await p.setString(_refresh, s.refreshToken);
+  }
+
+  @override
+  Future<void> clear() async {
+    final p = await SharedPreferences.getInstance();
+    await p.remove(_access);
+    await p.remove(_refresh);
+    await p.remove(_business);
+  }
+
+  @override
+  Future<String?> readBusinessId() async => (await SharedPreferences.getInstance()).getString(_business);
+
+  @override
+  Future<void> saveBusinessId(String? id) async {
+    final prefs = await SharedPreferences.getInstance();
+    id == null ? await prefs.remove(_business) : await prefs.setString(_business, id);
+  }
+}
+
 /// Tests et prévisualisations.
 class MemorySessionStore implements SessionStore {
   Session? session;
