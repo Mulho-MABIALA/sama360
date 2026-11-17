@@ -8,6 +8,7 @@ import 'features/reminders/reminders_screen.dart';
 import 'features/settings/display_screen.dart';
 import 'features/auth/auth_controller.dart';
 import 'features/auth/login_screens.dart';
+import 'features/assistant/assistant_screen.dart';
 import 'features/auth/pin_screen.dart';
 import 'features/catalog/product_photo.dart' show PickedPhoto;
 import 'features/documents/documents_screen.dart';
@@ -154,6 +155,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (_, s) => ProductEditorScreen(productId: s.pathParameters['id']),
       ),
       GoRoute(path: '/reports', builder: (_, _) => const ReportsScreen()),
+      GoRoute(path: '/assistant', builder: (_, _) => const AssistantScreen()),
       GoRoute(path: '/documents', builder: (_, _) => const DocumentsScreen()),
       GoRoute(
         path: '/documents/new',

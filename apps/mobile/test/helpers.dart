@@ -1303,6 +1303,28 @@ class FakeRepo extends SamaRepository {
   // ---------- Rapports ----------
   final reportRequests = <(DateTime, DateTime)>[];
 
+  // ---------- Assistant IA ----------
+  bool assistantEnabled = true;
+  Object? assistantError;
+  final assistantQuestions = <List<ChatMessage>>[];
+
+  @override
+  Future<AssistantStatus> assistantStatus() async => AssistantStatus(
+    enabled: assistantEnabled,
+    remaining: 60,
+    suggestions: const ["Combien j'ai vendu aujourd'hui ?", 'Qui me doit le plus ?'],
+  );
+
+  @override
+  Future<AssistantReply> askAssistant(List<ChatMessage> history) async {
+    assistantQuestions.add(history);
+    if (assistantError != null) throw assistantError!;
+    return AssistantReply(
+      reply: "Aujourd'hui vous avez fait **12 ventes** pour **86 500 F**.\n- Meilleur produit : Beurre de karité",
+      remaining: 60 - assistantQuestions.length,
+    );
+  }
+
   // ---------- Documents ----------
   final storedDocs = <BusinessDocument>[
     BusinessDocument(

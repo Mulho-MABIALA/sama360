@@ -336,3 +336,57 @@ void refreshStoredDocuments(WidgetRef ref) {
   ref.invalidate(storedDocumentsProvider);
   ref.invalidate(storedDocumentProvider);
 }
+
+final assistantStatusProvider = FutureProvider<AssistantStatus>((ref) {
+  ref.watch(businessIdProvider);
+  return ref.watch(repoProvider).assistantStatus();
+});
+
+class AssistantChatState {
+  const AssistantChatState({this.messages = const [], this.busy = false, this.remaining});
+  final List<ChatMessage> messages;
+  final bool busy;
+  final int? remaining;
+}
+
+/// Conversation avec l'assistant : gardée le temps de la session, jamais sur le serveur.
+class AssistantChat extends Notifier<AssistantChatState> {
+  @override
+  AssistantChatState build() {
+    ref.watch(businessIdProvider);
+    return const AssistantChatState();
+  }
+
+  Future<void> ask(String question) async {
+    final q = question.trim();
+    if (q.isEmpty || state.busy) return;
+    final history = [...state.messages.where((m) => !m.failed), ChatMessage(fromUser: true, text: q)];
+    state = AssistantChatState(messages: history, busy: true, remaining: state.remaining);
+    try {
+      final r = await ref.read(repoProvider).askAssistant(history);
+      state = AssistantChatState(
+        messages: [
+          ...history,
+          ChatMessage(fromUser: false, text: r.reply),
+        ],
+        remaining: r.remaining,
+      );
+    } catch (e) {
+      final why = e is ApiException && !e.isNetwork
+          ? e.message
+          : 'Connexion impossible. Vérifiez internet et réessayez.';
+      state = AssistantChatState(
+        messages: [
+          ...history.take(history.length - 1),
+          ChatMessage(fromUser: true, text: q, failed: true),
+        ],
+        remaining: state.remaining,
+      );
+      throw ApiException('ASSISTANT', why, status: e is ApiException ? e.status : null);
+    }
+  }
+
+  void reset() => state = AssistantChatState(remaining: state.remaining);
+}
+
+final assistantChatProvider = NotifierProvider<AssistantChat, AssistantChatState>(AssistantChat.new);

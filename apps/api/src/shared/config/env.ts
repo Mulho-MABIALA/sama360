@@ -59,6 +59,12 @@ const BaseSchema = z.object({
     .default('false')
     .transform((v) => v === 'true'),
   MAX_UPLOAD_MB: z.coerce.number().positive().max(20).default(5),
+  // Assistant IA : « anthropic » (clé requise), « fake » (tests, démonstration) ou « off »
+  ASSISTANT_PROVIDER: z.enum(['off', 'anthropic', 'fake']).default('off'),
+  ANTHROPIC_API_KEY: z.string().min(1).optional(),
+  ASSISTANT_MODEL: z.string().default('claude-haiku-5-5'),
+  // Questions par boutique et par jour (maîtrise du coût)
+  ASSISTANT_DAILY_LIMIT: z.coerce.number().int().min(1).max(10000).default(60),
 });
 
 /** Règles entre variables : chaque fournisseur choisi doit avoir ses identifiants. */
@@ -93,6 +99,7 @@ const EnvSchema = BaseSchema.superRefine((e, ctx) => {
         'console interdit en production (choisir orange ou twilio, ou OTP_CONSOLE_IN_PRODUCTION=true pour un test)',
     });
   }
+  if (e.ASSISTANT_PROVIDER === 'anthropic') need(['ANTHROPIC_API_KEY'], 'ASSISTANT_PROVIDER=anthropic');
   if (e.STORAGE_DRIVER === 's3') {
     need(['S3_BUCKET', 'S3_ACCESS_KEY_ID', 'S3_SECRET_ACCESS_KEY'], 'STORAGE_DRIVER=s3');
   }

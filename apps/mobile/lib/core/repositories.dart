@@ -631,6 +631,26 @@ class SamaRepository {
     await _cachedGet<Map<String, dynamic>>('/v1/reports/overview', query: {'from': _day(from), 'to': _day(to)}),
   );
 
+  // ---------- Assistant IA ----------
+  Future<AssistantStatus> assistantStatus() async =>
+      AssistantStatus.fromJson(await api.get<Map<String, dynamic>>('/v1/assistant'));
+
+  /// Les 20 derniers messages suffisent au contexte (le serveur n'en accepte pas plus).
+  Future<AssistantReply> askAssistant(List<ChatMessage> history) async {
+    final turns = history.where((m) => !m.failed).toList();
+    final last = turns.length > 20 ? turns.sublist(turns.length - 20) : turns;
+    // Le premier message envoyé doit venir de l'utilisateur
+    final start = last.indexWhere((m) => m.fromUser);
+    return AssistantReply.fromJson(
+      await api.post<Map<String, dynamic>>(
+        '/v1/assistant/chat',
+        data: {
+          'messages': [for (final m in last.sublist(start < 0 ? 0 : start)) m.toJson()],
+        },
+      ),
+    );
+  }
+
   // ---------- Documents ----------
   Future<DocumentList> storedDocuments({DocCategory? category, String? search}) async => DocumentList.fromJson(
     await _cachedGet<Map<String, dynamic>>(

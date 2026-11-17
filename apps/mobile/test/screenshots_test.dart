@@ -340,6 +340,15 @@ void main() {
     await _shot(tester, '0e_code_confirmation');
   });
 
+  testWidgets('assistant', (tester) async {
+    phoneSize(tester);
+    await pumpSama(tester, location: '/assistant');
+    await _shot(tester, '17_assistant');
+    await tester.tap(find.text("Combien j'ai vendu aujourd'hui ?"));
+    await tester.pumpAndSettle();
+    await _shot(tester, '17b_assistant_reponse');
+  });
+
   testWidgets('documents', (tester) async {
     phoneSize(tester);
     await pumpSama(tester, location: '/documents');

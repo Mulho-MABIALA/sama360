@@ -14,6 +14,8 @@ process.env.JWT_ACCESS_SECRET = 'test-access-secret-0123456789-abcdefghij';
 process.env.JWT_REFRESH_SECRET = 'test-refresh-secret-0123456789-abcdefghij';
 process.env.OTP_SECRET = 'test-otp-secret-0123456789-abcdefghijklmn';
 process.env.MAX_UPLOAD_MB = '1';
+process.env.ASSISTANT_PROVIDER = 'fake'; // faux modèle : toute la chaîne testée sans API payante
+process.env.ASSISTANT_DAILY_LIMIT = '6';
 process.env.STORAGE_DIR = require('node:path').join(require('node:os').tmpdir(), `sama-e2e-${process.pid}`);
 
 import { INestApplication } from '@nestjs/common';
@@ -2699,6 +2701,65 @@ describe('Socle Sama360 (e2e)', () => {
       await http.delete(`/v1/documents/${bail}`).set(A()).expect(204);
       await http.get(`/v1/documents/${bail}`).set(A()).expect(404);
       await http.get(`/v1/documents/${bail}/file`).set(A()).expect(404);
+    });
+  });
+
+  describe('Assistant IA', () => {
+    const A = () => auth(awa.accessToken, awaBiz);
+    type Reply = { reply: string; tools: string[]; remaining: number };
+    const ask = async (h: Record<string, string>, q: string, status = 200) =>
+      (
+        await http
+          .post('/v1/assistant/chat')
+          .set(h)
+          .send({ messages: [{ role: 'user', content: q }] })
+          .expect(status)
+      ).body as Reply;
+
+    it('état : activé, questions restantes, suggestions selon le rôle', async () => {
+      const s = (await http.get('/v1/assistant').set(A()).expect(200)).body;
+      expect(s).toMatchObject({ enabled: true, remaining: 6 });
+      expect(s.suggestions).toContain('Quel est mon bénéfice ce mois-ci ?');
+      const c = (await http.get('/v1/assistant').set(auth(modouToken, awaBiz)).expect(200)).body;
+      expect(c.suggestions).not.toContain('Quel est mon bénéfice ce mois-ci ?');
+    });
+
+    it('répond avec les vraies données (outils), selon les droits', async () => {
+      const r = await ask(A(), "Combien j'ai vendu aujourd'hui ?");
+      expect(r.tools).toEqual(['sales_summary']);
+      expect(r.reply).toContain('"revenue":');
+      expect(r.reply).toContain('"netProfit":');
+      expect(r.remaining).toBe(5);
+
+      const owing = await ask(A(), 'Qui me doit le plus ?');
+      expect(owing.tools).toEqual(['customers_owing']);
+      expect(owing.reply).toContain('"totalDue":');
+
+      // Vendeur : pas d'accès aux bénéfices ; il ne voit que ses propres ventes du jour
+      const mine = await ask(auth(modouToken, awaBiz), "Combien j'ai vendu aujourd'hui ?");
+      expect(mine.tools).toEqual(['my_sales_today']);
+      expect(mine.reply).not.toContain('netProfit');
+      const denied = await ask(auth(modouToken, awaBiz), 'Quels produits ne se vendent plus ?');
+      expect(denied.tools).toEqual([]);
+      expect(denied.reply).toContain('réservée au propriétaire');
+    });
+
+    it('validation et plafond quotidien par boutique', async () => {
+      await http.post('/v1/assistant/chat').set(A()).send({ messages: [] }).expect(422);
+      await http
+        .post('/v1/assistant/chat')
+        .set(A())
+        .send({ messages: [{ role: 'assistant', content: 'Bonjour' }] })
+        .expect(422);
+      // 4 questions déjà posées aujourd'hui (Awa et Modou, même boutique) : la 5e et la 6e passent, pas la 7e
+      expect((await ask(A(), 'Quels produits sont presque épuisés ?')).tools).toEqual(['low_stock']);
+      expect((await ask(A(), 'À quelle heure je vends le plus ?')).remaining).toBe(0);
+      const over = await http
+        .post('/v1/assistant/chat')
+        .set(A())
+        .send({ messages: [{ role: 'user', content: 'Encore une ?' }] })
+        .expect(429);
+      expect(over.body.error.code).toBe('ASSISTANT_LIMIT');
     });
   });
 

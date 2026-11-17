@@ -2740,3 +2740,38 @@ class DocumentList {
     attention: _int(j['attention']),
   );
 }
+
+// ---------- Assistant IA ----------
+
+class AssistantStatus {
+  const AssistantStatus({required this.enabled, required this.remaining, required this.suggestions});
+  final bool enabled;
+  final int remaining;
+  final List<String> suggestions;
+
+  factory AssistantStatus.fromJson(Map<String, dynamic> j) => AssistantStatus(
+    enabled: j['enabled'] == true,
+    remaining: _int(j['remaining']),
+    suggestions: List<String>.from((j['suggestions'] as List?) ?? const []),
+  );
+}
+
+class ChatMessage {
+  const ChatMessage({required this.fromUser, required this.text, this.failed = false});
+  final bool fromUser;
+  final String text;
+
+  /// Question restée sans réponse (réseau, limite…) : on peut la renvoyer.
+  final bool failed;
+
+  Map<String, String> toJson() => {'role': fromUser ? 'user' : 'assistant', 'content': text};
+}
+
+class AssistantReply {
+  const AssistantReply({required this.reply, required this.remaining});
+  final String reply;
+  final int remaining;
+
+  factory AssistantReply.fromJson(Map<String, dynamic> j) =>
+      AssistantReply(reply: j['reply'] as String, remaining: _int(j['remaining']));
+}
