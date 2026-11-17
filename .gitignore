@@ -13,3 +13,6 @@ apps/api/storage/
 
 # Sauvegardes Redis locales
 dump.rdb
+
+# APK / IPA de test
+builds/

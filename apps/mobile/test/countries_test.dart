@@ -7,6 +7,7 @@ import 'package:sama360/core/format.dart';
 import 'package:sama360/core/models.dart';
 import 'package:sama360/core/providers.dart';
 import 'package:sama360/features/auth/auth_controller.dart';
+import 'package:sama360/features/auth/login_screens.dart';
 import 'package:sama360/features/sales/cart.dart';
 import 'package:sama360/main.dart';
 
@@ -99,6 +100,37 @@ void main() {
     await tester.pumpAndSettle();
     expect(auth.sent, ['+2250707123456']);
     expect(c.read(loginCountryProvider), Country.ci);
+  });
+
+  testWidgets('serveur de test : adresse vérifiée puis gardée', (tester) async {
+    phoneSize(tester);
+    await initializeDateFormatting('fr');
+    final c = ProviderContainer(
+      overrides: [
+        sessionStoreProvider.overrideWithValue(MemorySessionStore()),
+        authProvider.overrideWith(_SignedOut.new),
+      ],
+    );
+    addTearDown(c.dispose);
+    final tried = <String>[];
+    serverReachable = (url) async {
+      tried.add(url);
+      return url.contains('192.168.1.20');
+    };
+    await tester.pumpWidget(UncontrolledProviderScope(container: c, child: const SamaApp(googleFonts: false)));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.byKey(const Key('server_setting')));
+    await tester.tap(find.byKey(const Key('server_setting')));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const Key('server_url')), '10.0.0.9:3000');
+    await tester.tap(find.text('Enregistrer'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Pas de réponse de http://10.0.0.9:3000/health'), findsOneWidget);
+    await tester.enterText(find.byKey(const Key('server_url')), 'http://192.168.1.20:3000/');
+    await tester.tap(find.text('Enregistrer'));
+    await tester.pumpAndSettle();
+    expect(c.read(apiBaseUrlProvider), 'http://192.168.1.20:3000');
+    expect(find.text('Serveur : 192.168.1.20:3000'), findsOneWidget);
   });
 
   testWidgets('création d’entreprise au Congo : pays et ville envoyés', (tester) async {

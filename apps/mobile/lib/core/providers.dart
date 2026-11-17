@@ -13,7 +13,26 @@ import '../features/auth/auth_controller.dart';
 final sessionStoreProvider = Provider<SessionStore>((ref) => throw UnimplementedError('sessionStoreProvider'));
 
 /// Remplaçable dans les tests pour viser une autre API.
-final apiBaseUrlProvider = Provider<String>((ref) => apiUrl);
+/// Adresse du serveur choisie dans l'app (versions de test) ; sinon celle de la compilation.
+class ServerUrl extends Notifier<String> {
+  static const key = 'settings:api_url';
+
+  @override
+  String build() {
+    final saved = ref.watch(keyValueStoreProvider).getString(key);
+    return saved == null || saved.isEmpty ? apiUrl : saved;
+  }
+
+  Future<void> set(String? url) async {
+    final clean = url?.trim().replaceAll(RegExp(r'/+$'), '');
+    await ref.read(keyValueStoreProvider).setString(key, clean ?? '');
+    state = clean == null || clean.isEmpty ? apiUrl : clean;
+  }
+}
+
+final serverUrlProvider = NotifierProvider<ServerUrl, String>(ServerUrl.new);
+
+final apiBaseUrlProvider = Provider<String>((ref) => ref.watch(serverUrlProvider));
 
 final apiClientProvider = Provider<ApiClient>((ref) {
   final client = ApiClient(baseUrl: ref.watch(apiBaseUrlProvider), store: ref.watch(sessionStoreProvider));

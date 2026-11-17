@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:dio/dio.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -133,6 +134,18 @@ class _PhoneScreenState extends ConsumerState<PhoneScreen> {
                     ),
                     const SizedBox(height: 18),
                     BusyButton(label: 'Recevoir le code', busy: _busy, onPressed: _submit),
+                    if (showServerSetting) ...[
+                      const SizedBox(height: 6),
+                      TextButton.icon(
+                        key: const Key('server_setting'),
+                        onPressed: () => editServerUrl(context, ref),
+                        icon: const Icon(Icons.dns_rounded, size: 16),
+                        label: Text(
+                          'Serveur : ${ref.watch(serverUrlProvider).replaceFirst(RegExp(r'^https?://'), '')}',
+                          style: const TextStyle(fontSize: 12.5),
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -308,3 +321,81 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
     );
   }
 }
+
+/// Réglage du serveur visible tant que l'app n'est pas publiée sur les stores
+/// (`--dart-define=STORE=true` pour le masquer).
+const showServerSetting = !bool.fromEnvironment('STORE');
+
+/// Adresse du serveur (ex. le PC sur le même Wi-Fi : http://192.168.1.20:3000), vérifiée avant d'être gardée.
+Future<void> editServerUrl(BuildContext context, WidgetRef ref) async {
+  final ctrl = TextEditingController(text: ref.read(serverUrlProvider));
+  String? error;
+  var testing = false;
+  final saved = await showDialog<String?>(
+    context: context,
+    builder: (ctx) => StatefulBuilder(
+      builder: (ctx, setState) => AlertDialog(
+        title: const Text('Serveur Sama360'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Pour les tests : l’adresse du PC qui fait tourner l’API, sur le même Wi-Fi que le téléphone.',
+              style: TextStyle(color: AppColors.muted, fontSize: 13),
+            ),
+            const SizedBox(height: 10),
+            TextField(
+              key: const Key('server_url'),
+              controller: ctrl,
+              keyboardType: TextInputType.url,
+              autocorrect: false,
+              decoration: InputDecoration(hintText: 'http://192.168.1.20:3000', errorText: error, errorMaxLines: 3),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, ''), child: const Text('Par défaut')),
+          CancelButton(onPressed: () => Navigator.pop(ctx)),
+          ConfirmButton(
+            label: testing ? 'Test…' : 'Enregistrer',
+            onPressed: () async {
+              var url = ctrl.text.trim().replaceAll(RegExp(r'/+$'), '');
+              if (!url.startsWith('http')) url = 'http://$url';
+              setState(() {
+                testing = true;
+                error = null;
+              });
+              final ok = await serverReachable(url);
+              if (!ctx.mounted) return;
+              if (ok) {
+                Navigator.pop(ctx, url);
+              } else {
+                setState(() {
+                  testing = false;
+                  error = 'Pas de réponse de $url/health. Vérifiez l’adresse, le Wi-Fi et que l’API tourne.';
+                });
+              }
+            },
+          ),
+        ],
+      ),
+    ),
+  );
+  // Pas de dispose immédiat : le dialogue se ferme encore en animation avec ce contrôleur.
+  if (saved == null) return;
+  await ref.read(serverUrlProvider.notifier).set(saved.isEmpty ? null : saved);
+  if (context.mounted) showInfo(context, saved.isEmpty ? 'Serveur par défaut' : 'Serveur enregistré');
+}
+
+/// Le serveur répond-il à /health ? (remplaçable dans les tests)
+Future<bool> Function(String url) serverReachable = (url) async {
+  try {
+    final r = await Dio(
+      BaseOptions(connectTimeout: const Duration(seconds: 5), receiveTimeout: const Duration(seconds: 5)),
+    ).get<dynamic>('$url/health');
+    return r.statusCode == 200;
+  } catch (_) {
+    return false;
+  }
+};
