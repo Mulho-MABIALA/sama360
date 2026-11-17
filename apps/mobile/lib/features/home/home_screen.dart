@@ -6,6 +6,7 @@ import 'package:material_ui/material_ui.dart';
 import '../../core/format.dart';
 import '../../core/glass.dart';
 import '../../core/models.dart';
+import '../../core/photos.dart';
 import '../../core/providers.dart';
 import '../../core/theme.dart';
 import '../../core/widgets.dart';
@@ -23,46 +24,95 @@ import 'monument.dart';
 import 'promo_carousel.dart';
 
 class _Service {
-  const _Service(this.name, this.icon, this.color, {this.route, this.soon = false});
+  const _Service(this.name, this.icon, this.color, {this.route, this.soon = false, this.photo});
   final String name;
   final IconData icon;
   final Color color;
+  final String? photo;
   final String? route;
   final bool soon;
 }
 
 /// Tuiles principales de l'accueil (7 + « Plus »).
 const _mainServices = [
-  _Service('Ventes', Icons.point_of_sale_rounded, Color(0xFF0A8453), route: '/pos'),
-  _Service('Stock', Icons.inventory_2_rounded, Color(0xFFD9822B), route: '/stock'),
-  _Service('Clients', Icons.people_alt_rounded, Color(0xFF2F6FDB), route: '/customers'),
-  _Service('Dépenses', Icons.account_balance_wallet_rounded, Color(0xFFE0533D), route: 'expense'),
-  _Service('Factures', Icons.receipt_long_rounded, Color(0xFF7A5AF8), route: '/invoices'),
+  _Service('Ventes', Icons.point_of_sale_rounded, Color(0xFF0A8453), route: '/pos', photo: Photos.ventes),
+  _Service('Stock', Icons.inventory_2_rounded, Color(0xFFD9822B), route: '/stock', photo: Photos.stock),
+  _Service('Clients', Icons.people_alt_rounded, Color(0xFF2F6FDB), route: '/customers', photo: Photos.clients),
+  _Service(
+    'Dépenses',
+    Icons.account_balance_wallet_rounded,
+    Color(0xFFE0533D),
+    route: 'expense',
+    photo: Photos.depenses,
+  ),
+  _Service('Factures', Icons.receipt_long_rounded, Color(0xFF7A5AF8), route: '/invoices', photo: Photos.factures),
 ];
 
 /// 6e tuile : les rapports pour qui peut les voir, sinon la boutique (bientôt).
-const _reportsService = _Service('Rapports', Icons.insights_rounded, Color(0xFF0E9384), route: '/reports');
-const _bookingService = _Service('Réservation', Icons.event_available_rounded, Color(0xFF2F6FDB), route: '/booking');
-const _shopService = _Service('Boutique', Icons.storefront_rounded, Color(0xFF0E9384), route: '/shop');
+const _reportsService = _Service(
+  'Rapports',
+  Icons.insights_rounded,
+  Color(0xFF0E9384),
+  route: '/reports',
+  photo: Photos.rapports,
+);
+const _bookingService = _Service(
+  'Réservation',
+  Icons.event_available_rounded,
+  Color(0xFF2F6FDB),
+  route: '/booking',
+  photo: Photos.reservation,
+);
+const _shopService = _Service(
+  'Boutique',
+  Icons.storefront_rounded,
+  Color(0xFF0E9384),
+  route: '/shop',
+  photo: Photos.boutique,
+);
 
 /// 7e tuile : l'équipe pour qui peut la voir, sinon les paiements (bientôt).
-const _teamService = _Service('Équipe', Icons.groups_rounded, Color(0xFFDB2777), route: '/team');
-const _purchasesService = _Service('Achats', Icons.local_shipping_rounded, Color(0xFF8A5A2B), route: '/purchases');
-const _paymentsService = _Service('Paiements', Icons.qr_code_2_rounded, Color(0xFF1D7AF0), soon: true);
+const _teamService = _Service('Équipe', Icons.groups_rounded, Color(0xFFDB2777), route: '/team', photo: Photos.equipe);
+const _purchasesService = _Service(
+  'Achats',
+  Icons.local_shipping_rounded,
+  Color(0xFF8A5A2B),
+  route: '/purchases',
+  photo: Photos.achats,
+);
+const _paymentsService = _Service(
+  'Paiements',
+  Icons.qr_code_2_rounded,
+  Color(0xFF1D7AF0),
+  soon: true,
+  photo: Photos.paiements,
+);
 
 /// Services des vagues 2 et 3, listés derrière « Plus ».
-const _cashService = _Service('Caisse', Icons.point_of_sale_rounded, Color(0xFF13241C), route: '/cash');
+const _cashService = _Service(
+  'Caisse',
+  Icons.point_of_sale_rounded,
+  Color(0xFF13241C),
+  route: '/cash',
+  photo: Photos.caisse,
+);
 const _moreServices = [
   _cashService,
-  _Service('Relances', Icons.campaign_rounded, Color(0xFFE5484D), route: '/reminders'),
-  _Service('Fidélité', Icons.stars_rounded, Color(0xFFE0A100), route: '/loyalty'),
+  _Service('Relances', Icons.campaign_rounded, Color(0xFFE5484D), route: '/reminders', photo: Photos.relances),
+  _Service('Fidélité', Icons.stars_rounded, Color(0xFFE0A100), route: '/loyalty', photo: Photos.fidelite),
   _purchasesService,
   _paymentsService,
   _shopService,
-  _Service('Documents', Icons.folder_rounded, Color(0xFF6B7280), route: '/documents'),
-  _Service('Livraison', Icons.local_shipping_rounded, Color(0xFFD9822B), route: '/deliveries'),
-  _Service('Réservation', Icons.event_available_rounded, Color(0xFF2F6FDB), route: '/booking'),
-  _Service('Assistant IA', Icons.auto_awesome_rounded, Color(0xFF7A5AF8), route: '/assistant'),
+  _Service('Documents', Icons.folder_rounded, Color(0xFF6B7280), route: '/documents', photo: Photos.documents),
+  _Service('Livraison', Icons.local_shipping_rounded, Color(0xFFD9822B), route: '/deliveries', photo: Photos.livraison),
+  _Service(
+    'Réservation',
+    Icons.event_available_rounded,
+    Color(0xFF2F6FDB),
+    route: '/booking',
+    photo: Photos.reservation,
+  ),
+  _Service('Assistant IA', Icons.auto_awesome_rounded, Color(0xFF7A5AF8), route: '/assistant', photo: Photos.assistant),
 ];
 
 class HomeScreen extends ConsumerWidget {
@@ -997,12 +1047,15 @@ class _ServiceTile extends StatelessWidget {
             Stack(
               clipBehavior: Clip.none,
               children: [
-                Container(
-                  width: 52,
-                  height: 52,
-                  decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(17)),
-                  child: Icon(service.icon, color: AppColors.isDark ? fg : service.color, size: 26),
-                ),
+                if (service.photo != null)
+                  PhotoThumb(service.photo!, fallback: service.icon, color: service.color)
+                else
+                  Container(
+                    width: 52,
+                    height: 52,
+                    decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(17)),
+                    child: Icon(service.icon, color: AppColors.isDark ? fg : service.color, size: 26),
+                  ),
                 if (service.soon)
                   Positioned(
                     top: -6,

@@ -6,6 +6,7 @@ import 'package:material_ui/material_ui.dart';
 import '../../core/format.dart';
 import '../../core/glass.dart';
 import '../../core/models.dart';
+import '../../core/photos.dart';
 import '../../core/providers.dart';
 import '../../core/theme.dart';
 import '../../core/widgets.dart';
@@ -433,7 +434,7 @@ class _DeliveriesScreenState extends ConsumerState<DeliveriesScreen> {
                         padding: const EdgeInsets.all(20),
                         child: Column(
                           children: [
-                            const Icon(Icons.local_shipping_rounded, size: 40, color: _orange),
+                            const PhotoThumb(Photos.livraison, size: 84, radius: 22, color: _orange),
                             const SizedBox(height: 8),
                             Text(
                               _done ? 'Aucune livraison ces 30 derniers jours' : 'Aucune livraison en cours',
@@ -574,14 +575,31 @@ class _DeliveryTile extends StatelessWidget {
         padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
         child: Row(
           children: [
-            Container(
-              width: 42,
-              height: 42,
-              decoration: BoxDecoration(color: color.withValues(alpha: 0.13), borderRadius: BorderRadius.circular(13)),
-              child: Icon(
-                d.status == DeliveryStatus.delivered ? Icons.check_rounded : Icons.local_shipping_rounded,
-                color: color,
-              ),
+            Stack(
+              clipBehavior: Clip.none,
+              children: [
+                PhotoThumb(
+                  Photos.livraison,
+                  size: 46,
+                  radius: 14,
+                  fallback: Icons.local_shipping_rounded,
+                  color: color,
+                ),
+                if (d.status == DeliveryStatus.delivered)
+                  Positioned(
+                    right: -4,
+                    bottom: -4,
+                    child: Container(
+                      padding: const EdgeInsets.all(2),
+                      decoration: BoxDecoration(
+                        color: color,
+                        shape: BoxShape.circle,
+                        border: Border.all(color: Colors.white, width: 2),
+                      ),
+                      child: const Icon(Icons.check_rounded, size: 12, color: Colors.white),
+                    ),
+                  ),
+              ],
             ),
             const SizedBox(width: 12),
             Expanded(

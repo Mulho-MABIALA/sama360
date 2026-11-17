@@ -31,6 +31,10 @@ class _SignedOut extends AuthController {
 Future<void> _shot(WidgetTester tester, String name) async {
   debugDisableShadows = false; // ombres floues réelles, comme sur le téléphone
   try {
+    // Les photos affichées doivent être décodées avant la capture.
+    for (final e in find.byType(Image).evaluate().toList()) {
+      await tester.runAsync(() => precacheImage((e.widget as Image).image, e));
+    }
     for (final r in tester.allRenderObjects) {
       r.markNeedsPaint();
     }
@@ -78,6 +82,15 @@ void main() {
   }
 
   testWidgets('accueil', (tester) => home(tester, DateTime(2026, 11, 16), '2_accueil'));
+  testWidgets('tous les services (photos)', (tester) async {
+    phoneSize(tester);
+    await pumpSama(tester, overrides: [monumentDateProvider.overrideWithValue(DateTime(2026, 11, 16))]);
+    await tester.ensureVisible(find.byIcon(Icons.apps_rounded));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byIcon(Icons.apps_rounded));
+    await tester.pumpAndSettle();
+    await _shot(tester, '2e_tous_les_services');
+  });
   testWidgets('accueil (Djenné)', (tester) => home(tester, DateTime(2026, 11, 17), '2c_accueil_djenne'));
   testWidgets('accueil (Gizeh)', (tester) => home(tester, DateTime(2026, 11, 18), '2d_accueil_gizeh'));
   testWidgets('accueil (Tour Eiffel)', (tester) => home(tester, DateTime(2026, 11, 19), '2e_accueil_eiffel'));
