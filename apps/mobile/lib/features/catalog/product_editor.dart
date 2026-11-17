@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 
+import '../auth/pin_screen.dart' show confirmSensitive;
 import '../../core/api/api_client.dart';
 import '../../core/format.dart';
 import '../../core/glass.dart';
@@ -178,7 +179,9 @@ class _ProductEditorScreenState extends ConsumerState<ProductEditorScreen> {
         ],
       ),
     );
-    if (ok != true) return;
+    if (ok != true || !mounted) return;
+    if (!await confirmSensitive(context, ref, action: 'Supprimer le produit')) return;
+    if (!mounted) return;
     setState(() => _busy = true);
     try {
       await ref.read(repoProvider).deleteProduct(widget.productId!);

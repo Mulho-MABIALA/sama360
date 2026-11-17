@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:pdf/pdf.dart';
 
+import '../auth/pin_screen.dart' show confirmSensitive;
 import '../../core/format.dart';
 import '../../core/glass.dart';
 import '../../core/models.dart';
@@ -91,7 +92,9 @@ class _PurchaseScreenState extends ConsumerState<PurchaseScreen> {
         ],
       ),
     );
-    if (ok == true) await _run('cancel', () => ref.read(repoProvider).cancelPurchase(d.id), done: 'Commande annulée');
+    if (ok != true || !mounted) return;
+    if (!await confirmSensitive(context, ref, action: 'Annuler la commande ${d.number}')) return;
+    await _run('cancel', () => ref.read(repoProvider).cancelPurchase(d.id), done: 'Commande annulée');
   }
 
   @override

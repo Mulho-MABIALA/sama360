@@ -4,6 +4,8 @@ import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:material_ui/material_ui.dart';
 
+import '../../core/pin_lock.dart';
+import '../../core/biometrics.dart';
 import '../../core/display.dart';
 import '../../core/format.dart';
 import '../shop/shop_screen.dart' show shopUrl;
@@ -117,6 +119,19 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     if (saved == true && mounted) showInfo(context, 'Profil enregistré');
   }
 
+  /// Activer : on vérifie d'abord l'empreinte / Face ID de la personne.
+  Future<void> _toggleBiometric(BiometricKind kind, bool enable) async {
+    if (enable) {
+      final ok = await ref.read(biometricsProvider).authenticate('Activer ${kind.label} pour Sama360');
+      if (!ok) {
+        if (mounted) showInfo(context, '${kind.label} non reconnu');
+        return;
+      }
+    }
+    await ref.read(pinLockProvider.notifier).setBiometric(enable);
+    if (mounted) showInfo(context, enable ? '${kind.label} activé' : '${kind.label} désactivé');
+  }
+
   Future<void> _signOutEverywhere() async {
     final ok = await showDialog<bool>(
       context: context,
@@ -166,6 +181,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final bioKind = ref.watch(biometricKindProvider).value;
+    final bioOn = ref.watch(pinLockProvider).pin?.biometric ?? false;
     final auth = ref.watch(authProvider).value;
     final me = auth?.me;
     final link = auth?.business;
@@ -323,6 +340,20 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                         hint: 'Demandé à chaque ouverture de l’app',
                         onTap: () => context.push('/pin/change'),
                       ),
+                      if (bioKind != null && ref.watch(pinLockProvider).pin != null)
+                        _Row(
+                          key: const Key('biometric_row'),
+                          icon: bioKind == BiometricKind.face
+                              ? Icons.face_retouching_natural_rounded
+                              : Icons.fingerprint_rounded,
+                          color: const Color(0xFF2F6FDB),
+                          label: bioKind.label,
+                          value: bioOn ? 'Activé' : 'Désactivé',
+                          hint: bioOn
+                              ? 'Ouvre l’app et confirme les actions sensibles'
+                              : 'À la place du code secret (le code reste en secours)',
+                          onTap: () => _toggleBiometric(bioKind, !bioOn),
+                        ),
                       _Row(
                         icon: Icons.devices_rounded,
                         color: const Color(0xFFE0533D),
@@ -550,6 +581,7 @@ class _Section extends StatelessWidget {
 
 class _Row extends StatelessWidget {
   const _Row({
+    super.key,
     required this.icon,
     required this.color,
     required this.label,

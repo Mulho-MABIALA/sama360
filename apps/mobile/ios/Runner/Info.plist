@@ -2,6 +2,8 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>NSFaceIDUsageDescription</key>
+	<string>Sama360 utilise Face ID pour ouvrir l'app et confirmer les actions sensibles, à la place de votre code secret.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>Sama360 utilise l'appareil photo pour photographier vos produits et scanner les codes-barres.</string>
 	<key>NSPhotoLibraryUsageDescription</key>

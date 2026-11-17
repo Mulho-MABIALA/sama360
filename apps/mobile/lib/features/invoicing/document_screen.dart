@@ -5,6 +5,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:pdf/pdf.dart';
 import 'package:uuid/uuid.dart';
 
+import '../auth/pin_screen.dart' show confirmSensitive;
 import '../../core/api/api_client.dart';
 import '../../core/format.dart';
 import '../../core/glass.dart';
@@ -95,7 +96,8 @@ class _DocumentScreenState extends ConsumerState<DocumentScreen> {
         ],
       ),
     );
-    if (ok != true) return;
+    if (ok != true || !mounted) return;
+    if (!await confirmSensitive(context, ref, action: 'Annuler la facture ${d.number}')) return;
     await _run('cancel', () async {
       await ref.read(repoProvider).cancelInvoice(d.id, reason.text.trim());
       refreshInvoicing(ref);

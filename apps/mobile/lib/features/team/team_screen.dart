@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../auth/pin_screen.dart' show confirmSensitive;
 import '../../core/api/api_client.dart';
 import '../../core/format.dart';
 import '../../core/glass.dart';
@@ -418,7 +419,10 @@ class _ManageSheetState extends ConsumerState<_ManageSheet> {
         ],
       ),
     );
-    if (ok == true) await _run(() => ref.read(repoProvider).removeMember(widget.member.id), 'Membre retiré');
+    if (ok != true || !mounted) return;
+    final who = widget.member.fullName ?? widget.member.phone;
+    if (!await confirmSensitive(context, ref, action: 'Retirer $who de l’équipe')) return;
+    await _run(() => ref.read(repoProvider).removeMember(widget.member.id), 'Membre retiré');
   }
 
   @override
