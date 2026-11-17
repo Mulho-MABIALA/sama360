@@ -4,6 +4,7 @@ import '../../core/api/api_client.dart';
 import '../../core/api/session_store.dart';
 import '../../core/models.dart';
 import '../../core/offline/pending_sales.dart';
+import '../../core/pin_lock.dart';
 import '../../core/providers.dart';
 
 class AuthState {
@@ -81,6 +82,7 @@ class AuthController extends AsyncNotifier<AuthState> {
     await ref.read(repoProvider).logoutAll();
     await ref.read(pendingSalesProvider.notifier).clear();
     await _clearLocal();
+    await ref.read(pinLockProvider.notifier).forget();
   }
 
   Future<void> createBusiness({required String name, String? category, String? city}) async {
@@ -112,6 +114,8 @@ class AuthController extends AsyncNotifier<AuthState> {
       }
     }
     await _clearLocal();
+    // Déconnexion volontaire : le code secret est effacé (le prochain compte créera le sien)
+    await ref.read(pinLockProvider.notifier).forget();
   }
 
   /// Appelé par le client API quand la session ne peut plus être rafraîchie.

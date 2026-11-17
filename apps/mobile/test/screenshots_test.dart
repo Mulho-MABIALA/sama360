@@ -9,6 +9,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:sama360/core/pin_lock.dart';
 import 'package:sama360/core/display.dart';
 import 'package:sama360/core/api/session_store.dart';
 import 'package:sama360/core/models.dart';
@@ -284,6 +285,24 @@ void main() {
     phoneSize(tester);
     await pumpSama(tester, location: '/reports');
     await _shot(tester, '13_rapports');
+  });
+
+  testWidgets('code secret', (tester) async {
+    phoneSize(tester);
+    await pumpSama(
+      tester,
+      pinStore: MemoryPinStore(StoredPin(userId: 'u1', hash: hashPin('2580'))),
+    );
+    await tester.tap(find.byKey(const Key('pin_key_2')));
+    await tester.tap(find.byKey(const Key('pin_key_5')));
+    await tester.pumpAndSettle();
+    await _shot(tester, '0c_code_secret');
+  });
+
+  testWidgets('code secret (création)', (tester) async {
+    phoneSize(tester);
+    await pumpSama(tester, pinStore: MemoryPinStore());
+    await _shot(tester, '0d_code_creation');
   });
 
   testWidgets('analyses', (tester) async {

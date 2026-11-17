@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/date_symbol_data_local.dart';
+import 'package:sama360/core/pin_lock.dart';
 import 'package:sama360/core/api/api_client.dart';
 import 'package:sama360/core/api/session_store.dart';
 import 'package:sama360/core/glass.dart';
@@ -1757,6 +1758,7 @@ Future<(ProviderContainer, FakeRepo)> pumpSama(
   List<Override> overrides = const [],
   FakeRepo? repo,
   bool dark = false,
+  PinStore? pinStore,
 }) async {
   Motion.enabled = false; // animations d'ambiance infinies : incompatibles avec pumpAndSettle
   await initializeDateFormatting('fr');
@@ -1764,6 +1766,9 @@ Future<(ProviderContainer, FakeRepo)> pumpSama(
   final container = ProviderContainer(
     overrides: [
       sessionStoreProvider.overrideWithValue(MemorySessionStore()),
+      // Code secret : coupé par défaut ; activé quand un test fournit [pinStore]
+      pinLockEnabledProvider.overrideWithValue(pinStore != null),
+      pinStoreProvider.overrideWithValue(pinStore ?? MemoryPinStore()),
       repoProvider.overrideWithValue(repo),
       authProvider.overrideWith(FakeAuth.new),
       if (dark) keyValueStoreProvider.overrideWithValue(MemoryStore()..data['display.settings'] = '{"mode":"dark"}'),

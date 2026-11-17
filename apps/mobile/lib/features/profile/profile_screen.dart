@@ -316,6 +316,14 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     title: 'Sécurité',
                     children: [
                       _Row(
+                        icon: Icons.pin_rounded,
+                        color: const Color(0xFF0A8453),
+                        label: 'Code secret',
+                        value: 'Changer mon code secret',
+                        hint: 'Demandé à chaque ouverture de l’app',
+                        onTap: () => context.push('/pin/change'),
+                      ),
+                      _Row(
                         icon: Icons.devices_rounded,
                         color: const Color(0xFFE0533D),
                         label: 'Sessions',

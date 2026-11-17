@@ -9,6 +9,7 @@ import 'core/offline/kv_store.dart';
 import 'core/offline/pending_sales.dart';
 import 'core/providers.dart';
 import 'core/theme.dart';
+import 'features/auth/pin_screen.dart';
 import 'router.dart';
 
 Future<void> main() async {
@@ -53,11 +54,13 @@ class SamaApp extends ConsumerWidget {
       builder: (context, child) {
         // Mode effectif (système, clair ou sombre) et couleur de la boutique → palette de l'app.
         syncPalette(Theme.of(context).brightness, brand);
-        if (!display.largeText) return child!;
+        // Code secret par-dessus toute l'app (l'écran en cours reste monté dessous)
+        final gated = PinGate(child: child!);
+        if (!display.largeText) return gated;
         final mq = MediaQuery.of(context);
         return MediaQuery(
           data: mq.copyWith(textScaler: TextScaler.linear((mq.textScaler.scale(1) * largeTextScale).clamp(1.0, 2.0))),
-          child: child!,
+          child: gated,
         );
       },
     );

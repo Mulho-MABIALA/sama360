@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sama360/core/models.dart';
 import 'package:sama360/features/reports/insights_screen.dart';

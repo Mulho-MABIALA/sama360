@@ -8,6 +8,7 @@ import 'features/reminders/reminders_screen.dart';
 import 'features/settings/display_screen.dart';
 import 'features/auth/auth_controller.dart';
 import 'features/auth/login_screens.dart';
+import 'features/auth/pin_screen.dart';
 import 'features/business/business_screen.dart';
 import 'features/cash/cash_close_screen.dart';
 import 'features/cash/cash_screen.dart';
@@ -151,6 +152,10 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (_, s) => ProductEditorScreen(productId: s.pathParameters['id']),
       ),
       GoRoute(path: '/reports', builder: (_, _) => const ReportsScreen()),
+      GoRoute(
+        path: '/pin/change',
+        builder: (_, _) => const PinScreen(mode: PinMode.change),
+      ),
       GoRoute(path: '/insights', builder: (_, _) => const InsightsScreen()),
       GoRoute(path: '/insights/week', builder: (_, _) => const WeeklyReportScreen()),
       GoRoute(
