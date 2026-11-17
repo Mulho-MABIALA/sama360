@@ -640,6 +640,35 @@ class SamaRepository {
     await _cachedGet<Map<String, dynamic>>('/v1/reports/overview', query: {'from': _day(from), 'to': _day(to)}),
   );
 
+  // ---------- Livraison ----------
+  Future<List<Courier>> couriers() async => [
+    for (final c in await _cachedGet<List<dynamic>>('/v1/couriers')) Courier.fromJson(c as Map<String, dynamic>),
+  ];
+
+  Future<Courier> addCourier({required String name, String? phone, String vehicle = 'moto'}) async => Courier.fromJson(
+    await api.post<Map<String, dynamic>>(
+      '/v1/couriers',
+      data: {'name': name, 'phone': (phone ?? '').trim().isEmpty ? null : phone, 'vehicle': vehicle},
+    ),
+  );
+
+  Future<Courier> updateCourier(String id, Map<String, Object?> changes) async =>
+      Courier.fromJson(await api.patch<Map<String, dynamic>>('/v1/couriers/$id', data: changes));
+
+  Future<DeliveryBoard> deliveryBoard({bool done = false}) async => DeliveryBoard.fromJson(
+    await _cachedGet<Map<String, dynamic>>('/v1/deliveries', query: {'view': done ? 'done' : 'active'}),
+  );
+
+  Future<Delivery> createDelivery(Map<String, Object?> data) async =>
+      Delivery.fromJson(await api.post<Map<String, dynamic>>('/v1/deliveries', data: data));
+
+  Future<Delivery> updateDelivery(String id, Map<String, Object?> changes) async =>
+      Delivery.fromJson(await api.patch<Map<String, dynamic>>('/v1/deliveries/$id', data: changes));
+
+  /// Le livreur a remis l'argent encaissé.
+  Future<int> settleCourier(String courierId) async =>
+      _int((await api.post<Map<String, dynamic>>('/v1/couriers/$courierId/settle'))['amount']);
+
   // ---------- Réservation ----------
   Future<AppointmentList> appointments(DateTime day) async => AppointmentList.fromJson(
     await _cachedGet<Map<String, dynamic>>('/v1/appointments', query: {'from': _day(day), 'to': _day(day)}),
@@ -880,3 +909,5 @@ class DocLineDraft {
     'unitPrice': unitPrice,
   };
 }
+
+int _int(Object? v) => v is num ? v.toInt() : int.tryParse('$v') ?? 0;

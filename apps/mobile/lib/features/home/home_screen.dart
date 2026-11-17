@@ -60,7 +60,7 @@ const _moreServices = [
   _paymentsService,
   _shopService,
   _Service('Documents', Icons.folder_rounded, Color(0xFF6B7280), route: '/documents'),
-  _Service('Livraison', Icons.local_shipping_rounded, Color(0xFFD9822B), soon: true),
+  _Service('Livraison', Icons.local_shipping_rounded, Color(0xFFD9822B), route: '/deliveries'),
   _Service('Réservation', Icons.event_available_rounded, Color(0xFF2F6FDB), route: '/booking'),
   _Service('Assistant IA', Icons.auto_awesome_rounded, Color(0xFF7A5AF8), route: '/assistant'),
 ];

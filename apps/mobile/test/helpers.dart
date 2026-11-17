@@ -1465,6 +1465,118 @@ class FakeRepo extends SamaRepository {
       createdByName: 'Awa Diallo',
     ),
   ];
+  // ── Livraison ──
+  final courierList = <Courier>[
+    const Courier(id: 'c1', name: 'Moussa Fall', phone: '+221771112233'),
+    const Courier(id: 'c2', name: 'Ibou Ndiaye', phone: '+221774445566', vehicle: 'velo'),
+  ];
+  var ordersToDeliver = <OrderToDeliver>[];
+  final deliveryList = <Delivery>[];
+  var courierBalances = <CourierBalance>[];
+  final deliveryOps = <(String, Object?)>[];
+
+  @override
+  Future<List<Courier>> couriers() async => List.of(courierList);
+
+  @override
+  Future<Courier> addCourier({required String name, String? phone, String vehicle = 'moto'}) async {
+    final c = Courier(id: 'c${courierList.length + 1}', name: name, phone: phone, vehicle: vehicle);
+    courierList.add(c);
+    deliveryOps.add(('addCourier', name));
+    return c;
+  }
+
+  @override
+  Future<Courier> updateCourier(String id, Map<String, Object?> changes) async {
+    deliveryOps.add(('updateCourier', changes));
+    final i = courierList.indexWhere((c) => c.id == id);
+    final old = courierList[i];
+    return courierList[i] = Courier(
+      id: id,
+      name: changes['name'] as String? ?? old.name,
+      phone: changes.containsKey('phone') ? changes['phone'] as String? : old.phone,
+      vehicle: changes['vehicle'] as String? ?? old.vehicle,
+      active: changes['active'] as bool? ?? old.active,
+    );
+  }
+
+  @override
+  Future<DeliveryBoard> deliveryBoard({bool done = false}) async {
+    bool isDone(Delivery d) =>
+        {DeliveryStatus.delivered, DeliveryStatus.failed, DeliveryStatus.cancelled}.contains(d.status);
+    return DeliveryBoard(
+      toAssign: done ? const [] : ordersToDeliver,
+      items: deliveryList.where((d) => isDone(d) == done).toList(),
+      withCouriers: done ? const [] : courierBalances,
+    );
+  }
+
+  Delivery _withStatus(Delivery d, {DeliveryStatus? status, Courier? courier, String? failure}) => Delivery(
+    id: d.id,
+    orderId: d.orderId,
+    orderNumber: d.orderNumber,
+    customerName: d.customerName,
+    customerPhone: d.customerPhone,
+    address: d.address,
+    note: d.note,
+    courierId: courier?.id ?? d.courierId,
+    courierName: courier?.name ?? d.courierName,
+    courierPhone: courier?.phone ?? d.courierPhone,
+    fee: d.fee,
+    amountToCollect: d.amountToCollect,
+    status: status ?? d.status,
+    failureReason: failure ?? d.failureReason,
+  );
+
+  @override
+  Future<Delivery> createDelivery(Map<String, Object?> data) async {
+    deliveryOps.add(('create', data));
+    final courier = courierList.where((c) => c.id == data['courierId']).firstOrNull;
+    final order = ordersToDeliver.where((o) => o.orderId == data['orderId']).firstOrNull;
+    final d = Delivery(
+      id: 'dl${deliveryList.length + 1}',
+      orderId: order?.orderId,
+      orderNumber: order?.number,
+      customerName: order?.customerName ?? data['customerName'] as String,
+      customerPhone: order?.customerPhone ?? data['customerPhone'] as String?,
+      address: order?.address ?? data['address'] as String,
+      note: data['note'] as String?,
+      courierId: courier?.id,
+      courierName: courier?.name,
+      courierPhone: courier?.phone,
+      fee: data['fee'] as int? ?? 0,
+      amountToCollect: order?.total ?? data['amountToCollect'] as int? ?? 0,
+      status: courier == null ? DeliveryStatus.pending : DeliveryStatus.assigned,
+    );
+    if (order != null) ordersToDeliver = ordersToDeliver.where((o) => o != order).toList();
+    deliveryList.insert(0, d);
+    return d;
+  }
+
+  @override
+  Future<Delivery> updateDelivery(String id, Map<String, Object?> changes) async {
+    deliveryOps.add(('update', {'id': id, ...changes}));
+    final i = deliveryList.indexWhere((d) => d.id == id);
+    final courier = courierList.where((c) => c.id == changes['courierId']).firstOrNull;
+    final status = changes['status'] == null
+        ? (courier != null ? DeliveryStatus.assigned : null)
+        : DeliveryStatus.of(changes['status'] as String);
+    return deliveryList[i] = _withStatus(
+      deliveryList[i],
+      status: status,
+      courier: courier,
+      failure: changes['failureReason'] as String?,
+    );
+  }
+
+  @override
+  Future<int> settleCourier(String courierId) async {
+    deliveryOps.add(('settle', courierId));
+    final owed = courierBalances.firstWhere((c) => c.courierId == courierId).owed;
+    courierBalances = courierBalances.where((c) => c.courierId != courierId).toList();
+    return owed;
+  }
+
   final docQueries = <(DocCategory?, String?)>[];
   final uploadedDocs = <Map<String, Object?>>[];
   final deletedDocs = <String>[];

@@ -408,3 +408,19 @@ final onboardingProvider = FutureProvider<Onboarding?>((ref) async {
   if (!ref.watch(canProvider('business:update'))) return null;
   return ref.watch(repoProvider).onboarding();
 });
+
+final couriersProvider = FutureProvider<List<Courier>>((ref) {
+  ref.watch(businessIdProvider);
+  return ref.watch(repoProvider).couriers();
+});
+
+/// Livraisons en cours (false) ou terminées (true).
+final deliveryBoardProvider = FutureProvider.family<DeliveryBoard, bool>((ref, done) {
+  ref.watch(businessIdProvider);
+  return ref.watch(repoProvider).deliveryBoard(done: done);
+});
+
+void refreshDeliveries(WidgetRef ref) {
+  ref.invalidate(deliveryBoardProvider);
+  ref.invalidate(couriersProvider);
+}

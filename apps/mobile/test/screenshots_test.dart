@@ -593,6 +593,36 @@ void main() {
     await _shot(tester, '22_rapport_z');
   });
 
+  testWidgets('livraisons', (tester) async {
+    phoneSize(tester);
+    final repo = FakeRepo()
+      ..ordersToDeliver = const [
+        OrderToDeliver(
+          orderId: 'o1',
+          number: 'CMD-0042',
+          customerName: 'Aminata Diop',
+          customerPhone: '+221776667788',
+          address: 'Sacré-Cœur 3, villa 12',
+          total: 18500,
+        ),
+      ]
+      ..courierBalances = const [CourierBalance(courierId: 'c1', name: 'Moussa Fall', owed: 25500, deliveries: 3)]
+      ..deliveryList.addAll(const [
+        Delivery(
+          id: 'd1',
+          customerName: 'Khady Sarr',
+          address: 'Ouakam, près de la mosquée',
+          courierId: 'c1',
+          courierName: 'Moussa Fall',
+          amountToCollect: 7000,
+          status: DeliveryStatus.picked,
+        ),
+        Delivery(id: 'd2', customerName: 'Ousmane Ba', address: 'Médina rue 11', status: DeliveryStatus.pending),
+      ]);
+    await pumpSama(tester, location: '/deliveries', repo: repo);
+    await _shot(tester, '20_livraisons');
+  });
+
   testWidgets('notifications', (tester) async {
     phoneSize(tester);
     await pumpSama(tester, location: '/notifications');

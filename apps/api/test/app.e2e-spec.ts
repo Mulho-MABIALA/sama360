@@ -3014,6 +3014,122 @@ describe('Socle Sama360 (e2e)', () => {
     });
   });
 
+  describe('Livraison', () => {
+    const A = () => auth(awa.accessToken, awaBiz);
+    let slug: string;
+    let order: string;
+    let moto: string;
+    let delivery: string;
+
+    it('livreurs : ajout, numéro normalisé, désactivation', async () => {
+      moto = (
+        await http
+          .post('/v1/couriers')
+          .set(A())
+          .send({ name: 'Ibou Faye', phone: '78 111 22 33', vehicle: 'moto' })
+          .expect(201)
+      ).body.id;
+      const other = (await http.post('/v1/couriers').set(A()).send({ name: 'Lamine' }).expect(201)).body.id;
+      await http.patch(`/v1/couriers/${other}`).set(A()).send({ active: false }).expect(200);
+      const list = (await http.get('/v1/couriers').set(A()).expect(200)).body;
+      expect(list[0]).toMatchObject({ name: 'Ibou Faye', phone: '+221781112233', vehicle: 'moto', active: true });
+      await http.post('/v1/couriers').set(A()).send({ name: 'X', phone: '12' }).expect(422);
+    });
+
+    it('commande en ligne à livrer → assignée → en route → livrée (vente enregistrée) → argent reçu', async () => {
+      slug = (await http.get('/v1/shop').set(A()).expect(200)).body.slug;
+      const thiouraye = (
+        await http
+          .post('/v1/catalog/products')
+          .set(A())
+          .send({ name: 'Thiouraye parfumé', price: 12000, trackStock: false, published: true })
+          .expect(201)
+      ).body.id;
+      order = '01938000-0000-7000-8000-00000000de01';
+      await http
+        .post(`/v1/public/shops/${slug}/orders`)
+        .send({
+          id: order,
+          customerName: 'Rokhaya Mbaye',
+          customerPhone: '77 222 33 44',
+          mode: 'delivery',
+          address: 'Sacré-Cœur 3, villa 12',
+          items: [{ productId: thiouraye, quantity: 1 }],
+        })
+        .expect(201);
+      // Pas encore confirmée : pas à livrer
+      let board = (await http.get('/v1/deliveries').set(A()).expect(200)).body;
+      expect(board.toAssign.find((o: { orderId: string }) => o.orderId === order)).toBeUndefined();
+      await http.post(`/v1/shop/orders/${order}/status`).set(A()).send({ status: 'confirmed' }).expect(200);
+      board = (await http.get('/v1/deliveries').set(A()).expect(200)).body;
+      expect(board.toAssign).toEqual(
+        expect.arrayContaining([expect.objectContaining({ orderId: order, total: 13000, deliveryFee: 1000 })]),
+      );
+
+      const d = await http.post('/v1/deliveries').set(A()).send({ orderId: order, courierId: moto }).expect(201);
+      delivery = d.body.id;
+      expect(d.body).toMatchObject({
+        status: 'assigned',
+        customerName: 'Rokhaya Mbaye',
+        address: 'Sacré-Cœur 3, villa 12',
+        amountToCollect: 13000,
+        fee: 1000,
+        courierName: 'Ibou Faye',
+      });
+      await http.post('/v1/deliveries').set(A()).send({ orderId: order }).expect(409);
+
+      await http.patch(`/v1/deliveries/${delivery}`).set(A()).send({ status: 'picked' }).expect(200);
+      expect((await http.get(`/v1/shop/orders/${order}`).set(A()).expect(200)).body.status).toBe('delivering');
+      await http.patch(`/v1/deliveries/${delivery}`).set(A()).send({ status: 'assigned' }).expect(409);
+
+      const done = await http.patch(`/v1/deliveries/${delivery}`).set(A()).send({ status: 'delivered' }).expect(200);
+      expect(done.body).toMatchObject({ status: 'delivered', settled: false });
+      const o = (await http.get(`/v1/shop/orders/${order}`).set(A()).expect(200)).body;
+      expect(o.status).toBe('completed');
+      expect(o.saleId).toBeTruthy();
+
+      board = (await http.get('/v1/deliveries').set(A()).expect(200)).body;
+      expect(board.withCouriers).toEqual([
+        { courierId: moto, name: 'Ibou Faye', phone: '+221781112233', owed: 13000, deliveries: 1 },
+      ]);
+      const settled = await http.post(`/v1/couriers/${moto}/settle`).set(A()).expect(201);
+      expect(settled.body).toEqual({ deliveries: 1, amount: 13000 });
+      expect((await http.get('/v1/deliveries').set(A()).expect(200)).body.withCouriers).toEqual([]);
+      const history = (await http.get('/v1/deliveries?view=done').set(A()).expect(200)).body.items;
+      expect(history[0]).toMatchObject({ id: delivery, settled: true, orderNumber: expect.any(String) });
+    });
+
+    it('livraison notée à la main ; échec puis nouvel essai ; vendeur autorisé', async () => {
+      await http.post('/v1/deliveries').set(A()).send({ customerName: 'Pape', address: '' }).expect(422);
+      const m = await http
+        .post('/v1/deliveries')
+        .set(auth(modouToken, awaBiz))
+        .send({
+          customerName: 'Pape Ndiaye',
+          customerPhone: '70 123 45 67',
+          address: 'Grand Yoff',
+          amountToCollect: 5000,
+        })
+        .expect(201);
+      expect(m.body.status).toBe('pending');
+      await http.patch(`/v1/deliveries/${m.body.id}`).set(A()).send({ status: 'picked' }).expect(409);
+      await http.patch(`/v1/deliveries/${m.body.id}`).set(A()).send({ courierId: moto }).expect(200);
+      const failed = await http
+        .patch(`/v1/deliveries/${m.body.id}`)
+        .set(A())
+        .send({ status: 'failed', failureReason: 'Client absent' })
+        .expect(200);
+      expect(failed.body).toMatchObject({ status: 'failed', failureReason: 'Client absent' });
+      const retry = await http.patch(`/v1/deliveries/${m.body.id}`).set(A()).send({ courierId: moto }).expect(200);
+      expect(retry.body).toMatchObject({ status: 'assigned', failureReason: null });
+      await http
+        .get('/v1/deliveries')
+        .set(auth(moussa.accessToken, moussaBiz))
+        .expect(200)
+        .expect((r) => expect(r.body.items).toEqual([]));
+    });
+  });
+
   describe('Sessions', () => {
     it('déconnecte tous les appareils', async () => {
       // Session du caissier (les codes de connexion sont limités par minute : on réutilise sa session)

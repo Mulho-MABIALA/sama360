@@ -3001,3 +3001,158 @@ class Onboarding {
     ],
   );
 }
+
+// ---------- Livraison ----------
+
+const vehicleLabels = {'moto': 'Moto', 'voiture': 'Voiture', 'velo': 'Vélo', 'pied': 'À pied'};
+
+class Courier {
+  const Courier({required this.id, required this.name, this.phone, this.vehicle = 'moto', this.active = true});
+  final String id;
+  final String name;
+  final String? phone;
+  final String vehicle;
+  final bool active;
+
+  factory Courier.fromJson(Map<String, dynamic> j) => Courier(
+    id: j['id'] as String,
+    name: j['name'] as String,
+    phone: j['phone'] as String?,
+    vehicle: j['vehicle'] as String? ?? 'moto',
+    active: j['active'] != false,
+  );
+}
+
+enum DeliveryStatus {
+  pending('pending', 'À assigner'),
+  assigned('assigned', 'Assignée'),
+  picked('picked', 'En route'),
+  delivered('delivered', 'Livrée'),
+  failed('failed', 'Échec'),
+  cancelled('cancelled', 'Annulée');
+
+  const DeliveryStatus(this.key, this.label);
+  final String key;
+  final String label;
+
+  static DeliveryStatus of(String k) => values.firstWhere((s) => s.key == k, orElse: () => pending);
+}
+
+class Delivery {
+  const Delivery({
+    required this.id,
+    this.orderId,
+    this.orderNumber,
+    required this.customerName,
+    this.customerPhone,
+    required this.address,
+    this.note,
+    this.courierId,
+    this.courierName,
+    this.courierPhone,
+    this.fee = 0,
+    this.amountToCollect = 0,
+    required this.status,
+    this.failureReason,
+    this.settled = false,
+  });
+  final String id;
+  final String? orderId;
+  final String? orderNumber;
+  final String customerName;
+  final String? customerPhone;
+  final String address;
+  final String? note;
+  final String? courierId;
+  final String? courierName;
+  final String? courierPhone;
+  final int fee;
+  final int amountToCollect;
+  final DeliveryStatus status;
+  final String? failureReason;
+  final bool settled;
+
+  factory Delivery.fromJson(Map<String, dynamic> j) => Delivery(
+    id: j['id'] as String,
+    orderId: j['orderId'] as String?,
+    orderNumber: j['orderNumber'] as String?,
+    customerName: j['customerName'] as String,
+    customerPhone: j['customerPhone'] as String?,
+    address: j['address'] as String,
+    note: j['note'] as String?,
+    courierId: j['courierId'] as String?,
+    courierName: j['courierName'] as String?,
+    courierPhone: j['courierPhone'] as String?,
+    fee: _int(j['fee']),
+    amountToCollect: _int(j['amountToCollect']),
+    status: DeliveryStatus.of(j['status'] as String),
+    failureReason: j['failureReason'] as String?,
+    settled: j['settled'] == true,
+  );
+}
+
+/// Commande en ligne confirmée, à confier à un livreur.
+class OrderToDeliver {
+  const OrderToDeliver({
+    required this.orderId,
+    required this.number,
+    required this.customerName,
+    required this.customerPhone,
+    required this.address,
+    required this.total,
+  });
+  final String orderId;
+  final String number;
+  final String customerName;
+  final String customerPhone;
+  final String address;
+  final int total;
+
+  factory OrderToDeliver.fromJson(Map<String, dynamic> j) => OrderToDeliver(
+    orderId: j['orderId'] as String,
+    number: j['number'] as String,
+    customerName: j['customerName'] as String,
+    customerPhone: j['customerPhone'] as String,
+    address: j['address'] as String? ?? '',
+    total: _int(j['total']),
+  );
+}
+
+/// Argent encaissé par un livreur, pas encore remis.
+class CourierBalance {
+  const CourierBalance({
+    required this.courierId,
+    required this.name,
+    this.phone,
+    required this.owed,
+    required this.deliveries,
+  });
+  final String courierId;
+  final String name;
+  final String? phone;
+  final int owed;
+  final int deliveries;
+
+  factory CourierBalance.fromJson(Map<String, dynamic> j) => CourierBalance(
+    courierId: j['courierId'] as String,
+    name: j['name'] as String,
+    phone: j['phone'] as String?,
+    owed: _int(j['owed']),
+    deliveries: _int(j['deliveries']),
+  );
+}
+
+class DeliveryBoard {
+  const DeliveryBoard({required this.toAssign, required this.items, required this.withCouriers});
+  final List<OrderToDeliver> toAssign;
+  final List<Delivery> items;
+  final List<CourierBalance> withCouriers;
+
+  factory DeliveryBoard.fromJson(Map<String, dynamic> j) => DeliveryBoard(
+    toAssign: [for (final o in (j['toAssign'] as List).cast<Map<String, dynamic>>()) OrderToDeliver.fromJson(o)],
+    items: [for (final d in (j['items'] as List).cast<Map<String, dynamic>>()) Delivery.fromJson(d)],
+    withCouriers: [
+      for (final c in (j['withCouriers'] as List).cast<Map<String, dynamic>>()) CourierBalance.fromJson(c),
+    ],
+  );
+}

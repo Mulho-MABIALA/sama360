@@ -11,6 +11,7 @@ import 'features/auth/login_screens.dart';
 import 'features/assistant/assistant_screen.dart';
 import 'features/auth/pin_screen.dart';
 import 'features/booking/booking_screen.dart';
+import 'features/delivery/delivery_screen.dart';
 import 'features/catalog/product_photo.dart' show PickedPhoto;
 import 'features/documents/documents_screen.dart';
 import 'features/business/business_screen.dart';
@@ -159,6 +160,9 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (_, s) => ProductEditorScreen(productId: s.pathParameters['id']),
       ),
       GoRoute(path: '/reports', builder: (_, _) => const ReportsScreen()),
+      GoRoute(path: '/deliveries', builder: (_, _) => const DeliveriesScreen()),
+      GoRoute(path: '/deliveries/new', builder: (_, _) => const NewDeliveryScreen()),
+      GoRoute(path: '/deliveries/couriers', builder: (_, _) => const CouriersScreen()),
       GoRoute(path: '/booking', builder: (_, _) => const BookingScreen()),
       GoRoute(path: '/booking/settings', builder: (_, _) => const BookingSettingsScreen()),
       GoRoute(
