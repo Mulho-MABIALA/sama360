@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 
+import '../../core/biometrics.dart';
 import '../../core/glass.dart';
 import '../../core/pin_lock.dart';
 import '../../core/theme.dart';
@@ -19,9 +20,12 @@ enum _Step { current, enter, confirm }
 
 /// Écran du code secret : déverrouiller, créer ou changer (pavé numérique façon Wave / Orange Money).
 class PinScreen extends ConsumerStatefulWidget {
-  const PinScreen({super.key, required this.mode, this.firstName});
+  const PinScreen({super.key, required this.mode, this.firstName, this.photoBackground = true});
   final PinMode mode;
   final String? firstName;
+
+  /// Monument du jour en fond et touches en verre (par défaut partout).
+  final bool photoBackground;
 
   @override
   ConsumerState<PinScreen> createState() => _PinScreenState();
@@ -41,9 +45,31 @@ class _PinScreenState extends ConsumerState<PinScreen> with SingleTickerProvider
   late final AnimationController _shake = AnimationController(vsync: this, duration: const Duration(milliseconds: 420));
 
   @override
+  void initState() {
+    super.initState();
+    // À l'ouverture : on propose tout de suite l'empreinte / Face ID si activé
+    if (widget.mode == PinMode.unlock) WidgetsBinding.instance.addPostFrameCallback((_) => _biometric(auto: true));
+  }
+
+  @override
   void dispose() {
     _shake.dispose();
     super.dispose();
+  }
+
+  Future<void> _biometric({bool auto = false}) async {
+    if (!mounted || _busy || widget.mode != PinMode.unlock) return;
+    if (!(ref.read(pinLockProvider).pin?.biometric ?? false)) return;
+    final kind = await ref.read(biometricKindProvider.future);
+    if (kind == null || !mounted) return;
+    final ok = await ref.read(biometricsProvider).authenticate('Ouvrir Sama360');
+    if (!mounted) return;
+    if (ok) {
+      HapticFeedback.mediumImpact();
+      await ref.read(pinLockProvider.notifier).unlockWithBiometrics();
+    } else if (!auto) {
+      setState(() => _error = 'Non reconnu. Tapez votre code secret.');
+    }
   }
 
   String get _title => switch ((widget.mode, _step)) {
@@ -177,14 +203,18 @@ class _PinScreenState extends ConsumerState<PinScreen> with SingleTickerProvider
   Widget build(BuildContext context) {
     final unlock = widget.mode == PinMode.unlock;
     // Ouverture et création : monument du jour en fond, touches en verre (comme l'accueil)
-    final photo = widget.mode != PinMode.change;
+    final photo = widget.photoBackground;
     final ink = photo ? Colors.white : AppColors.ink;
     final soft = photo ? Colors.white.withValues(alpha: 0.85) : AppColors.muted;
     final errorColor = photo ? const Color(0xFFFFB4A8) : AppColors.danger;
     final screen = Scaffold(
       backgroundColor: photo ? Colors.transparent : AppColors.ground,
       appBar: widget.mode == PinMode.change
-          ? AppBar(backgroundColor: Colors.transparent, title: const Text('Code secret'))
+          ? AppBar(
+              backgroundColor: Colors.transparent,
+              foregroundColor: Colors.white,
+              title: const Text('Code secret', style: TextStyle(color: Colors.white)),
+            )
           : null,
       body: SafeArea(
         child: LayoutBuilder(
@@ -259,7 +289,16 @@ class _PinScreenState extends ConsumerState<PinScreen> with SingleTickerProvider
                     if (_confirmForgot)
                       _ForgotPanel(onCancel: () => setState(() => _confirmForgot = false), onConfirm: _signOut)
                     else ...[
-                      _Keypad(onDigit: _tap, onErase: _erase, keySize: keySize, glass: photo),
+                      _Keypad(
+                        onDigit: _tap,
+                        onErase: _erase,
+                        keySize: keySize,
+                        glass: photo,
+                        biometric: unlock && (ref.watch(pinLockProvider).pin?.biometric ?? false)
+                            ? ref.watch(biometricKindProvider).value
+                            : null,
+                        onBiometric: () => _biometric(),
+                      ),
                       const SizedBox(height: 8),
                       SizedBox(
                         height: 48,
@@ -351,11 +390,22 @@ class _Dots extends StatelessWidget {
 }
 
 class _Keypad extends StatelessWidget {
-  const _Keypad({required this.onDigit, required this.onErase, required this.keySize, this.glass = false});
+  const _Keypad({
+    required this.onDigit,
+    required this.onErase,
+    required this.keySize,
+    this.glass = false,
+    this.biometric,
+    this.onBiometric,
+  });
   final ValueChanged<String> onDigit;
   final VoidCallback onErase;
   final double keySize;
   final bool glass;
+
+  /// Touche en bas à gauche : empreinte ou Face ID (si activé).
+  final BiometricKind? biometric;
+  final VoidCallback? onBiometric;
 
   @override
   Widget build(BuildContext context) {
@@ -383,7 +433,19 @@ class _Keypad extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              SizedBox(width: keySize, height: keySize),
+              if (biometric != null && onBiometric != null)
+                _Key(
+                  size: keySize,
+                  label: biometric!.label,
+                  onTap: onBiometric!,
+                  child: Icon(
+                    biometric == BiometricKind.face ? Icons.face_retouching_natural_rounded : Icons.fingerprint_rounded,
+                    size: 34,
+                    color: glass ? Colors.white : AppColors.green,
+                  ),
+                )
+              else
+                SizedBox(width: keySize, height: keySize),
               key('0'),
               // Effacer : sans bulle, pour bien le distinguer des chiffres
               _Key(
@@ -559,6 +621,221 @@ class _PinGateState extends ConsumerState<PinGate> {
           child: TickerMode(enabled: gate == null, child: widget.child),
         ),
         if (gate != null) Positioned.fill(child: gate),
+      ],
+    );
+  }
+}
+
+// ---------- Actions sensibles ----------
+
+/// À appeler avant une action sensible (annuler une vente, sortie de caisse, effacer une dette…).
+/// Empreinte / Face ID si activé, sinon (ou en secours) le code secret.
+/// Vrai : l'action peut continuer. Sans code secret configuré (ou verrou coupé), on laisse passer.
+Future<bool> confirmSensitive(BuildContext context, WidgetRef ref, {required String action}) async {
+  if (!ref.read(pinLockEnabledProvider)) return true;
+  final me = ref.read(authProvider).value?.me;
+  final pin = ref.read(pinLockProvider);
+  if (me == null || !pin.hasPinFor(me.id)) return true;
+
+  if (pin.pin!.biometric && await ref.read(biometricKindProvider.future) != null) {
+    if (await ref.read(biometricsProvider).authenticate(action)) return true;
+  }
+  if (!context.mounted) return false;
+  final ok = await showModalBottomSheet<bool>(
+    context: context,
+    isScrollControlled: true,
+    useSafeArea: true,
+    backgroundColor: Colors.transparent,
+    clipBehavior: Clip.antiAlias,
+    shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(28))),
+    builder: (_) => _PinConfirmSheet(action: action),
+  );
+  return ok == true;
+}
+
+class _PinConfirmSheet extends ConsumerStatefulWidget {
+  const _PinConfirmSheet({required this.action});
+  final String action;
+
+  @override
+  ConsumerState<_PinConfirmSheet> createState() => _PinConfirmSheetState();
+}
+
+class _PinConfirmSheetState extends ConsumerState<_PinConfirmSheet> with SingleTickerProviderStateMixin {
+  String _digits = '';
+  String? _error;
+  bool _busy = false;
+  late final AnimationController _shake = AnimationController(vsync: this, duration: const Duration(milliseconds: 420));
+
+  @override
+  void dispose() {
+    _shake.dispose();
+    super.dispose();
+  }
+
+  void _tap(String d) {
+    if (_busy || _digits.length >= pinLength) return;
+    HapticFeedback.selectionClick();
+    setState(() {
+      _digits += d;
+      _error = null;
+    });
+    if (_digits.length == pinLength) _check(_digits);
+  }
+
+  void _erase() {
+    if (_busy || _digits.isEmpty) return;
+    setState(() => _digits = _digits.substring(0, _digits.length - 1));
+  }
+
+  Future<void> _check(String pin) async {
+    await Future<void>.delayed(const Duration(milliseconds: 120));
+    if (!mounted) return;
+    setState(() => _busy = true);
+    final PinCheck r;
+    try {
+      r = await ref.read(pinLockProvider.notifier).confirm(pin);
+    } catch (_) {
+      if (mounted) setState(() => _busy = false);
+      return;
+    }
+    if (!mounted) return;
+    setState(() => _busy = false);
+    switch (r) {
+      case PinCheck.ok:
+        HapticFeedback.mediumImpact();
+        Navigator.pop(context, true);
+      case PinCheck.blocked:
+        Navigator.pop(context, false);
+        await ref.read(authProvider.notifier).signOut();
+      case PinCheck.wrong:
+        HapticFeedback.heavyImpact();
+        _shake.forward(from: 0);
+        final left = ref.read(pinLockProvider).attemptsLeft;
+        setState(() {
+          _digits = '';
+          _error = left <= 3 ? 'Code incorrect. Plus que $left essai${left > 1 ? 's' : ''}.' : 'Code incorrect.';
+        });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final kind = ref.watch(biometricKindProvider).value;
+    final bio = (ref.watch(pinLockProvider).pin?.biometric ?? false) ? kind : null;
+    final content = Padding(
+      padding: const EdgeInsets.fromLTRB(0, 10, 0, 12),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 40,
+            height: 4,
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.6),
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.18),
+              shape: BoxShape.circle,
+              border: Border.all(color: Colors.white.withValues(alpha: 0.4)),
+            ),
+            child: const Icon(Icons.lock_rounded, color: Colors.white, size: 26),
+          ),
+          const SizedBox(height: 12),
+          const Text(
+            'Confirmez avec votre code',
+            key: Key('confirm_pin_title'),
+            style: TextStyle(
+              fontSize: 19,
+              fontWeight: FontWeight.w800,
+              color: Colors.white,
+              shadows: [Shadow(color: Color(0x80000000), blurRadius: 12)],
+            ),
+          ),
+          const SizedBox(height: 4),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24),
+            child: Text(
+              widget.action,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.88),
+                shadows: const [Shadow(color: Color(0x80000000), blurRadius: 10)],
+              ),
+            ),
+          ),
+          const SizedBox(height: 20),
+          AnimatedBuilder(
+            animation: _shake,
+            builder: (context, child) => Transform.translate(
+              offset: Offset(math.sin(_shake.value * math.pi * 6) * 12 * (1 - _shake.value), 0),
+              child: child,
+            ),
+            child: _Dots(filled: _digits.length, error: _error != null, onPhoto: true),
+          ),
+          SizedBox(
+            height: 40,
+            child: Center(
+              child: _busy
+                  ? SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2.4, color: Colors.white),
+                    )
+                  : _error == null
+                  ? null
+                  : Text(
+                      _error!,
+                      key: const Key('confirm_pin_error'),
+                      style: const TextStyle(color: Color(0xFFFFB4A8), fontWeight: FontWeight.w700, fontSize: 13),
+                    ),
+            ),
+          ),
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 400),
+            child: _Keypad(
+              onDigit: _tap,
+              onErase: _erase,
+              keySize: 60,
+              glass: true,
+              biometric: bio,
+              onBiometric: () async {
+                final ok = await ref.read(biometricsProvider).authenticate(widget.action);
+                if (ok && mounted) Navigator.pop(this.context, true);
+              },
+            ),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text(
+              'Annuler',
+              style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
+            ),
+          ),
+        ],
+      ),
+    );
+    // Même fond que l'écran du code : monument du jour, voile, touches en verre
+    return Stack(
+      children: [
+        const Positioned.fill(child: MonumentBackdrop()),
+        const Positioned.fill(
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [Color(0x59000000), Color(0xB3052A1F)],
+              ),
+            ),
+          ),
+        ),
+        content,
       ],
     );
   }

@@ -86,23 +86,32 @@ List<int> _pbkdf2(List<int> password, List<int> salt, int iterations) {
 
 /// Code enregistré : à qui il appartient, son empreinte, et les essais ratés.
 class StoredPin {
-  const StoredPin({required this.userId, required this.hash, this.failures = 0});
+  const StoredPin({required this.userId, required this.hash, this.failures = 0, this.biometric = false});
   final String userId;
   final String hash;
   final int failures;
 
-  String encode() => jsonEncode({'u': userId, 'h': hash, 'f': failures});
+  /// Empreinte / Face ID acceptés à la place du code (le code reste en secours).
+  final bool biometric;
+
+  String encode() => jsonEncode({'u': userId, 'h': hash, 'f': failures, 'b': biometric});
   static StoredPin? decode(String? raw) {
     if (raw == null) return null;
     try {
       final j = jsonDecode(raw) as Map<String, dynamic>;
-      return StoredPin(userId: j['u'] as String, hash: j['h'] as String, failures: (j['f'] as num?)?.toInt() ?? 0);
+      return StoredPin(
+        userId: j['u'] as String,
+        hash: j['h'] as String,
+        failures: (j['f'] as num?)?.toInt() ?? 0,
+        biometric: j['b'] == true,
+      );
     } catch (_) {
       return null;
     }
   }
 
-  StoredPin withFailures(int f) => StoredPin(userId: userId, hash: hash, failures: f);
+  StoredPin withFailures(int f) => StoredPin(userId: userId, hash: hash, failures: f, biometric: biometric);
+  StoredPin withBiometric(bool b) => StoredPin(userId: userId, hash: hash, failures: failures, biometric: b);
 }
 
 abstract class PinStore {
@@ -169,7 +178,9 @@ class PinLockController extends Notifier<PinLockState> {
 
   /// Nouveau code (création ou changement) : l'app reste déverrouillée.
   Future<void> setPin(String userId, String pin) async {
-    final stored = StoredPin(userId: userId, hash: await hashPinAsync(pin));
+    // Un changement de code garde le choix de l'empreinte
+    final keep = state.pin?.userId == userId && (state.pin?.biometric ?? false);
+    final stored = StoredPin(userId: userId, hash: await hashPinAsync(pin), biometric: keep);
     await _store.save(stored);
     state = PinLockState(ready: true, pin: stored, locked: false);
   }
@@ -188,6 +199,40 @@ class PinLockController extends Notifier<PinLockState> {
     await _store.save(failed);
     state = PinLockState(ready: true, pin: failed, locked: true);
     return failed.failures >= maxPinAttempts ? PinCheck.blocked : PinCheck.wrong;
+  }
+
+  /// Code demandé avant une action sensible : l'app reste déverrouillée,
+  /// mais les erreurs comptent (5 erreurs → déconnexion, comme à l'ouverture).
+  Future<PinCheck> confirm(String pin) async {
+    final stored = state.pin;
+    if (stored == null) return PinCheck.blocked;
+    if (await checkPinAsync(pin, stored.hash)) {
+      if (stored.failures > 0) await _save(stored.withFailures(0));
+      return PinCheck.ok;
+    }
+    final failed = stored.withFailures(stored.failures + 1);
+    await _save(failed);
+    return failed.failures >= maxPinAttempts ? PinCheck.blocked : PinCheck.wrong;
+  }
+
+  /// Déverrouillage par empreinte / Face ID (vérifié par le téléphone).
+  Future<void> unlockWithBiometrics() async {
+    final stored = state.pin;
+    if (stored == null) return;
+    final reset = stored.withFailures(0);
+    await _store.save(reset);
+    state = PinLockState(ready: true, pin: reset, locked: false);
+  }
+
+  Future<void> setBiometric(bool enabled) async {
+    final stored = state.pin;
+    if (stored == null) return;
+    await _save(stored.withBiometric(enabled));
+  }
+
+  Future<void> _save(StoredPin p) async {
+    await _store.save(p);
+    state = PinLockState(ready: true, pin: p, locked: state.locked);
   }
 
   /// Vérifie sans changer l'état du verrou (changement de code depuis le profil).

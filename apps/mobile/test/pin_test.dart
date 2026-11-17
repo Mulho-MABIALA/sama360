@@ -1,5 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:sama360/core/biometrics.dart';
+import 'package:sama360/core/format.dart';
 import 'package:sama360/core/pin_lock.dart';
 
 import 'helpers.dart';
@@ -15,6 +17,7 @@ Future<void> typePin(WidgetTester tester, String pin) async {
 
 void main() {
   setUpAll(loadTestFonts);
+  sensitiveAndBiometricTests();
 
   group('code secret (logique)', () {
     test('codes trop faciles refusés', () {
@@ -153,6 +156,115 @@ void main() {
       expect(tester.takeException(), isNull);
       expect(find.byKey(const Key('pin_key_0')), findsOneWidget);
       expect(find.text('Se déconnecter'), findsOneWidget);
+    });
+  });
+}
+
+void sensitiveAndBiometricTests() {
+  StoredPin pin({bool bio = false}) => StoredPin(userId: 'u1', hash: hashPin('2580'), biometric: bio);
+
+  group('actions sensibles', () {
+    testWidgets('annuler une vente : motif, puis code secret (erreur puis bon code)', (tester) async {
+      phoneSize(tester);
+      final (_, repo) = await pumpSama(tester, location: '/sales/s2', pinStore: MemoryPinStore(pin()));
+      await typePin(tester, '2580'); // ouverture de l'app
+
+      await tester.tap(find.byTooltip('Annuler la vente'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byKey(const Key('voidReason')), 'Erreur de saisie');
+      await tester.tap(find.text('Oui, annuler'));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('confirm_pin_title')), findsOneWidget);
+      expect(find.textContaining('Annuler la vente VEN-2026-0042'), findsOneWidget);
+
+      await typePin(tester, '1111');
+      expect(find.byKey(const Key('confirm_pin_error')), findsOneWidget);
+      expect(repo.voidedSales, isEmpty);
+      await typePin(tester, '2580');
+      expect(repo.voidedSales, {'s2': 'Erreur de saisie'});
+      expect(find.text('VENTE ANNULÉE'), findsOneWidget);
+    });
+
+    testWidgets('« Annuler » dans la feuille du code : rien n’est fait', (tester) async {
+      phoneSize(tester);
+      final (_, repo) = await pumpSama(tester, location: '/sales/s2', pinStore: MemoryPinStore(pin()));
+      await typePin(tester, '2580');
+      await tester.tap(find.byTooltip('Annuler la vente'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byKey(const Key('voidReason')), 'Client a rendu');
+      await tester.tap(find.text('Oui, annuler'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Annuler').last);
+      await tester.pumpAndSettle();
+      expect(repo.voidedSales, isEmpty);
+      expect(find.byKey(const Key('confirm_pin_title')), findsNothing);
+    });
+
+    testWidgets('empreinte activée : confirmée sans taper le code', (tester) async {
+      phoneSize(tester);
+      final bio = FakeBiometrics(kindValue: BiometricKind.fingerprint);
+      final (_, repo) = await pumpSama(
+        tester,
+        location: '/sales/s2',
+        pinStore: MemoryPinStore(pin(bio: true)),
+        biometrics: bio,
+      );
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('pin_title')), findsNothing); // ouverte à l'empreinte
+      await tester.tap(find.byTooltip('Annuler la vente'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byKey(const Key('voidReason')), 'Doublon');
+      await tester.tap(find.text('Oui, annuler'));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('confirm_pin_title')), findsNothing);
+      expect(repo.voidedSales, {'s2': 'Doublon'});
+      expect(bio.prompts, ['Ouvrir Sama360', 'Annuler la vente VEN-2026-0042 (${money(demoSale.total)})']);
+    });
+  });
+
+  group('empreinte / Face ID', () {
+    testWidgets('non reconnue : on retombe sur le code, bouton empreinte pour réessayer', (tester) async {
+      phoneSize(tester);
+      final bio = FakeBiometrics(kindValue: BiometricKind.fingerprint, result: false);
+      await pumpSama(tester, pinStore: MemoryPinStore(pin(bio: true)), biometrics: bio);
+      await tester.pumpAndSettle();
+      expect(find.text('Bonjour Awa'), findsOneWidget);
+      expect(find.byKey(const Key('pin_key_Empreinte digitale')), findsOneWidget);
+
+      await tester.tap(find.byKey(const Key('pin_key_Empreinte digitale')));
+      await tester.pumpAndSettle();
+      expect(find.text('Non reconnu. Tapez votre code secret.'), findsOneWidget);
+
+      bio.result = true;
+      await tester.tap(find.byKey(const Key('pin_key_Empreinte digitale')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('pin_title')), findsNothing);
+    });
+
+    testWidgets('activer depuis le profil (après vérification de l’empreinte)', (tester) async {
+      phoneSize(tester);
+      final store = MemoryPinStore(pin());
+      final bio = FakeBiometrics(kindValue: BiometricKind.face);
+      await pumpSama(tester, location: '/account', pinStore: store, biometrics: bio);
+      expect(bio.prompts, isEmpty); // pas activé : pas de demande à l'ouverture
+      expect(find.byKey(const Key('pin_key_Face ID')), findsNothing);
+      await typePin(tester, '2580');
+
+      await tester.ensureVisible(find.byKey(const Key('biometric_row')));
+      await tester.pumpAndSettle();
+      expect(find.text('Face ID'), findsOneWidget);
+      await tester.tap(find.byKey(const Key('biometric_row')));
+      await tester.pumpAndSettle();
+      expect(store.pin!.biometric, isTrue);
+      expect(bio.prompts.single, 'Activer Face ID pour Sama360');
+      expect(find.text('Activé'), findsOneWidget);
+    });
+
+    testWidgets('téléphone sans capteur : rien n’est proposé', (tester) async {
+      phoneSize(tester);
+      await pumpSama(tester, location: '/account', pinStore: MemoryPinStore(pin()));
+      await typePin(tester, '2580');
+      expect(find.byKey(const Key('biometric_row')), findsNothing);
     });
   });
 }

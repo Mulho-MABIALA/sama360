@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/date_symbol_data_local.dart';
+import 'package:sama360/core/biometrics.dart';
 import 'package:sama360/core/pin_lock.dart';
 import 'package:sama360/core/api/api_client.dart';
 import 'package:sama360/core/api/session_store.dart';
@@ -1681,7 +1682,12 @@ class FakeRepo extends SamaRepository {
   Future<void> logoutAll() async => loggedOutEverywhere = true;
 
   @override
-  Future<SaleDetail> sale(String id) async => id == 'voided' ? demoVoidedSale : demoSale;
+  Future<SaleDetail> sale(String id) async => id == 'voided' || voidedSales.containsKey(id) ? demoVoidedSale : demoSale;
+
+  final voidedSales = <String, String>{};
+
+  @override
+  Future<void> voidSale(String id, String reason) async => voidedSales[id] = reason;
 
   @override
   Future<List<SaleSummary>> salesOfDay([DateTime? day, bool mine = false]) async => [
@@ -1746,6 +1752,23 @@ final demoVoidedSale = SaleDetail(
   payments: const [(method: PayMethod.cash, amount: 3500)],
 );
 
+/// Empreinte / Face ID simulés : [kind] null = le téléphone n'en a pas.
+class FakeBiometrics implements Biometrics {
+  FakeBiometrics({this.kindValue, this.result = true});
+  final BiometricKind? kindValue;
+  bool result;
+  final prompts = <String>[];
+
+  @override
+  Future<BiometricKind?> kind() async => kindValue;
+
+  @override
+  Future<bool> authenticate(String reason) async {
+    prompts.add(reason);
+    return result;
+  }
+}
+
 class FakeAuth extends AuthController {
   @override
   Future<AuthState> build() async => const AuthState(me: demoMe, businessId: 'b1');
@@ -1759,6 +1782,7 @@ Future<(ProviderContainer, FakeRepo)> pumpSama(
   FakeRepo? repo,
   bool dark = false,
   PinStore? pinStore,
+  Biometrics? biometrics,
 }) async {
   pinUseIsolate = false; // calcul du code secret sur place (temps simulé des tests)
   Motion.enabled = false; // animations d'ambiance infinies : incompatibles avec pumpAndSettle
@@ -1770,6 +1794,7 @@ Future<(ProviderContainer, FakeRepo)> pumpSama(
       // Code secret : coupé par défaut ; activé quand un test fournit [pinStore]
       pinLockEnabledProvider.overrideWithValue(pinStore != null),
       pinStoreProvider.overrideWithValue(pinStore ?? MemoryPinStore()),
+      biometricsProvider.overrideWithValue(biometrics ?? FakeBiometrics()),
       repoProvider.overrideWithValue(repo),
       authProvider.overrideWith(FakeAuth.new),
       if (dark) keyValueStoreProvider.overrideWithValue(MemoryStore()..data['display.settings'] = '{"mode":"dark"}'),

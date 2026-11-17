@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:material_ui/material_ui.dart';
 
+import '../auth/pin_screen.dart' show confirmSensitive;
 import '../../core/privacy.dart';
 import '../../core/format.dart';
 import '../../core/glass.dart';
@@ -1054,6 +1055,14 @@ class _AdjustSheetState extends ConsumerState<_AdjustSheet> {
     if (!_increase && a > widget.balance) {
       return showInfo(context, 'La remise dépasse la dette (${money(widget.balance)})');
     }
+    if (!await confirmSensitive(
+      context,
+      ref,
+      action: _increase ? 'Ajouter ${money(a)} à la dette' : 'Effacer ${money(a)} de dette',
+    )) {
+      return;
+    }
+    if (!mounted) return;
     setState(() => _busy = true);
     try {
       await ref
@@ -1217,6 +1226,7 @@ class LoyaltyCardTile extends ConsumerWidget {
       ),
     );
     if (points == null || points <= 0 || !context.mounted) return;
+    if (!await confirmSensitive(context, ref, action: 'Offrir $points points')) return;
     try {
       final balance = await ref.read(repoProvider).adjustLoyalty(customer.id, points, 'Cadeau');
       ref.invalidate(loyaltyCardProvider(customer.id));

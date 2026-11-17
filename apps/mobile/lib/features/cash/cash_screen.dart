@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:material_ui/material_ui.dart';
 
+import '../auth/pin_screen.dart' show confirmSensitive;
 import '../../core/privacy.dart';
 import '../../core/format.dart';
 import '../../core/glass.dart';
@@ -399,6 +400,9 @@ class _MovementSheetState extends ConsumerState<_MovementSheet> {
     if (!widget.isIn && a > widget.cash) {
       return showInfo(context, 'Il n’y a que ${money(widget.cash)} en espèces dans la caisse');
     }
+    // Sortie d'argent : le code secret protège la caisse
+    if (!widget.isIn && !await confirmSensitive(context, ref, action: 'Sortie de caisse de ${money(a)}')) return;
+    if (!mounted) return;
     setState(() => _busy = true);
     try {
       await ref.read(repoProvider).cashMovement(isIn: widget.isIn, amount: a, reason: _reason.text);

@@ -318,6 +318,28 @@ void main() {
     await _shot(tester, '0d_code_creation');
   });
 
+  testWidgets('code secret (action sensible)', (tester) async {
+    phoneSize(tester);
+    final store = MemoryPinStore(StoredPin(userId: 'u1', hash: hashPin('2580')));
+    final (c, _) = await pumpSama(
+      tester,
+      location: '/sales/s2',
+      pinStore: store,
+      overrides: [monumentDateProvider.overrideWithValue(DateTime(2026, 11, 18))],
+    );
+    await c.read(pinLockProvider.notifier).unlockWithBiometrics();
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Annuler la vente'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const Key('voidReason')), 'Erreur de saisie');
+    await tester.tap(find.text('Oui, annuler'));
+    await tester.pumpAndSettle();
+    await _precacheMonument(tester, DateTime(2026, 11, 18));
+    await tester.tap(find.byKey(const Key('pin_key_2')));
+    await tester.pumpAndSettle();
+    await _shot(tester, '0e_code_confirmation');
+  });
+
   testWidgets('analyses', (tester) async {
     phoneSize(tester);
     await pumpSama(tester, location: '/insights');

@@ -6,6 +6,7 @@ import 'package:pdf/pdf.dart';
 import 'package:printing/printing.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../auth/pin_screen.dart' show confirmSensitive;
 import '../../core/format.dart';
 import '../../core/glass.dart';
 import '../../core/models.dart';
@@ -55,6 +56,52 @@ class _ReceiptScreenState extends ConsumerState<ReceiptScreen> {
     }
   }
 
+  /// Annuler la vente : motif, puis code secret (ou empreinte).
+  Future<void> _void(SaleDetail s) async {
+    final reason = TextEditingController();
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Annuler la vente ${s.number} ?'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'Les articles reviennent en stock et la vente reste visible, marquée « Annulée ». '
+              'Pensez à rendre l’argent au client.',
+              style: TextStyle(color: AppColors.muted),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              key: const Key('voidReason'),
+              controller: reason,
+              autofocus: true,
+              decoration: const InputDecoration(labelText: 'Motif', hintText: 'Ex. erreur de saisie, client a rendu'),
+            ),
+          ],
+        ),
+        actions: [
+          CancelButton(label: 'Retour', onPressed: () => Navigator.pop(ctx, false)),
+          ConfirmButton(
+            label: 'Oui, annuler',
+            onPressed: () {
+              if (reason.text.trim().length < 3) return;
+              Navigator.pop(ctx, true);
+            },
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    if (!await confirmSensitive(context, ref, action: 'Annuler la vente ${s.number} (${money(s.total)})')) return;
+    await _run('void', () async {
+      await ref.read(repoProvider).voidSale(s.id, reason.text.trim());
+      ref.invalidate(saleProvider(s.id));
+      refreshBusinessData(ref);
+      if (mounted) showInfo(context, 'Vente annulée');
+    });
+  }
+
   /// PDF ticket avec le logo de l'entreprise s'il est disponible.
   Future<List<int>> _pdf(SaleDetail s, CurrentBusiness b) async {
     final logo = b.logoFileId == null ? null : await ref.read(repoProvider).fileBytes(b.logoFileId!);
@@ -70,6 +117,14 @@ class _ReceiptScreenState extends ConsumerState<ReceiptScreen> {
     return AuroraScaffold(
       appBar: AppBar(
         title: const Text('Reçu', style: TextStyle(fontWeight: FontWeight.w800)),
+        actions: [
+          if (ref.can('sales:void') && sale.value != null && !sale.value!.voided)
+            IconButton(
+              tooltip: 'Annuler la vente',
+              onPressed: _busy == null ? () => _void(sale.value!) : null,
+              icon: const Icon(Icons.block_rounded),
+            ),
+        ],
       ),
       body: AsyncView<SaleDetail>(
         value: sale,

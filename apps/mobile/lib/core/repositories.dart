@@ -262,6 +262,10 @@ class SamaRepository {
   Future<SaleResult> postSale(Map<String, dynamic> body, {String? businessId}) async =>
       SaleResult.fromJson(await api.post<Map<String, dynamic>>('/v1/sales', data: body, businessId: businessId));
 
+  /// Annule une vente : stock remis, paiements et points de fidélité repris (motif obligatoire).
+  Future<void> voidSale(String id, String reason) =>
+      api.post<Map<String, dynamic>>('/v1/sales/$id/void', data: {'reason': reason});
+
   Future<SaleDetail> sale(String id) async =>
       SaleDetail.fromJson(await _cachedGet<Map<String, dynamic>>('/v1/sales/$id'));
 
