@@ -29,6 +29,7 @@ import 'features/invoicing/document_editor.dart';
 import 'features/invoicing/document_screen.dart';
 import 'features/invoicing/invoices_screen.dart';
 import 'features/profile/profile_screen.dart';
+import 'features/reports/insights_screen.dart';
 import 'features/reports/reports_screen.dart';
 import 'features/sales/pos_screen.dart';
 import 'features/team/team_screen.dart';
@@ -150,6 +151,8 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (_, s) => ProductEditorScreen(productId: s.pathParameters['id']),
       ),
       GoRoute(path: '/reports', builder: (_, _) => const ReportsScreen()),
+      GoRoute(path: '/insights', builder: (_, _) => const InsightsScreen()),
+      GoRoute(path: '/insights/week', builder: (_, _) => const WeeklyReportScreen()),
       GoRoute(
         path: '/invoices',
         builder: (_, s) => InvoicesScreen(initialKind: DocKind.fromApi(s.uri.queryParameters['kind'] ?? 'invoice')),

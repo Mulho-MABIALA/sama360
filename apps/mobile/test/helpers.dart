@@ -1288,6 +1288,132 @@ class FakeRepo extends SamaRepository {
   // ---------- Rapports ----------
   final reportRequests = <(DateTime, DateTime)>[];
 
+  final insightRequests = <int>[];
+  final weeklyRequests = <DateTime?>[];
+
+  @override
+  Future<Insights> insights(int days) async {
+    insightRequests.add(days);
+    final hours = {9: 3, 10: 4, 12: 6, 13: 5, 17: 9, 18: 14, 19: 11, 20: 4};
+    return Insights.fromJson({
+      'period': {'from': '2026-10-18', 'to': '2026-11-16', 'days': days},
+      'dormant': {
+        'days': days,
+        'count': 3,
+        'stockValue': 52000,
+        'items': [
+          {
+            'productId': 'p9',
+            'name': 'Parfum Oud 50 ml',
+            'onHand': 4,
+            'stockValue': 32000,
+            'lastSoldAt': '2026-09-02T10:00:00Z',
+            'daysSinceSale': 76,
+          },
+          {
+            'productId': 'p8',
+            'name': 'Henné naturel',
+            'onHand': 10,
+            'stockValue': 15000,
+            'lastSoldAt': null,
+            'daysSinceSale': null,
+          },
+          {
+            'productId': 'p7',
+            'name': 'Crème éclaircissante',
+            'onHand': 2,
+            'stockValue': 5000,
+            'lastSoldAt': '2026-10-01T10:00:00Z',
+            'daysSinceSale': 47,
+          },
+        ],
+      },
+      'byHour': [
+        for (var h = 0; h < 24; h++) {'hour': h, 'salesCount': hours[h] ?? 0, 'revenue': (hours[h] ?? 0) * 7500},
+      ],
+      'byWeekday': [
+        for (var d = 1; d <= 7; d++) {'weekday': d, 'salesCount': d * 3, 'revenue': d == 6 ? 120000 : d * 12000},
+      ],
+      'peak': {'from': 18, 'to': 20, 'share': 45},
+      'bestWeekday': 6,
+      'margins': {
+        'revenue': 318500,
+        'profit': 96000,
+        'marginRate': 30.1,
+        'lowMarginThreshold': 15,
+        'unknownCostCount': 2,
+        'products': [
+          {
+            'productId': 'p1',
+            'name': 'Beurre de karité 250 g',
+            'quantity': 18,
+            'revenue': 68400,
+            'cost': 36000,
+            'profit': 32400,
+            'marginRate': 47.4,
+            'costKnown': true,
+          },
+          {
+            'productId': 'p3',
+            'name': 'Savon noir',
+            'quantity': 12,
+            'revenue': 18000,
+            'cost': 10800,
+            'profit': 7200,
+            'marginRate': 40,
+            'costKnown': true,
+          },
+          {
+            'productId': 'p2',
+            'name': 'Huile de coco 500 ml',
+            'quantity': 6,
+            'revenue': 15000,
+            'cost': 13750,
+            'profit': 1250,
+            'marginRate': 8.3,
+            'costKnown': true,
+          },
+        ],
+        'lowMargin': [
+          {
+            'productId': 'p2',
+            'name': 'Huile de coco 500 ml',
+            'quantity': 6,
+            'revenue': 15000,
+            'cost': 13750,
+            'profit': 1250,
+            'marginRate': 8.3,
+            'costKnown': true,
+          },
+        ],
+      },
+    });
+  }
+
+  @override
+  Future<WeeklyReport> weeklyReport([DateTime? week]) async {
+    weeklyRequests.add(week);
+    final from = week == null ? DateTime(2026, 11, 9) : week.subtract(Duration(days: week.weekday - 1));
+    final to = from.add(const Duration(days: 6));
+    String d(DateTime x) => x.toIso8601String().substring(0, 10);
+    return WeeklyReport.fromJson({
+      'from': d(from),
+      'to': d(to),
+      'salesCount': 42,
+      'revenue': 318500,
+      'netProfit': 96000,
+      'revenueChange': 12.5,
+      'peak': {'from': 18, 'to': 20, 'share': 34},
+      'bestDay': {'weekday': 6, 'revenue': 82000},
+      'dormant': {'count': 3},
+      'lowMargin': [
+        {'name': 'Huile de coco 500 ml', 'marginRate': 8.3},
+      ],
+      'text':
+          '📊 *Awa Beauté — semaine du ${from.day} nov. au ${to.day} nov.*\n\n💰 Chiffre d\'affaires : *318 500 F* (+12,5 % ↗)\n⏰ Heure de pointe : 18 h – 20 h (34 % des ventes)\n\n_Envoyé depuis Sama360_',
+    });
+  }
+
   @override
   Future<ReportOverview> report(DateTime from, DateTime to) async {
     reportRequests.add((from, to));

@@ -4,9 +4,18 @@ import { sql } from 'drizzle-orm';
 import { DbService, Tx } from '../../shared/db/db.service';
 import { AppError } from '../../shared/http/app-error';
 import { newId } from '../../shared/ids';
+import { fcfa, weekOf } from '../sales/insights';
 
 /** Permissions qui ouvrent l'accès à une notification (colonne `audience`). */
-export const AUDIENCES = ['sales:read', 'sales:create', 'sales:void', 'inventory:read', 'invoicing:read', 'contacts:read'] as const;
+export const AUDIENCES = [
+  'sales:read',
+  'sales:create',
+  'sales:void',
+  'inventory:read',
+  'invoicing:read',
+  'reports:read',
+  'contacts:read',
+] as const;
 export type Audience = (typeof AUDIENCES)[number];
 
 export interface NewNotification {
@@ -129,6 +138,26 @@ export class NotificationsService {
       }
     }
 
+    // Rapport de la semaine : une fois par semaine, dès qu'il y a eu des ventes la semaine passée
+    if (can('reports:read')) {
+      const week = weekOf(undefined, now);
+      const r = (
+        await tx.execute(sql`
+          SELECT count(*)::int AS n, coalesce(sum(total), 0)::bigint AS revenue FROM sales.sales
+          WHERE status = 'completed' AND sold_at >= ${week.from}::date AND sold_at < ${week.to}::date + 1`)
+      ).rows[0] as { n: number; revenue: string | number };
+      if (Number(r.n) > 0) {
+        await this.push(tx, businessId, {
+          kind: 'weekly_report',
+          title: 'Votre rapport de la semaine est prêt',
+          body: `${fcfa(Number(r.revenue))} de ventes. Heures de pointe, produits qui dorment, marges : à envoyer sur WhatsApp.`,
+          link: '/insights/week',
+          audience: 'reports:read',
+          dedupeKey: `weekly_report:${isoWeek(now)}`,
+        });
+      }
+    }
+
     // Anniversaires du jour (fidélité)
     if (can('contacts:read')) {
       const r = await tx.execute(sql`
@@ -141,7 +170,9 @@ export class NotificationsService {
         await this.push(tx, businessId, {
           kind: 'birthday',
           title:
-            names.length === 1 ? `Anniversaire de ${names[0]} aujourd’hui` : `${names.length} anniversaires aujourd’hui`,
+            names.length === 1
+              ? `Anniversaire de ${names[0]} aujourd’hui`
+              : `${names.length} anniversaires aujourd’hui`,
           body:
             names.length === 1
               ? 'Envoyez-lui un petit message : un client fêté revient.'
@@ -171,7 +202,8 @@ export class NotificationsService {
       if (n > 0) {
         await this.push(tx, businessId, {
           kind: 'credit_stale',
-          title: n > 1 ? `${n} clients n’ont rien remboursé depuis 30 jours` : '1 client n’a rien remboursé depuis 30 jours',
+          title:
+            n > 1 ? `${n} clients n’ont rien remboursé depuis 30 jours` : '1 client n’a rien remboursé depuis 30 jours',
           body: `${francs(Number(due))} de crédit en attente.`,
           link: '/reminders',
           audience: 'contacts:read',
@@ -194,17 +226,15 @@ export class NotificationsService {
         LIMIT ${limit}`);
       const unread = await this.unreadIn(tx, userId, permissions);
       return {
-        items: (items.rows as Array<Record<string, unknown>>).map(
-          (r): NotificationView => ({
-            id: r.id as string,
-            kind: r.kind as string,
-            title: r.title as string,
-            body: r.body as string,
-            link: (r.link as string | null) ?? null,
-            createdAt: new Date(r.created_at as string).toISOString(),
-            read: Boolean(r.read),
-          }),
-        ),
+        items: (items.rows as Array<Record<string, unknown>>).map((r): NotificationView => ({
+          id: r.id as string,
+          kind: r.kind as string,
+          title: r.title as string,
+          body: r.body as string,
+          link: (r.link as string | null) ?? null,
+          createdAt: new Date(r.created_at as string).toISOString(),
+          read: Boolean(r.read),
+        })),
         unread,
       };
     });
@@ -253,7 +283,10 @@ export class NotificationsService {
   private visible(userId: string, permissions: readonly string[]) {
     const audiences = visibleAudiences(permissions);
     const inList = audiences.length
-      ? sql`n.audience IN (${sql.join(audiences.map((a) => sql`${a}`), sql`, `)})`
+      ? sql`n.audience IN (${sql.join(
+          audiences.map((a) => sql`${a}`),
+          sql`, `,
+        )})`
       : sql`false`;
     return sql`${inList}
       AND (n.user_id IS NULL OR n.user_id = ${userId})

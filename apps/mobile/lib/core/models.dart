@@ -2471,3 +2471,185 @@ class LoyaltyDashboard {
     );
   }
 }
+
+// ---------- Analyses ----------
+
+/// Produit en stock qui ne se vend plus.
+class DormantProduct {
+  const DormantProduct({
+    required this.productId,
+    required this.name,
+    required this.onHand,
+    required this.stockValue,
+    this.lastSoldAt,
+    this.daysSinceSale,
+  });
+  final String productId;
+  final String name;
+  final double onHand;
+  final int stockValue;
+  final DateTime? lastSoldAt;
+  final int? daysSinceSale;
+
+  factory DormantProduct.fromJson(Map<String, dynamic> j) => DormantProduct(
+    productId: j['productId'] as String,
+    name: j['name'] as String,
+    onHand: _dbl(j['onHand']),
+    stockValue: _int(j['stockValue']),
+    lastSoldAt: j['lastSoldAt'] == null ? null : DateTime.parse(j['lastSoldAt'] as String),
+    daysSinceSale: (j['daysSinceSale'] as num?)?.toInt(),
+  );
+}
+
+class RhythmStat {
+  const RhythmStat({required this.key, required this.salesCount, required this.revenue});
+  final int key; // heure 0–23, ou jour 1 (lundi) – 7 (dimanche)
+  final int salesCount;
+  final int revenue;
+}
+
+/// Créneau le plus chargé, ex. 18 h – 20 h (34 % des ventes).
+class PeakWindow {
+  const PeakWindow({required this.from, required this.to, required this.share});
+  final int from;
+  final int to;
+  final int share;
+  String get label => '$from\u00a0h – $to\u00a0h';
+
+  static PeakWindow? fromJson(Map<String, dynamic>? j) =>
+      j == null ? null : PeakWindow(from: _int(j['from']), to: _int(j['to']), share: _int(j['share']));
+}
+
+class ProductMargin {
+  const ProductMargin({
+    this.productId,
+    required this.name,
+    required this.quantity,
+    required this.revenue,
+    required this.cost,
+    required this.profit,
+    this.marginRate,
+    required this.costKnown,
+  });
+  final String? productId;
+  final String name;
+  final double quantity;
+  final int revenue;
+  final int cost;
+  final int profit;
+  final double? marginRate;
+  final bool costKnown;
+
+  factory ProductMargin.fromJson(Map<String, dynamic> j) => ProductMargin(
+    productId: j['productId'] as String?,
+    name: j['name'] as String,
+    quantity: _dbl(j['quantity']),
+    revenue: _int(j['revenue']),
+    cost: _int(j['cost']),
+    profit: _int(j['profit']),
+    marginRate: (j['marginRate'] as num?)?.toDouble(),
+    costKnown: j['costKnown'] as bool? ?? false,
+  );
+}
+
+class Insights {
+  const Insights({
+    required this.days,
+    required this.dormantCount,
+    required this.dormantValue,
+    required this.dormant,
+    required this.byHour,
+    required this.byWeekday,
+    this.peak,
+    this.bestWeekday,
+    required this.marginRate,
+    required this.lowMarginThreshold,
+    required this.unknownCostCount,
+    required this.products,
+    required this.lowMargin,
+  });
+  final int days;
+  final int dormantCount;
+  final int dormantValue;
+  final List<DormantProduct> dormant;
+  final List<RhythmStat> byHour;
+  final List<RhythmStat> byWeekday;
+  final PeakWindow? peak;
+  final int? bestWeekday;
+  final double? marginRate;
+  final int lowMarginThreshold;
+  final int unknownCostCount;
+  final List<ProductMargin> products;
+  final List<ProductMargin> lowMargin;
+
+  bool get hasSales => byHour.any((h) => h.salesCount > 0);
+
+  factory Insights.fromJson(Map<String, dynamic> j) {
+    final d = j['dormant'] as Map<String, dynamic>;
+    final m = j['margins'] as Map<String, dynamic>;
+    List<RhythmStat> stats(String key, String field) => [
+      for (final r in (j[key] as List).cast<Map<String, dynamic>>())
+        RhythmStat(key: _int(r[field]), salesCount: _int(r['salesCount']), revenue: _int(r['revenue'])),
+    ];
+    List<ProductMargin> margins(String key) => [
+      for (final p in (m[key] as List).cast<Map<String, dynamic>>()) ProductMargin.fromJson(p),
+    ];
+    return Insights(
+      days: _int((j['period'] as Map<String, dynamic>)['days']),
+      dormantCount: _int(d['count']),
+      dormantValue: _int(d['stockValue']),
+      dormant: [for (final x in (d['items'] as List).cast<Map<String, dynamic>>()) DormantProduct.fromJson(x)],
+      byHour: stats('byHour', 'hour'),
+      byWeekday: stats('byWeekday', 'weekday'),
+      peak: PeakWindow.fromJson(j['peak'] as Map<String, dynamic>?),
+      bestWeekday: (j['bestWeekday'] as num?)?.toInt(),
+      marginRate: (m['marginRate'] as num?)?.toDouble(),
+      lowMarginThreshold: _int(m['lowMarginThreshold']),
+      unknownCostCount: _int(m['unknownCostCount']),
+      products: margins('products'),
+      lowMargin: margins('lowMargin'),
+    );
+  }
+}
+
+/// Rapport de la semaine (lundi → dimanche), avec le texte prêt pour WhatsApp.
+class WeeklyReport {
+  const WeeklyReport({
+    required this.from,
+    required this.to,
+    required this.salesCount,
+    required this.revenue,
+    required this.netProfit,
+    this.revenueChange,
+    this.peak,
+    this.bestWeekday,
+    required this.dormantCount,
+    required this.lowMarginCount,
+    required this.text,
+  });
+  final DateTime from;
+  final DateTime to;
+  final int salesCount;
+  final int revenue;
+  final int netProfit;
+  final double? revenueChange;
+  final PeakWindow? peak;
+  final int? bestWeekday;
+  final int dormantCount;
+  final int lowMarginCount;
+  final String text;
+
+  factory WeeklyReport.fromJson(Map<String, dynamic> j) => WeeklyReport(
+    from: DateTime.parse(j['from'] as String),
+    to: DateTime.parse(j['to'] as String),
+    salesCount: _int(j['salesCount']),
+    revenue: _int(j['revenue']),
+    netProfit: _int(j['netProfit']),
+    revenueChange: (j['revenueChange'] as num?)?.toDouble(),
+    peak: PeakWindow.fromJson(j['peak'] as Map<String, dynamic>?),
+    bestWeekday: ((j['bestDay'] as Map<String, dynamic>?)?['weekday'] as num?)?.toInt(),
+    dormantCount: _int((j['dormant'] as Map<String, dynamic>?)?['count']),
+    lowMarginCount: (j['lowMargin'] as List? ?? const []).length,
+    text: j['text'] as String,
+  );
+}

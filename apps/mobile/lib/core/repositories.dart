@@ -625,6 +625,15 @@ class SamaRepository {
     await _cachedGet<Map<String, dynamic>>('/v1/reports/overview', query: {'from': _day(from), 'to': _day(to)}),
   );
 
+  // ---------- Analyses ----------
+  Future<Insights> insights(int days) async =>
+      Insights.fromJson(await _cachedGet<Map<String, dynamic>>('/v1/reports/insights', query: {'days': '$days'}));
+
+  /// Rapport de la semaine qui contient [week] (par défaut : la semaine complète précédente).
+  Future<WeeklyReport> weeklyReport([DateTime? week]) async => WeeklyReport.fromJson(
+    await _cachedGet<Map<String, dynamic>>('/v1/reports/weekly', query: {if (week != null) 'week': _day(week)}),
+  );
+
   // ---------- Factures et devis ----------
   static String _day(DateTime d) =>
       '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';

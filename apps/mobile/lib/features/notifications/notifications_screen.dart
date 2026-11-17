@@ -21,6 +21,8 @@ const tabRoutes = {'/', '/pos', '/stock', '/customers'};
   'credit_stale' => (Icons.menu_book_rounded, const Color(0xFF2F6FDB)),
   'cash_open' || 'cash_open_team' => (Icons.point_of_sale_rounded, AppColors.ink),
   'welcome' => (Icons.celebration_rounded, const Color(0xFFE0533D)),
+  'birthday' => (Icons.cake_rounded, const Color(0xFFE0A100)),
+  'weekly_report' => (Icons.chat_rounded, AppColors.whatsapp),
   _ => (Icons.notifications_rounded, AppColors.green),
 };
 

@@ -2014,6 +2014,51 @@ describe('Socle Sama360 (e2e)', () => {
     });
   });
 
+  describe('Analyses', () => {
+    const A = () => auth(awa.accessToken, awaBiz);
+
+    it('heures de pointe, marges par produit, produits qui dorment ; droits et validation', async () => {
+      const r = (await http.get('/v1/reports/insights?days=30').set(A()).expect(200)).body;
+      expect(r.period.days).toBe(30);
+      expect(r.byHour).toHaveLength(24);
+      expect(r.byWeekday).toHaveLength(7);
+      const sold = r.byHour.reduce((s: number, h: { salesCount: number }) => s + h.salesCount, 0);
+      expect(sold).toBeGreaterThan(0);
+      expect(r.peak).toEqual(expect.objectContaining({ from: expect.any(Number), share: expect.any(Number) }));
+
+      const karite = r.margins.products.find((p: { name: string }) => p.name === 'Beurre de karité 250 g');
+      expect(karite).toMatchObject({ costKnown: true });
+      expect(karite.profit).toBe(karite.revenue - karite.cost);
+      // Lignes libres sans coût (« Thiouraye ») : marge inconnue, pas comptée comme faible
+      const libre = r.margins.products.find((p: { name: string }) => p.name === 'Thiouraye');
+      expect(libre).toMatchObject({ costKnown: false, marginRate: null });
+      expect(r.margins.lowMargin.every((p: { costKnown: boolean }) => p.costKnown)).toBe(true);
+      expect(r.margins.unknownCostCount).toBeGreaterThan(0);
+
+      // Produits tout juste créés : jamais « dormants » (il faut avoir eu le temps de les vendre)
+      expect(r.dormant).toMatchObject({ days: 30, count: 0, stockValue: 0, items: [] });
+
+      await http.get('/v1/reports/insights?days=3').set(A()).expect(422);
+      await http.get('/v1/reports/insights').set(auth(modouToken, awaBiz)).expect(403);
+    });
+
+    it('rapport de la semaine : chiffres et texte prêt pour WhatsApp', async () => {
+      const today = new Date().toISOString().slice(0, 10);
+      const w = (await http.get(`/v1/reports/weekly?week=${today}`).set(A()).expect(200)).body;
+      expect(w.businessName).toBeTruthy();
+      expect(w.salesCount).toBeGreaterThan(0);
+      expect(w.text).toContain(`*${w.businessName} — semaine du`);
+      expect(w.text).toContain('Chiffre d\'affaires');
+      expect(w.text).toContain('Envoyé depuis Sama360');
+      // Sans date : la semaine complète précédente (lundi → dimanche)
+      const last = (await http.get('/v1/reports/weekly').set(A()).expect(200)).body;
+      expect(new Date(`${last.from}T00:00:00Z`).getUTCDay()).toBe(1);
+      expect(new Date(`${last.to}T00:00:00Z`).getUTCDay()).toBe(0);
+      await http.get('/v1/reports/weekly?week=17-11-2026').set(A()).expect(422);
+      await http.get('/v1/reports/weekly').set(auth(modouToken, awaBiz)).expect(403);
+    });
+  });
+
   describe('Sessions', () => {
     it('déconnecte tous les appareils', async () => {
       // Session du caissier (les codes de connexion sont limités par minute : on réutilise sa session)

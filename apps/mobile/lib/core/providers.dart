@@ -235,6 +235,18 @@ final membersProvider = FutureProvider<List<Member>>((ref) {
 });
 
 /// Rapport d'une période (dates sans heure).
+/// Analyses sur les N derniers jours (7, 30, 90).
+final insightsProvider = FutureProvider.family<Insights, int>((ref, days) {
+  ref.watch(businessIdProvider);
+  return ref.watch(repoProvider).insights(days);
+});
+
+/// Rapport de la semaine : null = semaine complète précédente, sinon un jour de la semaine voulue.
+final weeklyReportProvider = FutureProvider.family<WeeklyReport, DateTime?>((ref, week) {
+  ref.watch(businessIdProvider);
+  return ref.watch(repoProvider).weeklyReport(week);
+});
+
 final reportProvider = FutureProvider.family<ReportOverview, ({DateTime from, DateTime to})>((ref, p) {
   ref.watch(businessIdProvider);
   return ref.watch(repoProvider).report(p.from, p.to);

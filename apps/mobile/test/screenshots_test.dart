@@ -286,6 +286,22 @@ void main() {
     await _shot(tester, '13_rapports');
   });
 
+  testWidgets('analyses', (tester) async {
+    phoneSize(tester);
+    await pumpSama(tester, location: '/insights');
+    await _shot(tester, '13c_analyses');
+    await tester.scrollUntilVisible(find.text('Produits qui ne se vendent plus'), 300);
+    await tester.drag(find.byType(Scrollable).first, const Offset(0, -260));
+    await tester.pumpAndSettle();
+    await _shot(tester, '13d_analyses_bas');
+  });
+
+  testWidgets('rapport de la semaine', (tester) async {
+    phoneSize(tester);
+    await pumpSama(tester, location: '/insights/week');
+    await _shot(tester, '13e_rapport_semaine');
+  });
+
   testWidgets('rapports (bas)', (tester) async {
     phoneSize(tester);
     await pumpSama(tester, location: '/reports');

@@ -8,13 +8,14 @@ import { LoyaltyController } from './loyalty.controller';
 import { LoyaltyService } from './loyalty.service';
 import { RemindersController } from './reminders.controller';
 import { RemindersService } from './reminders.service';
+import { InsightsController } from './insights.controller';
 import { ReportsController } from './reports.controller';
 import { SalesController } from './sales.controller';
 import { SalesService } from './sales.service';
 
 @Module({
   imports: [InventoryModule],
-  controllers: [SalesController, ReportsController, CustomersController, CashController, RemindersController, LoyaltyController],
+  controllers: [SalesController, ReportsController, InsightsController, CustomersController, CashController, RemindersController, LoyaltyController],
   providers: [SalesService, CustomersService, CashService, RemindersService, LoyaltyService],
   exports: [SalesService],
 })

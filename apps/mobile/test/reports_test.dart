@@ -62,6 +62,8 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('7 jours'));
     await tester.pumpAndSettle();
+    await tester.ensureVisible(find.byType(RevenueChart));
+    await tester.pumpAndSettle();
     await tester.tap(find.byType(RevenueChart), warnIfMissed: false);
     await tester.pump();
     expect(find.textContaining('vente(s) · bénéfice'), findsOneWidget);

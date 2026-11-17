@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -138,6 +139,26 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
             ),
             const SizedBox(height: 6),
             Text(periodLabel(_period.from, _period.to), style: TextStyle(color: AppColors.muted)),
+            const SizedBox(height: 10),
+            Glass(
+              key: const Key('open_insights'),
+              radius: 20,
+              onTap: () => context.push('/insights'),
+              padding: const EdgeInsets.fromLTRB(14, 12, 10, 12),
+              child: Row(
+                children: [
+                  Icon(Icons.auto_graph_rounded, color: AppColors.green),
+                  const SizedBox(width: 10),
+                  const Expanded(
+                    child: Text(
+                      'Analyses : heures de pointe, marges, produits qui dorment',
+                      style: TextStyle(fontWeight: FontWeight.w700),
+                    ),
+                  ),
+                  Icon(Icons.chevron_right_rounded, color: AppColors.muted),
+                ],
+              ),
+            ),
             const SizedBox(height: 12),
             AsyncView<ReportOverview>(
               value: report,
