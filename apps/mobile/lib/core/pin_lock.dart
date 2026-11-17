@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:math';
 
 import 'package:crypto/crypto.dart';
+import 'package:flutter/foundation.dart' show compute, kIsWeb;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
@@ -22,16 +23,34 @@ String? weakPinReason(String pin) {
   return null;
 }
 
-/// Empreinte « v1$sel$hash » : PBKDF2-HMAC-SHA256 (le code n'est jamais gardé en clair).
-String hashPin(String pin, {List<int>? salt, int iterations = 20000}) {
+/// Tours PBKDF2 : élevé sur téléphone (calcul hors de l'écran, dans un isolate) ;
+/// plus bas sur le web, où le calcul bloquerait la page (surtout en mode debug).
+const int pinIterations = kIsWeb ? 2000 : 20000;
+
+/// Empreinte « v2$tours$sel$hash » : PBKDF2-HMAC-SHA256 (le code n'est jamais gardé en clair).
+String hashPin(String pin, {List<int>? salt, int iterations = pinIterations}) {
   final s = salt ?? List<int>.generate(16, (_) => Random.secure().nextInt(256));
-  return 'v1\$${base64Url.encode(s)}\$${base64Url.encode(_pbkdf2(utf8.encode(pin), s, iterations))}';
+  return 'v2\$$iterations\$${base64Url.encode(s)}\$${base64Url.encode(_pbkdf2(utf8.encode(pin), s, iterations))}';
 }
 
 bool checkPin(String pin, String stored) {
   final parts = stored.split(r'$');
-  if (parts.length != 3 || parts[0] != 'v1') return false;
-  final expected = hashPin(pin, salt: base64Url.decode(parts[1]));
+  final String expected;
+  try {
+    if (parts.length == 3 && parts[0] == 'v1') {
+      // Ancien format (20 000 tours, sans le nombre de tours dans l'empreinte)
+      final salt = base64Url.decode(parts[1]);
+      expected = 'v1\$${parts[1]}\$${base64Url.encode(_pbkdf2(utf8.encode(pin), salt, 20000))}';
+    } else if (parts.length == 4 && parts[0] == 'v2') {
+      final rounds = int.parse(parts[1]);
+      if (rounds < 1 || rounds > 1000000) return false;
+      expected = hashPin(pin, salt: base64Url.decode(parts[2]), iterations: rounds);
+    } else {
+      return false;
+    }
+  } on FormatException {
+    return false;
+  }
   // Comparaison en temps constant
   if (expected.length != stored.length) return false;
   var diff = 0;
@@ -40,6 +59,17 @@ bool checkPin(String pin, String stored) {
   }
   return diff == 0;
 }
+
+/// Versions asynchrones : sur téléphone, le calcul tourne dans un isolate (l'écran ne fige pas).
+/// Faux dans les tests (les isolates ne tournent pas dans le temps simulé des tests d'écran).
+bool pinUseIsolate = !kIsWeb;
+
+Future<String> hashPinAsync(String pin) => pinUseIsolate ? compute(hashPin, pin) : Future.value(hashPin(pin));
+
+Future<bool> checkPinAsync(String pin, String stored) =>
+    pinUseIsolate ? compute(_checkPinArgs, (pin, stored)) : Future.value(checkPin(pin, stored));
+
+bool _checkPinArgs((String, String) a) => checkPin(a.$1, a.$2);
 
 List<int> _pbkdf2(List<int> password, List<int> salt, int iterations) {
   final hmac = Hmac(sha256, password);
@@ -139,7 +169,7 @@ class PinLockController extends Notifier<PinLockState> {
 
   /// Nouveau code (création ou changement) : l'app reste déverrouillée.
   Future<void> setPin(String userId, String pin) async {
-    final stored = StoredPin(userId: userId, hash: hashPin(pin));
+    final stored = StoredPin(userId: userId, hash: await hashPinAsync(pin));
     await _store.save(stored);
     state = PinLockState(ready: true, pin: stored, locked: false);
   }
@@ -148,7 +178,7 @@ class PinLockController extends Notifier<PinLockState> {
   Future<PinCheck> verify(String pin) async {
     final stored = state.pin;
     if (stored == null) return PinCheck.blocked;
-    if (checkPin(pin, stored.hash)) {
+    if (await checkPinAsync(pin, stored.hash)) {
       final reset = stored.withFailures(0);
       await _store.save(reset);
       state = PinLockState(ready: true, pin: reset, locked: false);
@@ -161,7 +191,7 @@ class PinLockController extends Notifier<PinLockState> {
   }
 
   /// Vérifie sans changer l'état du verrou (changement de code depuis le profil).
-  bool matches(String pin) => state.pin != null && checkPin(pin, state.pin!.hash);
+  Future<bool> matches(String pin) async => state.pin != null && await checkPinAsync(pin, state.pin!.hash);
 
   void lock() {
     if (state.pin != null && !state.locked) state = PinLockState(ready: true, pin: state.pin, locked: true);

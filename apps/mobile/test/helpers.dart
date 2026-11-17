@@ -1760,6 +1760,7 @@ Future<(ProviderContainer, FakeRepo)> pumpSama(
   bool dark = false,
   PinStore? pinStore,
 }) async {
+  pinUseIsolate = false; // calcul du code secret sur place (temps simulé des tests)
   Motion.enabled = false; // animations d'ambiance infinies : incompatibles avec pumpAndSettle
   await initializeDateFormatting('fr');
   repo ??= FakeRepo();

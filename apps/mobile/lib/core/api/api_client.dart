@@ -79,7 +79,14 @@ class ApiClient {
         e.requestOptions.extra['public'] != true;
     if (!canRetry) return h.next(e);
 
-    final session = await _refreshOnce();
+    final Session? session;
+    try {
+      session = await _refreshOnce();
+    } on DioException {
+      // Réseau coupé ou trop lent pendant le renouvellement : on garde la session,
+      // la requête échoue simplement (l'écran propose de réessayer).
+      return h.next(e);
+    }
     if (session == null) {
       onSessionExpired?.call();
       return h.next(e);
@@ -112,9 +119,14 @@ class ApiClient {
       );
       await store.save(s);
       return s;
-    } on DioException {
-      await store.clear();
-      return null;
+    } on DioException catch (err) {
+      // Seul un refus du serveur met fin à la session ; une panne réseau ne déconnecte pas.
+      final status = err.response?.statusCode;
+      if (status == 400 || status == 401 || status == 403) {
+        await store.clear();
+        return null;
+      }
+      rethrow;
     }
   }
 

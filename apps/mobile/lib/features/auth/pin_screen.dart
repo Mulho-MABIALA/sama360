@@ -92,6 +92,18 @@ class _PinScreenState extends ConsumerState<PinScreen> with SingleTickerProvider
     await Future<void>.delayed(const Duration(milliseconds: 120));
     if (!mounted) return;
     final lock = ref.read(pinLockProvider.notifier);
+    try {
+      await _run(lock, pin);
+    } catch (e) {
+      // Jamais d'écran figé : on dit ce qui ne va pas et on laisse recommencer
+      if (!mounted) return;
+      setState(() => _busy = false);
+      _fail('Impossible d’enregistrer le code sur cet appareil. Réessayez.');
+      debugPrint('Code secret : $e');
+    }
+  }
+
+  Future<void> _run(PinLockController lock, String pin) async {
     switch (_step) {
       case _Step.current when widget.mode == PinMode.unlock:
         setState(() => _busy = true);
@@ -107,7 +119,11 @@ class _PinScreenState extends ConsumerState<PinScreen> with SingleTickerProvider
           _fail(left <= 3 ? 'Code incorrect. Plus que $left essai${left > 1 ? 's' : ''}.' : 'Code incorrect.');
         }
       case _Step.current:
-        if (lock.matches(pin)) {
+        setState(() => _busy = true);
+        final ok = await lock.matches(pin);
+        if (!mounted) return;
+        setState(() => _busy = false);
+        if (ok) {
           setState(() {
             _step = _Step.enter;
             _digits = '';
@@ -136,10 +152,14 @@ class _PinScreenState extends ConsumerState<PinScreen> with SingleTickerProvider
           return;
         }
         final userId = ref.read(authProvider).value?.me?.id;
-        if (userId == null) return;
+        if (userId == null) {
+          _fail('Session expirée. Reconnectez-vous.');
+          return;
+        }
         setState(() => _busy = true);
         await lock.setPin(userId, pin);
         if (!mounted) return;
+        setState(() => _busy = false);
         HapticFeedback.mediumImpact();
         if (widget.mode == PinMode.change) {
           showInfo(context, 'Code secret modifié');
@@ -169,87 +189,104 @@ class _PinScreenState extends ConsumerState<PinScreen> with SingleTickerProvider
       body: SafeArea(
         child: LayoutBuilder(
           builder: (context, box) {
-            final compact = box.maxHeight < 640;
-            return Column(
-              children: [
-                SizedBox(height: compact ? 16 : 40),
-                BrandMark(size: compact ? 52 : 64),
-                SizedBox(height: compact ? 14 : 20),
-                Text(
-                  _title,
-                  key: const Key('pin_title'),
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.w800,
-                    color: ink,
-                    shadows: photo ? const [Shadow(color: Color(0x80000000), blurRadius: 14)] : null,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  _subtitle,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: soft,
-                    shadows: photo ? const [Shadow(color: Color(0x80000000), blurRadius: 10)] : null,
-                  ),
-                ),
-                SizedBox(height: compact ? 22 : 34),
-                AnimatedBuilder(
-                  animation: _shake,
-                  builder: (context, child) => Transform.translate(
-                    offset: Offset(math.sin(_shake.value * math.pi * 6) * 12 * (1 - _shake.value), 0),
-                    child: child,
-                  ),
-                  child: _Dots(filled: _digits.length, error: _error != null, onPhoto: photo),
-                ),
-                SizedBox(
-                  height: 44,
-                  child: Center(
-                    child: _error == null
-                        ? null
-                        : Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 24),
-                            child: Text(
-                              _error!,
-                              key: const Key('pin_error'),
-                              textAlign: TextAlign.center,
-                              style: TextStyle(color: errorColor, fontWeight: FontWeight.w700, fontSize: 13),
-                            ),
-                          ),
-                  ),
-                ),
-                const Spacer(),
-                if (_confirmForgot)
-                  _ForgotPanel(onCancel: () => setState(() => _confirmForgot = false), onConfirm: _signOut)
-                else ...[
-                  _Keypad(onDigit: _tap, onErase: _erase, keySize: compact ? 64 : 74, glass: photo),
-                  const SizedBox(height: 8),
-                  SizedBox(
-                    height: 48,
-                    child: unlock
-                        ? TextButton(
-                            onPressed: _busy ? null : () => setState(() => _confirmForgot = true),
-                            child: Text(
-                              'Code secret oublié ?',
-                              style: TextStyle(
-                                fontWeight: FontWeight.w700,
-                                fontSize: 15,
-                                color: photo ? Colors.white : null,
+            final compact = box.maxHeight < 760;
+            // Touches à la taille de l'écran : plus de débordement sur petit écran ou fenêtre basse
+            final header = compact ? 232.0 : 290.0;
+            final keySize = ((box.maxHeight - header - 76) / 4 - 10).clamp(44.0, 76.0);
+            return Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 420),
+                child: Column(
+                  children: [
+                    SizedBox(height: compact ? 16 : 40),
+                    BrandMark(size: compact ? 52 : 64),
+                    SizedBox(height: compact ? 14 : 20),
+                    Text(
+                      _title,
+                      key: const Key('pin_title'),
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.w800,
+                        color: ink,
+                        shadows: photo ? const [Shadow(color: Color(0x80000000), blurRadius: 14)] : null,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      _subtitle,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: soft,
+                        shadows: photo ? const [Shadow(color: Color(0x80000000), blurRadius: 10)] : null,
+                      ),
+                    ),
+                    SizedBox(height: compact ? 22 : 34),
+                    AnimatedBuilder(
+                      animation: _shake,
+                      builder: (context, child) => Transform.translate(
+                        offset: Offset(math.sin(_shake.value * math.pi * 6) * 12 * (1 - _shake.value), 0),
+                        child: child,
+                      ),
+                      child: _Dots(filled: _digits.length, error: _error != null, onPhoto: photo),
+                    ),
+                    SizedBox(
+                      height: 44,
+                      child: Center(
+                        child: _busy
+                            ? SizedBox(
+                                width: 22,
+                                height: 22,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2.4,
+                                  color: photo ? Colors.white : AppColors.green,
+                                ),
+                              )
+                            : _error == null
+                            ? null
+                            : Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 24),
+                                child: Text(
+                                  _error!,
+                                  key: const Key('pin_error'),
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(color: errorColor, fontWeight: FontWeight.w700, fontSize: 13),
+                                ),
                               ),
-                            ),
-                          )
-                        : widget.mode == PinMode.create
-                        ? TextButton(
-                            onPressed: _busy ? null : _signOut,
-                            child: Text('Se déconnecter', style: TextStyle(color: soft)),
-                          )
-                        : null,
-                  ),
-                ],
-                SizedBox(height: compact ? 8 : 16),
-              ],
+                      ),
+                    ),
+                    const Spacer(),
+                    if (_confirmForgot)
+                      _ForgotPanel(onCancel: () => setState(() => _confirmForgot = false), onConfirm: _signOut)
+                    else ...[
+                      _Keypad(onDigit: _tap, onErase: _erase, keySize: keySize, glass: photo),
+                      const SizedBox(height: 8),
+                      SizedBox(
+                        height: 48,
+                        child: unlock
+                            ? TextButton(
+                                onPressed: _busy ? null : () => setState(() => _confirmForgot = true),
+                                child: Text(
+                                  'Code secret oublié ?',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 15,
+                                    color: photo ? Colors.white : null,
+                                  ),
+                                ),
+                              )
+                            : widget.mode == PinMode.create
+                            ? TextButton(
+                                onPressed: _busy ? null : _signOut,
+                                child: Text('Se déconnecter', style: TextStyle(color: soft)),
+                              )
+                            : null,
+                      ),
+                    ],
+                    SizedBox(height: compact ? 8 : 16),
+                  ],
+                ),
+              ),
             );
           },
         ),

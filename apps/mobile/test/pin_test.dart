@@ -143,5 +143,16 @@ void main() {
       expect(routerOf(c).state.uri.path, '/account');
       expect(checkPin('4071', store.pin!.hash), isTrue);
     });
+
+    testWidgets('fenêtre basse et large (navigateur) : pas de débordement', (tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(760, 600);
+      addTearDown(tester.view.reset);
+      await pumpSama(tester, pinStore: MemoryPinStore());
+      expect(find.text('Créez votre code secret'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      expect(find.byKey(const Key('pin_key_0')), findsOneWidget);
+      expect(find.text('Se déconnecter'), findsOneWidget);
+    });
   });
 }
