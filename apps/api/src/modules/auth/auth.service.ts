@@ -1,4 +1,4 @@
-import { HttpStatus, Inject, Injectable } from '@nestjs/common';
+import { HttpStatus, Inject, Injectable, Logger } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { and, desc, eq, gt, isNull } from 'drizzle-orm';
 import { env } from '../../shared/config/env';
@@ -20,6 +20,8 @@ export interface TokenPair {
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger('Auth');
+
   constructor(
     private readonly dbs: DbService,
     private readonly jwt: JwtService,
@@ -49,13 +51,21 @@ export class AuthService {
     }
 
     const code = generateOtp();
+    const otpId = newId();
     await db.insert(otpCodes).values({
-      id: newId(),
+      id: otpId,
       phone,
       codeHash: hmac(e.OTP_SECRET, `${phone}:${code}`),
       expiresAt: new Date(Date.now() + e.OTP_TTL_SECONDS * 1000),
     });
-    await this.sender.send(phone, code);
+    try {
+      await this.sender.send(phone, code);
+    } catch (err) {
+      // Le SMS n'est pas parti : on efface le code pour pouvoir redemander tout de suite.
+      await db.delete(otpCodes).where(eq(otpCodes.id, otpId));
+      this.logger.error(`Envoi du code impossible vers ${phone.slice(0, -4)}**** : ${(err as Error).message}`);
+      throw new AppError('SMS_FAILED', 'Le SMS n’a pas pu être envoyé. Vérifiez le numéro et réessayez.', 503);
+    }
     return { phone, expiresIn: e.OTP_TTL_SECONDS };
   }
 

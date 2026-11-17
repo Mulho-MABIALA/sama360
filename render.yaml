@@ -1,0 +1,72 @@
+# Déploiement Sama360 sur Render (Blueprint). Guide : DEPLOY.md
+# Un service web (API + worker intégré) et un Redis (Key Value). La base reste sur Neon.
+# Région ohio : la même que la base Neon (us-east-2). Si la base change de région, changer ici aussi.
+# Les valeurs « sync: false » sont demandées par Render à la création : on les colle soi-même.
+services:
+  - type: web
+    name: sama360-api
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    region: ohio
+    plan: starter # « free » possible pour tester (le service s'endort après 15 min sans requête)
+    healthCheckPath: /health
+    autoDeploy: true
+    buildFilter:
+      paths:
+        - apps/api/**
+        - packages/contracts/**
+        - Dockerfile
+        - pnpm-lock.yaml
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: RUN_WORKER
+        value: "true"
+      - key: MIGRATE_ON_START
+        value: "true"
+      - key: TRUST_PROXY
+        value: "1"
+      - key: REDIS_URL
+        fromService:
+          type: keyvalue
+          name: sama360-redis
+          property: connectionString
+      # Neon : DATABASE_URL avec le rôle sama_app (RLS), DATABASE_URL_DIRECT avec le propriétaire (migrations)
+      - key: DATABASE_URL
+        sync: false
+      - key: DATABASE_URL_DIRECT
+        sync: false
+      - key: JWT_ACCESS_SECRET
+        generateValue: true
+      - key: JWT_REFRESH_SECRET
+        generateValue: true
+      - key: OTP_SECRET
+        generateValue: true
+      # SMS : orange (recommandé au Sénégal) ou twilio
+      - key: OTP_PROVIDER
+        value: orange
+      - key: ORANGE_SMS_CLIENT_ID
+        sync: false
+      - key: ORANGE_SMS_CLIENT_SECRET
+        sync: false
+      - key: ORANGE_SMS_SENDER
+        sync: false
+      # Fichiers (logos, photos) : Cloudflare R2 ou tout service compatible S3
+      - key: STORAGE_DRIVER
+        value: s3
+      - key: S3_BUCKET
+        sync: false
+      - key: S3_ENDPOINT
+        sync: false
+      - key: S3_ACCESS_KEY_ID
+        sync: false
+      - key: S3_SECRET_ACCESS_KEY
+        sync: false
+
+  - type: keyvalue
+    name: sama360-redis
+    region: ohio
+    plan: free # 25 Mo : largement assez pour la file d'événements au démarrage
+    maxmemoryPolicy: noeviction # obligatoire pour BullMQ : ne jamais effacer un travail en attente
+    ipAllowList: [] # accessible seulement depuis les services Render

@@ -9,6 +9,7 @@ export type ErrorCode =
   | 'OTP_EXPIRED'
   | 'OTP_TOO_MANY_ATTEMPTS'
   | 'OTP_TOO_SOON'
+  | 'SMS_FAILED'
   | 'PHONE_INVALID'
   | 'BUSINESS_REQUIRED'
   | 'NOT_A_MEMBER'

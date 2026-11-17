@@ -1,0 +1,58 @@
+# Sama360 sur un serveur à soi (VPS Hetzner, Contabo, OVH…). Guide : DEPLOY.md
+#   cp .env.example .env   (puis remplir)
+#   docker compose up -d --build
+# Caddy obtient et renouvelle le certificat HTTPS tout seul pour API_DOMAIN.
+services:
+  api:
+    build:
+      context: ../..
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      NODE_ENV: production
+      REDIS_URL: redis://redis:6379
+      MIGRATE_ON_START: "true"
+      TRUST_PROXY: "1"
+      STORAGE_DIR: /data/files
+    volumes:
+      - files:/data/files
+    depends_on: [redis]
+
+  worker:
+    build:
+      context: ../..
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    command: ["node", "dist/worker.js"]
+    env_file: .env
+    environment:
+      NODE_ENV: production
+      REDIS_URL: redis://redis:6379
+      STORAGE_DIR: /data/files
+    volumes:
+      - files:/data/files
+    depends_on: [redis, api]
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory-policy", "noeviction"]
+    volumes:
+      - redis:/data
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports: ["80:80", "443:443"]
+    environment:
+      API_DOMAIN: ${API_DOMAIN:?indiquer API_DOMAIN dans .env}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy:/data
+    depends_on: [api]
+
+volumes:
+  files:
+  redis:
+  caddy:

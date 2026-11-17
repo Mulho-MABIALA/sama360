@@ -124,6 +124,16 @@ describe('Socle Sama360 (e2e)', () => {
   });
 
   describe('Authentification OTP', () => {
+    it('SMS non parti : erreur claire et nouvel essai possible tout de suite', async () => {
+      const spy = jest.spyOn(otp, 'send').mockRejectedValueOnce(new Error('Orange : crédit épuisé'));
+      const r = await http.post('/v1/auth/otp/request').send({ phone: '78 000 11 22' }).expect(503);
+      expect(r.body.error).toMatchObject({ code: 'SMS_FAILED', message: expect.stringContaining('réessayez') });
+      spy.mockRestore();
+      // Pas de « patientez une minute » : le code non envoyé a été effacé
+      await http.post('/v1/auth/otp/request').send({ phone: '78 000 11 22' }).expect(200);
+      expect(otp.sent.get('+221780001122')).toMatch(/^\d{6}$/);
+    });
+
     it('refuse un numéro invalide', async () => {
       const res = await http.post('/v1/auth/otp/request').send({ phone: '12345678' }).expect(422);
       expect(res.body.error.code).toBe('PHONE_INVALID');

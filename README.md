@@ -14,6 +14,9 @@ Ce dépôt est un monorepo :
 
 Le back-office React et les boutiques Next.js viendront dans `apps/`.
 
+
+> **Mise en ligne** (Render, SMS Orange, fichiers sur Cloudflare R2, ou serveur à soi) : voir [DEPLOY.md](DEPLOY.md).
+
 ## Démarrage rapide
 
 Prérequis : Node 22, pnpm 10, un projet [Neon](https://neon.tech) et Redis.
