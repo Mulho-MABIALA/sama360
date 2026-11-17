@@ -10,6 +10,7 @@ import 'features/auth/auth_controller.dart';
 import 'features/auth/login_screens.dart';
 import 'features/assistant/assistant_screen.dart';
 import 'features/auth/pin_screen.dart';
+import 'features/booking/booking_screen.dart';
 import 'features/catalog/product_photo.dart' show PickedPhoto;
 import 'features/documents/documents_screen.dart';
 import 'features/business/business_screen.dart';
@@ -155,6 +156,17 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (_, s) => ProductEditorScreen(productId: s.pathParameters['id']),
       ),
       GoRoute(path: '/reports', builder: (_, _) => const ReportsScreen()),
+      GoRoute(path: '/booking', builder: (_, _) => const BookingScreen()),
+      GoRoute(
+        path: '/booking/new',
+        builder: (_, s) => AppointmentEditorScreen(day: DateTime.tryParse(s.uri.queryParameters['day'] ?? '')),
+      ),
+      GoRoute(
+        path: '/booking/edit',
+        builder: (_, s) => s.extra is Appointment
+            ? AppointmentEditorScreen(appointment: s.extra! as Appointment)
+            : const BookingScreen(), // rechargement de page : on revient à l'agenda
+      ),
       GoRoute(path: '/assistant', builder: (_, _) => const AssistantScreen()),
       GoRoute(path: '/documents', builder: (_, _) => const DocumentsScreen()),
       GoRoute(

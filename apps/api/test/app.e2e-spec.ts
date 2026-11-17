@@ -2763,6 +2763,107 @@ describe('Socle Sama360 (e2e)', () => {
     });
   });
 
+  describe('Réservation', () => {
+    const A = () => auth(awa.accessToken, awaBiz);
+    const today = new Date().toISOString().slice(0, 10);
+    const at = (h: number, m = 0) => `${today}T${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:00.000Z`;
+    let tresses: string;
+    let first: string;
+
+    it('prise de rendez-vous : client de passage ou fiche client, prestation du catalogue', async () => {
+      tresses = (
+        await http
+          .post('/v1/catalog/products')
+          .set(A())
+          .send({ name: 'Tresses africaines', price: 15000, type: 'service', trackStock: false })
+          .expect(201)
+      ).body.id;
+      const walkIn = await http
+        .post('/v1/appointments')
+        .set(A())
+        .send({
+          customerName: 'Fatou Sow',
+          customerPhone: '77 555 66 77',
+          serviceId: tresses,
+          startsAt: at(23, 0),
+          durationMinutes: 120,
+          note: 'Mèches fournies',
+        })
+        .expect(201);
+      first = walkIn.body.id;
+      expect(walkIn.body).toMatchObject({
+        customerName: 'Fatou Sow',
+        customerPhone: '+221775556677',
+        serviceName: 'Tresses africaines',
+        price: 15000,
+        status: 'booked',
+      });
+
+      // Par le vendeur (droit de vendre), avec une fiche client et une prestation libre
+      const client = (
+        await http.post('/v1/contacts').set(A()).send({ name: 'Mariama Ba', phone: '770001122' }).expect(201)
+      ).body.id;
+      const r = await http
+        .post('/v1/appointments')
+        .set(auth(modouToken, awaBiz))
+        .send({ customerId: client, serviceName: 'Brushing', price: 3000, startsAt: at(23, 30), durationMinutes: 30 })
+        .expect(201);
+      expect(r.body).toMatchObject({ customerName: 'Mariama Ba', customerPhone: '+221770001122', serviceId: null });
+
+      const list = (await http.get(`/v1/appointments?from=${today}&to=${today}`).set(A()).expect(200)).body;
+      expect(list.items.map((a: { customerName: string; overlaps: boolean }) => [a.customerName, a.overlaps])).toEqual([
+        ['Fatou Sow', true],
+        ['Mariama Ba', true],
+      ]);
+      expect(list.bookedByDay[today]).toBe(2);
+    });
+
+    it('validation et droits', async () => {
+      await http
+        .post('/v1/appointments')
+        .set(A())
+        .send({ serviceName: 'Brushing', startsAt: at(10), durationMinutes: 30 })
+        .expect(422);
+      await http
+        .post('/v1/appointments')
+        .set(A())
+        .send({ customerName: 'X', serviceName: 'Y', startsAt: at(10), durationMinutes: 2 })
+        .expect(422);
+      await http.get(`/v1/appointments?from=${today}&to=2030-01-01`).set(A()).expect(422);
+      await http
+        .get(`/v1/appointments?from=${today}&to=${today}`)
+        .set(auth(moussa.accessToken, moussaBiz))
+        .expect(200)
+        .expect((res) => expect(res.body.items).toEqual([]));
+    });
+
+    it('déplacer, puis venu / absent / annulé ; notification des rendez-vous du jour', async () => {
+      const moved = await http
+        .patch(`/v1/appointments/${first}`)
+        .set(A())
+        .send({ startsAt: at(22, 0) })
+        .expect(200);
+      expect(moved.body.startsAt).toBe(at(22, 0));
+      const notifs = (await http.get('/v1/notifications').set(A()).expect(200)).body.items as {
+        kind: string;
+        title: string;
+        body: string;
+      }[];
+      expect(notifs).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            kind: 'appointments_today',
+            title: '2 rendez-vous aujourd’hui',
+            body: 'Premier à 22 h : Fatou Sow (Tresses africaines).',
+          }),
+        ]),
+      );
+      const done = await http.patch(`/v1/appointments/${first}`).set(A()).send({ status: 'done' }).expect(200);
+      expect(done.body.status).toBe('done');
+      await http.patch(`/v1/appointments/${first}`).set(A()).send({ status: 'perdu' }).expect(422);
+    });
+  });
+
   describe('Sessions', () => {
     it('déconnecte tous les appareils', async () => {
       // Session du caissier (les codes de connexion sont limités par minute : on réutilise sa session)

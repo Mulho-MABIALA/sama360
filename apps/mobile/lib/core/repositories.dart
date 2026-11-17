@@ -631,6 +631,17 @@ class SamaRepository {
     await _cachedGet<Map<String, dynamic>>('/v1/reports/overview', query: {'from': _day(from), 'to': _day(to)}),
   );
 
+  // ---------- Réservation ----------
+  Future<AppointmentList> appointments(DateTime day) async => AppointmentList.fromJson(
+    await _cachedGet<Map<String, dynamic>>('/v1/appointments', query: {'from': _day(day), 'to': _day(day)}),
+  );
+
+  Future<Appointment> createAppointment(AppointmentDraft d) async =>
+      Appointment.fromJson(await api.post<Map<String, dynamic>>('/v1/appointments', data: d.toJson()));
+
+  Future<Appointment> updateAppointment(String id, Map<String, Object?> changes) async =>
+      Appointment.fromJson(await api.patch<Map<String, dynamic>>('/v1/appointments/$id', data: changes));
+
   // ---------- Assistant IA ----------
   Future<AssistantStatus> assistantStatus() async =>
       AssistantStatus.fromJson(await api.get<Map<String, dynamic>>('/v1/assistant'));

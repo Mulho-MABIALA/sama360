@@ -13,6 +13,7 @@ import { InvoicingModule } from './modules/invoicing/invoicing.module';
 import { PurchasingModule } from './modules/purchasing/purchasing.module';
 import { ShopModule } from './modules/shop/shop.module';
 import { AssistantModule } from './modules/assistant/assistant.module';
+import { BookingModule } from './modules/booking/booking.module';
 import { DocumentsModule } from './modules/documents/documents.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { Public } from './shared/auth/decorators';
@@ -52,6 +53,7 @@ class HealthController {
     ShopModule,
     DocumentsModule,
     AssistantModule,
+    BookingModule,
     NotificationsModule,
   ],
   controllers: [HealthController],

@@ -199,7 +199,10 @@ class FakeRepo extends SamaRepository {
     Category(id: 'c2', name: 'Cheveux & parfums', productCount: 3),
   ];
   @override
-  Future<List<Product>> products({String? search, String? categoryId}) async => demoProducts;
+  Future<List<Product>> products({String? search, String? categoryId}) async => [...demoProducts, ...extraProducts];
+
+  /// Produits ajoutés par un test (ex. prestations pour la réservation).
+  List<Product> extraProducts = const [];
   @override
   Future<StockOverview> stock({bool lowOnly = false}) async {
     final items = [
@@ -1302,6 +1305,67 @@ class FakeRepo extends SamaRepository {
 
   // ---------- Rapports ----------
   final reportRequests = <(DateTime, DateTime)>[];
+
+  // ---------- Réservation ----------
+  final appointmentList = <Appointment>[];
+  final createdAppointments = <Map<String, Object?>>[];
+  final appointmentChanges = <(String, Map<String, Object?>)>[];
+
+  @override
+  Future<AppointmentList> appointments(DateTime day) async {
+    final items =
+        appointmentList
+            .where((a) => a.startsAt.year == day.year && a.startsAt.month == day.month && a.startsAt.day == day.day)
+            .toList()
+          ..sort((a, b) => a.startsAt.compareTo(b.startsAt));
+    final counts = <String, int>{};
+    for (final a in appointmentList.where((a) => a.status == AppointmentStatus.booked)) {
+      final k = a.startsAt.toIso8601String().substring(0, 10);
+      counts[k] = (counts[k] ?? 0) + 1;
+    }
+    return AppointmentList(items: items, bookedByDay: counts);
+  }
+
+  @override
+  Future<Appointment> createAppointment(AppointmentDraft d) async {
+    createdAppointments.add(d.toJson());
+    final a = Appointment(
+      id: 'a${appointmentList.length + 1}',
+      customerId: d.customerId,
+      customerName: d.customerName ?? 'Client',
+      customerPhone: d.customerPhone,
+      serviceId: d.serviceId,
+      serviceName: d.serviceName ?? 'Prestation',
+      price: d.price ?? 0,
+      startsAt: d.startsAt,
+      durationMinutes: d.durationMinutes,
+      status: AppointmentStatus.booked,
+    );
+    appointmentList.add(a);
+    return a;
+  }
+
+  @override
+  Future<Appointment> updateAppointment(String id, Map<String, Object?> changes) async {
+    appointmentChanges.add((id, changes));
+    final i = appointmentList.indexWhere((a) => a.id == id);
+    final a = appointmentList[i];
+    final updated = Appointment(
+      id: a.id,
+      customerId: a.customerId,
+      customerName: a.customerName,
+      customerPhone: a.customerPhone,
+      serviceId: a.serviceId,
+      serviceName: a.serviceName,
+      price: a.price,
+      startsAt: changes['startsAt'] == null ? a.startsAt : DateTime.parse(changes['startsAt']! as String).toLocal(),
+      durationMinutes: (changes['durationMinutes'] as int?) ?? a.durationMinutes,
+      status: changes['status'] == null ? a.status : AppointmentStatus.of(changes['status']! as String),
+      note: a.note,
+    );
+    appointmentList[i] = updated;
+    return updated;
+  }
 
   // ---------- Assistant IA ----------
   bool assistantEnabled = true;

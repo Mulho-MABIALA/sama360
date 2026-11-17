@@ -390,3 +390,9 @@ class AssistantChat extends Notifier<AssistantChatState> {
 }
 
 final assistantChatProvider = NotifierProvider<AssistantChat, AssistantChatState>(AssistantChat.new);
+
+/// Rendez-vous d'un jour (avec le nombre de rendez-vous des jours voisins).
+final appointmentsProvider = FutureProvider.family<AppointmentList, DateTime>((ref, day) {
+  ref.watch(businessIdProvider);
+  return ref.watch(repoProvider).appointments(day);
+});

@@ -4,6 +4,7 @@ import { sql } from 'drizzle-orm';
 import { DbService, Tx } from '../../shared/db/db.service';
 import { AppError } from '../../shared/http/app-error';
 import { newId } from '../../shared/ids';
+import { hourLabel } from '../booking/booking';
 import { EXPIRY_WARNING_DAYS } from '../documents/documents';
 import { fcfa, weekOf } from '../sales/insights';
 
@@ -165,6 +166,28 @@ export class NotificationsService {
           link: `/documents/${d.id}`,
           audience: 'documents:read',
           dedupeKey: `document_expiring:${d.id}:${d.e}:${days < 0 ? 'late' : 'soon'}`,
+        });
+      }
+    }
+
+    // Rendez-vous du jour : une notification le matin, avec le premier client
+    if (can('sales:read')) {
+      const rdv = (
+        await tx.execute(sql`
+          SELECT customer_name, service_name, starts_at, count(*) OVER () AS total
+          FROM sales.appointments
+          WHERE status = 'booked' AND starts_at >= current_date AND starts_at < current_date + 1
+          ORDER BY starts_at LIMIT 1`)
+      ).rows[0] as { customer_name: string; service_name: string; starts_at: string; total: number } | undefined;
+      if (rdv) {
+        const total = Number(rdv.total);
+        await this.push(tx, businessId, {
+          kind: 'appointments_today',
+          title: total === 1 ? '1 rendez-vous aujourd’hui' : `${total} rendez-vous aujourd’hui`,
+          body: `Premier à ${hourLabel(new Date(rdv.starts_at))} : ${rdv.customer_name} (${rdv.service_name}).`,
+          link: '/booking',
+          audience: 'sales:read',
+          dedupeKey: `appointments_today:${today}`,
         });
       }
     }

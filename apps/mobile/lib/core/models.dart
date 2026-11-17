@@ -2775,3 +2775,115 @@ class AssistantReply {
   factory AssistantReply.fromJson(Map<String, dynamic> j) =>
       AssistantReply(reply: j['reply'] as String, remaining: _int(j['remaining']));
 }
+
+// ---------- Réservation ----------
+
+enum AppointmentStatus {
+  booked('booked', 'Prévu'),
+  done('done', 'Venu'),
+  noShow('no_show', 'Absent'),
+  cancelled('cancelled', 'Annulé');
+
+  const AppointmentStatus(this.key, this.label);
+  final String key;
+  final String label;
+
+  static AppointmentStatus of(String k) => values.firstWhere((s) => s.key == k, orElse: () => booked);
+}
+
+class Appointment {
+  const Appointment({
+    required this.id,
+    this.customerId,
+    required this.customerName,
+    this.customerPhone,
+    this.serviceId,
+    required this.serviceName,
+    required this.price,
+    required this.startsAt,
+    required this.durationMinutes,
+    required this.status,
+    this.note,
+    this.overlaps = false,
+  });
+  final String id;
+  final String? customerId;
+  final String customerName;
+  final String? customerPhone;
+  final String? serviceId;
+  final String serviceName;
+  final int price;
+  final DateTime startsAt;
+  final int durationMinutes;
+  final AppointmentStatus status;
+  final String? note;
+
+  /// Croise un autre rendez-vous actif (avertissement, sans blocage).
+  final bool overlaps;
+
+  DateTime get endsAt => startsAt.add(Duration(minutes: durationMinutes));
+
+  factory Appointment.fromJson(Map<String, dynamic> j) => Appointment(
+    id: j['id'] as String,
+    customerId: j['customerId'] as String?,
+    customerName: j['customerName'] as String,
+    customerPhone: j['customerPhone'] as String?,
+    serviceId: j['serviceId'] as String?,
+    serviceName: j['serviceName'] as String,
+    price: _int(j['price']),
+    startsAt: DateTime.parse(j['startsAt'] as String).toLocal(),
+    durationMinutes: _int(j['durationMinutes']),
+    status: AppointmentStatus.of(j['status'] as String),
+    note: j['note'] as String?,
+    overlaps: j['overlaps'] == true,
+  );
+}
+
+class AppointmentList {
+  const AppointmentList({required this.items, required this.bookedByDay});
+  final List<Appointment> items;
+
+  /// « 2026-11-17 » → nombre de rendez-vous prévus (points sur la bande des jours).
+  final Map<String, int> bookedByDay;
+
+  factory AppointmentList.fromJson(Map<String, dynamic> j) => AppointmentList(
+    items: [for (final a in (j['items'] as List).cast<Map<String, dynamic>>()) Appointment.fromJson(a)],
+    bookedByDay: {for (final e in ((j['bookedByDay'] as Map?) ?? const {}).entries) e.key as String: _int(e.value)},
+  );
+}
+
+/// Ce qu'on envoie pour créer ou modifier un rendez-vous.
+class AppointmentDraft {
+  const AppointmentDraft({
+    this.customerId,
+    this.customerName,
+    this.customerPhone,
+    this.serviceId,
+    this.serviceName,
+    this.price,
+    required this.startsAt,
+    required this.durationMinutes,
+    this.note,
+  });
+  final String? customerId;
+  final String? customerName;
+  final String? customerPhone;
+  final String? serviceId;
+  final String? serviceName;
+  final int? price;
+  final DateTime startsAt;
+  final int durationMinutes;
+  final String? note;
+
+  Map<String, Object?> toJson() => {
+    'customerId': customerId,
+    'customerName': customerId == null ? customerName : null,
+    'customerPhone': customerId == null && (customerPhone ?? '').isNotEmpty ? customerPhone : null,
+    'serviceId': serviceId,
+    'serviceName': serviceId == null ? serviceName : null,
+    'price': price,
+    'startsAt': startsAt.toUtc().toIso8601String(),
+    'durationMinutes': durationMinutes,
+    'note': (note ?? '').trim().isEmpty ? null : note!.trim(),
+  };
+}

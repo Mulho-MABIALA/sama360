@@ -59,9 +59,8 @@ const _moreServices = [
   _shopService,
   _Service('Documents', Icons.folder_rounded, Color(0xFF6B7280), route: '/documents'),
   _Service('Livraison', Icons.local_shipping_rounded, Color(0xFFD9822B), soon: true),
-  _Service('Réservation', Icons.event_available_rounded, Color(0xFF2F6FDB), soon: true),
+  _Service('Réservation', Icons.event_available_rounded, Color(0xFF2F6FDB), route: '/booking'),
   _Service('Assistant IA', Icons.auto_awesome_rounded, Color(0xFF7A5AF8), route: '/assistant'),
-  _Service('Projets', Icons.task_alt_rounded, Color(0xFF0A8453), soon: true),
 ];
 
 class HomeScreen extends ConsumerWidget {

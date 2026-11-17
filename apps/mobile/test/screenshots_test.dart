@@ -340,6 +340,33 @@ void main() {
     await _shot(tester, '0e_code_confirmation');
   });
 
+  testWidgets('réservations', (tester) async {
+    phoneSize(tester);
+    final now = DateTime.now();
+    DateTime at(int h, [int m = 0]) => DateTime(now.year, now.month, now.day, h, m);
+    Appointment a(String id, String name, String service, int price, DateTime t, int d, AppointmentStatus s) =>
+        Appointment(
+          id: id,
+          customerName: name,
+          customerPhone: '+221775556677',
+          serviceName: service,
+          price: price,
+          startsAt: t,
+          durationMinutes: d,
+          status: s,
+        );
+    final repo = FakeRepo()
+      ..appointmentList.addAll([
+        a('a1', 'Fatou Sow', 'Tresses africaines', 15000, at(9), 120, AppointmentStatus.done),
+        a('a2', 'Mariama Ba', 'Brushing', 3000, at(11, 30), 30, AppointmentStatus.booked),
+        a('a3', 'Khady Ndiaye', 'Pose de vernis', 2500, at(14), 45, AppointmentStatus.booked),
+        a('a4', 'Aminata Fall', 'Coupe enfant', 2000, at(16), 30, AppointmentStatus.noShow),
+        a('a5', 'Coumba Diop', 'Tissage', 20000, at(17), 180, AppointmentStatus.booked),
+      ]);
+    await pumpSama(tester, location: '/booking', repo: repo);
+    await _shot(tester, '18_reservations');
+  });
+
   testWidgets('assistant', (tester) async {
     phoneSize(tester);
     await pumpSama(tester, location: '/assistant');
