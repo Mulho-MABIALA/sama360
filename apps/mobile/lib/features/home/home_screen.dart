@@ -15,6 +15,7 @@ import '../offline/offline_ui.dart';
 import '../profile/profile_screen.dart';
 import '../notifications/notifications_screen.dart' show tabRoutes;
 import '../../core/charts.dart';
+import 'onboarding_card.dart';
 import '../../core/privacy.dart';
 import '../../core/skeleton.dart';
 import '../catalog/scan_lookup.dart';
@@ -41,6 +42,7 @@ const _mainServices = [
 
 /// 6e tuile : les rapports pour qui peut les voir, sinon la boutique (bientôt).
 const _reportsService = _Service('Rapports', Icons.insights_rounded, Color(0xFF0E9384), route: '/reports');
+const _bookingService = _Service('Réservation', Icons.event_available_rounded, Color(0xFF2F6FDB), route: '/booking');
 const _shopService = _Service('Boutique', Icons.storefront_rounded, Color(0xFF0E9384), route: '/shop');
 
 /// 7e tuile : l'équipe pour qui peut la voir, sinon les paiements (bientôt).
@@ -75,8 +77,10 @@ class HomeScreen extends ConsumerWidget {
     final hasShop = ref.watch(currentBusinessProvider).value?.modules.contains('shop') ?? false;
     final newShopOrders = hasShop && ref.can('sales:read') ? ref.watch(shopProvider).value?.newOrders ?? 0 : 0;
 
+    // Activité « services » : les rendez-vous passent devant le stock sur l'accueil
+    final services = ref.watch(currentBusinessProvider).value?.focus == 'services';
     final shown = [
-      ..._mainServices,
+      for (final s in _mainServices) services && s.route == '/stock' ? _bookingService : s,
       if (canReports) _reportsService else _shopService,
       if (ref.can('members:read'))
         _teamService
@@ -122,6 +126,7 @@ class HomeScreen extends ConsumerWidget {
                   const SyncBanner(padding: EdgeInsets.only(bottom: 14)),
                   if (newShopOrders > 0) ...[_ShopOrdersBanner(count: newShopOrders), const SizedBox(height: 12)],
                   if (lowStock > 0) ...[_LowStockBanner(count: lowStock), const SizedBox(height: 18)],
+                  const OnboardingCard(),
                   const _SectionTitle('Vos services'),
                   const SizedBox(height: 10),
                   // Comme Wave : une seule carte, des icônes dans des carrés doux, sans tuile autour.

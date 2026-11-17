@@ -73,6 +73,7 @@ class CurrentBusiness {
     this.logoFileId,
     this.brandColor,
     this.requireOpenCash = false,
+    this.focus,
     required this.role,
     required this.permissions,
     required this.modules,
@@ -91,6 +92,9 @@ class CurrentBusiness {
 
   /// Option du patron : la caisse doit être ouverte pour vendre.
   final bool requireOpenCash;
+
+  /// Activité : « products », « services », « both » (null : pas encore choisie).
+  final String? focus;
   final String role;
   final List<String> permissions;
   final List<String> modules;
@@ -109,6 +113,7 @@ class CurrentBusiness {
       logoFileId: b['logoFileId'] as String?,
       brandColor: b['brandColor'] as String?,
       requireOpenCash: b['requireOpenCash'] == true,
+      focus: (b['settings'] as Map?)?['focus'] as String?,
       role: me['role'] as String,
       permissions: List<String>.from(me['permissions'] as List),
       modules: ((j['modules'] as List?) ?? const [])
@@ -2969,4 +2974,30 @@ class BookingSettings {
     'minNoticeMinutes': minNoticeMinutes,
     'maxDaysAhead': maxDaysAhead,
   };
+}
+
+// ---------- Premiers pas ----------
+
+class OnboardingStep {
+  const OnboardingStep(this.key, this.done);
+  final String key;
+  final bool done;
+}
+
+class Onboarding {
+  const Onboarding({this.focus, required this.dismissed, required this.steps});
+
+  /// « products », « services », « both » ; null : pas encore répondu.
+  final String? focus;
+  final bool dismissed;
+  final List<OnboardingStep> steps;
+
+  factory Onboarding.fromJson(Map<String, dynamic> j) => Onboarding(
+    focus: j['focus'] as String?,
+    dismissed: j['dismissed'] == true,
+    steps: [
+      for (final s in (j['steps'] as List).cast<Map<String, dynamic>>())
+        OnboardingStep(s['key'] as String, s['done'] == true),
+    ],
+  );
 }

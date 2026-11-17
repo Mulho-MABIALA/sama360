@@ -9,6 +9,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:sama360/core/biometrics.dart';
 import 'package:sama360/core/pin_lock.dart';
 import 'package:sama360/core/display.dart';
 import 'package:sama360/core/api/session_store.dart';
@@ -291,6 +292,51 @@ void main() {
     phoneSize(tester);
     await pumpSama(tester, location: '/reports');
     await _shot(tester, '13_rapports');
+  });
+
+  testWidgets('premiers pas', (tester) async {
+    phoneSize(tester);
+    final repo = FakeRepo()
+      ..onboardingValue = const Onboarding(
+        focus: 'products',
+        dismissed: false,
+        steps: [
+          OnboardingStep('add_products', true),
+          OnboardingStep('first_sale', true),
+          OnboardingStep('logo_phone', false),
+          OnboardingStep('shop_online', false),
+          OnboardingStep('invite_member', false),
+        ],
+      );
+    await pumpSama(
+      tester,
+      repo: repo,
+      overrides: [monumentDateProvider.overrideWithValue(DateTime(2026, 11, 16))],
+      biometrics: FakeBiometrics(kindValue: BiometricKind.fingerprint),
+    );
+    await tester.drag(find.byType(ListView).first, const Offset(0, -330));
+    await tester.pumpAndSettle();
+    await _shot(tester, '0f_premiers_pas');
+  });
+
+  testWidgets('premiers pas (question)', (tester) async {
+    phoneSize(tester);
+    final repo = FakeRepo()..onboardingValue = const Onboarding(dismissed: false, steps: []);
+    await pumpSama(tester, repo: repo, overrides: [monumentDateProvider.overrideWithValue(DateTime(2026, 11, 16))]);
+    await tester.drag(find.byType(ListView).first, const Offset(0, -330));
+    await tester.pumpAndSettle();
+    await _shot(tester, '0g_question_activite');
+  });
+
+  testWidgets('création d’entreprise', (tester) async {
+    phoneSize(tester);
+    await pumpSama(tester, location: '/business');
+    await tester.tap(find.text('Créer une entreprise'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const Key('businessName')), 'Salon Ndeye');
+    await tester.tap(find.text('Salon / beauté'));
+    await tester.pumpAndSettle();
+    await _shot(tester, '0h_creation_entreprise');
   });
 
   testWidgets('code secret', (tester) async {

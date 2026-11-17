@@ -17,11 +17,14 @@ import 'product_photo.dart';
 
 /// Fiche produit complète : création ([productId] null) ou modification.
 class ProductEditorScreen extends ConsumerStatefulWidget {
-  const ProductEditorScreen({super.key, this.productId, this.initialBarcode});
+  const ProductEditorScreen({super.key, this.productId, this.initialBarcode, this.initialService = false});
   final String? productId;
 
   /// Code scanné inconnu : la fiche s'ouvre avec ce code déjà rempli.
   final String? initialBarcode;
+
+  /// Nouvelle fiche de type « Service » (prestation).
+  final bool initialService;
 
   @override
   ConsumerState<ProductEditorScreen> createState() => _ProductEditorScreenState();
@@ -55,6 +58,7 @@ class _ProductEditorScreenState extends ConsumerState<ProductEditorScreen> {
   void initState() {
     super.initState();
     _barcode.text = widget.initialBarcode ?? '';
+    _isService = widget.initialService;
     if (!_editing) {
       _loaded = true;
       return;

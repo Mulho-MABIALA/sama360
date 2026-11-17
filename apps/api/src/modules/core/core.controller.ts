@@ -1,3 +1,4 @@
+import { FOCUSES } from './onboarding';
 import {
   Body,
   Controller,
@@ -26,6 +27,7 @@ const text = (max: number) => z.string().trim().min(1).max(max);
 
 const CreateBusiness = z.object({
   name: text(120),
+  focus: z.enum(FOCUSES).nullish(),
   category: text(60).nullish(),
   phone: text(25).nullish(),
   city: text(80).nullish(),
@@ -33,6 +35,10 @@ const CreateBusiness = z.object({
   ninea: text(30).nullish(),
 });
 const UpdateBusiness = CreateBusiness.partial().extend({
+  // Activité : produits, services ou les deux (adapte l'accueil et les premiers pas)
+  focus: z.enum(FOCUSES).optional(),
+  // Le patron a masqué la carte « Premiers pas »
+  onboardingDismissed: z.boolean().optional(),
   // Couleur de la boutique (« #0A7E4F ») ; null pour revenir au vert Sama360
   brandColor: z
     .string()
@@ -98,6 +104,13 @@ export class CoreController {
   @RequirePermission('business:update')
   removeLogo(@CurrentTenant() tenant: TenantContext) {
     return this.businesses.removeLogo(tenant.businessId);
+  }
+
+  /** Premiers pas : étapes faites ou à faire, d'après les vraies données de la boutique. */
+  @Get('business/onboarding')
+  @RequirePermission('business:read')
+  onboarding(@CurrentTenant() tenant: TenantContext) {
+    return this.businesses.onboarding(tenant.businessId);
   }
 
   @Patch('business')

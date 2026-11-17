@@ -1,6 +1,7 @@
+import { Focus, onboardingSteps } from './onboarding';
 import { Injectable } from '@nestjs/common';
 import { DEFAULT_MODULES } from '@sama360/contracts';
-import { eq, like, or } from 'drizzle-orm';
+import { eq, like, or, sql } from 'drizzle-orm';
 import { DbService } from '../../shared/db/db.service';
 import { businesses, memberships, moduleActivations, roles, subscriptions } from '../../shared/db/schema';
 import { OutboxService } from '../../shared/events/outbox.service';
@@ -17,9 +18,12 @@ export interface CreateBusinessInput {
   city?: string | null;
   address?: string | null;
   ninea?: string | null;
+  focus?: Focus | null;
 }
 
-export interface UpdateBusinessInput extends Partial<CreateBusinessInput> {
+export interface UpdateBusinessInput extends Partial<Omit<CreateBusinessInput, 'focus'>> {
+  focus?: Focus;
+  onboardingDismissed?: boolean;
   brandColor?: string | null;
   requireOpenCash?: boolean;
 }
@@ -53,6 +57,7 @@ export class BusinessesService {
           city: input.city ?? null,
           address: input.address ?? null,
           ninea: input.ninea ?? null,
+          settings: input.focus ? { focus: input.focus } : {},
         })
         .returning();
 
@@ -101,12 +106,58 @@ export class BusinessesService {
   }
 
   async update(businessId: string, input: UpdateBusinessInput) {
+    const { focus, onboardingDismissed, ...columns } = input;
+    // Réglages libres (activité, guide masqué) : fusionnés dans le JSON, sans écraser le reste
+    const patch: Record<string, unknown> = {};
+    if (focus !== undefined) patch.focus = focus;
+    if (onboardingDismissed !== undefined) patch.onboardingDismissed = onboardingDismissed;
     const [business] = await this.dbs.db
       .update(businesses)
-      .set({ ...input, updatedAt: new Date() })
+      .set({
+        ...columns,
+        ...(Object.keys(patch).length
+          ? { settings: sql`${businesses.settings} || ${JSON.stringify(patch)}::jsonb` }
+          : {}),
+        updatedAt: new Date(),
+      })
       .where(eq(businesses.id, businessId))
       .returning();
     return { business };
+  }
+
+  /** Premiers pas : activité choisie, guide masqué ou non, étapes faites d'après les données. */
+  onboarding(businessId: string) {
+    return this.dbs.withTenant(businessId, async (tx) => {
+      const r = (
+        await tx.execute(sql`
+          SELECT b.settings, b.logo_file_id IS NOT NULL AS has_logo, coalesce(b.phone, '') <> '' AS has_phone,
+            (SELECT count(*) FROM catalog.products WHERE deleted_at IS NULL AND type = 'product')::int AS products,
+            (SELECT count(*) FROM catalog.products WHERE deleted_at IS NULL AND type = 'service')::int AS services,
+            (SELECT count(*) FROM sales.sales)::int AS sales,
+            (SELECT count(*) FROM sales.appointments)::int AS appointments,
+            coalesce((SELECT enabled FROM shop.settings LIMIT 1), false) AS shop_online,
+            coalesce((SELECT online_enabled FROM sales.booking_settings LIMIT 1), false) AS booking_online,
+            (SELECT count(*) FROM core.memberships m WHERE m.business_id = b.id AND m.status <> 'removed')::int AS members
+          FROM core.businesses b WHERE b.id = ${businessId}`)
+      ).rows[0] as Record<string, unknown>;
+      const settings = (r.settings ?? {}) as { focus?: Focus; onboardingDismissed?: boolean };
+      const focus = settings.focus ?? null;
+      return {
+        focus,
+        dismissed: settings.onboardingDismissed === true,
+        steps: onboardingSteps(focus, {
+          products: Number(r.products),
+          services: Number(r.services),
+          sales: Number(r.sales),
+          appointments: Number(r.appointments),
+          hasLogo: r.has_logo === true,
+          hasPhone: r.has_phone === true,
+          shopOnline: r.shop_online === true,
+          bookingOnline: r.booking_online === true,
+          members: Number(r.members),
+        }),
+      };
+    });
   }
 
   /** Logo de l'entreprise (en-tête des factures, devis et reçus) : remplace l'ancien. */

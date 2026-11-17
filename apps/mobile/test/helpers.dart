@@ -161,13 +161,51 @@ class FakeRepo extends SamaRepository {
     brandColor = hex;
   }
 
+  /// Premiers pas : masqué par défaut (les autres tests de l'accueil ne bougent pas).
+  Onboarding onboardingValue = const Onboarding(focus: 'products', dismissed: true, steps: []);
+  final focusChoices = <String>[];
+  var onboardingDismissed = 0;
+
+  @override
+  Future<Onboarding> onboarding() async => onboardingValue;
+
+  @override
+  Future<void> setFocus(String focus) async {
+    focusChoices.add(focus);
+    onboardingValue = Onboarding(
+      focus: focus,
+      dismissed: false,
+      steps: [
+        OnboardingStep(focus == 'services' ? 'add_services' : 'add_products', true),
+        const OnboardingStep('first_sale', false),
+        const OnboardingStep('logo_phone', false),
+      ],
+    );
+  }
+
+  @override
+  Future<void> dismissOnboarding() async {
+    onboardingDismissed++;
+    onboardingValue = Onboarding(focus: onboardingValue.focus, dismissed: true, steps: onboardingValue.steps);
+  }
+
+  String? businessFocus;
+  final createdBusinesses = <Map<String, String?>>[];
+
+  @override
+  Future<String> createBusiness({required String name, String? category, String? city, String? focus}) async {
+    createdBusinesses.add({'name': name, 'category': category, 'city': city, 'focus': focus});
+    return 'b2';
+  }
+
   bool requireOpenCash = false;
 
   @override
   Future<void> updateRequireOpenCash(bool value) async => requireOpenCash = value;
 
   @override
-  Future<CurrentBusiness> currentBusiness() async => logoFileId == null && brandColor == null && !requireOpenCash
+  Future<CurrentBusiness> currentBusiness() async =>
+      logoFileId == null && brandColor == null && !requireOpenCash && businessFocus == null
       ? demoBusiness
       : CurrentBusiness(
           id: demoBusiness.id,
@@ -179,6 +217,7 @@ class FakeRepo extends SamaRepository {
           logoFileId: logoFileId,
           brandColor: brandColor,
           requireOpenCash: requireOpenCash,
+          focus: businessFocus,
           role: demoBusiness.role,
           permissions: demoBusiness.permissions,
           modules: demoBusiness.modules,

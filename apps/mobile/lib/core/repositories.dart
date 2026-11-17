@@ -89,13 +89,22 @@ class SamaRepository {
   Future<void> logoutAll() => api.post<void>('/v1/me/logout-all');
 
   // ---------- Entreprises ----------
-  Future<String> createBusiness({required String name, String? category, String? city}) async {
+  Future<String> createBusiness({required String name, String? category, String? city, String? focus}) async {
     final r = await api.post<Map<String, dynamic>>(
       '/v1/businesses',
-      data: {'name': name, 'category': ?category, 'city': ?city},
+      data: {'name': name, 'category': ?category, 'city': ?city, 'focus': ?focus},
     );
     return (r['business'] as Map)['id'] as String;
   }
+
+  /// Premiers pas : activité, guide masqué, étapes faites (d'après les données de la boutique).
+  Future<Onboarding> onboarding() async =>
+      Onboarding.fromJson(await api.get<Map<String, dynamic>>('/v1/business/onboarding'));
+
+  /// Activité de la boutique : « products », « services » ou « both ».
+  Future<void> setFocus(String focus) => api.patch<void>('/v1/business', data: {'focus': focus});
+
+  Future<void> dismissOnboarding() => api.patch<void>('/v1/business', data: {'onboardingDismissed': true});
 
   Future<CurrentBusiness> currentBusiness() async =>
       CurrentBusiness.fromJson(await _cachedGet<Map<String, dynamic>>('/v1/business'));

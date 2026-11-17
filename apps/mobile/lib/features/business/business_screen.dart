@@ -15,6 +15,17 @@ const _categories = {
   'autre': 'Autre',
 };
 
+/// Ce que la boutique vend surtout : adapte l'accueil et les premiers pas.
+const focusLabels = {'products': 'Des produits', 'services': 'Des services', 'both': 'Les deux'};
+
+/// Activité proposée d'après le type d'entreprise (modifiable).
+String focusFor(String category) => switch (category) {
+  'salon' || 'prestataire' => 'services',
+  'restaurant' => 'products',
+  'boutique' => 'products',
+  _ => 'both',
+};
+
 /// Choisir une entreprise ou en créer une.
 class BusinessScreen extends ConsumerStatefulWidget {
   const BusinessScreen({super.key});
@@ -26,6 +37,7 @@ class _BusinessScreenState extends ConsumerState<BusinessScreen> {
   final _name = TextEditingController();
   final _city = TextEditingController(text: 'Dakar');
   String _category = 'boutique';
+  String _focus = 'products';
   bool _creating = false;
   bool _busy = false;
 
@@ -46,6 +58,7 @@ class _BusinessScreenState extends ConsumerState<BusinessScreen> {
             name: _name.text,
             category: _category == 'autre' ? null : _category,
             city: _city.text.trim().isEmpty ? null : _city.text.trim(),
+            focus: _focus,
           );
       if (mounted) context.go('/');
     } catch (e) {
@@ -119,7 +132,35 @@ class _BusinessScreenState extends ConsumerState<BusinessScreen> {
                 runSpacing: 8,
                 children: [
                   for (final e in _categories.entries)
-                    Pill(label: e.value, selected: _category == e.key, onTap: () => setState(() => _category = e.key)),
+                    Pill(
+                      label: e.value,
+                      selected: _category == e.key,
+                      onTap: () => setState(() {
+                        _category = e.key;
+                        _focus = focusFor(e.key);
+                      }),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              const Text('Vous vendez surtout…', style: TextStyle(fontWeight: FontWeight.w700)),
+              const SizedBox(height: 4),
+              Text(
+                'Produits : stock et boutique en ligne. Services : rendez-vous et prestations.',
+                style: TextStyle(color: AppColors.muted, fontSize: 12.5),
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (final e in focusLabels.entries)
+                    Pill(
+                      key: Key('focus_${e.key}'),
+                      label: e.value,
+                      selected: _focus == e.key,
+                      onTap: () => setState(() => _focus = e.key),
+                    ),
                 ],
               ),
               const SizedBox(height: 16),

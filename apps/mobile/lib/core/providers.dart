@@ -401,3 +401,10 @@ final bookingSettingsProvider = FutureProvider<BookingSettings>((ref) {
   ref.watch(businessIdProvider);
   return ref.watch(repoProvider).bookingSettings();
 });
+
+/// Premiers pas (patron seulement : le guide parle de réglages de la boutique).
+final onboardingProvider = FutureProvider<Onboarding?>((ref) async {
+  ref.watch(businessIdProvider);
+  if (!ref.watch(canProvider('business:update'))) return null;
+  return ref.watch(repoProvider).onboarding();
+});

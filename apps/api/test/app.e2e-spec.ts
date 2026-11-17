@@ -2969,6 +2969,51 @@ describe('Socle Sama360 (e2e)', () => {
     });
   });
 
+  describe('Premiers pas', () => {
+    const A = () => auth(awa.accessToken, awaBiz);
+    type Step = { key: string; done: boolean };
+
+    it('étapes cochées d’après les données ; activité ; guide masqué sans rien écraser', async () => {
+      const o = (await http.get('/v1/business/onboarding').set(A()).expect(200)).body;
+      expect(o).toMatchObject({ focus: null, dismissed: false });
+      const done = (steps: Step[]) => steps.filter((x) => x.done).map((x) => x.key);
+      expect(done(o.steps)).toEqual(expect.arrayContaining(['add_products', 'first_sale', 'invite_member']));
+
+      await http.patch('/v1/business').set(A()).send({ focus: 'coiffure' }).expect(422);
+      await http.patch('/v1/business').set(auth(modouToken, awaBiz)).send({ focus: 'services' }).expect(403);
+      await http.patch('/v1/business').set(A()).send({ focus: 'services' }).expect(200);
+      const s = (await http.get('/v1/business/onboarding').set(A()).expect(200)).body;
+      expect(s.focus).toBe('services');
+      expect(s.steps.map((x: Step) => x.key)).toEqual([
+        'add_services',
+        'first_appointment',
+        'first_sale',
+        'logo_phone',
+        'booking_online',
+        'invite_member',
+      ]);
+      expect(done(s.steps)).toEqual(expect.arrayContaining(['add_services', 'first_appointment', 'booking_online']));
+
+      await http.patch('/v1/business').set(A()).send({ onboardingDismissed: true }).expect(200);
+      const d = (await http.get('/v1/business/onboarding').set(A()).expect(200)).body;
+      expect(d).toMatchObject({ focus: 'services', dismissed: true });
+    });
+
+    it('activité choisie dès la création de l’entreprise', async () => {
+      const biz = await http
+        .post('/v1/businesses')
+        .set(auth(moussa.accessToken))
+        .send({ name: 'Moussa Couture', category: 'couture', focus: 'both' })
+        .expect(201);
+      const o = (
+        await http.get('/v1/business/onboarding').set(auth(moussa.accessToken, biz.body.business.id)).expect(200)
+      ).body;
+      expect(o.focus).toBe('both');
+      expect(o.steps).toHaveLength(7);
+      expect(o.steps.every((x: Step) => !x.done || x.key === 'logo_phone')).toBe(true);
+    });
+  });
+
   describe('Sessions', () => {
     it('déconnecte tous les appareils', async () => {
       // Session du caissier (les codes de connexion sont limités par minute : on réutilise sa session)

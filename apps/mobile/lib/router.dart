@@ -149,7 +149,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/categories', builder: (_, _) => const CategoriesScreen()),
       GoRoute(
         path: '/products/new',
-        builder: (_, s) => ProductEditorScreen(initialBarcode: s.uri.queryParameters['barcode']),
+        builder: (_, s) => ProductEditorScreen(
+          initialBarcode: s.uri.queryParameters['barcode'],
+          initialService: s.uri.queryParameters['service'] == '1',
+        ),
       ),
       GoRoute(
         path: '/products/:id',
