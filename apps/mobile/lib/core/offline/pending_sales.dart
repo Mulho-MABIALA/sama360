@@ -160,6 +160,7 @@ class PendingSalesController extends Notifier<List<PendingSale>> {
     required int total,
     Contact? customer,
     DateTime? now,
+    int redeemRewards = 0,
   }) async {
     final soldAt = now ?? DateTime.now();
     final body = SamaRepository.saleBody(
@@ -168,6 +169,7 @@ class PendingSalesController extends Notifier<List<PendingSale>> {
       items: [for (final l in lines) (productId: l.product.id, quantity: l.quantity)],
       payments: payments,
       soldAt: soldAt,
+      redeemRewards: redeemRewards,
     );
     try {
       final sale = await ref.read(repoProvider).postSale(body, businessId: businessId);

@@ -443,11 +443,17 @@ class Contact {
     this.notes,
     this.creditLimit,
     this.lastRemindedAt,
+    this.birthDay,
+    this.birthMonth,
   });
   final String id;
   final String name;
   final String? phone;
   final int balance;
+
+  /// Anniversaire (jour, mois), sans l'année.
+  final int? birthDay;
+  final int? birthMonth;
   final String? email;
   final String? address;
   final String? notes;
@@ -466,18 +472,31 @@ class Contact {
     balance: _int(j['balance']),
     creditLimit: j['creditLimit'] == null ? null : _int(j['creditLimit']),
     lastRemindedAt: _date(j['lastRemindedAt']),
+    birthDay: j['birthDay'] == null ? null : _int(j['birthDay']),
+    birthMonth: j['birthMonth'] == null ? null : _int(j['birthMonth']),
   );
 }
 
 /// Saisie d'une fiche client (création ou modification).
 class CustomerDraft {
-  const CustomerDraft({required this.name, this.phone, this.email, this.address, this.notes, this.creditLimit});
+  const CustomerDraft({
+    required this.name,
+    this.phone,
+    this.email,
+    this.address,
+    this.notes,
+    this.creditLimit,
+    this.birthDay,
+    this.birthMonth,
+  });
   final String name;
   final String? phone;
   final String? email;
   final String? address;
   final String? notes;
   final int? creditLimit;
+  final int? birthDay;
+  final int? birthMonth;
 
   Map<String, dynamic> toJson({bool withLimit = true}) => {
     'name': name,
@@ -486,6 +505,8 @@ class CustomerDraft {
     'address': address,
     'notes': notes,
     if (withLimit) 'creditLimit': creditLimit,
+    'birthDay': birthDay,
+    'birthMonth': birthMonth,
   };
 }
 
@@ -843,6 +864,7 @@ class SaleDetail {
     required this.payments,
     this.customer,
     this.cashierName,
+    this.loyalty,
   });
   final String id;
   final String number;
@@ -857,6 +879,9 @@ class SaleDetail {
   final List<({PayMethod? method, int amount})> payments;
   final Contact? customer;
   final String? cashierName;
+
+  /// Fidélité : points gagnés et utilisés avec cette vente, solde du client.
+  final SaleLoyalty? loyalty;
 
   bool get voided => status == 'voided';
 
@@ -877,7 +902,17 @@ class SaleDetail {
     ],
     customer: j['customer'] == null ? null : Contact.fromJson(j['customer'] as Map<String, dynamic>),
     cashierName: j['cashierName'] as String?,
+    loyalty: j['loyalty'] == null ? null : SaleLoyalty.fromJson(j['loyalty'] as Map<String, dynamic>),
   );
+}
+
+class SaleLoyalty {
+  const SaleLoyalty({required this.earned, required this.redeemed, required this.balance});
+  final int earned;
+  final int redeemed;
+  final int balance;
+  factory SaleLoyalty.fromJson(Map<String, dynamic> j) =>
+      SaleLoyalty(earned: _int(j['earned']), redeemed: _int(j['redeemed']), balance: _int(j['balance']));
 }
 
 /// Ligne de l'historique des ventes (GET /v1/sales).
@@ -2259,6 +2294,180 @@ class ReminderQueue {
       dueAmount: _int(s['dueAmount']),
       totalAmount: _int(s['totalAmount']),
       remindedThisWeek: _int(s['remindedThisWeek']),
+    );
+  }
+}
+
+// =====================================================================
+// Fidélité
+// =====================================================================
+
+class LoyaltySettings {
+  const LoyaltySettings({this.enabled = false, this.earnPer = 1000, this.rewardPoints = 100, this.rewardValue = 2000});
+  final bool enabled;
+  final int earnPer; // F dépensés pour 1 point
+  final int rewardPoints; // points pour une récompense
+  final int rewardValue; // remise d'une récompense (F)
+
+  /// Part reversée au client (ex. 0,02 = 2 %).
+  double get rate => rewardValue / (rewardPoints * earnPer);
+  int pointsFor(int total) => enabled && total > 0 ? total ~/ earnPer : 0;
+  int rewardsFor(int balance) => enabled && balance > 0 ? balance ~/ rewardPoints : 0;
+
+  Map<String, dynamic> toJson() => {
+    'enabled': enabled,
+    'earnPer': earnPer,
+    'rewardPoints': rewardPoints,
+    'rewardValue': rewardValue,
+  };
+
+  factory LoyaltySettings.fromJson(Map<String, dynamic> j) => LoyaltySettings(
+    enabled: j['enabled'] == true,
+    earnPer: _int(j['earnPer']),
+    rewardPoints: _int(j['rewardPoints']),
+    rewardValue: _int(j['rewardValue']),
+  );
+}
+
+class LoyaltyEntry {
+  const LoyaltyEntry({
+    required this.id,
+    required this.kind,
+    required this.points,
+    required this.at,
+    this.saleId,
+    this.note,
+  });
+  final String id;
+  final String kind; // earn, redeem, reverse, adjust
+  final int points;
+  final DateTime at;
+  final String? saleId;
+  final String? note;
+  factory LoyaltyEntry.fromJson(Map<String, dynamic> j) => LoyaltyEntry(
+    id: j['id'] as String,
+    kind: j['kind'] as String,
+    points: _int(j['points']),
+    at: _date(j['at']) ?? DateTime.now(),
+    saleId: j['saleId'] as String?,
+    note: j['note'] as String?,
+  );
+}
+
+/// Carte de fidélité d'un client.
+class LoyaltyCard {
+  const LoyaltyCard({
+    required this.settings,
+    required this.balance,
+    required this.rewardsAvailable,
+    required this.pointsToNextReward,
+    this.history = const [],
+  });
+  final LoyaltySettings settings;
+  final int balance;
+  final int rewardsAvailable;
+  final int pointsToNextReward;
+  final List<LoyaltyEntry> history;
+
+  /// Avancée vers la prochaine récompense (0 à 1).
+  double get progress => settings.rewardPoints == 0
+      ? 0
+      : ((settings.rewardPoints - pointsToNextReward) / settings.rewardPoints).clamp(0, 1);
+
+  factory LoyaltyCard.fromJson(Map<String, dynamic> j) => LoyaltyCard(
+    settings: LoyaltySettings.fromJson(j['settings'] as Map<String, dynamic>),
+    balance: _int(j['balance']),
+    rewardsAvailable: _int(j['rewardsAvailable']),
+    pointsToNextReward: _int(j['pointsToNextReward']),
+    history: [for (final h in (j['history'] as List?) ?? const []) LoyaltyEntry.fromJson(h as Map<String, dynamic>)],
+  );
+}
+
+class TopCustomer {
+  const TopCustomer({
+    required this.customerId,
+    required this.name,
+    required this.visits,
+    required this.spent,
+    required this.lastVisit,
+    required this.points,
+    this.phone,
+  });
+  final String customerId;
+  final String name;
+  final String? phone;
+  final int visits;
+  final int spent;
+  final DateTime lastVisit;
+  final int points;
+  factory TopCustomer.fromJson(Map<String, dynamic> j) => TopCustomer(
+    customerId: j['customerId'] as String,
+    name: j['name'] as String,
+    phone: j['phone'] as String?,
+    visits: _int(j['visits']),
+    spent: _int(j['spent']),
+    lastVisit: _date(j['lastVisit']) ?? DateTime.now(),
+    points: _int(j['points']),
+  );
+}
+
+class UpcomingBirthday {
+  const UpcomingBirthday({
+    required this.customerId,
+    required this.name,
+    required this.day,
+    required this.month,
+    required this.inDays,
+    required this.points,
+    this.phone,
+  });
+  final String customerId;
+  final String name;
+  final String? phone;
+  final int day;
+  final int month;
+  final int inDays;
+  final int points;
+  factory UpcomingBirthday.fromJson(Map<String, dynamic> j) => UpcomingBirthday(
+    customerId: j['customerId'] as String,
+    name: j['name'] as String,
+    phone: j['phone'] as String?,
+    day: _int(j['day']),
+    month: _int(j['month']),
+    inDays: _int(j['inDays']),
+    points: _int(j['points']),
+  );
+}
+
+class LoyaltyDashboard {
+  const LoyaltyDashboard({
+    required this.settings,
+    required this.members,
+    required this.pointsIssued,
+    required this.pointsRedeemed,
+    required this.pointsOutstanding,
+    this.top = const [],
+    this.birthdays = const [],
+  });
+  final LoyaltySettings settings;
+  final int members;
+  final int pointsIssued;
+  final int pointsRedeemed;
+  final int pointsOutstanding;
+  final List<TopCustomer> top;
+  final List<UpcomingBirthday> birthdays;
+  factory LoyaltyDashboard.fromJson(Map<String, dynamic> j) {
+    final s = (j['stats'] as Map<String, dynamic>?) ?? const {};
+    return LoyaltyDashboard(
+      settings: LoyaltySettings.fromJson(j['settings'] as Map<String, dynamic>),
+      members: _int(s['members']),
+      pointsIssued: _int(s['pointsIssued']),
+      pointsRedeemed: _int(s['pointsRedeemed']),
+      pointsOutstanding: _int(s['pointsOutstanding']),
+      top: [for (final t in (j['top'] as List?) ?? const []) TopCustomer.fromJson(t as Map<String, dynamic>)],
+      birthdays: [
+        for (final b in (j['birthdays'] as List?) ?? const []) UpcomingBirthday.fromJson(b as Map<String, dynamic>),
+      ],
     );
   }
 }

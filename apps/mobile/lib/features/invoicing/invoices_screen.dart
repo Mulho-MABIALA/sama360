@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:material_ui/material_ui.dart';
 
+import '../../core/privacy.dart';
 import '../../core/format.dart';
 import '../../core/glass.dart';
 import '../../core/models.dart';
@@ -258,8 +259,8 @@ class _SummaryCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('À encaisser sur factures', style: TextStyle(color: muted, fontSize: 12.5)),
-                Text(
+                const LabelWithEye('À encaisser sur factures', style: TextStyle(color: muted, fontSize: 12.5)),
+                MaskedText(
                   moneyShort(summary.receivable),
                   style: const TextStyle(
                     color: Colors.white,

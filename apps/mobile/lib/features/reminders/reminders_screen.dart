@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:material_ui/material_ui.dart';
 
+import '../../core/privacy.dart';
 import '../../core/format.dart';
 import '../../core/glass.dart';
 import '../../core/models.dart';
@@ -225,12 +226,12 @@ class _Summary extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
+              LabelWithEye(
                 'À relancer aujourd’hui',
                 style: TextStyle(color: AppColors.muted, fontWeight: FontWeight.w600),
               ),
               const SizedBox(height: 2),
-              Text(
+              MaskedText(
                 moneyShort(queue.dueAmount),
                 key: const Key('reminders_due_amount'),
                 style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w800),

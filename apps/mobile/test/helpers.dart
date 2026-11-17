@@ -916,6 +916,91 @@ class FakeRepo extends SamaRepository {
     ],
   );
 
+  // ---------- Fidélité ----------
+  LoyaltySettings loyalty = const LoyaltySettings(enabled: true, earnPer: 1000, rewardPoints: 100, rewardValue: 2000);
+  final savedLoyalty = <LoyaltySettings>[];
+  final loyaltyGifts = <(String, int, String)>[];
+
+  @override
+  Future<LoyaltySettings> loyaltySettings() async => loyalty;
+
+  @override
+  Future<LoyaltySettings> saveLoyaltySettings(LoyaltySettings s) async {
+    savedLoyalty.add(s);
+    return loyalty = s;
+  }
+
+  @override
+  Future<LoyaltyCard> loyaltyCard(String customerId) async => LoyaltyCard(
+    settings: loyalty,
+    balance: customerId == 'k1' ? 135 : 20,
+    rewardsAvailable: customerId == 'k1' ? 1 : 0,
+    pointsToNextReward: customerId == 'k1' ? 65 : 80,
+    history: [LoyaltyEntry(id: 'l1', kind: 'earn', points: 31, at: DateTime(2026, 11, 14), note: 'VEN-2026-0412')],
+  );
+
+  @override
+  Future<int> adjustLoyalty(String customerId, int points, String reason) async {
+    loyaltyGifts.add((customerId, points, reason));
+    return 135 + points;
+  }
+
+  @override
+  Future<LoyaltyDashboard> loyaltyDashboard() async => LoyaltyDashboard(
+    settings: loyalty,
+    members: 24,
+    pointsIssued: 3120,
+    pointsRedeemed: 900,
+    pointsOutstanding: 2220,
+    top: [
+      TopCustomer(
+        customerId: 'k1',
+        name: 'Fatou Ndiaye',
+        phone: '+221774120855',
+        visits: 14,
+        spent: 186500,
+        lastVisit: DateTime(2026, 11, 14),
+        points: 135,
+      ),
+      TopCustomer(
+        customerId: 'k4',
+        name: 'Hôtel Teranga',
+        visits: 12,
+        spent: 318000,
+        lastVisit: DateTime(2026, 11, 15),
+        points: 318,
+      ),
+      TopCustomer(
+        customerId: 'k2',
+        name: 'Aminata Ba',
+        visits: 6,
+        spent: 41000,
+        lastVisit: DateTime(2026, 11, 9),
+        points: 41,
+      ),
+    ],
+    birthdays: const [
+      UpcomingBirthday(
+        customerId: 'k6',
+        name: 'Khady Ndiaye',
+        phone: '+221776401122',
+        day: 17,
+        month: 11,
+        inDays: 0,
+        points: 17,
+      ),
+      UpcomingBirthday(
+        customerId: 'k2',
+        name: 'Aminata Ba',
+        phone: '+221765551234',
+        day: 20,
+        month: 11,
+        inDays: 3,
+        points: 41,
+      ),
+    ],
+  );
+
   // ---------- Relances ----------
   late ReminderQueue demoReminders = ReminderQueue(
     items: [

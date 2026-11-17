@@ -20,6 +20,17 @@ String paymentLabel(PayMethod? m) => m?.label ?? 'Autre';
 String lineDetail(ReceiptLine l) => '${qty(l.quantity)} × ${receiptMoney(l.unitPrice)}';
 
 /// Reçu en texte, pour WhatsApp (*gras* compris par WhatsApp).
+/// « +12 points · solde 17 points » (null si la vente n'a rien changé aux points).
+String? loyaltyLine(SaleLoyalty? l) {
+  if (l == null || (l.earned == 0 && l.redeemed == 0)) return null;
+  final parts = [
+    if (l.earned > 0) '+${l.earned} point${l.earned > 1 ? 's' : ''}',
+    if (l.redeemed > 0) '${l.redeemed} utilisés',
+    'solde ${l.balance} point${l.balance > 1 ? 's' : ''}',
+  ];
+  return parts.join(' · ');
+}
+
 String receiptText(SaleDetail s, CurrentBusiness b) {
   final out = StringBuffer()
     ..writeln('*${b.name}*')
@@ -36,6 +47,12 @@ String receiptText(SaleDetail s, CurrentBusiness b) {
     out.writeln('Payé (${paymentLabel(p.method)}) : ${receiptMoney(p.amount)}');
   }
   if (s.due > 0) out.writeln('*Reste à payer : ${receiptMoney(s.due)}*');
+  final pts = loyaltyLine(s.loyalty);
+  if (pts != null) {
+    out
+      ..writeln()
+      ..writeln('⭐ $pts');
+  }
   out
     ..writeln()
     ..write('Merci de votre confiance !');
@@ -143,6 +160,10 @@ Future<List<int>> buildReceiptPdf(SaleDetail s, CurrentBusiness b, {ReceiptFonts
           pw.SizedBox(height: 3),
           for (final p in s.payments) row('Payé (${paymentLabel(p.method)})', receiptMoney(p.amount)),
           if (s.due > 0) row('Reste à payer', receiptMoney(s.due), style: bold),
+          if (loyaltyLine(s.loyalty) != null) ...[
+            pw.SizedBox(height: 3),
+            pw.Text('Fidélité : ${loyaltyLine(s.loyalty)}', style: base),
+          ],
           dash(),
           pw.Text('Merci de votre confiance !', textAlign: pw.TextAlign.center, style: bold),
           pw.SizedBox(height: 2),

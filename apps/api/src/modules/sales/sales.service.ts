@@ -1,3 +1,4 @@
+import { LoyaltyService } from './loyalty.service';
 import { HttpStatus, Injectable } from '@nestjs/common';
 import { and, asc, eq, inArray, isNull, sql } from 'drizzle-orm';
 import { DbService, Tx } from '../../shared/db/db.service';
@@ -26,6 +27,8 @@ export interface CreateSaleInput {
   payments: { method: PaymentMethod; amount: number; reference?: string | null }[];
   soldAt?: Date;
   note?: string | null;
+  /** Récompenses de fidélité utilisées (chacune = remise du programme, contre ses points). */
+  redeemRewards?: number;
 }
 
 @Injectable()
@@ -34,6 +37,7 @@ export class SalesService {
     private readonly dbs: DbService,
     private readonly outbox: OutboxService,
     private readonly inventory: InventoryService,
+    private readonly loyalty: LoyaltyService,
   ) {}
 
   /**
@@ -96,9 +100,12 @@ export class SalesService {
         };
       });
 
+      // Fidélité : récompenses utilisées → remise sur la vente (solde vérifié et verrouillé)
+      const reward = await this.loyalty.redeemDiscount(tx, input.customerId, input.redeemRewards ?? 0);
+
       let totals;
       try {
-        totals = priceSale(lines, input.discount ?? 0);
+        totals = priceSale(lines, (input.discount ?? 0) + reward.discount);
       } catch (e) {
         if (e instanceof PricingError) throw new AppError('VALIDATION_FAILED', e.message, 422);
         throw e;
@@ -182,6 +189,19 @@ export class SalesService {
         });
       }
 
+      if (input.customerId) {
+        await this.loyalty.recordSale(tx, {
+          businessId,
+          customerId: input.customerId,
+          saleId: id,
+          number,
+          total: totals.total,
+          redeemedPoints: reward.points,
+          settings: reward.settings,
+          by: cashierId,
+        });
+      }
+
       await this.outbox.record(tx, {
         type: 'sale.completed',
         businessId,
@@ -235,6 +255,8 @@ export class SalesService {
           createdBy: actorId,
         });
       }
+
+      await this.loyalty.reverseSale(tx, businessId, sale.id, sale.number, actorId);
 
       const items = await tx.select().from(saleItems).where(eq(saleItems.saleId, saleId));
       await this.outbox.record(tx, {
@@ -373,6 +395,8 @@ export class SalesService {
       cashierName: cashier[0]?.fullName ?? null,
       items: items.map(({ businessId: _b, saleId: _s, ...i }) => i),
       payments: payments.map(({ businessId: _b, saleId: _s, ...p }) => p),
+      // Reçu : points gagnés et utilisés avec cette vente, solde du client
+      loyalty: await this.loyalty.forSale(tx, saleId, sale.customerId),
     };
   }
 

@@ -54,4 +54,23 @@ void main() {
     await tester.pumpAndSettle();
     expect(repo.brandColorUpdates.last, isNull); // retour au vert Sama360
   });
+
+  testWidgets('œil : masque les montants partout, et les réaffiche', (tester) async {
+    phoneSize(tester);
+    final (c, _) = await pumpSama(tester);
+    expect(find.textContaining('86'), findsWidgets);
+    await tester.tap(find.byTooltip('Masquer les montants'));
+    await tester.pumpAndSettle();
+    expect(c.read(displaySettingsProvider).hideAmounts, isTrue);
+    expect(find.textContaining('•••••'), findsWidgets);
+    expect(find.textContaining('86'), findsNothing);
+
+    // Ailleurs aussi : la liste des clients
+    routerOf(c).go('/customers');
+    await tester.pumpAndSettle();
+    expect(find.textContaining('•••••'), findsWidgets);
+    await tester.tap(find.byTooltip('Afficher les montants').first);
+    await tester.pumpAndSettle();
+    expect(find.textContaining('•••••'), findsNothing);
+  });
 }

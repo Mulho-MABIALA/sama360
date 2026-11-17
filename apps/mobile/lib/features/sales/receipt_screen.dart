@@ -263,6 +263,32 @@ class ReceiptPaper extends StatelessWidget {
                     style: TextStyle(fontWeight: FontWeight.w800, color: AppColors.warnText),
                   ),
                 ),
+              if (loyaltyLine(s.loyalty) != null)
+                Container(
+                  key: const Key('receipt_loyalty'),
+                  margin: const EdgeInsets.only(top: 8),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: AppColors.softOf(const Color(0xFFFFF4E2), const Color(0xFF9A5B00)),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.stars_rounded,
+                        size: 18,
+                        color: AppColors.strongOf(const Color(0xFFFFF4E2), const Color(0xFF9A5B00)),
+                      ),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          loyaltyLine(s.loyalty)!,
+                          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               const _Dashed(),
               const Text(
                 'Merci de votre confiance !',

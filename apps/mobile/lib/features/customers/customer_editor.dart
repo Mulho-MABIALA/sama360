@@ -28,6 +28,8 @@ class _CustomerEditorScreenState extends ConsumerState<CustomerEditorScreen> {
   final _notes = TextEditingController();
   final _limit = TextEditingController();
   bool _hasLimit = false;
+  int? _birthDay;
+  int? _birthMonth;
   int _balance = 0;
   bool _loaded = false;
   bool _busy = false;
@@ -63,6 +65,8 @@ class _CustomerEditorScreenState extends ConsumerState<CustomerEditorScreen> {
         _notes.text = c.notes ?? '';
         _hasLimit = c.creditLimit != null;
         _limit.text = c.creditLimit?.toString() ?? '';
+        _birthDay = c.birthDay;
+        _birthMonth = c.birthMonth;
       } catch (e) {
         if (mounted) showError(context, e);
       }
@@ -109,6 +113,8 @@ class _CustomerEditorScreenState extends ConsumerState<CustomerEditorScreen> {
       address: _clean(_address),
       notes: _clean(_notes),
       creditLimit: _hasLimit && !_supplier ? limit : null,
+      birthDay: _supplier || _birthMonth == null ? null : _birthDay,
+      birthMonth: _supplier || _birthDay == null ? null : _birthMonth,
     );
     setState(() => _busy = true);
     try {
@@ -236,6 +242,17 @@ class _CustomerEditorScreenState extends ConsumerState<CustomerEditorScreen> {
                             textCapitalization: TextCapitalization.sentences,
                             decoration: const InputDecoration(labelText: 'Adresse ou quartier (facultatif)'),
                           ),
+                          if (!_supplier) ...[
+                            const SizedBox(height: 12),
+                            _BirthdayField(
+                              day: _birthDay,
+                              month: _birthMonth,
+                              onChanged: (d, m) => setState(() {
+                                _birthDay = d;
+                                _birthMonth = m;
+                              }),
+                            ),
+                          ],
                         ],
                       ),
                       if (!_supplier) const SizedBox(height: 12),
@@ -332,5 +349,68 @@ class _Section extends StatelessWidget {
         ...children,
       ],
     ),
+  );
+}
+
+/// Anniversaire : jour et mois (l'année n'est pas demandée), pour les vœux et la fidélité.
+class _BirthdayField extends StatelessWidget {
+  const _BirthdayField({required this.day, required this.month, required this.onChanged});
+  final int? day;
+  final int? month;
+  final void Function(int? day, int? month) onChanged;
+
+  static const _months = [
+    'janvier',
+    'février',
+    'mars',
+    'avril',
+    'mai',
+    'juin',
+    'juillet',
+    'août',
+    'septembre',
+    'octobre',
+    'novembre',
+    'décembre',
+  ];
+
+  static int _daysIn(int? m) => switch (m) {
+    2 => 29,
+    4 || 6 || 9 || 11 => 30,
+    _ => 31,
+  };
+
+  @override
+  Widget build(BuildContext context) => Row(
+    children: [
+      Expanded(
+        flex: 2,
+        child: DropdownButtonFormField<int?>(
+          key: const Key('cBirthDay'),
+          initialValue: day,
+          decoration: const InputDecoration(labelText: 'Anniversaire', prefixIcon: Icon(Icons.cake_rounded)),
+          items: [
+            const DropdownMenuItem(value: null, child: Text('Jour')),
+            for (var d = 1; d <= _daysIn(month); d++) DropdownMenuItem(value: d, child: Text('$d')),
+          ],
+          onChanged: (d) => onChanged(d, month),
+        ),
+      ),
+      const SizedBox(width: 10),
+      Expanded(
+        flex: 3,
+        child: DropdownButtonFormField<int?>(
+          key: const Key('cBirthMonth'),
+          initialValue: month,
+          decoration: const InputDecoration(labelText: 'Mois'),
+          items: [
+            const DropdownMenuItem(value: null, child: Text('—')),
+            for (var m = 1; m <= 12; m++) DropdownMenuItem(value: m, child: Text(_months[m - 1])),
+          ],
+          // Un 31 qui n'existe pas dans le nouveau mois devient le dernier jour
+          onChanged: (m) => onChanged(day?.clamp(1, _daysIn(m)), m),
+        ),
+      ),
+    ],
   );
 }

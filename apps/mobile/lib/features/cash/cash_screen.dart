@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:material_ui/material_ui.dart';
 
+import '../../core/privacy.dart';
 import '../../core/format.dart';
 import '../../core/glass.dart';
 import '../../core/models.dart';
@@ -185,8 +186,11 @@ class _OpenSession extends ConsumerWidget {
                               ],
                             ),
                             const SizedBox(height: 6),
-                            const Text('Espèces attendues', style: TextStyle(color: Color(0xFFCDE9DD), fontSize: 12.5)),
-                            Text(
+                            const LabelWithEye(
+                              'Espèces attendues',
+                              style: TextStyle(color: Color(0xFFCDE9DD), fontSize: 12.5),
+                            ),
+                            MaskedText(
                               money(r.expectedCash),
                               style: const TextStyle(
                                 color: Colors.white,

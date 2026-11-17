@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:material_ui/material_ui.dart';
 
+import '../../core/privacy.dart';
 import '../../core/format.dart';
 import '../../core/glass.dart';
 import '../../core/models.dart';
@@ -225,8 +226,8 @@ class _TotalsCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Total à encaisser', style: TextStyle(color: _muted, fontSize: 12.5)),
-                Text(
+                const LabelWithEye('Total à encaisser', style: TextStyle(color: _muted, fontSize: 12.5)),
+                MaskedText(
                   money(t.totalDue),
                   style: const TextStyle(
                     color: Color(0xFFFFC28F),
@@ -477,6 +478,7 @@ class _CustomerScreenState extends ConsumerState<CustomerScreen> {
                 onRepay: canRepay && o.balance > 0 ? () => _repay(o) : null,
                 onRemind: o.balance > 0 && o.customer.phone != null ? () => _remind(o) : null,
               ),
+              LoyaltyCardTile(customer: o.customer),
               const SizedBox(height: 14),
               Row(
                 children: [
@@ -1187,4 +1189,117 @@ class _RepaySheetState extends ConsumerState<_RepaySheet> {
       ],
     ),
   );
+}
+
+/// Carte de fidélité du client : points, progression vers la récompense, anniversaire, cadeau.
+class LoyaltyCardTile extends ConsumerWidget {
+  const LoyaltyCardTile({super.key, required this.customer});
+  final Contact customer;
+
+  Future<void> _gift(BuildContext context, WidgetRef ref) async {
+    final ctrl = TextEditingController(text: '10');
+    final points = await showDialog<int>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Offrir des points'),
+        content: TextField(
+          key: const Key('gift_points'),
+          controller: ctrl,
+          autofocus: true,
+          keyboardType: TextInputType.number,
+          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+          decoration: const InputDecoration(labelText: 'Nombre de points', suffixText: 'pts'),
+        ),
+        actions: [
+          CancelButton(onPressed: () => Navigator.pop(ctx)),
+          ConfirmButton(label: 'Offrir', onPressed: () => Navigator.pop(ctx, int.tryParse(ctrl.text))),
+        ],
+      ),
+    );
+    if (points == null || points <= 0 || !context.mounted) return;
+    try {
+      final balance = await ref.read(repoProvider).adjustLoyalty(customer.id, points, 'Cadeau');
+      ref.invalidate(loyaltyCardProvider(customer.id));
+      ref.invalidate(loyaltyDashboardProvider);
+      if (context.mounted) showInfo(context, '$points points offerts · solde $balance');
+    } catch (e) {
+      if (context.mounted) showError(context, e);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final settings = ref.watch(loyaltySettingsProvider).value;
+    if (settings == null || !settings.enabled) return const SizedBox.shrink();
+    final card = ref.watch(loyaltyCardProvider(customer.id)).value;
+    if (card == null) return const SizedBox.shrink();
+    final (soft, strong) = AppColors.tone(const Color(0xFFFFF4E2), const Color(0xFF9A5B00));
+    final birthday = customer.birthDay != null && customer.birthMonth != null
+        ? DateFormat('d MMMM', 'fr').format(DateTime(2000, customer.birthMonth!, customer.birthDay!))
+        : null;
+    return Padding(
+      padding: const EdgeInsets.only(top: 14),
+      child: Glass(
+        key: const Key('loyalty_card'),
+        radius: 22,
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(color: soft, borderRadius: BorderRadius.circular(12)),
+                  child: Icon(Icons.stars_rounded, color: strong),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('${card.balance} points', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
+                      Text(
+                        card.rewardsAvailable > 0
+                            ? '${card.rewardsAvailable} récompense${card.rewardsAvailable > 1 ? 's' : ''} disponible'
+                                  '${card.rewardsAvailable > 1 ? 's' : ''} · ${moneyShort(settings.rewardValue)} chacune'
+                            : 'Encore ${card.pointsToNextReward} points pour ${moneyShort(settings.rewardValue)} de remise',
+                        style: TextStyle(color: AppColors.muted, fontSize: 12.5),
+                      ),
+                    ],
+                  ),
+                ),
+                if (ref.can('sales:void'))
+                  IconButton(
+                    tooltip: 'Offrir des points',
+                    onPressed: () => _gift(context, ref),
+                    icon: const Icon(Icons.card_giftcard_rounded),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(99),
+              child: LinearProgressIndicator(
+                value: card.rewardsAvailable > 0 ? 1 : card.progress,
+                minHeight: 8,
+                backgroundColor: AppColors.line,
+                color: strong,
+              ),
+            ),
+            if (birthday != null) ...[
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  Icon(Icons.cake_rounded, size: 16, color: AppColors.muted),
+                  const SizedBox(width: 6),
+                  Text('Anniversaire : $birthday', style: TextStyle(color: AppColors.muted, fontSize: 12.5)),
+                ],
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
 }

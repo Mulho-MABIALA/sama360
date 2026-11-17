@@ -141,6 +141,31 @@ void refreshShop(WidgetRef ref) {
   ref.invalidate(shopOrderProvider);
 }
 
+final loyaltySettingsProvider = FutureProvider<LoyaltySettings>((ref) async {
+  ref.watch(businessIdProvider);
+  try {
+    return await ref.watch(repoProvider).loyaltySettings();
+  } catch (_) {
+    return const LoyaltySettings(); // hors ligne ou sans droit : programme considéré désactivé
+  }
+});
+
+final loyaltyDashboardProvider = FutureProvider<LoyaltyDashboard>((ref) {
+  ref.watch(businessIdProvider);
+  return ref.watch(repoProvider).loyaltyDashboard();
+});
+
+final loyaltyCardProvider = FutureProvider.family<LoyaltyCard, String>((ref, customerId) {
+  ref.watch(businessIdProvider);
+  return ref.watch(repoProvider).loyaltyCard(customerId);
+});
+
+void refreshLoyalty(WidgetRef ref) {
+  ref.invalidate(loyaltySettingsProvider);
+  ref.invalidate(loyaltyDashboardProvider);
+  ref.invalidate(loyaltyCardProvider);
+}
+
 final remindersProvider = FutureProvider<ReminderQueue>((ref) {
   ref.watch(businessIdProvider);
   return ref.watch(repoProvider).reminders();
@@ -261,6 +286,8 @@ void refreshBusinessData(WidgetRef ref) {
   ref.invalidate(cashCurrentProvider);
   ref.invalidate(unreadNotificationsProvider);
   ref.invalidate(remindersProvider);
+  ref.invalidate(loyaltyDashboardProvider);
+  ref.invalidate(loyaltyCardProvider);
 }
 
 /// Message lisible pour l'utilisateur à partir de n'importe quelle erreur.

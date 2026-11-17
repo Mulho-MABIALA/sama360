@@ -15,6 +15,7 @@ import '../offline/offline_ui.dart';
 import '../profile/profile_screen.dart';
 import '../notifications/notifications_screen.dart' show tabRoutes;
 import '../../core/charts.dart';
+import '../../core/privacy.dart';
 import '../../core/skeleton.dart';
 import '../catalog/scan_lookup.dart';
 import 'monument.dart';
@@ -52,6 +53,7 @@ const _cashService = _Service('Caisse', Icons.point_of_sale_rounded, Color(0xFF1
 const _moreServices = [
   _cashService,
   _Service('Relances', Icons.campaign_rounded, Color(0xFFE5484D), route: '/reminders'),
+  _Service('Fidélité', Icons.stars_rounded, Color(0xFFE0A100), route: '/loyalty'),
   _purchasesService,
   _paymentsService,
   _shopService,
@@ -121,20 +123,27 @@ class HomeScreen extends ConsumerWidget {
                   if (lowStock > 0) ...[_LowStockBanner(count: lowStock), const SizedBox(height: 18)],
                   const _SectionTitle('Vos services'),
                   const SizedBox(height: 10),
-                  GridView.count(
-                    crossAxisCount: 4,
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    mainAxisSpacing: 12,
-                    crossAxisSpacing: 10,
-                    childAspectRatio: 0.78,
-                    children: [
-                      for (final s in shown) _ServiceTile(service: s, onTap: () => open(s)),
-                      _ServiceTile(
-                        service: const _Service('Plus', Icons.apps_rounded, Color(0xFF13241C)),
-                        onTap: () => _showMore(context, open, shown),
-                      ),
-                    ],
+                  // Comme Wave : une seule carte, des icônes dans des carrés doux, sans tuile autour.
+                  Glass(
+                    radius: 24,
+                    blur: 14,
+                    padding: const EdgeInsets.fromLTRB(6, 14, 6, 6),
+                    child: GridView.count(
+                      crossAxisCount: 4,
+                      shrinkWrap: true,
+                      padding: EdgeInsets.zero,
+                      physics: const NeverScrollableScrollPhysics(),
+                      mainAxisSpacing: 6,
+                      crossAxisSpacing: 4,
+                      childAspectRatio: 1.0,
+                      children: [
+                        for (final s in shown) _ServiceTile(service: s, onTap: () => open(s)),
+                        _ServiceTile(
+                          service: const _Service('Plus', Icons.apps_rounded, Color(0xFF5E6E66)),
+                          onTap: () => _showMore(context, open, shown),
+                        ),
+                      ],
+                    ),
                   ),
                   if (canReports) const _SellersOfDay(),
                   const SizedBox(height: 22),
@@ -170,9 +179,9 @@ class HomeScreen extends ConsumerWidget {
                 crossAxisCount: 4,
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
-                mainAxisSpacing: 12,
-                crossAxisSpacing: 10,
-                childAspectRatio: 0.78,
+                mainAxisSpacing: 10,
+                crossAxisSpacing: 4,
+                childAspectRatio: 0.95,
                 children: [
                   // Sans répéter les tuiles déjà sur l'accueil
                   for (final s in _moreServices.where((m) => !shown.any((x) => x.name == m.name)))
@@ -244,9 +253,7 @@ class _Hero extends StatelessWidget {
                     children: [
                       Row(
                         children: [
-                          const BrandMark(size: 34),
-                          const SizedBox(width: 9),
-                          const SamaLogo(size: 22, onDark: true),
+                          // Pas de logo ici : la photo du monument occupe l'en-tête.
                           const Spacer(),
                           const _Bell(),
                           const SizedBox(width: 8),
@@ -509,6 +516,7 @@ class _CashCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final hidden = ref.watch(amountsHiddenProvider);
     final actions = Row(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -537,10 +545,16 @@ class _CashCard extends ConsumerWidget {
                   child: const Icon(Icons.point_of_sale_rounded, size: 15, color: AppColors.glow),
                 ),
                 const SizedBox(width: 8),
-                const Text(
-                  'Caisse du jour',
-                  style: TextStyle(fontWeight: FontWeight.w800, color: Colors.white),
+                const Flexible(
+                  child: Text(
+                    'Caisse du jour',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(fontWeight: FontWeight.w800, color: Colors.white),
+                  ),
                 ),
+                const SizedBox(width: 4),
+                const AmountsEye(color: _muted, size: 19),
                 const Spacer(),
                 Text(shortDate(DateTime.now()), style: const TextStyle(fontSize: 12, color: _muted)),
               ],
@@ -561,7 +575,7 @@ class _CashCard extends ConsumerWidget {
                             fit: BoxFit.scaleDown,
                             alignment: Alignment.centerLeft,
                             child: Text(
-                              moneyShort(value.revenue),
+                              maskMoney(hidden, moneyShort(value.revenue)),
                               style: const TextStyle(
                                 fontSize: 30,
                                 fontWeight: FontWeight.w800,
@@ -623,7 +637,7 @@ class _CashCard extends ConsumerWidget {
                                   builder: (context, shown) => Text.rich(
                                     TextSpan(
                                       children: [
-                                        TextSpan(text: moneyShort(shown).replaceAll(' F', '')),
+                                        TextSpan(text: hidden ? hiddenAmount : moneyShort(shown).replaceAll(' F', '')),
                                         const TextSpan(
                                           text: ' F',
                                           style: TextStyle(fontSize: 17, color: _muted),
@@ -662,13 +676,17 @@ class _CashCard extends ConsumerWidget {
                       child: Row(
                         children: [
                           Expanded(
-                            child: _Figure(label: 'Bénéfice', value: moneyShort(s.netProfit), color: AppColors.glow),
+                            child: _Figure(
+                              label: 'Bénéfice',
+                              value: maskMoney(hidden, moneyShort(s.netProfit)),
+                              color: AppColors.glow,
+                            ),
                           ),
                           Container(width: 1, height: 28, color: Colors.white.withValues(alpha: 0.18)),
                           Expanded(
                             child: _Figure(
                               label: 'À encaisser',
-                              value: moneyShort(s.receivables),
+                              value: maskMoney(hidden, moneyShort(s.receivables)),
                               color: const Color(0xFFFFC28F),
                             ),
                           ),
@@ -955,52 +973,61 @@ class _ServiceTile extends StatelessWidget {
   final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context) => Semantics(
-    button: true,
-    label: service.soon ? '${service.name}, bientôt disponible' : service.name,
-    excludeSemantics: true,
-    child: Glass(
-      radius: 22,
-      blur: 14,
-      onTap: onTap,
-      child: Stack(
-        children: [
-          Center(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
+  Widget build(BuildContext context) {
+    final (bg, fg) = AppColors.tone(
+      Color.alphaBlend(service.color.withValues(alpha: 0.14), Colors.white),
+      service.color,
+    );
+    return Semantics(
+      button: true,
+      label: service.soon ? '${service.name}, bientôt disponible' : service.name,
+      excludeSemantics: true,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(18),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Stack(
+              clipBehavior: Clip.none,
               children: [
-                GlossyOrb(icon: service.icon, color: service.color, size: 46),
-                const SizedBox(height: 9),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 2),
-                  child: Text(
-                    service.name,
-                    textAlign: TextAlign.center,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
-                  ),
+                Container(
+                  width: 52,
+                  height: 52,
+                  decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(17)),
+                  child: Icon(service.icon, color: AppColors.isDark ? fg : service.color, size: 26),
                 ),
+                if (service.soon)
+                  Positioned(
+                    top: -6,
+                    right: -10,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                      decoration: BoxDecoration(color: AppColors.ink, borderRadius: BorderRadius.circular(6)),
+                      child: Text(
+                        'Bientôt',
+                        style: TextStyle(color: AppColors.ground, fontSize: 8.5, fontWeight: FontWeight.w700),
+                      ),
+                    ),
+                  ),
               ],
             ),
-          ),
-          if (service.soon)
-            Positioned(
-              top: 6,
-              right: 6,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
-                decoration: BoxDecoration(color: AppColors.ink, borderRadius: BorderRadius.circular(6)),
-                child: const Text(
-                  'Bientôt',
-                  style: TextStyle(color: Colors.white, fontSize: 8.5, fontWeight: FontWeight.w700),
-                ),
+            const SizedBox(height: 6),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 2),
+              child: Text(
+                service.name,
+                textAlign: TextAlign.center,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
               ),
             ),
-        ],
+          ],
+        ),
       ),
-    ),
-  );
+    );
+  }
 }
 
 const _expenseCategories = ['Transport', 'Loyer', 'Électricité', 'Salaire', 'Achat divers', 'Autre'];

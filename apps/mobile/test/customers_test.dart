@@ -175,6 +175,8 @@ void main() {
         'address': null,
         'notes': 'Revendeuse à Thiès',
         'creditLimit': 30000,
+        'birthDay': null,
+        'birthMonth': null,
       });
       expect(routerOf(c).state.matchedLocation, '/customers');
     });

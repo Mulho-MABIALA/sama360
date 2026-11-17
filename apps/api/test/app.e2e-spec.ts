@@ -1934,6 +1934,86 @@ describe('Socle Sama360 (e2e)', () => {
     });
   });
 
+  describe('Fidélité', () => {
+    const A = () => auth(awa.accessToken, awaBiz);
+    const now = new Date();
+    let khady: string;
+    const sell = (body: Record<string, unknown>) => http.post('/v1/sales').set(A()).send(body);
+    const card = async () => (await http.get(`/v1/loyalty/customers/${khady}`).set(A()).expect(200)).body;
+
+    beforeAll(async () => {
+      khady = (
+        await http
+          .post('/v1/contacts')
+          .set(A())
+          .send({ name: 'Khady Ndiaye', phone: '77 640 11 22', birthDay: now.getUTCDate(), birthMonth: now.getUTCMonth() + 1 })
+          .expect(201)
+      ).body.id;
+    });
+
+    it('programme désactivé par défaut ; réglages réservés au gérant et vérifiés', async () => {
+      expect((await http.get('/v1/loyalty/settings').set(A()).expect(200)).body.enabled).toBe(false);
+      const s = await sell({ customerId: khady, items: [{ name: 'Thiouraye', quantity: 1, unitPrice: 5000 }], payments: [{ method: 'cash', amount: 5000 }] }).expect(201);
+      expect(s.body.loyalty).toBeNull();
+
+      await http.put('/v1/loyalty/settings').set(auth(modouToken, awaBiz)).send({ enabled: true, earnPer: 1000, rewardPoints: 10, rewardValue: 500 }).expect(403);
+      await http.put('/v1/loyalty/settings').set(A()).send({ enabled: true, earnPer: 100, rewardPoints: 1, rewardValue: 500 }).expect(422);
+      const r = await http.put('/v1/loyalty/settings').set(A()).send({ enabled: true, earnPer: 1000, rewardPoints: 10, rewardValue: 500 }).expect(200);
+      expect(r.body).toEqual({ enabled: true, earnPer: 1000, rewardPoints: 10, rewardValue: 500 });
+      expect((await http.get(`/v1/customers/${khady}`).set(A()).expect(200)).body.customer).toMatchObject({
+        birthDay: now.getUTCDate(),
+        birthMonth: now.getUTCMonth() + 1,
+      });
+    });
+
+    let firstSale: string;
+    let secondSale: string;
+    it('points gagnés à l’achat, récompense utilisée en remise', async () => {
+      const s1 = await sell({ customerId: khady, items: [{ name: 'Bazin', quantity: 1, unitPrice: 12500 }], payments: [{ method: 'cash', amount: 12500 }] }).expect(201);
+      firstSale = s1.body.id;
+      expect(s1.body.loyalty).toEqual({ earned: 12, redeemed: 0, balance: 12 });
+      expect(await card()).toMatchObject({ balance: 12, rewardsAvailable: 1, pointsToNextReward: 8 });
+
+      const s2 = await sell({
+        customerId: khady,
+        items: [{ name: 'Encens', quantity: 1, unitPrice: 3000 }],
+        redeemRewards: 1,
+        payments: [{ method: 'cash', amount: 2500 }],
+      }).expect(201);
+      secondSale = s2.body.id;
+      expect(s2.body).toMatchObject({ subtotal: 3000, discount: 500, total: 2500, paid: 2500 });
+      expect(s2.body.loyalty).toEqual({ earned: 2, redeemed: 10, balance: 4 });
+
+      const refused = await sell({ customerId: khady, items: [{ name: 'Encens', quantity: 1, unitPrice: 3000 }], redeemRewards: 1, payments: [{ method: 'cash', amount: 2500 }] }).expect(409);
+      expect(refused.body.error.details).toEqual({ balance: 4, points: 10 });
+      await sell({ items: [{ name: 'Encens', quantity: 1, unitPrice: 3000 }], redeemRewards: 1, payments: [{ method: 'cash', amount: 2500 }] }).expect(422);
+      expect(firstSale).toBeTruthy();
+    });
+
+    it('vente annulée : points gagnés retirés, points utilisés rendus', async () => {
+      await http.post(`/v1/sales/${secondSale}/void`).set(A()).send({ reason: 'Erreur de caisse' }).expect(200);
+      expect((await card()).balance).toBe(12);
+      const kinds = (await card()).history.map((h: { kind: string; points: number }) => [h.kind, h.points]);
+      expect(kinds[0]).toEqual(['reverse', 8]);
+    });
+
+    it('cadeau du gérant, pas de solde négatif', async () => {
+      expect((await http.post(`/v1/loyalty/customers/${khady}/adjust`).set(A()).send({ points: 5, reason: 'Cadeau fidélité' }).expect(201)).body.balance).toBe(17);
+      await http.post(`/v1/loyalty/customers/${khady}/adjust`).set(A()).send({ points: -100, reason: 'Erreur' }).expect(409);
+      await http.post(`/v1/loyalty/customers/${khady}/adjust`).set(auth(modouToken, awaBiz)).send({ points: 5, reason: 'Moi' }).expect(403);
+    });
+
+    it('tableau de bord : meilleurs clients, anniversaires, et notification du jour', async () => {
+      const d = (await http.get('/v1/loyalty').set(A()).expect(200)).body;
+      expect(d.settings.enabled).toBe(true);
+      expect(d.top.find((t: { name: string }) => t.name === 'Khady Ndiaye')).toMatchObject({ visits: 2, points: 17 });
+      expect(d.birthdays[0]).toMatchObject({ name: 'Khady Ndiaye', inDays: 0, points: 17 });
+      expect(d.stats.members).toBeGreaterThanOrEqual(1);
+      const notifs = (await http.get('/v1/notifications').set(A()).expect(200)).body.items as { kind: string; title: string }[];
+      expect(notifs.find((n) => n.kind === 'birthday')?.title).toBe('Anniversaire de Khady Ndiaye aujourd’hui');
+    });
+  });
+
   describe('Sessions', () => {
     it('déconnecte tous les appareils', async () => {
       // Session du caissier (les codes de connexion sont limités par minute : on réutilise sa session)

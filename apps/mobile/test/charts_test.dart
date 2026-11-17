@@ -30,7 +30,10 @@ void main() {
     await tester.pumpWidget(
       const MaterialApp(
         home: Scaffold(
-          body: SizedBox(width: 200, child: SalesSparkline(values: [0, 0, 0, 0, 0, 0, 0], color: Colors.green)),
+          body: SizedBox(
+            width: 200,
+            child: SalesSparkline(values: [0, 0, 0, 0, 0, 0, 0], color: Colors.green),
+          ),
         ),
       ),
     );

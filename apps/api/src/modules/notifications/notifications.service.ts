@@ -129,6 +129,30 @@ export class NotificationsService {
       }
     }
 
+    // Anniversaires du jour (fidélité)
+    if (can('contacts:read')) {
+      const r = await tx.execute(sql`
+        SELECT id, name FROM contacts.contacts
+        WHERE deleted_at IS NULL AND type <> 'supplier'
+          AND birth_day = ${now.getUTCDate()} AND birth_month = ${now.getUTCMonth() + 1}
+        ORDER BY name LIMIT 20`);
+      const names = (r.rows as { id: string; name: string }[]).map((x) => x.name);
+      if (names.length > 0) {
+        await this.push(tx, businessId, {
+          kind: 'birthday',
+          title:
+            names.length === 1 ? `Anniversaire de ${names[0]} aujourd’hui` : `${names.length} anniversaires aujourd’hui`,
+          body:
+            names.length === 1
+              ? 'Envoyez-lui un petit message : un client fêté revient.'
+              : `${names.slice(0, 3).join(', ')}${names.length > 3 ? '…' : ''} : envoyez un petit message.`,
+          link: '/loyalty',
+          audience: 'contacts:read',
+          dedupeKey: `birthday:${today}`,
+        });
+      }
+    }
+
     // Clients qui doivent de l'argent sans avoir rien remboursé depuis 30 jours (une fois par semaine)
     if (can('contacts:read')) {
       const r = await tx.execute(sql`

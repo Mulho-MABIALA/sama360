@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 
 import 'features/notifications/notifications_screen.dart';
+import 'features/loyalty/loyalty_screen.dart';
 import 'features/reminders/reminders_screen.dart';
 import 'features/settings/display_screen.dart';
 import 'features/auth/auth_controller.dart';
@@ -76,6 +77,8 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/notifications', builder: (_, _) => const NotificationsScreen()),
       GoRoute(path: '/reminders', builder: (_, _) => const RemindersScreen()),
       GoRoute(path: '/settings/display', builder: (_, _) => const DisplaySettingsScreen()),
+      GoRoute(path: '/loyalty', builder: (_, _) => const LoyaltyScreen()),
+      GoRoute(path: '/loyalty/settings', builder: (_, _) => const LoyaltySettingsScreen()),
       GoRoute(
         path: '/cash/close',
         builder: (_, s) => CashCloseScreen(sessionId: s.uri.queryParameters['session']),

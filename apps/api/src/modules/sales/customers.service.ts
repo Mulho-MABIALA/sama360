@@ -143,7 +143,8 @@ export class CustomersService {
     return this.dbs.withTenant(businessId, async (tx) => {
       const [c] = (
         await tx.execute(sql`
-          SELECT id, type, name, phone, email, address, notes, credit_limit, last_reminded_at, created_at, deleted_at
+          SELECT id, type, name, phone, email, address, notes, credit_limit, last_reminded_at, birth_day, birth_month,
+                 created_at, deleted_at
           FROM contacts.contacts WHERE id = ${customerId}`)
       ).rows as Record<string, unknown>[];
       if (!c || c.deleted_at) throw AppError.notFound('Client');
@@ -198,6 +199,8 @@ export class CustomersService {
           notes: c.notes,
           creditLimit,
           lastRemindedAt: c.last_reminded_at ?? null,
+          birthDay: c.birth_day ?? null,
+          birthMonth: c.birth_month ?? null,
           createdAt: c.created_at,
         },
         balance,

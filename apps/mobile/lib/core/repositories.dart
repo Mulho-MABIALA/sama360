@@ -237,6 +237,7 @@ class SamaRepository {
     required List<({String productId, double quantity})> items,
     required List<({PayMethod method, int amount})> payments,
     DateTime? soldAt,
+    int redeemRewards = 0,
   }) => {
     'id': id,
     'customerId': ?customerId,
@@ -247,6 +248,7 @@ class SamaRepository {
       for (final p in payments) {'method': p.method.api, 'amount': p.amount},
     ],
     if (soldAt != null) 'soldAt': soldAt.toUtc().toIso8601String(),
+    if (redeemRewards > 0) 'redeemRewards': redeemRewards,
   };
 
   Future<SaleResult> createSale({
@@ -513,6 +515,29 @@ class SamaRepository {
 
   // ---------- Caisse ----------
   /// Ma caisse ouverte (null si fermée).
+  // ---------- Fidélité ----------
+
+  Future<LoyaltyDashboard> loyaltyDashboard() async =>
+      LoyaltyDashboard.fromJson(await _cachedGet<Map<String, dynamic>>('/v1/loyalty'));
+
+  Future<LoyaltySettings> loyaltySettings() async =>
+      LoyaltySettings.fromJson(await _cachedGet<Map<String, dynamic>>('/v1/loyalty/settings'));
+
+  Future<LoyaltySettings> saveLoyaltySettings(LoyaltySettings s) async =>
+      LoyaltySettings.fromJson(await api.put<Map<String, dynamic>>('/v1/loyalty/settings', data: s.toJson()));
+
+  Future<LoyaltyCard> loyaltyCard(String customerId) async =>
+      LoyaltyCard.fromJson(await _cachedGet<Map<String, dynamic>>('/v1/loyalty/customers/$customerId'));
+
+  /// Cadeau (points positifs) ou correction : renvoie le nouveau solde.
+  Future<int> adjustLoyalty(String customerId, int points, String reason) async {
+    final r = await api.post<Map<String, dynamic>>(
+      '/v1/loyalty/customers/$customerId/adjust',
+      data: {'points': points, 'reason': reason},
+    );
+    return (r['balance'] as num).toInt();
+  }
+
   // ---------- Relances ----------
 
   Future<ReminderQueue> reminders() async =>

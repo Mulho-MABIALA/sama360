@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:material_ui/material_ui.dart';
 
+import '../../core/privacy.dart';
 import '../../core/format.dart';
 import '../../core/glass.dart';
 import '../../core/models.dart';
@@ -313,8 +314,8 @@ class _Totals extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('À payer aux fournisseurs', style: TextStyle(color: _muted, fontSize: 12.5)),
-                Text(
+                const LabelWithEye('À payer aux fournisseurs', style: TextStyle(color: _muted, fontSize: 12.5)),
+                MaskedText(
                   money(t.totalDue),
                   style: const TextStyle(
                     color: Color(0xFFFFC28F),

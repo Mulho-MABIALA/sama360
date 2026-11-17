@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:material_ui/material_ui.dart';
 
+import '../../core/privacy.dart';
 import '../../core/format.dart';
 import '../../core/glass.dart';
 import '../../core/models.dart';
@@ -385,11 +386,11 @@ class _Hero extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Chiffre d’affaires', style: TextStyle(color: muted, fontSize: 12.5)),
+                const LabelWithEye('Chiffre d’affaires', style: TextStyle(color: muted, fontSize: 12.5)),
                 FittedBox(
                   fit: BoxFit.scaleDown,
                   alignment: Alignment.centerLeft,
-                  child: Text(
+                  child: MaskedText(
                     moneyShort(r.revenue),
                     style: const TextStyle(
                       color: Colors.white,

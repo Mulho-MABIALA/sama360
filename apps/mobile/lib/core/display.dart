@@ -10,18 +10,25 @@ import 'theme.dart';
 /// Préférences d'affichage, propres au téléphone (gardées entre les lancements).
 class DisplaySettings {
   // Fond clair par défaut (choix du produit) ; le mode sombre ne s'active que sur demande.
-  const DisplaySettings({this.mode = ThemeMode.light, this.largeText = false});
+  const DisplaySettings({this.mode = ThemeMode.light, this.largeText = false, this.hideAmounts = false});
   final ThemeMode mode;
   final bool largeText;
 
-  DisplaySettings copyWith({ThemeMode? mode, bool? largeText}) =>
-      DisplaySettings(mode: mode ?? this.mode, largeText: largeText ?? this.largeText);
+  /// Montants masqués (œil barré), comme sur Wave : utile devant les clients.
+  final bool hideAmounts;
 
-  Map<String, Object> toJson() => {'mode': mode.name, 'largeText': largeText};
+  DisplaySettings copyWith({ThemeMode? mode, bool? largeText, bool? hideAmounts}) => DisplaySettings(
+    mode: mode ?? this.mode,
+    largeText: largeText ?? this.largeText,
+    hideAmounts: hideAmounts ?? this.hideAmounts,
+  );
+
+  Map<String, Object> toJson() => {'mode': mode.name, 'largeText': largeText, 'hideAmounts': hideAmounts};
 
   factory DisplaySettings.fromJson(Map<String, dynamic> j) => DisplaySettings(
     mode: ThemeMode.values.where((m) => m.name == j['mode']).firstOrNull ?? ThemeMode.light,
     largeText: j['largeText'] == true,
+    hideAmounts: j['hideAmounts'] == true,
   );
 }
 
@@ -49,6 +56,7 @@ class DisplaySettingsNotifier extends Notifier<DisplaySettings> {
 
   Future<void> setMode(ThemeMode m) => update(state.copyWith(mode: m));
   Future<void> setLargeText(bool v) => update(state.copyWith(largeText: v));
+  Future<void> toggleAmounts() => update(state.copyWith(hideAmounts: !state.hideAmounts));
 }
 
 final displaySettingsProvider = NotifierProvider<DisplaySettingsNotifier, DisplaySettings>(DisplaySettingsNotifier.new);

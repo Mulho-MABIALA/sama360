@@ -14,7 +14,12 @@ void main() {
     await tester.pumpWidget(
       const MaterialApp(
         home: Scaffold(
-          body: Stack(children: [Center(child: SuccessCheck()), Positioned.fill(child: ConfettiBurst())]),
+          body: Stack(
+            children: [
+              Center(child: SuccessCheck()),
+              Positioned.fill(child: ConfettiBurst()),
+            ],
+          ),
         ),
       ),
     );

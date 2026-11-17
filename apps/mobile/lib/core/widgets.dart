@@ -222,17 +222,27 @@ class SamaLogo extends StatelessWidget {
 
 /// Bouton plein avec indicateur de chargement intégré.
 class BusyButton extends StatelessWidget {
-  const BusyButton({super.key, required this.label, required this.busy, required this.onPressed});
+  const BusyButton({super.key, required this.label, required this.busy, required this.onPressed, this.icon});
   final String label;
   final bool busy;
   final VoidCallback? onPressed;
+  final IconData? icon;
 
   @override
   Widget build(BuildContext context) => FilledButton(
     onPressed: busy ? null : onPressed,
     child: busy
         ? const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white))
-        : Text(label),
+        : icon == null
+        ? Text(label)
+        : Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 22),
+              const SizedBox(width: 10),
+              Flexible(child: Text(label)),
+            ],
+          ),
   );
 }
 

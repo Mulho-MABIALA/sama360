@@ -7,8 +7,9 @@ import 'package:sama360/core/theme.dart';
 /// et quelle que soit la couleur de boutique choisie.
 void main() {
   // Fond réel d'une carte « verre » : voile posé sur le fond de l'écran.
-  Color glass(SamaPalette p) =>
-      p.dark ? Color.alphaBlend(const Color(0xB8121F19), p.ground) : Color.alphaBlend(const Color(0x9EFFFFFF), p.ground);
+  Color glass(SamaPalette p) => p.dark
+      ? Color.alphaBlend(const Color(0xB8121F19), p.ground)
+      : Color.alphaBlend(const Color(0x9EFFFFFF), p.ground);
 
   final failures = <String>[];
   void check(String what, Color fg, Color bg, {double min = 4.5}) {

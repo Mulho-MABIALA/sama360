@@ -37,6 +37,7 @@ const CreateSale = z.object({
     .default([]),
   soldAt: z.coerce.date().optional(),
   note: z.string().max(500).nullish(),
+  redeemRewards: z.coerce.number().int().min(0).max(100).optional(),
 });
 
 const VoidSale = z.object({ reason: z.string().trim().min(3).max(500) });

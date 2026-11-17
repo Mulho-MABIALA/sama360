@@ -9,6 +9,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:sama360/core/display.dart';
 import 'package:sama360/core/api/session_store.dart';
 import 'package:sama360/core/models.dart';
 import 'package:sama360/core/offline/pending_sales.dart';
@@ -72,6 +73,17 @@ void main() {
   testWidgets('accueil (Djenné)', (tester) => home(tester, DateTime(2026, 11, 17), '2c_accueil_djenne'));
   testWidgets('accueil (Gizeh)', (tester) => home(tester, DateTime(2026, 11, 18), '2d_accueil_gizeh'));
   testWidgets('accueil (Tour Eiffel)', (tester) => home(tester, DateTime(2026, 11, 19), '2e_accueil_eiffel'));
+
+  testWidgets('accueil (montants masqués)', (tester) async {
+    phoneSize(tester);
+    final (c, _) = await pumpSama(tester, overrides: [monumentDateProvider.overrideWithValue(DateTime(2026, 11, 16))]);
+    final ctx = tester.element(find.byType(MonumentBackdrop));
+    await tester.runAsync(() => precacheImage(AssetImage(monumentOfDay(DateTime(2026, 11, 16)).asset), ctx));
+    await tester.tap(find.byTooltip('Masquer les montants'));
+    await tester.pumpAndSettle();
+    await _shot(tester, '2f_accueil_masque');
+    await c.read(displaySettingsProvider.notifier).toggleAmounts();
+  });
 
   testWidgets('accueil (bas, carrousel)', (tester) async {
     phoneSize(tester);

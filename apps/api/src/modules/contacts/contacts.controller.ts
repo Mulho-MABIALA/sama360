@@ -21,6 +21,9 @@ const ContactInput = z.object({
   notes: z.string().max(2000).nullish(),
   /** Plafond de crédit en FCFA (null : pas de plafond). Réservé au gérant et au propriétaire. */
   creditLimit: z.coerce.number().int().min(0).max(1_000_000_000_000).nullish(),
+  // Anniversaire : jour et mois (sans l'année)
+  birthDay: z.coerce.number().int().min(1).max(31).nullish(),
+  birthMonth: z.coerce.number().int().min(1).max(12).nullish(),
 });
 const ListQuery = PageQuery.extend({
   search: z.string().trim().max(80).optional(),
