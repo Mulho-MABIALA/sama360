@@ -119,6 +119,18 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     if (saved == true && mounted) showInfo(context, 'Profil enregistré');
   }
 
+  Future<void> _setRequireOpenCash(bool v) async {
+    try {
+      await ref.read(repoProvider).updateRequireOpenCash(v);
+      ref.invalidate(currentBusinessProvider);
+      if (mounted) {
+        showInfo(context, v ? 'Les ventes demandent maintenant une caisse ouverte' : 'Vente possible caisse fermée');
+      }
+    } catch (e) {
+      if (mounted) showError(context, e);
+    }
+  }
+
   /// Activer : on vérifie d'abord l'empreinte / Face ID de la personne.
   Future<void> _toggleBiometric(BiometricKind kind, bool enable) async {
     if (enable) {
@@ -296,6 +308,17 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                               ],
                             ),
                           ),
+                        ),
+                      if (business != null && ref.can('business:update'))
+                        _Row(
+                          key: const Key('require_cash_row'),
+                          icon: Icons.point_of_sale_rounded,
+                          color: const Color(0xFFD9822B),
+                          label: 'Caisse obligatoire',
+                          value: business.requireOpenCash ? 'Activée' : 'Désactivée',
+                          hint: 'Obliger à ouvrir la caisse avant de vendre',
+                          trailing: Switch(value: business.requireOpenCash, onChanged: (v) => _setRequireOpenCash(v)),
+                          onTap: () => _setRequireOpenCash(!business.requireOpenCash),
                         ),
                       if (business != null)
                         _Row(

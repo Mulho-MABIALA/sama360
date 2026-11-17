@@ -154,8 +154,13 @@ class FakeRepo extends SamaRepository {
     brandColor = hex;
   }
 
+  bool requireOpenCash = false;
+
   @override
-  Future<CurrentBusiness> currentBusiness() async => logoFileId == null && brandColor == null
+  Future<void> updateRequireOpenCash(bool value) async => requireOpenCash = value;
+
+  @override
+  Future<CurrentBusiness> currentBusiness() async => logoFileId == null && brandColor == null && !requireOpenCash
       ? demoBusiness
       : CurrentBusiness(
           id: demoBusiness.id,
@@ -166,6 +171,7 @@ class FakeRepo extends SamaRepository {
           address: demoBusiness.address,
           logoFileId: logoFileId,
           brandColor: brandColor,
+          requireOpenCash: requireOpenCash,
           role: demoBusiness.role,
           permissions: demoBusiness.permissions,
           modules: demoBusiness.modules,

@@ -2546,6 +2546,54 @@ describe('Socle Sama360 (e2e)', () => {
     });
   });
 
+  describe('Caisse obligatoire', () => {
+    const A = () => auth(awa.accessToken, awaBiz);
+    let seller: string;
+    const S = () => auth(seller, awaBiz);
+    const sale = (extra: Record<string, unknown> = {}) => ({
+      items: [{ name: 'Sachet', quantity: 1, unitPrice: 100 }],
+      payments: [{ method: 'cash', amount: 100 }],
+      ...extra,
+    });
+
+    beforeAll(async () => {
+      await http
+        .post('/v1/members')
+        .set(A())
+        .send({ phone: '+221770003399', fullName: 'Ibou Sarr', roleKey: 'cashier' })
+        .expect(201);
+      seller = (await login('+221770003399')).accessToken;
+    });
+
+    afterAll(async () => {
+      await http.patch('/v1/business').set(A()).send({ requireOpenCash: false }).expect(200);
+    });
+
+    it('désactivée par défaut ; seul le patron peut l’activer', async () => {
+      expect((await http.get('/v1/business').set(A()).expect(200)).body.business.requireOpenCash).toBe(false);
+      await http.post('/v1/sales').set(S()).send(sale()).expect(201);
+      await http.patch('/v1/business').set(S()).send({ requireOpenCash: true }).expect(403);
+      const r = await http.patch('/v1/business').set(A()).send({ requireOpenCash: true }).expect(200);
+      expect(r.body.business.requireOpenCash).toBe(true);
+    });
+
+    it('activée : vente refusée sans caisse ouverte, acceptée après ouverture ; hors ligne toujours acceptée', async () => {
+      const refused = await http.post('/v1/sales').set(S()).send(sale()).expect(409);
+      expect(refused.body.error).toMatchObject({ code: 'CASH_CLOSED', message: 'Ouvrez la caisse pour vendre' });
+
+      // Vente faite hors ligne (déjà conclue en boutique) : enregistrée quand même
+      const soldAt = new Date(Date.now() - 3600 * 1000).toISOString();
+      await http
+        .post('/v1/sales')
+        .set(S())
+        .send(sale({ id: '01937a00-0000-7000-8000-0000000cc001', soldAt }))
+        .expect(201);
+
+      await http.post('/v1/cash/open').set(S()).send({ openingFloat: 0 }).expect(201);
+      await http.post('/v1/sales').set(S()).send(sale()).expect(201);
+    });
+  });
+
   describe('Sessions', () => {
     it('déconnecte tous les appareils', async () => {
       // Session du caissier (les codes de connexion sont limités par minute : on réutilise sa session)

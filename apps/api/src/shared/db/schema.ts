@@ -84,6 +84,7 @@ export const businesses = core.table('businesses', {
   vatRate: numeric('vat_rate', { precision: 5, scale: 2 }).notNull().default('18.00'),
   logoFileId: uuid('logo_file_id'),
   brandColor: varchar('brand_color', { length: 7 }),
+  requireOpenCash: boolean('require_open_cash').notNull().default(false),
   settings: jsonb('settings').$type<Record<string, unknown>>().notNull().default({}),
   createdAt: ts('created_at').notNull().defaultNow(),
   updatedAt: ts('updated_at').notNull().defaultNow(),

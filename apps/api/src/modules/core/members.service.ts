@@ -39,7 +39,11 @@ export class MembersService {
    * Invite une personne par son numéro. Si elle n'a pas encore de compte, un compte « invited »
    * est créé ; l'adhésion devient active à sa première connexion par OTP.
    */
-  async invite(businessId: string, actorId: string, input: { phone: string; fullName?: string; roleKey: Exclude<RoleKey, 'owner'> }) {
+  async invite(
+    businessId: string,
+    actorId: string,
+    input: { phone: string; fullName?: string; roleKey: Exclude<RoleKey, 'owner'> },
+  ) {
     return this.dbs.withTenant(businessId, async (tx) => {
       let [user] = await tx.select().from(users).where(eq(users.phone, input.phone)).limit(1);
       if (!user) {

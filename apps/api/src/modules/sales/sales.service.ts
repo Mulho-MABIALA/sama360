@@ -122,6 +122,9 @@ export class SalesService {
       if (due > 0 && !input.customerId) {
         throw new AppError('CREDIT_REQUIRES_CUSTOMER', 'Choisissez un client pour une vente à crédit', 422, { due });
       }
+      // Caisse obligatoire (option du patron) : contrôlée pour les ventes en direct seulement.
+      if (!input.soldAt) await this.assertCashOpen(tx, businessId, cashierId);
+
       // Plafond de crédit : contrôlé pour les ventes en direct. Une vente hors ligne (soldAt fourni)
       // a déjà eu lieu en boutique, on l'enregistre même si elle dépasse le plafond.
       if (due > 0 && !input.soldAt) await this.assertCreditLimit(tx, input.customerId!, due);
@@ -329,7 +332,14 @@ export class SalesService {
       const id = newId();
       const [expense] = await tx
         .insert(expenses)
-        .values({ id, businessId, createdBy: actorId, ...input, method: input.method ?? null, note: input.note ?? null })
+        .values({
+          id,
+          businessId,
+          createdBy: actorId,
+          ...input,
+          method: input.method ?? null,
+          note: input.note ?? null,
+        })
         .returning();
       await this.outbox.record(tx, {
         type: 'expense.recorded',
@@ -343,6 +353,20 @@ export class SalesService {
   }
 
   /** Refuse une nouvelle dette qui ferait dépasser le plafond de crédit du client. */
+  /** Option « caisse obligatoire » : refuse la vente si le vendeur n'a pas de caisse ouverte. */
+  async assertCashOpen(tx: Tx, businessId: string, userId: string) {
+    const r = (
+      await tx.execute(sql`
+        SELECT b.require_open_cash AS required,
+               EXISTS (SELECT 1 FROM sales.cash_sessions c
+                       WHERE c.business_id = b.id AND c.user_id = ${userId} AND c.status = 'open') AS open
+        FROM core.businesses b WHERE b.id = ${businessId}`)
+    ).rows[0] as { required: boolean; open: boolean } | undefined;
+    if (r?.required && !r.open) {
+      throw new AppError('CASH_CLOSED', 'Ouvrez la caisse pour vendre', 409);
+    }
+  }
+
   async assertCreditLimit(tx: Tx, customerId: string, newDebt: number) {
     const res = await tx.execute(
       sql`SELECT credit_limit, name FROM contacts.contacts WHERE id = ${customerId} FOR UPDATE`,

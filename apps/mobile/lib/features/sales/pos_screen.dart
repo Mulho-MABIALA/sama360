@@ -605,6 +605,7 @@ class _CheckoutPanel extends ConsumerWidget {
     final ctrl = ref.read(cartProvider.notifier);
     final credit = cart.mode == PaymentMode.credit;
     final n = cart.itemCount;
+    final mustOpen = ref.watch(mustOpenCashProvider);
 
     // Panneau du panier : carte flottante en verre.
     return Padding(
@@ -712,12 +713,23 @@ class _CheckoutPanel extends ConsumerWidget {
             const SizedBox(height: 12),
             SizedBox(
               height: 52,
-              child: BusyButton(
-                icon: cart.isEmpty ? null : (credit ? Icons.menu_book_rounded : Icons.check_circle_rounded),
-                label: cart.isEmpty ? 'Encaisser' : (credit ? 'Valider à crédit' : 'Encaisser ${money(cart.total)}'),
-                busy: busy,
-                onPressed: cart.isEmpty ? null : onCheckout,
-              ),
+              child: mustOpen
+                  // Caisse obligatoire (option du patron) : on ouvre la caisse avant d'encaisser
+                  ? BusyButton(
+                      key: const Key('open_cash_to_sell'),
+                      icon: Icons.lock_open_rounded,
+                      label: 'Ouvrez la caisse pour vendre',
+                      busy: false,
+                      onPressed: () => context.push('/cash'),
+                    )
+                  : BusyButton(
+                      icon: cart.isEmpty ? null : (credit ? Icons.menu_book_rounded : Icons.check_circle_rounded),
+                      label: cart.isEmpty
+                          ? 'Encaisser'
+                          : (credit ? 'Valider à crédit' : 'Encaisser ${money(cart.total)}'),
+                      busy: busy,
+                      onPressed: cart.isEmpty ? null : onCheckout,
+                    ),
             ),
           ],
         ),
@@ -845,7 +857,9 @@ class _CashClosedBanner extends ConsumerWidget {
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
-                    'Caisse non ouverte : ouvrez-la pour suivre vos espèces',
+                    ref.watch(mustOpenCashProvider)
+                        ? 'Caisse fermée : ouvrez-la pour pouvoir vendre'
+                        : 'Caisse non ouverte : ouvrez-la pour suivre vos espèces',
                     style: TextStyle(color: AppColors.warnText, fontWeight: FontWeight.w700, fontSize: 13),
                   ),
                 ),

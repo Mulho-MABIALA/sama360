@@ -307,3 +307,11 @@ String errorMessage(Object error) {
   if (error is ApiException) return error.message;
   return 'Une erreur est survenue. Réessayez.';
 }
+
+/// Vente bloquée : le patron oblige à ouvrir la caisse et la caisse de ce vendeur est fermée.
+/// (Hors ligne ou état inconnu : on ne bloque pas, la vente partira plus tard.)
+final mustOpenCashProvider = Provider<bool>((ref) {
+  final required = ref.watch(currentBusinessProvider).value?.requireOpenCash ?? false;
+  if (!required) return false;
+  return ref.watch(cashCurrentProvider).maybeWhen(data: (s) => s == null, orElse: () => false);
+});

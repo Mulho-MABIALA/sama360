@@ -21,6 +21,7 @@ export interface CreateBusinessInput {
 
 export interface UpdateBusinessInput extends Partial<CreateBusinessInput> {
   brandColor?: string | null;
+  requireOpenCash?: boolean;
 }
 
 @Injectable()
@@ -83,7 +84,11 @@ export class BusinessesService {
       if (!business) throw AppError.notFound('Entreprise');
       const mods = await tx.select().from(moduleActivations);
       const [subscription] = await tx
-        .select({ plan: subscriptions.plan, status: subscriptions.status, currentPeriodEnd: subscriptions.currentPeriodEnd })
+        .select({
+          plan: subscriptions.plan,
+          status: subscriptions.status,
+          currentPeriodEnd: subscriptions.currentPeriodEnd,
+        })
         .from(subscriptions)
         .where(eq(subscriptions.businessId, businessId))
         .limit(1);
@@ -115,7 +120,10 @@ export class BusinessesService {
         .limit(1);
       if (!before) throw AppError.notFound('Entreprise');
       const saved = await this.files.saveImage(tx, { businessId, kind: 'logo', data, createdBy: userId });
-      await tx.update(businesses).set({ logoFileId: saved.id, updatedAt: new Date() }).where(eq(businesses.id, businessId));
+      await tx
+        .update(businesses)
+        .set({ logoFileId: saved.id, updatedAt: new Date() })
+        .where(eq(businesses.id, businessId));
       if (before.logoFileId) await this.files.remove(tx, before.logoFileId);
       return { logoFileId: saved.id };
     });

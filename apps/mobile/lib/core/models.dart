@@ -72,6 +72,7 @@ class CurrentBusiness {
     this.ninea,
     this.logoFileId,
     this.brandColor,
+    this.requireOpenCash = false,
     required this.role,
     required this.permissions,
     required this.modules,
@@ -87,6 +88,9 @@ class CurrentBusiness {
 
   /// Couleur choisie par le commerçant (« #0A7E4F ») : accents de l'app, reçus, boutique en ligne.
   final String? brandColor;
+
+  /// Option du patron : la caisse doit être ouverte pour vendre.
+  final bool requireOpenCash;
   final String role;
   final List<String> permissions;
   final List<String> modules;
@@ -104,6 +108,7 @@ class CurrentBusiness {
       ninea: b['ninea'] as String?,
       logoFileId: b['logoFileId'] as String?,
       brandColor: b['brandColor'] as String?,
+      requireOpenCash: b['requireOpenCash'] == true,
       role: me['role'] as String,
       permissions: List<String>.from(me['permissions'] as List),
       modules: ((j['modules'] as List?) ?? const [])

@@ -39,6 +39,8 @@ const UpdateBusiness = CreateBusiness.partial().extend({
     .regex(/^#?[0-9a-fA-F]{6}$/, 'couleur attendue au format #RRGGBB')
     .transform((v) => normalizeHex(v)!)
     .nullish(),
+  // Obliger à ouvrir la caisse avant de vendre
+  requireOpenCash: z.boolean().optional(),
 });
 
 const InviteMember = z.object({

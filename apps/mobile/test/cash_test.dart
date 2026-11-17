@@ -191,6 +191,44 @@ void main() {
       expect(routerOf(c).state.matchedLocation, '/cash');
     });
 
+    testWidgets('caisse obligatoire et fermée : on ne peut pas encaisser, on va ouvrir la caisse', (tester) async {
+      phoneSize(tester);
+      final repo = FakeRepo()
+        ..cashOpen = false
+        ..requireOpenCash = true;
+      final (c, _) = await pumpSama(tester, location: '/pos', repo: repo);
+      expect(find.text('Caisse fermée : ouvrez-la pour pouvoir vendre'), findsOneWidget);
+      await tester.tap(find.text('Beurre de karité 250 g'));
+      await tester.pump();
+      expect(find.textContaining('Encaisser'), findsNothing);
+      await tester.tap(find.byKey(const Key('open_cash_to_sell')));
+      await tester.pumpAndSettle();
+      expect(routerOf(c).state.uri.path, '/cash');
+      expect(repo.sales, isEmpty);
+    });
+
+    testWidgets('caisse obligatoire et ouverte : vente normale', (tester) async {
+      phoneSize(tester);
+      final repo = FakeRepo()..requireOpenCash = true;
+      await pumpSama(tester, location: '/pos', repo: repo);
+      await tester.tap(find.text('Beurre de karité 250 g'));
+      await tester.pump();
+      expect(find.byKey(const Key('open_cash_to_sell')), findsNothing);
+      expect(find.textContaining('Encaisser'), findsOneWidget);
+    });
+
+    testWidgets('profil : le patron active la caisse obligatoire', (tester) async {
+      phoneSize(tester);
+      final (_, repo) = await pumpSama(tester, location: '/account');
+      await tester.ensureVisible(find.byKey(const Key('require_cash_row')));
+      await tester.pumpAndSettle();
+      expect(find.text('Désactivée'), findsOneWidget);
+      await tester.tap(find.byKey(const Key('require_cash_row')));
+      await tester.pumpAndSettle();
+      expect(repo.requireOpenCash, isTrue);
+      expect(find.text('Activée'), findsOneWidget);
+    });
+
     testWidgets('caisse ouverte : pas de bannière sur la caisse', (tester) async {
       phoneSize(tester);
       await pumpSama(tester, location: '/pos');

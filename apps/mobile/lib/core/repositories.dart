@@ -70,6 +70,8 @@ class SamaRepository {
   Future<Me> me() async => Me.fromJson(await _cachedGet<Map<String, dynamic>>('/v1/me', user: true));
 
   /// Couleur de la boutique (« #0A7E4F ») ; null pour revenir au vert Sama360.
+  Future<void> updateRequireOpenCash(bool value) => api.patch<void>('/v1/business', data: {'requireOpenCash': value});
+
   Future<void> updateBrandColor(String? hex) => api.patch<void>('/v1/business', data: {'brandColor': hex});
 
   Future<void> updateName(String fullName) => api.patch<void>('/v1/me', data: {'fullName': fullName});
