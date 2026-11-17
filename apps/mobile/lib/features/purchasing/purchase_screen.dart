@@ -617,7 +617,7 @@ class _ReceiveSheetState extends ConsumerState<_ReceiveSheet> {
                   spacing: 8,
                   runSpacing: 8,
                   children: [
-                    for (final m in const [PayMethod.cash, PayMethod.wave, PayMethod.orangeMoney])
+                    for (final m in [PayMethod.cash, ...ref.watch(countryProvider).mobileMoney])
                       Pill(label: m.label, selected: _method == m, onTap: () => setState(() => _method = m)),
                   ],
                 ),

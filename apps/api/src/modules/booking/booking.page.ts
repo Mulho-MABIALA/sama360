@@ -104,7 +104,7 @@ input:focus{border-color:var(--green)}
       var me = store('customer') || {};
       html += '<h2>4. Vos coordonnées</h2><div class="card" style="padding:4px 14px 14px">' +
         '<label for="n">Votre nom</label><input id="n" autocomplete="name" value="' + esc(me.name || '') + '">' +
-        '<label for="t">Téléphone</label><input id="t" type="tel" inputmode="tel" autocomplete="tel" placeholder="77 123 45 67" value="' + esc(me.phone || '') + '">' +
+        '<label for="t">Téléphone</label><input id="t" type="tel" inputmode="tel" autocomplete="tel" placeholder="' + esc(d.shop.phoneExample || '77 123 45 67') + '" value="' + esc(me.phone || '') + '">' +
         '<label for="m">Note (facultatif)</label><input id="m" placeholder="Ex. mèches fournies"></div>' +
         '<div class="err" id="e"></div><button class="cta" id="go">Réserver ' + esc(fmtDay(st.day, { weekday: 'long', day: 'numeric', month: 'long' })) + ' à ' + hourLabel(st.time) + '</button>';
     }

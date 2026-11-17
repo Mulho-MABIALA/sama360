@@ -253,7 +253,7 @@ class _Customer extends ConsumerWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(o.customerName, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
-                    Text('+221 ${displayPhone(o.customerPhone)}', style: TextStyle(color: AppColors.muted)),
+                    Text(intlPhone(o.customerPhone), style: TextStyle(color: AppColors.muted)),
                   ],
                 ),
               ),

@@ -38,7 +38,7 @@ const CreateDocument = DocumentBody.extend({
 const Payment = z.object({
   id: z.string().uuid().optional(),
   amount: z.coerce.number().int().positive().max(1_000_000_000_000),
-  method: z.enum(['cash', 'wave', 'orange_money', 'free_money', 'card', 'transfer', 'cheque']),
+  method: z.enum(['cash', 'wave', 'orange_money', 'free_money', 'mtn_momo', 'moov_money', 'airtel_money', 'card', 'transfer', 'cheque']),
   reference: z.string().trim().max(80).nullish(),
   paidAt: z.coerce.date().optional(),
 });

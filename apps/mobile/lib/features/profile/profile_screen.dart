@@ -108,6 +108,49 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     }
   }
 
+  /// Pays de l'entreprise : indicatif des numéros, paiements mobiles, identifiant fiscal.
+  Future<void> _changeCountry(CurrentBusiness b) async {
+    var picked = b.country;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setState) => AlertDialog(
+          title: const Text('Pays de l’entreprise'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              CountryPills(value: picked, onChanged: (c) => setState(() => picked = c)),
+              const SizedBox(height: 12),
+              Text(
+                'Les numéros tapés sans indicatif seront lus comme des numéros '
+                '${picked == Country.ci
+                    ? 'ivoiriens'
+                    : picked == Country.cg
+                    ? 'congolais'
+                    : 'sénégalais'}. '
+                'Les numéros déjà enregistrés ne changent pas.',
+                style: TextStyle(color: AppColors.muted, fontSize: 13),
+              ),
+            ],
+          ),
+          actions: [
+            CancelButton(onPressed: () => Navigator.pop(ctx, false)),
+            ConfirmButton(label: 'Enregistrer', onPressed: () => Navigator.pop(ctx, true)),
+          ],
+        ),
+      ),
+    );
+    if (ok != true || picked == b.country) return;
+    try {
+      await ref.read(repoProvider).updateCountry(picked.code);
+      ref.invalidate(currentBusinessProvider);
+      if (mounted) showInfo(context, 'Pays : ${picked.name}');
+    } catch (e) {
+      if (mounted) showError(context, e);
+    }
+  }
+
   Future<void> _editInfo(Me me) async {
     final saved = await showModalBottomSheet<bool>(
       useRootNavigator: true,
@@ -236,7 +279,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                         icon: Icons.phone_iphone_rounded,
                         color: const Color(0xFF2F6FDB),
                         label: 'Téléphone',
-                        value: '+221 ${displayPhone(me.phone)}',
+                        value: intlPhone(me.phone),
                         hint: 'Sert à vous connecter',
                       ),
                       _Row(
@@ -271,6 +314,19 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                         ),
                         onTap: () => context.push('/business'),
                       ),
+                      if (business != null)
+                        _Row(
+                          key: const Key('country_row'),
+                          icon: Icons.public_rounded,
+                          color: const Color(0xFF1D7AF0),
+                          label: 'Pays',
+                          value: business.country.name,
+                          hint:
+                              '+${business.country.dial} · FCFA (${business.country.currency}) · '
+                              '${business.country.mobileMoney.map((m) => m.label).join(', ')}',
+                          trailing: CountryFlag(business.country, width: 28),
+                          onTap: ref.can('business:update') ? () => _changeCountry(business) : null,
+                        ),
                       if (business != null && ref.can('business:update'))
                         InkWell(
                           borderRadius: BorderRadius.circular(16),
@@ -536,7 +592,7 @@ class _Header extends ConsumerWidget {
                 ),
               ),
               const SizedBox(height: 2),
-              Text('+221 ${displayPhone(me.phone)}', style: const TextStyle(color: Color(0xFFCDE9DD), fontSize: 14)),
+              Text(intlPhone(me.phone), style: const TextStyle(color: Color(0xFFCDE9DD), fontSize: 14)),
               if (roleLabel != null) ...[
                 const SizedBox(height: 12),
                 Glass(

@@ -286,7 +286,7 @@ class _ReportBody extends StatelessWidget {
               rows: [
                 for (final v in r.bySeller)
                   (
-                    label: v.name.startsWith('+221') ? '+221 ${displayPhone(v.name)}' : v.name,
+                    label: v.name.startsWith('+') ? intlPhone(v.name) : v.name,
                     value: v.revenue,
                     sub: '${v.salesCount} vente(s)',
                     color: AppColors.green,
@@ -341,6 +341,9 @@ class _ReportBody extends StatelessWidget {
     PayMethod.wave => const Color(0xFF1D7AF0),
     PayMethod.orangeMoney => const Color(0xFFE07A12),
     PayMethod.freeMoney => const Color(0xFFDB2777),
+    PayMethod.mtnMomo => const Color(0xFFC79A00),
+    PayMethod.moovMoney => const Color(0xFF0066B3),
+    PayMethod.airtelMoney => const Color(0xFFE40000),
     _ => AppColors.muted,
   };
 }

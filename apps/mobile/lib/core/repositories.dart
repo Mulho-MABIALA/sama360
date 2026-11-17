@@ -72,6 +72,8 @@ class SamaRepository {
   /// Couleur de la boutique (« #0A7E4F ») ; null pour revenir au vert Sama360.
   Future<void> updateRequireOpenCash(bool value) => api.patch<void>('/v1/business', data: {'requireOpenCash': value});
 
+  Future<void> updateCountry(String code) => api.patch<void>('/v1/business', data: {'country': code});
+
   Future<void> updateBrandColor(String? hex) => api.patch<void>('/v1/business', data: {'brandColor': hex});
 
   Future<void> updateName(String fullName) => api.patch<void>('/v1/me', data: {'fullName': fullName});
@@ -89,10 +91,16 @@ class SamaRepository {
   Future<void> logoutAll() => api.post<void>('/v1/me/logout-all');
 
   // ---------- Entreprises ----------
-  Future<String> createBusiness({required String name, String? category, String? city, String? focus}) async {
+  Future<String> createBusiness({
+    required String name,
+    String? category,
+    String? city,
+    String? focus,
+    String? country,
+  }) async {
     final r = await api.post<Map<String, dynamic>>(
       '/v1/businesses',
-      data: {'name': name, 'category': ?category, 'city': ?city, 'focus': ?focus},
+      data: {'name': name, 'category': ?category, 'city': ?city, 'focus': ?focus, 'country': ?country},
     );
     return (r['business'] as Map)['id'] as String;
   }

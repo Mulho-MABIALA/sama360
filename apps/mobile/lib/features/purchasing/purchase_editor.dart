@@ -243,9 +243,7 @@ class _PurchaseEditorScreenState extends ConsumerState<PurchaseEditorScreen> {
                                   fg: const Color(0xFF1F5BB8),
                                 ),
                                 title: Text(_supplier!.name, style: const TextStyle(fontWeight: FontWeight.w800)),
-                                subtitle: _supplier!.phone == null
-                                    ? null
-                                    : Text('+221 ${displayPhone(_supplier!.phone!)}'),
+                                subtitle: _supplier!.phone == null ? null : Text(intlPhone(_supplier!.phone!)),
                                 trailing: TextButton(onPressed: _pickSupplier, child: const Text('Changer')),
                               ),
                       ),
@@ -352,7 +350,7 @@ class _PurchaseEditorScreenState extends ConsumerState<PurchaseEditorScreen> {
                                   spacing: 8,
                                   runSpacing: 8,
                                   children: [
-                                    for (final m in const [PayMethod.cash, PayMethod.wave, PayMethod.orangeMoney])
+                                    for (final m in [PayMethod.cash, ...ref.watch(countryProvider).mobileMoney])
                                       Pill(
                                         label: m.label,
                                         selected: _method == m,
@@ -677,7 +675,10 @@ class _SupplierPickerState extends ConsumerState<_SupplierPicker> {
                 TextField(
                   controller: phone,
                   keyboardType: TextInputType.phone,
-                  decoration: const InputDecoration(labelText: 'Téléphone (facultatif)', prefixText: '+221 '),
+                  decoration: InputDecoration(
+                    labelText: 'Téléphone (facultatif)',
+                    prefixText: '+${ref.read(countryProvider).dial} ',
+                  ),
                 ),
               ],
             ),
@@ -688,9 +689,9 @@ class _SupplierPickerState extends ConsumerState<_SupplierPicker> {
                     ? null
                     : () async {
                         if (name.text.trim().isEmpty) return;
-                        final p = phone.text.trim().isEmpty ? null : senegalPhone(phone.text);
+                        final p = phone.text.trim().isEmpty ? null : localPhone(phone.text, ref.read(countryProvider));
                         if (phone.text.trim().isNotEmpty && p == null) {
-                          showInfo(ctx, 'Numéro invalide : 9 chiffres, ex. 77 123 45 67');
+                          showInfo(ctx, invalidPhone(ref.read(countryProvider)));
                           return;
                         }
                         setState(() => busy = true);

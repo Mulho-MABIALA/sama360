@@ -683,7 +683,7 @@ class _Header extends StatelessWidget {
             textAlign: TextAlign.center,
             style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w800),
           ),
-          if (c.phone != null) Text('+221 ${displayPhone(c.phone!)}', style: TextStyle(color: AppColors.muted)),
+          if (c.phone != null) Text(intlPhone(c.phone!), style: TextStyle(color: AppColors.muted)),
           if (c.address != null)
             Text(
               c.address!,

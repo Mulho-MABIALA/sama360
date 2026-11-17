@@ -131,7 +131,7 @@ Future<List<int>> buildReceiptPdf(SaleDetail s, CurrentBusiness b, {ReceiptFonts
           for (final line in [
             [b.address, b.city].whereType<String>().where((x) => x.isNotEmpty).join(', '),
             if (b.phone != null) 'Tél. ${b.phone}',
-            if (b.ninea != null) 'NINEA ${b.ninea}',
+            if (b.ninea != null) '${b.country.taxIdLabel} ${b.ninea}',
           ].where((x) => x.isNotEmpty))
             pw.Text(line, textAlign: pw.TextAlign.center, style: base.copyWith(fontSize: 7.5)),
           dash(),

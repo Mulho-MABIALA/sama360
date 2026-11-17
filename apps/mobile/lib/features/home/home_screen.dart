@@ -816,7 +816,7 @@ class _SellersOfDay extends ConsumerWidget {
                                 children: [
                                   Expanded(
                                     child: Text(
-                                      v.name.startsWith('+221') ? '+221 ${displayPhone(v.name)}' : v.name,
+                                      v.name.startsWith('+') ? intlPhone(v.name) : v.name,
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
                                       style: const TextStyle(fontWeight: FontWeight.w800),

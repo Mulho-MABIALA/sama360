@@ -48,7 +48,7 @@ class _ShopSettingsScreenState extends ConsumerState<ShopSettingsScreen> {
         _title.text = s.title ?? b.name;
         _description.text = s.description ?? '';
         final wa = s.whatsapp ?? b.phone;
-        _whatsapp.text = wa == null ? '' : displayPhone(wa.replaceAll(' ', ''));
+        _whatsapp.text = wa == null ? '' : editablePhone(wa.replaceAll(' ', ''), b.country);
         _pickup = s.pickup;
         _delivery = s.delivery;
         _fee.text = s.deliveryFee == 0 ? '' : '${s.deliveryFee}';
@@ -73,9 +73,9 @@ class _ShopSettingsScreenState extends ConsumerState<ShopSettingsScreen> {
 
   Future<void> _save() async {
     setState(() => _phoneError = null);
-    final phone = _whatsapp.text.trim().isEmpty ? null : senegalPhone(_whatsapp.text);
+    final phone = _whatsapp.text.trim().isEmpty ? null : localPhone(_whatsapp.text, ref.read(countryProvider));
     if (_whatsapp.text.trim().isNotEmpty && phone == null) {
-      setState(() => _phoneError = '9 chiffres, ex. 77 123 45 67');
+      setState(() => _phoneError = invalidPhone(ref.read(countryProvider)));
       return;
     }
     if (!_pickup && !_delivery) return showInfo(context, 'Proposez au moins le retrait ou la livraison');
@@ -176,7 +176,7 @@ class _ShopSettingsScreenState extends ConsumerState<ShopSettingsScreen> {
                             keyboardType: TextInputType.phone,
                             decoration: InputDecoration(
                               labelText: 'Numéro WhatsApp des clients',
-                              prefixText: '+221 ',
+                              prefixText: '+${ref.watch(countryProvider).dial} ',
                               errorText: _phoneError,
                             ),
                           ),

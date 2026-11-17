@@ -410,7 +410,7 @@ class DocumentPaper extends StatelessWidget {
               children: [
                 Text(d.isQuote ? 'DEVIS POUR' : 'FACTURÉ À', style: small.copyWith(letterSpacing: 1)),
                 Text(d.customer.name, style: const TextStyle(fontWeight: FontWeight.w800)),
-                if (d.customer.phone != null) Text('+221 ${displayPhone(d.customer.phone!)}', style: small),
+                if (d.customer.phone != null) Text(intlPhone(d.customer.phone!), style: small),
               ],
             ),
           ),
@@ -485,11 +485,9 @@ class _PaymentSheetState extends ConsumerState<_PaymentSheet> {
   String? _error;
   bool _busy = false;
 
-  static const _methods = [
+  List<PayMethod> get _methods => [
     PayMethod.cash,
-    PayMethod.wave,
-    PayMethod.orangeMoney,
-    PayMethod.freeMoney,
+    ...ref.watch(countryProvider).mobileMoney,
     PayMethod.transfer,
     PayMethod.cheque,
   ];

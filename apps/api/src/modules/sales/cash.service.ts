@@ -5,7 +5,7 @@ import { AppError } from '../../shared/http/app-error';
 import { newId } from '../../shared/ids';
 import { fcfa } from './sales.service';
 
-export const CASH_METHODS = ['cash', 'wave', 'orange_money', 'free_money', 'card', 'transfer', 'cheque'] as const;
+export const CASH_METHODS = ['cash', 'wave', 'orange_money', 'free_money', 'mtn_momo', 'moov_money', 'airtel_money', 'card', 'transfer', 'cheque'] as const;
 export type CashMethod = (typeof CASH_METHODS)[number];
 
 /** Montants d'une session pour un moyen de paiement. */

@@ -1,6 +1,10 @@
 /// Modèles alignés sur les réponses de l'API Sama360 (apps/api).
 library;
 
+import 'countries.dart';
+
+export 'countries.dart' show Country;
+
 int _int(Object? v) => v is num ? v.toInt() : int.tryParse('$v') ?? 0;
 double _num(Object? v) => v is num ? v.toDouble() : double.tryParse('$v') ?? 0;
 double _dbl(Object? v) => v is num ? v.toDouble() : double.tryParse('$v') ?? 0;
@@ -74,6 +78,7 @@ class CurrentBusiness {
     this.brandColor,
     this.requireOpenCash = false,
     this.focus,
+    this.country = Country.sn,
     required this.role,
     required this.permissions,
     required this.modules,
@@ -95,6 +100,9 @@ class CurrentBusiness {
 
   /// Activité : « products », « services », « both » (null : pas encore choisie).
   final String? focus;
+
+  /// Pays : indicatif des numéros, paiements mobiles, identifiant fiscal.
+  final Country country;
   final String role;
   final List<String> permissions;
   final List<String> modules;
@@ -114,6 +122,7 @@ class CurrentBusiness {
       brandColor: b['brandColor'] as String?,
       requireOpenCash: b['requireOpenCash'] == true,
       focus: (b['settings'] as Map?)?['focus'] as String?,
+      country: Country.fromCode(b['country'] as String?),
       role: me['role'] as String,
       permissions: List<String>.from(me['permissions'] as List),
       modules: ((j['modules'] as List?) ?? const [])
@@ -973,6 +982,9 @@ enum PayMethod {
   wave('wave', 'Wave'),
   orangeMoney('orange_money', 'Orange Money'),
   freeMoney('free_money', 'Free Money'),
+  mtnMomo('mtn_momo', 'MTN MoMo'),
+  moovMoney('moov_money', 'Moov Money'),
+  airtelMoney('airtel_money', 'Airtel Money'),
   card('card', 'Carte'),
   // Factures uniquement
   transfer('transfer', 'Virement'),

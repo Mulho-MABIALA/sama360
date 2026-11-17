@@ -20,6 +20,7 @@ import 'features/cash/cash_screen.dart';
 import 'features/cash/cash_session_screen.dart';
 import 'features/customers/customer_editor.dart';
 import 'features/purchasing/purchase_editor.dart';
+import 'features/shop/status_screen.dart';
 import 'features/shop/shop_order_screen.dart';
 import 'features/shop/shop_screen.dart';
 import 'features/shop/shop_settings_screen.dart';
@@ -101,6 +102,12 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (_, s) => ShopSettingsScreen(opening: s.uri.queryParameters['open'] == '1'),
       ),
       GoRoute(path: '/shop/products', builder: (_, _) => const ShopProductsScreen()),
+      GoRoute(
+        path: '/status',
+        builder: (_, s) => StatusScreen(
+          initialIds: (s.uri.queryParameters['ids'] ?? '').split(',').where((e) => e.isNotEmpty).toList(),
+        ),
+      ),
       GoRoute(
         path: '/shop/orders/:id',
         builder: (_, s) => ShopOrderScreen(orderId: s.pathParameters['id']!),

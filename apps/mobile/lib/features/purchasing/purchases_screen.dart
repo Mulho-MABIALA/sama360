@@ -407,7 +407,7 @@ class SupplierScreen extends ConsumerWidget {
                       style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w800),
                     ),
                     if (o.supplier.phone != null)
-                      Text('+221 ${displayPhone(o.supplier.phone!)}', style: TextStyle(color: AppColors.muted)),
+                      Text(intlPhone(o.supplier.phone!), style: TextStyle(color: AppColors.muted)),
                     if (o.supplier.address != null)
                       Text(o.supplier.address!, style: TextStyle(color: AppColors.muted, fontSize: 12.5)),
                     if (o.supplier.phone != null) ...[
@@ -624,17 +624,17 @@ class SupplierScreen extends ConsumerWidget {
 }
 
 /// Paiement à un fournisseur (un bon ou tous ses bons). [onPay] lance l'appel à l'API.
-class PaySheet extends StatefulWidget {
+class PaySheet extends ConsumerStatefulWidget {
   const PaySheet({super.key, required this.title, required this.subtitle, required this.max, required this.onPay});
   final String title;
   final String subtitle;
   final int max;
   final Future<void> Function(int amount, PayMethod method) onPay;
   @override
-  State<PaySheet> createState() => _PaySheetState();
+  ConsumerState<PaySheet> createState() => _PaySheetState();
 }
 
-class _PaySheetState extends State<PaySheet> {
+class _PaySheetState extends ConsumerState<PaySheet> {
   late final _amount = TextEditingController(text: widget.max > 0 ? '${widget.max}' : '');
   PayMethod _method = PayMethod.cash;
   bool _busy = false;
@@ -684,10 +684,9 @@ class _PaySheetState extends State<PaySheet> {
           spacing: 8,
           runSpacing: 8,
           children: [
-            for (final m in const [
+            for (final m in [
               PayMethod.cash,
-              PayMethod.wave,
-              PayMethod.orangeMoney,
+              ...ref.watch(countryProvider).mobileMoney,
               PayMethod.transfer,
               PayMethod.cheque,
             ])

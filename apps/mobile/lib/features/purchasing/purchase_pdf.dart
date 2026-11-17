@@ -75,7 +75,7 @@ Future<List<int>> buildPurchasePdf(PurchaseDetail d, CurrentBusiness b, {Receipt
                   pw.Text(b.name, style: bold.copyWith(fontSize: 16, color: green)),
                   if (b.phone != null) pw.Text(b.phone!, style: small),
                   if (b.address != null) pw.Text(b.address!, style: small),
-                  if (b.ninea != null) pw.Text('NINEA ${b.ninea}', style: small),
+                  if (b.ninea != null) pw.Text('${b.country.taxIdLabel} ${b.ninea}', style: small),
                 ],
               ),
             ),

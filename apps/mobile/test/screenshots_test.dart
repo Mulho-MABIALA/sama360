@@ -21,7 +21,14 @@ import 'package:sama360/features/catalog/barcode_scanner.dart';
 import 'package:sama360/features/home/monument.dart';
 import 'package:sama360/main.dart';
 
+import 'package:sama360/features/shop/status_screen.dart';
 import 'helpers.dart';
+
+/// Dépôt dont les photos de produits sont de vraies images.
+class _PhotoRepo extends FakeRepo {
+  @override
+  Future<List<int>?> fileBytes(String fileId) async => File('assets/photos/$fileId.jpg').readAsBytesSync();
+}
 
 class _SignedOut extends AuthController {
   @override
@@ -635,6 +642,33 @@ void main() {
     await pumpSama(tester, location: '/deliveries', repo: repo);
     await _shot(tester, '20_livraisons');
   });
+
+  Future<void> statusShot(WidgetTester tester, String ids, String name, {int percent = 0}) async {
+    phoneSize(tester);
+    final repo = _PhotoRepo()
+      ..extraProducts = const [
+        Product(id: 'x1', name: 'Tomates fraîches (le kilo)', price: 1200, cost: 700, imageFileId: 'ventes'),
+        Product(id: 'x2', name: 'Riz parfumé 5 kg', price: 6500, cost: 5200, imageFileId: 'achats'),
+        Product(id: 'x3', name: 'Coffret cadeau', price: 15000, cost: 9000, imageFileId: 'fidelite'),
+      ];
+    await pumpSama(tester, location: '/status?ids=$ids', repo: repo);
+    if (percent > 0) {
+      await tester.tap(find.text('-$percent %'));
+      await tester.pumpAndSettle();
+    }
+    await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 200)));
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.byType(StatusCard),
+      200,
+      scrollable: find.descendant(of: find.byType(ListView), matching: find.byType(Scrollable)).first,
+    );
+    await tester.pumpAndSettle();
+    await _shot(tester, name);
+  }
+
+  testWidgets('statut WhatsApp (1 produit)', (tester) => statusShot(tester, 'x1', '21_statut_whatsapp', percent: 20));
+  testWidgets('statut WhatsApp (3 produits)', (tester) => statusShot(tester, 'x1,x2,x3', '21b_statut_promo'));
 
   testWidgets('notifications', (tester) async {
     phoneSize(tester);

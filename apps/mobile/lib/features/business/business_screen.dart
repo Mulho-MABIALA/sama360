@@ -3,6 +3,8 @@ import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../../core/glass.dart';
+import '../../core/models.dart';
+import '../../core/providers.dart';
 import '../../core/theme.dart';
 import '../../core/widgets.dart';
 import '../auth/auth_controller.dart';
@@ -35,7 +37,8 @@ class BusinessScreen extends ConsumerStatefulWidget {
 
 class _BusinessScreenState extends ConsumerState<BusinessScreen> {
   final _name = TextEditingController();
-  final _city = TextEditingController(text: 'Dakar');
+  late final _city = TextEditingController(text: _country.cities.first);
+  late Country _country = ref.read(loginCountryProvider);
   String _category = 'boutique';
   String _focus = 'products';
   bool _creating = false;
@@ -59,6 +62,7 @@ class _BusinessScreenState extends ConsumerState<BusinessScreen> {
             category: _category == 'autre' ? null : _category,
             city: _city.text.trim().isEmpty ? null : _city.text.trim(),
             focus: _focus,
+            country: _country.code,
           );
       if (mounted) context.go('/');
     } catch (e) {
@@ -164,9 +168,31 @@ class _BusinessScreenState extends ConsumerState<BusinessScreen> {
                 ],
               ),
               const SizedBox(height: 16),
+              Text('Pays', style: TextStyle(color: AppColors.muted, fontSize: 12.5)),
+              const SizedBox(height: 8),
+              CountryPills(
+                value: _country,
+                onChanged: (c) => setState(() {
+                  // Ville par défaut du pays précédent : on prend celle du nouveau
+                  if (_city.text.trim().isEmpty || Country.values.any((o) => o.cities.contains(_city.text.trim()))) {
+                    _city.text = c.cities.first;
+                  }
+                  _country = c;
+                }),
+              ),
+              const SizedBox(height: 16),
               TextField(
                 controller: _city,
                 decoration: const InputDecoration(labelText: 'Ville'),
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                children: [
+                  for (final city in _country.cities.take(5))
+                    Pill(label: city, selected: _city.text == city, onTap: () => setState(() => _city.text = city)),
+                ],
               ),
               const SizedBox(height: 24),
               BusyButton(label: "Créer l'entreprise", busy: _busy, onPressed: _create),

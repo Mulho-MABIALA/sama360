@@ -1,3 +1,4 @@
+import { COUNTRY_CODES } from '../../shared/countries';
 import { FOCUSES } from './onboarding';
 import {
   Body,
@@ -33,6 +34,8 @@ const CreateBusiness = z.object({
   city: text(80).nullish(),
   address: text(500).nullish(),
   ninea: text(30).nullish(),
+  // Pays : indicatif des numéros, monnaie (XOF / XAF), paiements mobiles
+  country: z.enum(COUNTRY_CODES).optional(),
 });
 const UpdateBusiness = CreateBusiness.partial().extend({
   // Activité : produits, services ou les deux (adapte l'accueil et les premiers pas)
@@ -134,7 +137,7 @@ export class CoreController {
   @RequirePermission('members:invite')
   invite(@CurrentTenant() tenant: TenantContext, @CurrentUser() user: AuthUser, @Body() body: unknown) {
     const input = parse(InviteMember, body);
-    const phone = normalizePhone(input.phone);
+    const phone = normalizePhone(input.phone, tenant.country);
     if (!phone) throw new AppError('PHONE_INVALID', 'Numéro de téléphone invalide', 422);
     return this.members.invite(tenant.businessId, user.id, { ...input, phone });
   }

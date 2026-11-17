@@ -676,15 +676,29 @@ class _CheckoutPanel extends ConsumerWidget {
             ),
             if (cart.customer != null && !cart.isEmpty) LoyaltyRewardChip(customer: cart.customer!),
             const SizedBox(height: 10),
-            Row(
-              children: [
-                for (final m in PaymentMode.values) ...[
-                  Expanded(
-                    child: _ModeButton(mode: m, selected: cart.mode == m, onTap: () => ctrl.setMode(m)),
-                  ),
-                  if (m != PaymentMode.values.last) const SizedBox(width: 8),
-                ],
-              ],
+            Builder(
+              builder: (context) {
+                final modes = PaymentMode.forCountry(ref.watch(countryProvider));
+                // 4 boutons sur une ligne ; au-delà (Côte d'Ivoire), deux lignes de 3
+                final perRow = modes.length <= 4 ? modes.length : 3;
+                return Column(
+                  children: [
+                    for (var i = 0; i < modes.length; i += perRow) ...[
+                      if (i > 0) const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          for (final (j, m) in modes.skip(i).take(perRow).indexed) ...[
+                            if (j > 0) const SizedBox(width: 8),
+                            Expanded(
+                              child: _ModeButton(mode: m, selected: cart.mode == m, onTap: () => ctrl.setMode(m)),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ],
+                  ],
+                );
+              },
             ),
             if (credit) ...[
               const SizedBox(height: 10),
@@ -891,6 +905,10 @@ class _ModeButton extends StatelessWidget {
     PaymentMode.cash => AppColors.green,
     PaymentMode.wave => const Color(0xFF1D9BF0),
     PaymentMode.orangeMoney => const Color(0xFFF07B14),
+    PaymentMode.freeMoney => const Color(0xFFCD1E25),
+    PaymentMode.mtnMomo => const Color(0xFFC79A00),
+    PaymentMode.moovMoney => const Color(0xFF0066B3),
+    PaymentMode.airtelMoney => const Color(0xFFE40000),
     PaymentMode.credit => AppColors.warn,
   };
 
@@ -912,6 +930,21 @@ class _ModeButton extends StatelessWidget {
         const Color(0xFFFFF1E6),
         const Color(0xFFF07B14),
         const Color(0xFF8A3D00),
+      ),
+      (PaymentMode.mtnMomo, true) => _selected(
+        const Color(0xFFFFF7D6),
+        const Color(0xFFFFCC00),
+        const Color(0xFF5C4A00),
+      ),
+      (PaymentMode.moovMoney, true) => _selected(
+        const Color(0xFFE6F1FA),
+        const Color(0xFF0066B3),
+        const Color(0xFF003B66),
+      ),
+      (PaymentMode.airtelMoney || PaymentMode.freeMoney, true) => _selected(
+        const Color(0xFFFDE8E8),
+        const Color(0xFFE40000),
+        const Color(0xFF7A0000),
       ),
       (PaymentMode.credit, true) => _selected(AppColors.warnBg, AppColors.warn, AppColors.warnText),
       (_, true) => _selected(AppColors.greenSoft, AppColors.green, AppColors.greenDark),
@@ -938,8 +971,8 @@ class _ModeButton extends StatelessWidget {
                   switch (mode) {
                     PaymentMode.cash => Icons.payments_rounded,
                     PaymentMode.wave => Icons.waves_rounded,
-                    PaymentMode.orangeMoney => Icons.phone_android_rounded,
                     PaymentMode.credit => Icons.menu_book_rounded,
+                    _ => Icons.phone_android_rounded,
                   },
                   size: 18,
                   color: selected ? fg : _accent,

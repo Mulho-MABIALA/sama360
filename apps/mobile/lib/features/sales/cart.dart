@@ -10,11 +10,24 @@ enum PaymentMode {
   cash('Espèces', PayMethod.cash),
   wave('Wave', PayMethod.wave),
   orangeMoney('O. Money', PayMethod.orangeMoney),
+  freeMoney('Free', PayMethod.freeMoney),
+  mtnMomo('MTN MoMo', PayMethod.mtnMomo),
+  moovMoney('Moov', PayMethod.moovMoney),
+  airtelMoney('Airtel', PayMethod.airtelMoney),
   credit('Crédit', null);
 
   const PaymentMode(this.label, this.method);
   final String label;
   final PayMethod? method; // null = crédit
+
+  /// Boutons de la caisse : espèces, paiements mobiles du pays, crédit.
+  /// (Au Sénégal, Free Money reste dans les factures : la caisse garde Wave et Orange Money.)
+  static List<PaymentMode> forCountry(Country c) => [
+    cash,
+    for (final m in c.mobileMoney)
+      if (m != PayMethod.freeMoney) values.firstWhere((p) => p.method == m),
+    credit,
+  ];
 }
 
 class CartLine {

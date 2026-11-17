@@ -256,7 +256,7 @@ class ReceiptPaper extends StatelessWidget {
     final contact = [
       [b.address, b.city].whereType<String>().where((x) => x.isNotEmpty).join(', '),
       if (b.phone != null) 'Tél. ${b.phone}',
-      if (b.ninea != null) 'NINEA ${b.ninea}',
+      if (b.ninea != null) '${b.country.taxIdLabel} ${b.ninea}',
     ].where((x) => x.isNotEmpty);
 
     return Stack(

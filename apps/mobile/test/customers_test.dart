@@ -157,7 +157,7 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text('Ajouter le client'));
       await tester.pumpAndSettle();
-      expect(find.text('9 chiffres, ex. 77 123 45 67'), findsOneWidget);
+      expect(find.text('Numéro invalide : 9 chiffres, ex. 77 123 45 67'), findsOneWidget);
       expect(find.text('Indiquez le montant maximum'), findsOneWidget);
 
       await tester.enterText(find.byKey(const Key('cPhone')), '77 987 65 43');

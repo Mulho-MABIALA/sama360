@@ -30,7 +30,7 @@ final openUrlProvider = Provider<Future<bool> Function(Uri)>(
 /// Message d'invitation à envoyer par WhatsApp.
 String inviteMessage({required String business, required String phone, String? name}) =>
     'Bonjour${name == null || name.isEmpty ? '' : ' ${firstName(name)}'}, je t’ai ajouté(e) à l’équipe de $business sur Sama360. '
-    'Installe l’application et connecte-toi avec ton numéro +221 ${displayPhone(phone)} : '
+    'Installe l’application et connecte-toi avec ton numéro ${intlPhone(phone)} : '
     'un code te sera envoyé par SMS.';
 
 class TeamScreen extends ConsumerWidget {
@@ -123,7 +123,7 @@ class TeamScreen extends ConsumerWidget {
         icon: Icon(Icons.how_to_reg_rounded, color: AppColors.green, size: 46),
         title: const Text('Invitation enregistrée'),
         content: Text(
-          '${invited.name ?? '+221 ${displayPhone(invited.phone)}'} pourra se connecter avec son numéro. '
+          '${invited.name ?? intlPhone(invited.phone)} pourra se connecter avec son numéro. '
           'Prévenez-le par WhatsApp ?',
           textAlign: TextAlign.center,
         ),
@@ -207,7 +207,7 @@ class _MemberCard extends ConsumerWidget {
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15),
                 ),
-                Text('+221 ${displayPhone(m.phone)}', style: TextStyle(color: AppColors.muted, fontSize: 13)),
+                Text(intlPhone(m.phone), style: TextStyle(color: AppColors.muted, fontSize: 13)),
                 if (statusLabel != null)
                   Text(
                     statusLabel,
@@ -309,9 +309,9 @@ class _InviteSheetState extends ConsumerState<_InviteSheet> {
   }
 
   Future<void> _send() async {
-    final phone = senegalPhone(_phone.text);
+    final phone = localPhone(_phone.text, ref.read(countryProvider));
     if (phone == null) {
-      setState(() => _error = 'Numéro invalide : 9 chiffres, ex. 77 123 45 67');
+      setState(() => _error = invalidPhone(ref.read(countryProvider)));
       return;
     }
     final name = _name.text.trim().isEmpty ? null : _name.text.trim();
@@ -356,7 +356,12 @@ class _InviteSheetState extends ConsumerState<_InviteSheet> {
               FilteringTextInputFormatter.allow(RegExp(r'[\d ]')),
               LengthLimitingTextInputFormatter(14),
             ],
-            decoration: InputDecoration(labelText: 'Numéro', prefixText: '+221  ', errorText: _error, errorMaxLines: 2),
+            decoration: InputDecoration(
+              labelText: 'Numéro',
+              prefixText: '+${ref.watch(countryProvider).dial}  ',
+              errorText: _error,
+              errorMaxLines: 2,
+            ),
           ),
           const SizedBox(height: 12),
           TextField(
@@ -438,7 +443,7 @@ class _ManageSheetState extends ConsumerState<_ManageSheet> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Text(m.displayName, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
-            Text('+221 ${displayPhone(m.phone)}', style: TextStyle(color: AppColors.muted)),
+            Text(intlPhone(m.phone), style: TextStyle(color: AppColors.muted)),
             const SizedBox(height: 16),
             const Text('Rôle', style: TextStyle(fontWeight: FontWeight.w800)),
             const SizedBox(height: 8),

@@ -85,10 +85,16 @@ class AuthController extends AsyncNotifier<AuthState> {
     await ref.read(pinLockProvider.notifier).forget();
   }
 
-  Future<void> createBusiness({required String name, String? category, String? city, String? focus}) async {
+  Future<void> createBusiness({
+    required String name,
+    String? category,
+    String? city,
+    String? focus,
+    String? country,
+  }) async {
     final id = await ref
         .read(repoProvider)
-        .createBusiness(name: name.trim(), category: category, city: city, focus: focus);
+        .createBusiness(name: name.trim(), category: category, city: city, focus: focus, country: country);
     await _store.saveBusinessId(id);
     state = AsyncData(await _load());
   }

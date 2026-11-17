@@ -193,19 +193,33 @@ class FakeRepo extends SamaRepository {
   final createdBusinesses = <Map<String, String?>>[];
 
   @override
-  Future<String> createBusiness({required String name, String? category, String? city, String? focus}) async {
-    createdBusinesses.add({'name': name, 'category': category, 'city': city, 'focus': focus});
+  Future<String> createBusiness({
+    required String name,
+    String? category,
+    String? city,
+    String? focus,
+    String? country,
+  }) async {
+    createdBusinesses.add({'name': name, 'category': category, 'city': city, 'focus': focus, 'country': country});
     return 'b2';
   }
 
   bool requireOpenCash = false;
+  Country businessCountry = Country.sn;
 
   @override
   Future<void> updateRequireOpenCash(bool value) async => requireOpenCash = value;
 
   @override
+  Future<void> updateCountry(String code) async => businessCountry = Country.fromCode(code);
+
+  @override
   Future<CurrentBusiness> currentBusiness() async =>
-      logoFileId == null && brandColor == null && !requireOpenCash && businessFocus == null
+      logoFileId == null &&
+          brandColor == null &&
+          !requireOpenCash &&
+          businessFocus == null &&
+          businessCountry == Country.sn
       ? demoBusiness
       : CurrentBusiness(
           id: demoBusiness.id,
@@ -218,6 +232,7 @@ class FakeRepo extends SamaRepository {
           brandColor: brandColor,
           requireOpenCash: requireOpenCash,
           focus: businessFocus,
+          country: businessCountry,
           role: demoBusiness.role,
           permissions: demoBusiness.permissions,
           modules: demoBusiness.modules,

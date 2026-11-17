@@ -122,7 +122,7 @@ void main() {
       await tester.enterText(find.byKey(const Key('shopWhatsapp')), '77 12');
       await tester.tap(find.text('Mettre ma boutique en ligne'));
       await tester.pumpAndSettle();
-      expect(find.text('9 chiffres, ex. 77 123 45 67'), findsOneWidget);
+      expect(find.text('Numéro invalide : 9 chiffres, ex. 77 123 45 67'), findsOneWidget);
 
       await tester.enterText(find.byKey(const Key('shopWhatsapp')), '77 111 22 33');
       await tester.enterText(find.byKey(const Key('shopDescription')), 'Cosmétiques naturels livrés à Dakar');

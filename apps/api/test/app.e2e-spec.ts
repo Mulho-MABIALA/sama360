@@ -3014,6 +3014,75 @@ describe('Socle Sama360 (e2e)', () => {
     });
   });
 
+  describe('Pays : Côte d\'Ivoire et Congo', () => {
+    it('boutique ivoirienne : monnaie XOF, numéros à 10 chiffres, MTN MoMo', async () => {
+      const kone = await login('+2250707123456');
+      const res = await http
+        .post('/v1/businesses')
+        .set(auth(kone.accessToken))
+        .send({ name: 'Koné Market', city: 'Abidjan', country: 'CI' })
+        .expect(201);
+      const biz = res.body.business.id;
+      expect(res.body.business).toMatchObject({ country: 'CI', currency: 'XOF' });
+      const K = () => auth(kone.accessToken, biz);
+
+      const client = (
+        await http.post('/v1/contacts').set(K()).send({ name: 'Adjoua', phone: '05 44 33 22 11' }).expect(201)
+      ).body;
+      expect(client.phone).toBe('+2250544332211');
+      // Un numéro sénégalais sans indicatif n'est pas un numéro ivoirien
+      await http.post('/v1/contacts').set(K()).send({ name: 'X', phone: '77 123 45 67' }).expect(422);
+      await http.post('/v1/contacts').set(K()).send({ name: 'Moussa', phone: '+221 77 123 45 67' }).expect(201);
+
+      const attieke = (
+        await http
+          .post('/v1/catalog/products')
+          .set(K())
+          .send({ name: 'Attiéké', price: 500, trackStock: false })
+          .expect(201)
+      ).body.id;
+      const sale = await http
+        .post('/v1/sales')
+        .set(K())
+        .send({
+          id: '01938000-0000-7000-8000-0000000c1001',
+          items: [{ productId: attieke, quantity: 4 }],
+          payments: [{ method: 'mtn_momo', amount: 2000 }],
+        })
+        .expect(201);
+      expect(sale.body.total).toBe(2000);
+    });
+
+    it('boutique congolaise : XAF, numéros +242, Airtel Money, page publique adaptée', async () => {
+      const mav = await login('+242066123456');
+      const res = await http
+        .post('/v1/businesses')
+        .set(auth(mav.accessToken))
+        .send({ name: 'Chez Maman Mav', city: 'Brazzaville', country: 'CG' })
+        .expect(201);
+      const biz = res.body.business.id;
+      expect(res.body.business).toMatchObject({ country: 'CG', currency: 'XAF' });
+      const M = () => auth(mav.accessToken, biz);
+      const c = (await http.post('/v1/couriers').set(M()).send({ name: 'Bienvenu', phone: '05 553 00 50' }).expect(201))
+        .body;
+      expect(c.phone).toBe('+242055530050');
+
+      await http.put('/v1/shop/settings').set(M()).send({ enabled: true, whatsapp: '06 612 34 56' }).expect(200);
+      const shop = (await http.get('/v1/shop').set(M()).expect(200)).body;
+      const pub = (await http.get(`/v1/public/shops/${shop.slug}`).expect(200)).body.shop;
+      expect(pub).toMatchObject({
+        country: 'CG',
+        phoneExample: '06 612 34 56',
+        payHint: 'espèces, MTN MoMo, Airtel Money',
+        whatsapp: '+242066123456',
+      });
+    });
+
+    it('refuse un pays non pris en charge', async () => {
+      await http.post('/v1/businesses').set(auth(awa.accessToken)).send({ name: 'Ailleurs', country: 'FR' }).expect(422);
+    });
+  });
+
   describe('Livraison', () => {
     const A = () => auth(awa.accessToken, awaBiz);
     let slug: string;

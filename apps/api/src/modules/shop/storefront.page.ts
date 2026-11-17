@@ -50,6 +50,8 @@ button{font:inherit;cursor:pointer}
 .price{font-weight:800;font-size:15px}
 .hint{font-size:12px;color:var(--muted)}
 .out{font-size:12px;color:var(--danger);font-weight:700}
+.card.hot{border:2px solid var(--leaf);box-shadow:0 10px 28px rgba(25,181,111,.25)}
+.tag{display:inline-block;background:var(--leaf);color:#fff;font-size:11px;font-weight:800;border-radius:999px;padding:2px 8px;margin-bottom:4px}
 .add{margin-top:auto;border:0;border-radius:14px;background:var(--green);color:#fff;font-weight:700;padding:10px;font-size:14px}
 .add:disabled{background:#C9D3CE}
 .step{margin-top:auto;display:flex;align-items:center;justify-content:space-between;background:var(--soft);border-radius:14px;padding:4px}
@@ -101,6 +103,8 @@ input:focus,textarea:focus{border-color:var(--green)}
   var app = document.getElementById('app');
   var bar = document.getElementById('bar');
   var state = { data: null, cart: {}, cat: '', q: '', mode: null };
+  // Produits mis en avant par un statut WhatsApp : ?p=id1,id2
+  var HOT = (new URLSearchParams(location.search).get('p') || '').split(',').filter(Boolean);
 
   function money(n){ return new Intl.NumberFormat('fr-FR').format(Math.round(n)).replace(/[\\u202f\\u00a0]/g,' ') + ' F'; }
   function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
@@ -170,6 +174,7 @@ input:focus,textarea:focus{border-color:var(--green)}
     var grid = document.getElementById('grid'); if(!grid) return;
     var q = state.q.trim().toLowerCase();
     var items = state.data.products.filter(function(p){ return (!state.cat || p.categoryId === state.cat) && (!q || p.name.toLowerCase().indexOf(q) >= 0); });
+    if (HOT.length) items = items.slice().sort(function(a,b){ return (HOT.indexOf(a.id) < 0 ? 99 : HOT.indexOf(a.id)) - (HOT.indexOf(b.id) < 0 ? 99 : HOT.indexOf(b.id)); });
     if (!items.length){ grid.innerHTML = '<div class="empty" style="grid-column:1/-1">Aucun produit ne correspond.</div>'; return; }
     grid.innerHTML = items.map(function(p){
       var q2 = state.cart[p.id] || 0;
@@ -177,8 +182,9 @@ input:focus,textarea:focus{border-color:var(--green)}
       var action = !p.available ? '<button class="add" disabled>Épuisé</button>' :
         q2 ? '<div class="step"><button data-dec="' + p.id + '" aria-label="Un de moins">−</button><b>' + q2 + '</b><button data-inc="' + p.id + '" aria-label="Un de plus">+</button></div>' :
         '<button class="add" data-inc="' + p.id + '">Ajouter</button>';
-      return '<article class="card"><div class="ph">' + (p.imageFileId ? '<img loading="lazy" alt="" src="/v1/files/' + esc(p.imageFileId) + '">' : initials(p.name)) + '</div>' +
-        '<div class="body"><div class="name">' + esc(p.name) + '</div><div class="price">' + money(p.price) + '<span class="hint">' + unit + '</span></div>' +
+      var hot = HOT.indexOf(p.id) >= 0;
+      return '<article class="card' + (hot ? ' hot' : '') + '"><div class="ph">' + (p.imageFileId ? '<img loading="lazy" alt="" src="/v1/files/' + esc(p.imageFileId) + '">' : initials(p.name)) + '</div>' +
+        '<div class="body">' + (hot ? '<span class="tag">En vedette</span>' : '') + '<div class="name">' + esc(p.name) + '</div><div class="price">' + money(p.price) + '<span class="hint">' + unit + '</span></div>' +
         (p.wholesalePrice != null ? '<div class="hint">' + money(p.wholesalePrice) + ' dès ' + p.wholesaleMinQty + '</div>' : '') +
         (!p.available ? '<div class="out">Rupture de stock</div>' : '') + action + '</div></article>';
     }).join('');
@@ -208,14 +214,14 @@ input:focus,textarea:focus{border-color:var(--green)}
         '<div class="modes">' + (s.delivery ? '<button class="mode' + (state.mode==='delivery'?' on':'') + '" data-mode="delivery"><b>🛵 Livraison</b><span>' + (s.deliveryFee ? money(s.deliveryFee) : 'Offerte') + '</span></button>' : '') +
         (s.pickup ? '<button class="mode' + (state.mode==='pickup'?' on':'') + '" data-mode="pickup"><b>🏬 Retrait</b><span>En boutique</span></button>' : '') + '</div>' +
         '<label for="n">Votre nom</label><input id="n" autocomplete="name" value="' + esc(saved.name||'') + '">' +
-        '<label for="t">Téléphone</label><input id="t" type="tel" autocomplete="tel" inputmode="tel" placeholder="77 123 45 67" value="' + esc(saved.phone||'') + '">' +
+        '<label for="t">Téléphone</label><input id="t" type="tel" autocomplete="tel" inputmode="tel" placeholder="' + esc(s.phoneExample || '77 123 45 67') + '" value="' + esc(saved.phone||'') + '">' +
         (state.mode === 'delivery' ? '<label for="a">Adresse de livraison</label><textarea id="a" rows="2" placeholder="Quartier, rue, repère">' + esc(saved.address||'') + '</textarea>' : '') +
         '<label for="m">Note (facultatif)</label><input id="m" placeholder="Couleur, taille, heure de passage…">' +
         '<div class="box"><div class="row"><span>Articles</span><b>' + money(sub) + '</b></div>' + (fee ? '<div class="row"><span>Livraison</span><b>' + money(fee) + '</b></div>' : '') +
         '<div class="total"><span>Total</span><span>' + money(sub + fee) + '</span></div></div>' +
         (s.minOrder && sub < s.minOrder ? '<div class="err">Commande minimum : ' + money(s.minOrder) + '</div>' : '') +
         '<div class="err" id="e"></div><button class="cta" id="go"' + (s.minOrder && sub < s.minOrder ? ' disabled' : '') + '>Envoyer la commande · ' + money(sub + fee) + '</button>' +
-        '<button class="ghost" id="close">Continuer mes achats</button><p class="hint" style="text-align:center">Vous payez à la livraison ou au retrait (espèces, Wave, Orange Money).</p></div>';
+        '<button class="ghost" id="close">Continuer mes achats</button><p class="hint" style="text-align:center">Vous payez à la livraison ou au retrait (' + esc(s.payHint || 'espèces, Wave, Orange Money') + ').</p></div>';
       Array.prototype.forEach.call(sheet.querySelectorAll('[data-inc]'), function(b){ b.addEventListener('click', function(){ var id=b.getAttribute('data-inc'); setQty(id,(state.cart[id]||0)+1); keep(); draw(); }); });
       Array.prototype.forEach.call(sheet.querySelectorAll('[data-dec]'), function(b){ b.addEventListener('click', function(){ var id=b.getAttribute('data-dec'); setQty(id,(state.cart[id]||0)-1); keep(); draw(); }); });
       Array.prototype.forEach.call(sheet.querySelectorAll('[data-mode]'), function(b){ b.addEventListener('click', function(){ keep(); state.mode=b.getAttribute('data-mode'); draw(); }); });

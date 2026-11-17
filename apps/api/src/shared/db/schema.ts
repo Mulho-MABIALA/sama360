@@ -316,7 +316,7 @@ export const saleItems = salesSchema.table('sale_items', {
   trackStock: boolean('track_stock').notNull().default(false),
 });
 
-export type PaymentMethod = 'cash' | 'wave' | 'orange_money' | 'free_money' | 'card';
+export type PaymentMethod = 'cash' | 'wave' | 'orange_money' | 'free_money' | 'mtn_momo' | 'moov_money' | 'airtel_money' | 'card';
 
 export const salePayments = salesSchema.table('sale_payments', {
   id: uuid('id').primaryKey(),

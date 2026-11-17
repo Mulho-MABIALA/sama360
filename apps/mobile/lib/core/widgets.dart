@@ -1,6 +1,9 @@
+import 'dart:math' as math;
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
+import 'countries.dart';
 import 'format.dart';
 import 'providers.dart';
 import 'skeleton.dart';
@@ -290,5 +293,118 @@ class ConfirmButton extends StatelessWidget {
     ),
     onPressed: onPressed,
     child: Text(label),
+  );
+}
+
+/// Petit drapeau dessiné (les émojis drapeaux ne s'affichent pas partout).
+class CountryFlag extends StatelessWidget {
+  const CountryFlag(this.country, {super.key, this.width = 22});
+  final Country country;
+  final double width;
+
+  @override
+  Widget build(BuildContext context) => ClipRRect(
+    borderRadius: BorderRadius.circular(3),
+    child: CustomPaint(size: Size(width, width * 2 / 3), painter: _FlagPainter(country)),
+  );
+}
+
+class _FlagPainter extends CustomPainter {
+  _FlagPainter(this.country);
+  final Country country;
+
+  @override
+  void paint(Canvas canvas, Size s) {
+    final p = Paint();
+    void band(int i, int n, Color c) =>
+        canvas.drawRect(Rect.fromLTWH(s.width * i / n, 0, s.width / n, s.height), p..color = c);
+    switch (country) {
+      case Country.sn:
+        band(0, 3, const Color(0xFF00853F));
+        band(1, 3, const Color(0xFFFDEF42));
+        band(2, 3, const Color(0xFFE31B23));
+        final c = Offset(s.width / 2, s.height / 2);
+        final r = s.height * 0.2;
+        final star = Path();
+        for (var k = 0; k < 10; k++) {
+          final rad = k.isEven ? r : r * 0.42;
+          final a = -math.pi / 2 + k * math.pi / 5;
+          final pt = c + Offset(math.cos(a) * rad, math.sin(a) * rad);
+          k == 0 ? star.moveTo(pt.dx, pt.dy) : star.lineTo(pt.dx, pt.dy);
+        }
+        canvas.drawPath(star..close(), p..color = const Color(0xFF00853F));
+      case Country.ci:
+        band(0, 3, const Color(0xFFF77F00));
+        band(1, 3, Colors.white);
+        band(2, 3, const Color(0xFF009E60));
+      case Country.cg:
+        canvas.drawRect(Offset.zero & s, p..color = const Color(0xFFFBDE4A));
+        canvas.drawPath(
+          Path()
+            ..moveTo(0, 0)
+            ..lineTo(s.width * 0.68, 0)
+            ..lineTo(0, s.height)
+            ..close(),
+          p..color = const Color(0xFF009543),
+        );
+        canvas.drawPath(
+          Path()
+            ..moveTo(s.width, s.height)
+            ..lineTo(s.width * 0.32, s.height)
+            ..lineTo(s.width, 0)
+            ..close(),
+          p..color = const Color(0xFFDC241F),
+        );
+    }
+  }
+
+  @override
+  bool shouldRepaint(_FlagPainter old) => old.country != country;
+}
+
+/// Choix du pays : Sénégal, Côte d'Ivoire, Congo.
+class CountryPills extends StatelessWidget {
+  const CountryPills({super.key, required this.value, required this.onChanged});
+  final Country value;
+  final ValueChanged<Country> onChanged;
+
+  @override
+  Widget build(BuildContext context) => Wrap(
+    spacing: 8,
+    runSpacing: 8,
+    children: [
+      for (final c in Country.values)
+        Semantics(
+          button: true,
+          selected: value == c,
+          child: Material(
+            key: Key('country_${c.code}'),
+            color: value == c ? AppColors.ink : AppColors.surface(0.72),
+            shape: StadiumBorder(side: BorderSide(color: value == c ? AppColors.ink : AppColors.glassLine, width: 1.2)),
+            child: InkWell(
+              customBorder: const StadiumBorder(),
+              onTap: () => onChanged(c),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(10, 8, 14, 8),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    CountryFlag(c),
+                    const SizedBox(width: 8),
+                    Text(
+                      c.name,
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: value == c ? FontWeight.w700 : FontWeight.w600,
+                        color: value == c ? AppColors.ground : AppColors.ink,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+    ],
   );
 }

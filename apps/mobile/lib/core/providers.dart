@@ -34,6 +34,20 @@ final currentBusinessProvider = FutureProvider<CurrentBusiness>((ref) {
   return ref.watch(repoProvider).currentBusiness();
 });
 
+/// Pays choisi à la connexion (avant d'avoir une entreprise).
+class LoginCountry extends Notifier<Country> {
+  @override
+  Country build() => Country.sn;
+  void set(Country c) => state = c;
+}
+
+final loginCountryProvider = NotifierProvider<LoginCountry, Country>(LoginCountry.new);
+
+/// Pays de travail : celui de l'entreprise, sinon celui choisi à la connexion.
+final countryProvider = Provider<Country>(
+  (ref) => ref.watch(currentBusinessProvider).value?.country ?? ref.watch(loginCountryProvider),
+);
+
 /// Vrai si l'utilisateur a la permission dans l'entreprise courante (faux tant que c'est inconnu).
 final canProvider = Provider.family<bool, String>((ref, permission) {
   final b = ref.watch(currentBusinessProvider).value;

@@ -1,3 +1,4 @@
+import { countryOf } from '../countries';
 import { CanActivate, ExecutionContext, Injectable } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { hasPermission } from '@sama360/contracts';
@@ -41,7 +42,12 @@ export class TenantGuard implements CanActivate {
 
     const db = this.dbs.db;
     const [m] = await db
-      .select({ membershipId: memberships.id, roleKey: roles.key, permissions: roles.permissions })
+      .select({
+        membershipId: memberships.id,
+        roleKey: roles.key,
+        permissions: roles.permissions,
+        country: businesses.country,
+      })
       .from(memberships)
       .innerJoin(roles, eq(roles.id, memberships.roleId))
       .innerJoin(businesses, eq(businesses.id, memberships.businessId))
@@ -77,6 +83,7 @@ export class TenantGuard implements CanActivate {
       roleKey: m.roleKey,
       permissions: m.permissions,
       modules,
+      country: countryOf(m.country).code,
     };
     return true;
   }

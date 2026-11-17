@@ -3,6 +3,7 @@ import { sql } from 'drizzle-orm';
 import { DbService, Tx } from '../../shared/db/db.service';
 import { AppError } from '../../shared/http/app-error';
 import { newId } from '../../shared/ids';
+import { countryOf, tenantCountry } from '../../shared/countries';
 import { normalizePhone } from '../../shared/phone';
 import { readableOnWhite } from '../../shared/color';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -89,7 +90,7 @@ export class BookingService {
   private async openShop(slug: string) {
     const b = (
       await this.dbs.transaction((tx) =>
-        tx.execute(sql`SELECT id, name, phone, address, city, logo_file_id, brand_color FROM core.businesses
+        tx.execute(sql`SELECT id, name, phone, address, city, logo_file_id, brand_color, country FROM core.businesses
           WHERE slug = ${slug.toLowerCase()} AND deleted_at IS NULL`),
       )
     ).rows[0] as Row | undefined;
@@ -123,6 +124,7 @@ export class BookingService {
             address: [b.address, b.city].filter(Boolean).join(', ') || null,
             logoFileId: (b.logo_file_id as string) ?? null,
             brandColor: b.brand_color ? readableOnWhite(String(b.brand_color)) : null,
+            phoneExample: countryOf(b.country as string).example,
           },
           services: await this.servicesIn(tx),
           days: bookableDays(s),
@@ -170,7 +172,7 @@ export class BookingService {
   ) {
     return this.openShop(slug).then((b) =>
       this.dbs.withTenant(String(b.id), async (tx) => {
-        const phone = normalizePhone(input.phone);
+        const phone = normalizePhone(input.phone, countryOf(b.country as string).code);
         if (!phone) throw new AppError('PHONE_INVALID', 'Numéro de téléphone invalide', 422);
         const again = (await tx.execute(sql`SELECT * FROM sales.appointments WHERE id = ${input.id}`)).rows[0] as
           Row | undefined;
@@ -264,7 +266,7 @@ export class BookingService {
   }
 
   /** Client : fiche existante (nom et téléphone repris) ou client de passage (nom obligatoire). */
-  private async resolve(tx: Tx, input: Partial<AppointmentInput>) {
+  private async resolve(tx: Tx, businessId: string, input: Partial<AppointmentInput>) {
     const out: Record<string, unknown> = {};
     if (input.customerId !== undefined) {
       if (input.customerId) {
@@ -283,7 +285,9 @@ export class BookingService {
     }
     if (!out.customer_id && input.customerName !== undefined) out.customer_name = input.customerName;
     if (!out.customer_id && input.customerPhone !== undefined) {
-      out.customer_phone = input.customerPhone ? normalizePhone(input.customerPhone) : null;
+      out.customer_phone = input.customerPhone
+        ? normalizePhone(input.customerPhone, await tenantCountry(tx, businessId))
+        : null;
       if (input.customerPhone && !out.customer_phone) {
         throw new AppError('VALIDATION_FAILED', 'Numéro de téléphone invalide', 422);
       }
@@ -310,7 +314,7 @@ export class BookingService {
 
   create(businessId: string, userId: string, input: AppointmentInput) {
     return this.dbs.withTenant(businessId, async (tx) => {
-      const v = await this.resolve(tx, input);
+      const v = await this.resolve(tx, businessId, input);
       if (!v.customer_name) throw new AppError('VALIDATION_FAILED', 'Indiquez le nom du client', 422);
       if (!v.service_name) throw new AppError('VALIDATION_FAILED', 'Indiquez la prestation', 422);
       const id = newId();
@@ -328,7 +332,7 @@ export class BookingService {
     return this.dbs.withTenant(businessId, async (tx) => {
       const cur = (await tx.execute(sql`SELECT id FROM sales.appointments WHERE id = ${id} FOR UPDATE`)).rows[0];
       if (!cur) throw AppError.notFound('Rendez-vous');
-      const v = await this.resolve(tx, input);
+      const v = await this.resolve(tx, businessId, input);
       if (input.startsAt !== undefined) v.starts_at = input.startsAt;
       if (input.durationMinutes !== undefined) v.duration_minutes = input.durationMinutes;
       if (input.note !== undefined) v.note = input.note;

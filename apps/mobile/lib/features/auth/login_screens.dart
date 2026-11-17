@@ -8,6 +8,7 @@ import 'package:material_ui/material_ui.dart';
 import '../../core/api/api_client.dart';
 import '../../core/format.dart';
 import '../../core/glass.dart';
+import '../../core/providers.dart';
 import '../../core/theme.dart';
 import '../../core/widgets.dart';
 import 'auth_controller.dart';
@@ -31,9 +32,11 @@ class _PhoneScreenState extends ConsumerState<PhoneScreen> {
   }
 
   Future<void> _submit() async {
-    final phone = senegalPhone(_phone.text);
+    final country = ref.read(loginCountryProvider);
+    final phone = localPhone(_phone.text, country);
     if (phone == null) {
-      setState(() => _error = 'Numéro invalide : 9 chiffres, ex. 77 123 45 67');
+      final n = country.groups.fold(0, (a, b) => a + b);
+      setState(() => _error = 'Numéro invalide : $n chiffres, ex. ${country.example}');
       return;
     }
     setState(() {
@@ -100,7 +103,15 @@ class _PhoneScreenState extends ConsumerState<PhoneScreen> {
                     ),
                     const SizedBox(height: 6),
                     Text('Nous vous envoyons un code de connexion par SMS.', style: TextStyle(color: AppColors.muted)),
-                    const SizedBox(height: 20),
+                    const SizedBox(height: 16),
+                    CountryPills(
+                      value: ref.watch(loginCountryProvider),
+                      onChanged: (c) => setState(() {
+                        ref.read(loginCountryProvider.notifier).set(c);
+                        _error = null;
+                      }),
+                    ),
+                    const SizedBox(height: 14),
                     TextField(
                       key: const Key('phone'),
                       controller: _phone,
@@ -113,8 +124,8 @@ class _PhoneScreenState extends ConsumerState<PhoneScreen> {
                       style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700, letterSpacing: 0.5),
                       decoration: InputDecoration(
                         labelText: 'Numéro',
-                        hintText: '77 123 45 67',
-                        prefixText: '+221  ',
+                        hintText: ref.watch(loginCountryProvider).example,
+                        prefixText: '+${ref.watch(loginCountryProvider).dial}  ',
                         errorText: _error,
                         errorMaxLines: 3,
                       ),
@@ -212,7 +223,7 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
           children: [
             const Text('Code de connexion', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800)),
             const SizedBox(height: 6),
-            Text('Envoyé au +221 ${displayPhone(widget.phone)}', style: TextStyle(color: AppColors.muted)),
+            Text('Envoyé au ${intlPhone(widget.phone)}', style: TextStyle(color: AppColors.muted)),
             const SizedBox(height: 24),
             TextField(
               key: const Key('code'),

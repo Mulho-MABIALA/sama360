@@ -96,6 +96,7 @@ void main() {
       'category': 'salon',
       'city': 'Dakar',
       'focus': 'both',
+      'country': 'SN',
     });
   });
 }

@@ -49,11 +49,8 @@ String docText(DocDetail d, CurrentBusiness b) {
   return out.toString();
 }
 
-/// « +221 33 820 00 00 » pour un numéro sénégalais, sinon tel quel.
-String prettyPhone(String e164) {
-  final local = displayPhone(e164);
-  return local == e164 ? e164 : '+221 $local';
-}
+/// « +221 33 820 00 00 » pour un numéro de nos pays, sinon tel quel.
+String prettyPhone(String e164) => intlPhone(e164);
 
 String docFileName(DocDetail d) => '${d.isQuote ? 'Devis' : 'Facture'}-${d.number}.pdf';
 
@@ -83,7 +80,7 @@ Future<List<int>> buildDocumentPdf(DocDetail d, CurrentBusiness b, {ReceiptFonts
   final businessLines = [
     [b.address, b.city].whereType<String>().where((x) => x.isNotEmpty).join(', '),
     if (b.phone != null) 'Tél. ${b.phone}',
-    if (b.ninea != null) 'NINEA ${b.ninea}',
+    if (b.ninea != null) '${b.country.taxIdLabel} ${b.ninea}',
   ].where((x) => x.isNotEmpty);
 
   pw.ImageProvider? logoImage;

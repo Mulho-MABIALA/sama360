@@ -17,3 +17,27 @@ describe('normalizePhone', () => {
     expect(normalizePhone(input)).toBeNull();
   });
 });
+
+describe('normalizePhone par pays', () => {
+  it.each([
+    ['07 07 12 34 56', 'CI', '+2250707123456'],
+    ['0102030405', 'CI', '+2250102030405'],
+    ['27 22 44 55 66', 'CI', '+2252722445566'],
+    ['06 612 34 56', 'CG', '+242066123456'],
+    ['05 553 00 50', 'CG', '+242055530050'],
+    ['+221 77 123 45 67', 'CI', '+221771234567'],
+    ['77 123 45 67', 'SN', '+221771234567'],
+  ] as const)('%s (%s) → %s', (input, country, expected) => {
+    expect(normalizePhone(input, country)).toBe(expected);
+  });
+
+  it.each([
+    ['77 123 45 67', 'CI'], // numéro sénégalais sans indicatif en Côte d'Ivoire : ambigu
+    ['0907123456', 'CI'],
+    ['07 12 34 56', 'CI'], // ancien format à 8 chiffres
+    ['+225 77 123 45 67', 'SN'],
+    ['09 612 34 56', 'CG'],
+  ] as const)('rejette %s (%s)', (input, country) => {
+    expect(normalizePhone(input, country)).toBeNull();
+  });
+});

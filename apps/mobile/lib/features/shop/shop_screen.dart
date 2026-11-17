@@ -84,6 +84,29 @@ class _ShopScreenState extends ConsumerState<ShopScreen> {
     final orders = ref.watch(shopOrdersProvider(_filter));
     return [
       _LinkCard(overview: s),
+      const SizedBox(height: 10),
+      Glass(
+        key: const Key('open_status'),
+        radius: 18,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        onTap: () => context.push('/status'),
+        child: Row(
+          children: [
+            Icon(Icons.auto_awesome_rounded, color: AppColors.whatsapp),
+            const SizedBox(width: 10),
+            const Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Créer un statut WhatsApp', style: TextStyle(fontWeight: FontWeight.w800)),
+                  Text('Image prête avec photo, prix et lien de commande', style: TextStyle(fontSize: 12.5)),
+                ],
+              ),
+            ),
+            Icon(Icons.chevron_right_rounded, color: AppColors.muted),
+          ],
+        ),
+      ),
       const SizedBox(height: 12),
       Row(
         children: [

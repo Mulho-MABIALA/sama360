@@ -1,5 +1,7 @@
 import 'package:intl/intl.dart';
 
+import 'countries.dart';
+
 final _group = NumberFormat('#,##0', 'fr');
 
 /// 86500 → « 86 500 FCFA »
@@ -45,17 +47,57 @@ String shortDate(DateTime d) => _day.format(d.toLocal());
 String dateTime(DateTime d) => _dayTime.format(d.toLocal());
 String longDate(DateTime d) => _longDay.format(d.toLocal());
 
-/// Numéro sénégalais saisi sans indicatif → E.164. Renvoie null s'il est invalide.
-String? senegalPhone(String input) {
-  final digits = input.replaceAll(RegExp(r'\D'), '');
-  if (RegExp(r'^[37]\d{8}$').hasMatch(digits)) return '+221$digits';
-  if (RegExp(r'^221[37]\d{8}$').hasMatch(digits)) return '+$digits';
-  return null;
+/// Numéro saisi → E.164, d'après le pays de la boutique. Accepte aussi un numéro
+/// international (« +221 77… », « 00225… ») ; les numéros de nos pays sont vérifiés.
+/// Renvoie null s'il est invalide.
+String? localPhone(String input, Country country) {
+  final trimmed = input.trim();
+  var digits = trimmed.replaceAll(RegExp(r'\D'), '');
+  if (digits.isEmpty) return null;
+  if (trimmed.startsWith('+')) {
+    // déjà international
+  } else if (digits.startsWith('00')) {
+    digits = digits.substring(2);
+  } else if (country.localRe.hasMatch(digits)) {
+    digits = '${country.dial}$digits';
+  } else if (!(digits.startsWith(country.dial) && country.localRe.hasMatch(digits.substring(country.dial.length)))) {
+    return null;
+  }
+  if (digits.length < 8 || digits.length > 15) return null;
+  final known = Country.ofPhone(digits);
+  if (known != null && !known.localRe.hasMatch(digits.substring(known.dial.length))) return null;
+  return '+$digits';
 }
 
-/// +221771234567 → « 77 123 45 67 »
+/// « Numéro invalide : 10 chiffres, ex. 07 07 12 34 56 »
+String invalidPhone(Country c) => 'Numéro invalide : ${c.groups.fold(0, (a, b) => a + b)} chiffres, ex. ${c.example}';
+
+/// Numéro sénégalais saisi sans indicatif → E.164 (raccourci de [localPhone]).
+String? senegalPhone(String input) => localPhone(input, Country.sn);
+
+/// +221771234567 → « 77 123 45 67 » ; +2250707123456 → « 07 07 12 34 56 ».
+/// Un numéro d'un autre pays est rendu tel quel.
 String displayPhone(String e164) {
-  final m = RegExp(r'^\+221(\d{2})(\d{3})(\d{2})(\d{2})$').firstMatch(e164);
-  if (m == null) return e164;
-  return '${m[1]} ${m[2]} ${m[3]} ${m[4]}';
+  final c = Country.ofPhone(e164);
+  if (c == null || !e164.startsWith('+')) return e164;
+  final local = e164.substring(1 + c.dial.length);
+  if (!c.localRe.hasMatch(local)) return e164;
+  final parts = <String>[];
+  var at = 0;
+  for (final g in c.groups) {
+    parts.add(local.substring(at, at + g));
+    at += g;
+  }
+  return parts.join(' ');
 }
+
+/// « +221 77 123 45 67 » : indicatif et numéro lisible.
+String intlPhone(String e164) {
+  final c = Country.ofPhone(e164);
+  final local = displayPhone(e164);
+  return c == null || local == e164 ? e164 : '+${c.dial} $local';
+}
+
+/// Numéro à afficher dans un champ : local s'il est du pays de la boutique, sinon complet.
+String editablePhone(String e164, Country country) =>
+    Country.ofPhone(e164) == country ? displayPhone(e164) : intlPhone(e164);

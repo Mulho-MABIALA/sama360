@@ -133,7 +133,10 @@ Future<Contact?> createCustomerDialog(BuildContext context, WidgetRef ref, {Stri
               TextField(
                 controller: phone,
                 keyboardType: TextInputType.phone,
-                decoration: const InputDecoration(labelText: 'Téléphone (facultatif)', prefixText: '+221 '),
+                decoration: InputDecoration(
+                  labelText: 'Téléphone (facultatif)',
+                  prefixText: '+${ref.read(countryProvider).dial} ',
+                ),
               ),
             ],
           ),
@@ -145,9 +148,9 @@ Future<Contact?> createCustomerDialog(BuildContext context, WidgetRef ref, {Stri
                   ? null
                   : () async {
                       if (name.text.trim().isEmpty) return;
-                      final p = phone.text.trim().isEmpty ? null : senegalPhone(phone.text);
+                      final p = phone.text.trim().isEmpty ? null : localPhone(phone.text, ref.read(countryProvider));
                       if (phone.text.trim().isNotEmpty && p == null) {
-                        showInfo(ctx, 'Numéro invalide : 9 chiffres, ex. 77 123 45 67');
+                        showInfo(ctx, invalidPhone(ref.read(countryProvider)));
                         return;
                       }
                       setState(() => busy = true);

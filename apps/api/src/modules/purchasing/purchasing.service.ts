@@ -8,7 +8,7 @@ import { InventoryService } from '../inventory/inventory.service';
 import { fcfa } from '../sales/sales.service';
 
 export type PurchaseStatus = 'draft' | 'ordered' | 'partial' | 'received' | 'cancelled';
-export type PurchaseMethod = 'cash' | 'wave' | 'orange_money' | 'free_money' | 'card' | 'transfer' | 'cheque';
+export type PurchaseMethod = 'cash' | 'wave' | 'orange_money' | 'free_money' | 'mtn_momo' | 'moov_money' | 'airtel_money' | 'card' | 'transfer' | 'cheque';
 
 export interface PurchaseLineInput {
   productId: string;

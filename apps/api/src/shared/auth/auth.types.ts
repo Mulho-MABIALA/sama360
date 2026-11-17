@@ -1,3 +1,4 @@
+import { CountryCode } from '../countries';
 import type { Request } from 'express';
 
 export interface AuthUser {
@@ -10,6 +11,8 @@ export interface TenantContext {
   roleKey: string;
   permissions: string[];
   modules: string[];
+  /** Pays de l'entreprise (indicatif par défaut des numéros, moyens de paiement). */
+  country: CountryCode;
 }
 
 export interface AppRequest extends Request {

@@ -12,7 +12,7 @@ import { SalesService } from './sales.service';
 
 const amount = z.coerce.number().int().min(0).max(1_000_000_000_000);
 const positive = z.coerce.number().int().min(1).max(1_000_000_000_000);
-const method = z.enum(['cash', 'wave', 'orange_money', 'free_money', 'card']);
+const method = z.enum(['cash', 'wave', 'orange_money', 'free_money', 'mtn_momo', 'moov_money', 'airtel_money', 'card']);
 const day = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'format AAAA-MM-JJ');
 
 const CreateSale = z.object({

@@ -10,6 +10,7 @@ import { newId } from '../../shared/ids';
 import { FilesService } from '../files/files.service';
 import { SYSTEM_ROLE_IDS } from './roles';
 import { slugify } from './slug';
+import { COUNTRIES, CountryCode } from '../../shared/countries';
 
 export interface CreateBusinessInput {
   name: string;
@@ -19,6 +20,7 @@ export interface CreateBusinessInput {
   address?: string | null;
   ninea?: string | null;
   focus?: Focus | null;
+  country?: CountryCode;
 }
 
 export interface UpdateBusinessInput extends Partial<Omit<CreateBusinessInput, 'focus'>> {
@@ -57,6 +59,8 @@ export class BusinessesService {
           city: input.city ?? null,
           address: input.address ?? null,
           ninea: input.ninea ?? null,
+          country: input.country ?? 'SN',
+          currency: COUNTRIES[input.country ?? 'SN'].currency,
           settings: input.focus ? { focus: input.focus } : {},
         })
         .returning();
@@ -115,6 +119,7 @@ export class BusinessesService {
       .update(businesses)
       .set({
         ...columns,
+        ...(columns.country ? { currency: COUNTRIES[columns.country].currency } : {}),
         ...(Object.keys(patch).length
           ? { settings: sql`${businesses.settings} || ${JSON.stringify(patch)}::jsonb` }
           : {}),

@@ -5,12 +5,13 @@ import { DbService, Tx } from '../../shared/db/db.service';
 import { OutboxService } from '../../shared/events/outbox.service';
 import { AppError } from '../../shared/http/app-error';
 import { newId } from '../../shared/ids';
+import { COUNTRIES, CountryCode, countryOf, payHint, tenantCountry } from '../../shared/countries';
 import { normalizePhone } from '../../shared/phone';
 import { catalogUnitPrice } from '../sales/pricing';
 import { fcfa, SalesService } from '../sales/sales.service';
 
 export type ShopOrderStatus = 'new' | 'confirmed' | 'ready' | 'delivering' | 'completed' | 'cancelled';
-export type PayMethod = 'cash' | 'wave' | 'orange_money' | 'free_money' | 'card';
+export type PayMethod = 'cash' | 'wave' | 'orange_money' | 'free_money' | 'mtn_momo' | 'moov_money' | 'airtel_money' | 'card';
 
 /** Étapes possibles depuis chaque statut. */
 export const TRANSITIONS: Record<ShopOrderStatus, ShopOrderStatus[]> = {
@@ -94,11 +95,12 @@ export class ShopService {
     city: string | null;
     logoFileId: string | null;
     brandColor: string | null;
+    country: CountryCode;
   }> {
     const [b] = (
       await this.dbs.transaction((tx) =>
         tx.execute(sql`
-          SELECT id, name, phone, address, city, logo_file_id, brand_color FROM core.businesses
+          SELECT id, name, phone, address, city, logo_file_id, brand_color, country FROM core.businesses
           WHERE slug = ${slug.toLowerCase()} AND deleted_at IS NULL`),
       )
     ).rows as Row[];
@@ -111,6 +113,7 @@ export class ShopService {
       city: (b.city as string) ?? null,
       logoFileId: (b.logo_file_id as string) ?? null,
       brandColor: b.brand_color ? readableOnWhite(b.brand_color as string) : null,
+      country: countryOf(b.country as string).code,
     };
   }
 
@@ -151,6 +154,10 @@ export class ShopService {
           minOrder: settings.minOrder,
           // Réservation en ligne ouverte : lien « Prendre rendez-vous » sur la vitrine
           booking: booking?.online_enabled === true,
+          // Pays : exemple de numéro et moyens de paiement affichés sur la page
+          country: b.country,
+          phoneExample: COUNTRIES[b.country].example,
+          payHint: payHint(COUNTRIES[b.country]),
         },
         categories: categories.filter((c) => usedCategories.has(c.id)).map((c) => ({ id: c.id, name: c.name })),
         products: products.map((p) => {
@@ -177,7 +184,7 @@ export class ShopService {
   /** Commande d'un client sur la page publique. Idempotente sur l'identifiant envoyé par la page. */
   async place(slug: string, input: PlaceOrderInput) {
     const b = await this.resolve(slug);
-    const phone = normalizePhone(input.customerPhone);
+    const phone = normalizePhone(input.customerPhone, b.country);
     if (!phone) throw new AppError('PHONE_INVALID', 'Numéro de téléphone invalide', 422);
     return this.dbs.withTenant(b.id, async (tx) => {
       const existing = await this.findOrder(tx, input.id);
@@ -335,7 +342,7 @@ export class ShopService {
         ...(Object.fromEntries(Object.entries(input).filter(([, v]) => v !== undefined)) as Partial<typeof current>),
       };
       if (input.whatsapp !== undefined && input.whatsapp !== null && input.whatsapp !== '') {
-        const p = normalizePhone(input.whatsapp);
+        const p = normalizePhone(input.whatsapp, await tenantCountry(tx, businessId));
         if (!p) throw new AppError('PHONE_INVALID', 'Numéro WhatsApp invalide', 422);
         next.whatsapp = p;
       } else if (input.whatsapp === '') {

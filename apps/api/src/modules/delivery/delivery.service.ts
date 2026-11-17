@@ -3,6 +3,7 @@ import { sql } from 'drizzle-orm';
 import { DbService, Tx } from '../../shared/db/db.service';
 import { AppError } from '../../shared/http/app-error';
 import { newId } from '../../shared/ids';
+import { CountryCode, tenantCountry } from '../../shared/countries';
 import { normalizePhone } from '../../shared/phone';
 import { ShopService } from '../shop/shop.service';
 import { canMoveDelivery, DELIVERY_LABELS, DeliveryStatus } from './delivery';
@@ -55,9 +56,9 @@ export class DeliveryService {
     );
   }
 
-  private phone(v: string | null | undefined) {
+  private phone(v: string | null | undefined, country: CountryCode) {
     if (!v) return null;
-    const p = normalizePhone(v);
+    const p = normalizePhone(v, country);
     if (!p) throw new AppError('PHONE_INVALID', 'Numéro de téléphone invalide', 422);
     return p;
   }
@@ -66,7 +67,7 @@ export class DeliveryService {
     return this.dbs.withTenant(businessId, async (tx) => {
       const id = newId();
       await tx.execute(sql`INSERT INTO sales.couriers (id, business_id, name, phone, vehicle)
-        VALUES (${id}, ${businessId}, ${input.name}, ${this.phone(input.phone)}, ${input.vehicle ?? 'moto'})`);
+        VALUES (${id}, ${businessId}, ${input.name}, ${this.phone(input.phone, await tenantCountry(tx, businessId))}, ${input.vehicle ?? 'moto'})`);
       return this.courierDto((await tx.execute(sql`SELECT * FROM sales.couriers WHERE id = ${id}`)).rows[0] as Row);
     });
   }
@@ -77,7 +78,7 @@ export class DeliveryService {
       if (!cur) throw AppError.notFound('Livreur');
       await tx.execute(sql`UPDATE sales.couriers SET
         name = ${input.name ?? String(cur.name)},
-        phone = ${input.phone === undefined ? ((cur.phone as string) ?? null) : this.phone(input.phone)},
+        phone = ${input.phone === undefined ? ((cur.phone as string) ?? null) : this.phone(input.phone, await tenantCountry(tx, businessId))},
         vehicle = ${input.vehicle ?? String(cur.vehicle)},
         active = ${input.active ?? cur.active === true}
         WHERE id = ${id}`);
@@ -214,7 +215,7 @@ export class DeliveryService {
       await tx.execute(sql`
         INSERT INTO sales.deliveries (id, business_id, order_id, customer_name, customer_phone, address, note, courier_id,
           fee, amount_to_collect, status, assigned_at, created_by)
-        VALUES (${id}, ${businessId}, ${input.orderId ?? null}, ${v.customerName.trim()}, ${this.phone(v.customerPhone)},
+        VALUES (${id}, ${businessId}, ${input.orderId ?? null}, ${v.customerName.trim()}, ${this.phone(v.customerPhone, await tenantCountry(tx, businessId))},
           ${v.address.trim()}, ${v.note ?? null}, ${input.courierId ?? null}, ${v.fee ?? 0}, ${v.amountToCollect ?? 0},
           ${input.courierId ? 'assigned' : 'pending'}, ${input.courierId ? sql`now()` : null}, ${userId})`);
       return this.dto(await this.find(tx, id));

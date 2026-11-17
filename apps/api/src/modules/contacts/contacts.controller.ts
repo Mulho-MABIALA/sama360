@@ -10,6 +10,7 @@ import { hasPermission } from '@sama360/contracts';
 import { AppError } from '../../shared/http/app-error';
 import { PageQuery, parse } from '../../shared/http/zod';
 import { newId } from '../../shared/ids';
+import { CountryCode } from '../../shared/countries';
 import { normalizePhone } from '../../shared/phone';
 
 const ContactInput = z.object({
@@ -36,9 +37,9 @@ function assertCanSetLimit(t: TenantContext, input: { creditLimit?: number | nul
   }
 }
 
-function cleanPhone(phone: string | null | undefined): string | null | undefined {
+function cleanPhone(phone: string | null | undefined, country: CountryCode): string | null | undefined {
   if (phone === undefined || phone === null || phone === '') return phone === '' ? null : phone;
-  const normalized = normalizePhone(phone);
+  const normalized = normalizePhone(phone, country);
   if (!normalized) throw new AppError('PHONE_INVALID', 'Numéro de téléphone invalide', 422);
   return normalized;
 }
@@ -79,7 +80,7 @@ export class ContactsController {
   create(@CurrentTenant() t: TenantContext, @CurrentUser() user: AuthUser, @Body() body: unknown) {
     const input = parse(ContactInput, body);
     assertCanSetLimit(t, input);
-    const phone = cleanPhone(input.phone) ?? null;
+    const phone = cleanPhone(input.phone, t.country) ?? null;
     return this.dbs.withTenant(t.businessId, async (tx) => {
       const [contact] = await tx
         .insert(contacts)
@@ -115,7 +116,7 @@ export class ContactsController {
   update(@CurrentTenant() t: TenantContext, @Param('id', ParseUUIDPipe) id: string, @Body() body: unknown) {
     const input = parse(ContactInput.partial(), body);
     assertCanSetLimit(t, input);
-    const phone = cleanPhone(input.phone);
+    const phone = cleanPhone(input.phone, t.country);
     return this.dbs.withTenant(t.businessId, async (tx) => {
       const [current] = await tx
         .select({ version: contacts.version })

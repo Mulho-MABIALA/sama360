@@ -53,7 +53,7 @@ const SetStatus = z.object({
   status: z.enum(['confirmed', 'ready', 'delivering', 'completed', 'cancelled']),
   reason: z.string().trim().max(300).nullish(),
   payment: z
-    .object({ method: z.enum(['cash', 'wave', 'orange_money', 'free_money', 'card']), amount: money })
+    .object({ method: z.enum(['cash', 'wave', 'orange_money', 'free_money', 'mtn_momo', 'moov_money', 'airtel_money', 'card']), amount: money })
     .nullish(),
 });
 

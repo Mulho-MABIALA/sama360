@@ -60,7 +60,7 @@ class _CustomerEditorScreenState extends ConsumerState<CustomerEditorScreen> {
           _balance = o.balance;
         }
         _name.text = c.name;
-        _phone.text = c.phone == null ? '' : displayPhone(c.phone!);
+        _phone.text = c.phone == null ? '' : editablePhone(c.phone!, ref.read(countryProvider));
         _email.text = c.email ?? '';
         _address.text = c.address ?? '';
         _notes.text = c.notes ?? '';
@@ -95,8 +95,8 @@ class _CustomerEditorScreenState extends ConsumerState<CustomerEditorScreen> {
     _errors.clear();
     final name = _name.text.trim();
     if (name.isEmpty) _errors['name'] = _supplier ? 'Indiquez le nom du fournisseur' : 'Indiquez le nom du client';
-    final phone = _phone.text.trim().isEmpty ? null : senegalPhone(_phone.text);
-    if (_phone.text.trim().isNotEmpty && phone == null) _errors['phone'] = '9 chiffres, ex. 77 123 45 67';
+    final phone = _phone.text.trim().isEmpty ? null : localPhone(_phone.text, ref.read(countryProvider));
+    if (_phone.text.trim().isNotEmpty && phone == null) _errors['phone'] = invalidPhone(ref.read(countryProvider));
     final email = _clean(_email);
     if (email != null && !RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(email)) {
       _errors['email'] = 'Adresse e-mail invalide';
@@ -225,7 +225,7 @@ class _CustomerEditorScreenState extends ConsumerState<CustomerEditorScreen> {
                             keyboardType: TextInputType.phone,
                             decoration: InputDecoration(
                               labelText: 'Téléphone',
-                              prefixText: '+221 ',
+                              prefixText: '+${ref.watch(countryProvider).dial} ',
                               helperText: _supplier
                                   ? 'Pour lui envoyer vos bons de commande'
                                   : 'Pour les rappels WhatsApp et SMS',

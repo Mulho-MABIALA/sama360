@@ -174,9 +174,7 @@ class _DocumentEditorScreenState extends ConsumerState<DocumentEditorScreen> {
                                 contentPadding: EdgeInsets.zero,
                                 leading: Avatar(name: _customer!.name, bg: AppColors.greenSoft, fg: AppColors.green),
                                 title: Text(_customer!.name, style: const TextStyle(fontWeight: FontWeight.w800)),
-                                subtitle: _customer!.phone == null
-                                    ? null
-                                    : Text('+221 ${displayPhone(_customer!.phone!)}'),
+                                subtitle: _customer!.phone == null ? null : Text(intlPhone(_customer!.phone!)),
                                 trailing: TextButton(onPressed: _pickCustomer, child: const Text('Changer')),
                               ),
                       ),
