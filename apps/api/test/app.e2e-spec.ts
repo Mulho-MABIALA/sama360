@@ -2594,6 +2594,114 @@ describe('Socle Sama360 (e2e)', () => {
     });
   });
 
+  describe('Documents', () => {
+    const A = () => auth(awa.accessToken, awaBiz);
+    const png = Buffer.from(
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
+      'base64',
+    );
+    const pdf = Buffer.from('%PDF-1.4\n1 0 obj << /Type /Catalog >> endobj\ntrailer << >>\n%%EOF\n');
+    const inDays = (n: number) => new Date(Date.now() + n * 86_400_000).toISOString().slice(0, 10);
+    let bail: string;
+
+    it('ajout d’un PDF avec échéance, liste par catégorie, recherche', async () => {
+      const r = await http
+        .post('/v1/documents')
+        .set(A())
+        .field('title', 'Bail boutique Sandaga')
+        .field('category', 'contract')
+        .field('note', 'Loyer payé le 5 du mois')
+        .field('expiresOn', inDays(10))
+        .attach('file', pdf, { filename: 'bail.pdf' })
+        .expect(201);
+      bail = r.body.id;
+      expect(r.body).toMatchObject({
+        title: 'Bail boutique Sandaga',
+        category: 'contract',
+        mime: 'application/pdf',
+        expiresInDays: 10,
+        expiry: 'soon',
+        createdByName: 'Awa Diallo',
+      });
+      expect(r.body.fileId).toBeUndefined();
+
+      await http
+        .post('/v1/documents')
+        .set(A())
+        .field('title', 'NINEA')
+        .field('category', 'admin')
+        .field('expiresOn', '')
+        .attach('file', png, { filename: 'ninea.png' })
+        .expect(201);
+
+      const list = (await http.get('/v1/documents').set(A()).expect(200)).body;
+      expect(list.total).toBe(2);
+      expect(list.counts).toEqual({ contract: 1, admin: 1 });
+      expect(list.attention).toBe(1);
+      const contracts = (await http.get('/v1/documents?category=contract').set(A()).expect(200)).body;
+      expect(contracts.items.map((d: { title: string }) => d.title)).toEqual(['Bail boutique Sandaga']);
+      const found = (await http.get('/v1/documents?search=loyer').set(A()).expect(200)).body;
+      expect(found.items).toHaveLength(1);
+    });
+
+    it('fichier réservé aux membres autorisés, jamais public', async () => {
+      const f = await http.get(`/v1/documents/${bail}/file`).set(A()).expect(200);
+      expect(f.headers['content-type']).toBe('application/pdf');
+      expect(f.headers['cache-control']).toBe('private, no-store');
+      expect(f.headers['content-disposition']).toBe('inline; filename="Bail boutique Sandaga.pdf"');
+
+      // Vendeur : pas d'accès ; autre commerçant : rien
+      await http.get('/v1/documents').set(auth(modouToken, awaBiz)).expect(403);
+      await http.get(`/v1/documents/${bail}/file`).set(auth(modouToken, awaBiz)).expect(403);
+      await http.get(`/v1/documents/${bail}`).set(auth(moussa.accessToken, moussaBiz)).expect(404);
+    });
+
+    it('formats refusés, modification, alerte d’échéance, suppression', async () => {
+      const bad = await http
+        .post('/v1/documents')
+        .set(A())
+        .field('title', 'Texte')
+        .field('category', 'other')
+        .attach('file', Buffer.from('juste du texte'), { filename: 'a.txt' })
+        .expect(422);
+      expect(bad.body.error.message).toBe('Format non accepté : photo (JPEG, PNG, WebP) ou PDF');
+      await http.post('/v1/documents').set(A()).field('title', 'Sans fichier').field('category', 'other').expect(422);
+      await http
+        .post('/v1/documents')
+        .set(A())
+        .field('title', 'X')
+        .field('category', 'inconnu')
+        .attach('file', pdf, { filename: 'x.pdf' })
+        .expect(422);
+
+      const up = await http
+        .patch(`/v1/documents/${bail}`)
+        .set(A())
+        .send({ title: 'Bail 2026', expiresOn: inDays(5) })
+        .expect(200);
+      expect(up.body).toMatchObject({ title: 'Bail 2026', expiresInDays: 5, note: 'Loyer payé le 5 du mois' });
+
+      const notifs = (await http.get('/v1/notifications').set(A()).expect(200)).body.items as {
+        kind: string;
+        title: string;
+        link: string;
+      }[];
+      expect(notifs).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            kind: 'document_expiring',
+            title: 'Bail 2026 : échéance bientôt',
+            link: `/documents/${bail}`,
+          }),
+        ]),
+      );
+
+      await http.delete(`/v1/documents/${bail}`).set(A()).expect(204);
+      await http.get(`/v1/documents/${bail}`).set(A()).expect(404);
+      await http.get(`/v1/documents/${bail}/file`).set(A()).expect(404);
+    });
+  });
+
   describe('Sessions', () => {
     it('déconnecte tous les appareils', async () => {
       // Session du caissier (les codes de connexion sont limités par minute : on réutilise sa session)

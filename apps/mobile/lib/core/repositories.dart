@@ -631,6 +631,67 @@ class SamaRepository {
     await _cachedGet<Map<String, dynamic>>('/v1/reports/overview', query: {'from': _day(from), 'to': _day(to)}),
   );
 
+  // ---------- Documents ----------
+  Future<DocumentList> storedDocuments({DocCategory? category, String? search}) async => DocumentList.fromJson(
+    await _cachedGet<Map<String, dynamic>>(
+      '/v1/documents',
+      query: {'category': category?.key, if (search != null && search.isNotEmpty) 'search': search},
+    ),
+  );
+
+  Future<BusinessDocument> storedDocument(String id) async =>
+      BusinessDocument.fromJson(await _cachedGet<Map<String, dynamic>>('/v1/documents/$id'));
+
+  Future<BusinessDocument> uploadStoredDocument({
+    required List<int> bytes,
+    required String filename,
+    required String title,
+    required DocCategory category,
+    String? note,
+    DateTime? expiresOn,
+  }) async => BusinessDocument.fromJson(
+    await api.upload<Map<String, dynamic>>(
+      '/v1/documents',
+      bytes,
+      filename: filename,
+      fields: {
+        'title': title,
+        'category': category.key,
+        'note': note ?? '',
+        'expiresOn': expiresOn == null ? '' : _day(expiresOn),
+      },
+    ),
+  );
+
+  Future<BusinessDocument> updateStoredDocument(
+    String id, {
+    required String title,
+    required DocCategory category,
+    String? note,
+    DateTime? expiresOn,
+  }) async => BusinessDocument.fromJson(
+    await api.patch<Map<String, dynamic>>(
+      '/v1/documents/$id',
+      data: {
+        'title': title,
+        'category': category.key,
+        'note': (note ?? '').trim().isEmpty ? null : note!.trim(),
+        'expiresOn': expiresOn == null ? null : _day(expiresOn),
+      },
+    ),
+  );
+
+  Future<void> deleteStoredDocument(String id) => api.delete<void>('/v1/documents/$id');
+
+  /// Le fichier (réservé aux membres autorisés : jamais par l'adresse publique).
+  Future<List<int>> storedDocumentBytes(String id) async {
+    final r = await api.dio.get<List<int>>(
+      '/v1/documents/$id/file',
+      options: Options(responseType: ResponseType.bytes),
+    );
+    return r.data ?? const [];
+  }
+
   // ---------- Analyses ----------
   Future<Insights> insights(int days) async =>
       Insights.fromJson(await _cachedGet<Map<String, dynamic>>('/v1/reports/insights', query: {'days': '$days'}));

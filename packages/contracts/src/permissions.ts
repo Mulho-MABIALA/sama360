@@ -37,6 +37,8 @@ export const PERMISSIONS = [
   'payments:read',
   'payments:collect',
   'reports:read',
+  'documents:read',
+  'documents:write',
   'subscription:manage',
 ] as const;
 export type Permission = (typeof PERMISSIONS)[number];

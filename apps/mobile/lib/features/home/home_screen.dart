@@ -57,7 +57,7 @@ const _moreServices = [
   _purchasesService,
   _paymentsService,
   _shopService,
-  _Service('Documents', Icons.folder_rounded, Color(0xFF6B7280), soon: true),
+  _Service('Documents', Icons.folder_rounded, Color(0xFF6B7280), route: '/documents'),
   _Service('Livraison', Icons.local_shipping_rounded, Color(0xFFD9822B), soon: true),
   _Service('Réservation', Icons.event_available_rounded, Color(0xFF2F6FDB), soon: true),
   _Service('Assistant IA', Icons.auto_awesome_rounded, Color(0xFF7A5AF8), soon: true),
@@ -90,6 +90,8 @@ class HomeScreen extends ConsumerWidget {
     void open(_Service s) {
       if (s.soon) {
         showInfo(context, '${s.name} arrive bientôt sur Sama360');
+      } else if (s.route == '/documents' && !ref.can('documents:read')) {
+        showInfo(context, 'Documents : réservé au propriétaire, au gérant et au comptable');
       } else if (s.route == 'expense') {
         _addExpense(context, ref);
       } else if (tabRoutes.contains(s.route)) {

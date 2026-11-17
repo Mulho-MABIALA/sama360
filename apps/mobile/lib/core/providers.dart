@@ -315,3 +315,24 @@ final mustOpenCashProvider = Provider<bool>((ref) {
   if (!required) return false;
   return ref.watch(cashCurrentProvider).maybeWhen(data: (s) => s == null, orElse: () => false);
 });
+
+/// Documents de la boutique (filtre par catégorie et recherche).
+final storedDocumentsProvider = FutureProvider.family<DocumentList, ({DocCategory? category, String search})>((ref, q) {
+  ref.watch(businessIdProvider);
+  return ref.watch(repoProvider).storedDocuments(category: q.category, search: q.search);
+});
+
+final storedDocumentProvider = FutureProvider.family<BusinessDocument, String>((ref, id) {
+  ref.watch(businessIdProvider);
+  return ref.watch(repoProvider).storedDocument(id);
+});
+
+/// Octets d'un document, gardés en mémoire le temps de l'écran.
+final storedDocumentBytesProvider = FutureProvider.autoDispose.family<List<int>, String>((ref, id) {
+  return ref.watch(repoProvider).storedDocumentBytes(id);
+});
+
+void refreshStoredDocuments(WidgetRef ref) {
+  ref.invalidate(storedDocumentsProvider);
+  ref.invalidate(storedDocumentProvider);
+}

@@ -2658,3 +2658,85 @@ class WeeklyReport {
     text: j['text'] as String,
   );
 }
+
+// ---------- Documents ----------
+
+enum DocCategory {
+  admin('admin', 'Administratif', 'Registre, NINEA, autorisations'),
+  supplierInvoice('supplier_invoice', 'Factures fournisseurs', 'Achats, marchandises'),
+  contract('contract', 'Contrats', 'Bail, assurance, accords'),
+  delivery('delivery', 'Livraisons', 'Bons de livraison'),
+  receipt('receipt', 'Reçus', 'Électricité, eau, taxes'),
+  other('other', 'Autres', 'Tout le reste');
+
+  const DocCategory(this.key, this.label, this.hint);
+  final String key;
+  final String label;
+  final String hint;
+
+  static DocCategory of(String key) => values.firstWhere((c) => c.key == key, orElse: () => other);
+}
+
+class BusinessDocument {
+  const BusinessDocument({
+    required this.id,
+    required this.title,
+    required this.category,
+    this.note,
+    this.expiresOn,
+    this.expiresInDays,
+    this.expiry,
+    required this.mime,
+    required this.size,
+    required this.createdAt,
+    this.createdByName,
+  });
+  final String id;
+  final String title;
+  final DocCategory category;
+  final String? note;
+  final DateTime? expiresOn;
+  final int? expiresInDays;
+
+  /// « expired », « soon » (≤ 30 jours) ou null.
+  final String? expiry;
+  final String mime;
+  final int size;
+  final DateTime createdAt;
+  final String? createdByName;
+
+  bool get isPdf => mime == 'application/pdf';
+
+  factory BusinessDocument.fromJson(Map<String, dynamic> j) => BusinessDocument(
+    id: j['id'] as String,
+    title: j['title'] as String,
+    category: DocCategory.of(j['category'] as String),
+    note: j['note'] as String?,
+    expiresOn: j['expiresOn'] == null ? null : DateTime.parse(j['expiresOn'] as String),
+    expiresInDays: (j['expiresInDays'] as num?)?.toInt(),
+    expiry: j['expiry'] as String?,
+    mime: j['mime'] as String,
+    size: _int(j['size']),
+    createdAt: DateTime.parse(j['createdAt'] as String),
+    createdByName: j['createdByName'] as String?,
+  );
+}
+
+class DocumentList {
+  const DocumentList({required this.items, required this.counts, required this.total, required this.attention});
+  final List<BusinessDocument> items;
+  final Map<DocCategory, int> counts;
+  final int total;
+
+  /// Échéances dépassées ou dans les 30 jours.
+  final int attention;
+
+  factory DocumentList.fromJson(Map<String, dynamic> j) => DocumentList(
+    items: [for (final d in (j['items'] as List).cast<Map<String, dynamic>>()) BusinessDocument.fromJson(d)],
+    counts: {
+      for (final e in ((j['counts'] as Map?) ?? const {}).entries) DocCategory.of(e.key as String): _int(e.value),
+    },
+    total: _int(j['total']),
+    attention: _int(j['attention']),
+  );
+}

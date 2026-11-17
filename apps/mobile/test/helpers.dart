@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/services.dart';
@@ -33,6 +34,12 @@ const demoBusiness = CurrentBusiness(
   permissions: ['*'],
   modules: ['sales', 'inventory'],
 );
+
+/// Image PNG de 1 × 1 pixel (aperçus de photos dans les tests).
+final tinyPng = base64Decode(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
+);
+
 const demoMe = Me(
   id: 'u1',
   phone: '+221771234567',
@@ -1295,6 +1302,97 @@ class FakeRepo extends SamaRepository {
 
   // ---------- Rapports ----------
   final reportRequests = <(DateTime, DateTime)>[];
+
+  // ---------- Documents ----------
+  final storedDocs = <BusinessDocument>[
+    BusinessDocument(
+      id: 'd1',
+      title: 'Bail boutique Sandaga',
+      category: DocCategory.contract,
+      note: 'Loyer payé le 5 du mois',
+      expiresOn: DateTime(2026, 11, 27),
+      expiresInDays: 10,
+      expiry: 'soon',
+      mime: 'application/pdf',
+      size: 245 * 1024,
+      createdAt: DateTime(2026, 9, 1),
+      createdByName: 'Awa Diallo',
+    ),
+    BusinessDocument(
+      id: 'd2',
+      title: 'NINEA',
+      category: DocCategory.admin,
+      mime: 'image/png',
+      size: 1900 * 1024,
+      createdAt: DateTime(2026, 8, 12),
+      createdByName: 'Awa Diallo',
+    ),
+  ];
+  final docQueries = <(DocCategory?, String?)>[];
+  final uploadedDocs = <Map<String, Object?>>[];
+  final deletedDocs = <String>[];
+
+  @override
+  Future<DocumentList> storedDocuments({DocCategory? category, String? search}) async {
+    docQueries.add((category, search));
+    final items = storedDocs
+        .where((d) => category == null || d.category == category)
+        .where((d) => search == null || search.isEmpty || d.title.toLowerCase().contains(search.toLowerCase()))
+        .toList();
+    final counts = <DocCategory, int>{};
+    for (final d in storedDocs) {
+      counts[d.category] = (counts[d.category] ?? 0) + 1;
+    }
+    return DocumentList(
+      items: items,
+      counts: counts,
+      total: storedDocs.length,
+      attention: storedDocs.where((d) => d.expiry != null).length,
+    );
+  }
+
+  @override
+  Future<BusinessDocument> storedDocument(String id) async => storedDocs.firstWhere((d) => d.id == id);
+
+  @override
+  Future<List<int>> storedDocumentBytes(String id) async => tinyPng;
+
+  @override
+  Future<BusinessDocument> uploadStoredDocument({
+    required List<int> bytes,
+    required String filename,
+    required String title,
+    required DocCategory category,
+    String? note,
+    DateTime? expiresOn,
+  }) async {
+    uploadedDocs.add({
+      'filename': filename,
+      'title': title,
+      'category': category,
+      'note': note,
+      'expiresOn': expiresOn,
+    });
+    final d = BusinessDocument(
+      id: 'd${storedDocs.length + 1}',
+      title: title,
+      category: category,
+      note: note,
+      expiresOn: expiresOn,
+      mime: 'image/png',
+      size: bytes.length,
+      createdAt: DateTime(2026, 11, 17),
+      createdByName: 'Awa Diallo',
+    );
+    storedDocs.insert(0, d);
+    return d;
+  }
+
+  @override
+  Future<void> deleteStoredDocument(String id) async {
+    deletedDocs.add(id);
+    storedDocs.removeWhere((d) => d.id == id);
+  }
 
   final insightRequests = <int>[];
   final weeklyRequests = <DateTime?>[];

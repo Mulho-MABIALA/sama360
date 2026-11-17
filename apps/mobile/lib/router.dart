@@ -9,6 +9,8 @@ import 'features/settings/display_screen.dart';
 import 'features/auth/auth_controller.dart';
 import 'features/auth/login_screens.dart';
 import 'features/auth/pin_screen.dart';
+import 'features/catalog/product_photo.dart' show PickedPhoto;
+import 'features/documents/documents_screen.dart';
 import 'features/business/business_screen.dart';
 import 'features/cash/cash_close_screen.dart';
 import 'features/cash/cash_screen.dart';
@@ -152,6 +154,21 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (_, s) => ProductEditorScreen(productId: s.pathParameters['id']),
       ),
       GoRoute(path: '/reports', builder: (_, _) => const ReportsScreen()),
+      GoRoute(path: '/documents', builder: (_, _) => const DocumentsScreen()),
+      GoRoute(
+        path: '/documents/new',
+        builder: (_, s) => s.extra is PickedPhoto
+            ? StoredDocumentEditorScreen(file: s.extra! as PickedPhoto)
+            : const DocumentsScreen(), // rechargement de page : plus de fichier en mémoire
+      ),
+      GoRoute(
+        path: '/documents/:id',
+        builder: (_, s) => StoredDocumentScreen(id: s.pathParameters['id']!),
+      ),
+      GoRoute(
+        path: '/documents/:id/edit',
+        builder: (_, s) => StoredDocumentEditorScreen(documentId: s.pathParameters['id']),
+      ),
       GoRoute(
         path: '/pin/change',
         builder: (_, _) => const PinScreen(mode: PinMode.change),

@@ -4,7 +4,7 @@ import { DbService, Tx } from '../../shared/db/db.service';
 import { files } from '../../shared/db/schema';
 import { AppError } from '../../shared/http/app-error';
 import { newId } from '../../shared/ids';
-import { detectImage } from './image';
+import { detectDocument, detectImage } from './image';
 import { FileStorage } from './storage';
 
 @Injectable()
@@ -22,7 +22,23 @@ export class FilesService {
    */
   async saveImage(tx: Tx, input: { businessId: string | null; kind: string; data: Buffer; createdBy: string }) {
     const type = detectImage(input.data);
-    if (!type) throw new AppError('VALIDATION_FAILED', 'Format non accepté : utilisez une photo JPEG, PNG ou WebP', 422);
+    if (!type)
+      throw new AppError('VALIDATION_FAILED', 'Format non accepté : utilisez une photo JPEG, PNG ou WebP', 422);
+    return this.store(tx, input, type);
+  }
+
+  /** Document d'entreprise : photo ou PDF (format vérifié sur les octets réels). */
+  async saveDocument(tx: Tx, input: { businessId: string; data: Buffer; createdBy: string }) {
+    const type = detectDocument(input.data);
+    if (!type) throw new AppError('VALIDATION_FAILED', 'Format non accepté : photo (JPEG, PNG, WebP) ou PDF', 422);
+    return this.store(tx, { ...input, kind: 'document' }, type);
+  }
+
+  private async store(
+    tx: Tx,
+    input: { businessId: string | null; kind: string; data: Buffer; createdBy: string },
+    type: { mime: string; ext: string },
+  ) {
     const id = newId();
     // Fichiers d'entreprise : <entreprise>/… ; fichiers personnels : users/<utilisateur>/…
     const owner = input.businessId ?? `users/${input.createdBy}`;
@@ -55,9 +71,20 @@ export class FilesService {
     }
   }
 
-  /** Lecture publique par identifiant aléatoire (photos de produits, photos de profil). */
+  /**
+   * Lecture publique par identifiant aléatoire (photos de produits, photos de profil).
+   * Jamais les documents (contrats, registre…) : ils passent par [openPrivate], après contrôle des droits.
+   */
   async open(fileId: string) {
     const [f] = await this.dbs.db.select().from(files).where(eq(files.id, fileId)).limit(1);
+    if (!f || f.kind === 'document') return null;
+    const stream = await this.storage.get(f.storageKey);
+    return stream ? { stream, mime: f.mime, size: f.size } : null;
+  }
+
+  /** Lecture d'un fichier d'entreprise dans la transaction de l'entreprise (droits vérifiés par l'appelant). */
+  async openPrivate(tx: Tx, fileId: string) {
+    const [f] = await tx.select().from(files).where(eq(files.id, fileId)).limit(1);
     if (!f) return null;
     const stream = await this.storage.get(f.storageKey);
     return stream ? { stream, mime: f.mime, size: f.size } : null;

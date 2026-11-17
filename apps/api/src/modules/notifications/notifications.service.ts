@@ -4,6 +4,7 @@ import { sql } from 'drizzle-orm';
 import { DbService, Tx } from '../../shared/db/db.service';
 import { AppError } from '../../shared/http/app-error';
 import { newId } from '../../shared/ids';
+import { EXPIRY_WARNING_DAYS } from '../documents/documents';
 import { fcfa, weekOf } from '../sales/insights';
 
 /** Permissions qui ouvrent l'accès à une notification (colonne `audience`). */
@@ -15,6 +16,7 @@ export const AUDIENCES = [
   'invoicing:read',
   'reports:read',
   'contacts:read',
+  'documents:read',
 ] as const;
 export type Audience = (typeof AUDIENCES)[number];
 
@@ -134,6 +136,35 @@ export class NotificationsService {
           link: '/reminders',
           audience: 'invoicing:read',
           dedupeKey: `invoices_overdue:${today}`,
+        });
+      }
+    }
+
+    // Documents dont l'échéance approche (bail, assurance…) : une alerte par document et par échéance
+    if (can('documents:read')) {
+      const due = (
+        await tx.execute(sql`
+          SELECT id, title, to_char(expires_on, 'YYYY-MM-DD') AS e, (expires_on - current_date) AS days
+          FROM core.documents
+          WHERE deleted_at IS NULL AND expires_on IS NOT NULL
+            AND expires_on <= current_date + ${EXPIRY_WARNING_DAYS}::int
+            AND expires_on >= current_date - 30
+          ORDER BY expires_on LIMIT 20`)
+      ).rows as { id: string; title: string; e: string; days: number }[];
+      for (const d of due) {
+        const days = Number(d.days);
+        await this.push(tx, businessId, {
+          kind: 'document_expiring',
+          title: days < 0 ? `Échéance dépassée : ${d.title}` : `${d.title} : échéance bientôt`,
+          body:
+            days < 0
+              ? `Expiré depuis ${-days} jour${-days > 1 ? 's' : ''}. Pensez à le renouveler.`
+              : days === 0
+                ? 'Expire aujourd’hui. Pensez à le renouveler.'
+                : `Expire dans ${days} jour${days > 1 ? 's' : ''}. Pensez à le renouveler.`,
+          link: `/documents/${d.id}`,
+          audience: 'documents:read',
+          dedupeKey: `document_expiring:${d.id}:${d.e}:${days < 0 ? 'late' : 'soon'}`,
         });
       }
     }

@@ -149,11 +149,17 @@ class ApiClient {
 
   Future<T> delete<T>(String path) => _wrap(() => dio.delete<T>(path));
 
-  /// Envoi de fichier (multipart/form-data, champ « file »).
-  Future<T> upload<T>(String path, List<int> bytes, {required String filename, String field = 'file'}) => _wrap(
+  /// Envoi de fichier (multipart/form-data, champ « file »), avec d'éventuels champs texte.
+  Future<T> upload<T>(
+    String path,
+    List<int> bytes, {
+    required String filename,
+    String field = 'file',
+    Map<String, String> fields = const {},
+  }) => _wrap(
     () => dio.post<T>(
       path,
-      data: FormData.fromMap({field: MultipartFile.fromBytes(bytes, filename: filename)}),
+      data: FormData.fromMap({...fields, field: MultipartFile.fromBytes(bytes, filename: filename)}),
       options: Options(contentType: 'multipart/form-data', sendTimeout: const Duration(seconds: 60)),
     ),
   );

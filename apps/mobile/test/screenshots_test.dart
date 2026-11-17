@@ -340,6 +340,18 @@ void main() {
     await _shot(tester, '0e_code_confirmation');
   });
 
+  testWidgets('documents', (tester) async {
+    phoneSize(tester);
+    await pumpSama(tester, location: '/documents');
+    await _shot(tester, '16_documents');
+  });
+
+  testWidgets('document (fiche)', (tester) async {
+    phoneSize(tester);
+    await pumpSama(tester, location: '/documents/d1');
+    await _shot(tester, '16b_document');
+  });
+
   testWidgets('analyses', (tester) async {
     phoneSize(tester);
     await pumpSama(tester, location: '/insights');
