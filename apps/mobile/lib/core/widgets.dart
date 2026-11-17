@@ -3,6 +3,7 @@ import 'package:material_ui/material_ui.dart';
 
 import 'format.dart';
 import 'providers.dart';
+import 'skeleton.dart';
 import 'theme.dart';
 
 /// Affiche chargement / erreur (avec « Réessayer ») / données d'un AsyncValue.
@@ -18,11 +19,8 @@ class AsyncView<T> extends StatelessWidget {
     return switch (value) {
       AsyncData(:final value) => data(value),
       AsyncError(:final error) => ErrorPanel(message: errorMessage(error), onRetry: onRetry),
-      _ =>
-        loading ??
-            const Center(
-              child: Padding(padding: EdgeInsets.all(32), child: CircularProgressIndicator()),
-            ),
+      // Squelette plutôt qu'un rond qui tourne : l'écran paraît prêt plus vite, surtout en 3G.
+      _ => loading ?? const SkeletonList(),
     };
   }
 }
@@ -39,12 +37,12 @@ class ErrorPanel extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.cloud_off_rounded, size: 40, color: AppColors.muted),
+          Icon(Icons.cloud_off_rounded, size: 40, color: AppColors.muted),
           const SizedBox(height: 12),
           Text(
             message,
             textAlign: TextAlign.center,
-            style: const TextStyle(color: AppColors.muted),
+            style: TextStyle(color: AppColors.muted),
           ),
           if (onRetry != null) ...[
             const SizedBox(height: 12),
@@ -57,17 +55,14 @@ class ErrorPanel extends StatelessWidget {
 }
 
 class Avatar extends StatelessWidget {
-  const Avatar({
-    super.key,
-    required this.name,
-    this.size = 44,
-    this.bg = AppColors.green,
-    this.fg = Colors.white,
-    this.imageUrl,
-  });
+  // Paramètre public « bg », champ privé : la couleur par défaut suit la palette (non constante).
+  const Avatar({super.key, required this.name, this.size = 44, Color? bg, this.fg = Colors.white, this.imageUrl})
+    // ignore: prefer_initializing_formals
+    : _bg = bg;
   final String? name;
   final double size;
-  final Color bg;
+  final Color? _bg;
+  Color get bg => _bg ?? AppColors.green;
   final Color fg;
 
   /// Photo de profil ; les initiales s'affichent pendant le chargement ou en cas d'erreur.
@@ -119,8 +114,10 @@ class StatTile extends StatelessWidget {
         begin: Alignment.topLeft,
         end: Alignment.bottomRight,
         colors: warn
-            ? const [Color(0xFFFFF4E2), Color(0xEBFDEACC)]
-            : [Colors.white.withValues(alpha: 0.9), Colors.white.withValues(alpha: 0.62)],
+            ? (AppColors.isDark
+                  ? [AppColors.warnBg, AppColors.warnBg.withValues(alpha: 0.85)]
+                  : const [Color(0xFFFFF4E2), Color(0xEBFDEACC)])
+            : [AppColors.surface(0.9), AppColors.surface(0.62)],
       ),
       border: Border.all(color: warn ? AppColors.warnLine : AppColors.glassLine, width: 1.2),
       borderRadius: BorderRadius.circular(18),
@@ -161,7 +158,7 @@ class Pill extends StatelessWidget {
     selected: selected,
     button: true,
     child: Material(
-      color: selected ? AppColors.ink : Colors.white.withValues(alpha: 0.72),
+      color: selected ? AppColors.ink : AppColors.surface(0.72),
       shape: StadiumBorder(side: BorderSide(color: selected ? AppColors.ink : AppColors.glassLine, width: 1.2)),
       child: InkWell(
         customBorder: const StadiumBorder(),
@@ -173,7 +170,7 @@ class Pill extends StatelessWidget {
             style: TextStyle(
               fontSize: 13,
               fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
-              color: selected ? Colors.white : AppColors.ink,
+              color: selected ? AppColors.ground : AppColors.ink,
             ),
           ),
         ),

@@ -69,6 +69,9 @@ class SamaRepository {
 
   Future<Me> me() async => Me.fromJson(await _cachedGet<Map<String, dynamic>>('/v1/me', user: true));
 
+  /// Couleur de la boutique (« #0A7E4F ») ; null pour revenir au vert Sama360.
+  Future<void> updateBrandColor(String? hex) => api.patch<void>('/v1/business', data: {'brandColor': hex});
+
   Future<void> updateName(String fullName) => api.patch<void>('/v1/me', data: {'fullName': fullName});
 
   /// Nom et e-mail (e-mail vide = retiré).
@@ -310,7 +313,12 @@ class SamaRepository {
     CustomerFilter filter = CustomerFilter.all,
     CustomerSort sort = CustomerSort.name,
   }) async {
-    final query = {'filter': filter.api, 'sort': sort.api, 'limit': 100, 'search': ?(search?.isEmpty ?? true ? null : search)};
+    final query = {
+      'filter': filter.api,
+      'sort': sort.api,
+      'limit': 100,
+      'search': ?(search?.isEmpty ?? true ? null : search),
+    };
     return CustomerList.fromJson(await _cachedGet<Map<String, dynamic>>('/v1/customers', query: query));
   }
 
@@ -318,7 +326,12 @@ class SamaRepository {
       CustomerOverview.fromJson(await _cachedGet<Map<String, dynamic>>('/v1/customers/$id'));
 
   /// Crée ou modifie une fiche client. Le plafond n'est envoyé que si l'utilisateur peut le fixer.
-  Future<Contact> saveCustomer(CustomerDraft draft, {String? id, bool withLimit = true, String type = 'customer'}) async {
+  Future<Contact> saveCustomer(
+    CustomerDraft draft, {
+    String? id,
+    bool withLimit = true,
+    String type = 'customer',
+  }) async {
     final data = {...draft.toJson(withLimit: withLimit), if (id == null) 'type': type};
     return Contact.fromJson(
       id == null
@@ -428,13 +441,17 @@ class SamaRepository {
     return PurchaseDetail.fromJson(r['order'] as Map<String, dynamic>);
   }
 
-  Future<PurchaseDetail> payPurchase(String id, {required int amount, required PayMethod method, String? paymentId}) async =>
-      PurchaseDetail.fromJson(
-        await api.post<Map<String, dynamic>>(
-          '/v1/purchases/$id/payments',
-          data: {'id': ?paymentId, 'amount': amount, 'method': method.api},
-        ),
-      );
+  Future<PurchaseDetail> payPurchase(
+    String id, {
+    required int amount,
+    required PayMethod method,
+    String? paymentId,
+  }) async => PurchaseDetail.fromJson(
+    await api.post<Map<String, dynamic>>(
+      '/v1/purchases/$id/payments',
+      data: {'id': ?paymentId, 'amount': amount, 'method': method.api},
+    ),
+  );
 
   Future<List<SupplierRow>> suppliers({String? search}) async => (await _cachedGet<List<dynamic>>(
     '/v1/suppliers',
@@ -469,10 +486,7 @@ class SamaRepository {
   }
 
   Future<List<ShopOrder>> shopOrders({ShopOrderFilter filter = ShopOrderFilter.open}) async =>
-      ((await _cachedGet<Map<String, dynamic>>(
-                '/v1/shop/orders',
-                query: {'filter': filter.api, 'limit': 100},
-              ))['data']
+      ((await _cachedGet<Map<String, dynamic>>('/v1/shop/orders', query: {'filter': filter.api, 'limit': 100}))['data']
               as List)
           .map((e) => ShopOrder.fromJson(e as Map<String, dynamic>))
           .toList();
@@ -550,19 +564,16 @@ class SamaRepository {
       );
 
   /// Clôture ma caisse, ou celle d'un vendeur si [sessionId] est donné (gérant).
-  Future<CashSession> closeCash({
-    String? sessionId,
-    required Map<PayMethod, int> counted,
-    String? note,
-  }) async => CashSession.fromJson(
-    await api.post<Map<String, dynamic>>(
-      sessionId == null ? '/v1/cash/current/close' : '/v1/cash/sessions/$sessionId/close',
-      data: {
-        'counted': {for (final e in counted.entries) e.key.api: e.value},
-        'note': (note ?? '').trim().isEmpty ? null : note!.trim(),
-      },
-    ),
-  );
+  Future<CashSession> closeCash({String? sessionId, required Map<PayMethod, int> counted, String? note}) async =>
+      CashSession.fromJson(
+        await api.post<Map<String, dynamic>>(
+          sessionId == null ? '/v1/cash/current/close' : '/v1/cash/sessions/$sessionId/close',
+          data: {
+            'counted': {for (final e in counted.entries) e.key.api: e.value},
+            'note': (note ?? '').trim().isEmpty ? null : note!.trim(),
+          },
+        ),
+      );
 
   Future<List<CashSessionSummary>> cashSessions() async =>
       ((await _cachedGet<Map<String, dynamic>>('/v1/cash/sessions', query: {'limit': 60}))['data'] as List)

@@ -71,7 +71,7 @@ class _CustomerPickerState extends ConsumerState<_CustomerPicker> {
               if (!snap.hasData) return const Center(child: CircularProgressIndicator());
               final list = snap.data!;
               if (list.isEmpty) {
-                return const Center(
+                return Center(
                   child: Text('Aucun client trouvé', style: TextStyle(color: AppColors.muted)),
                 );
               }
@@ -94,7 +94,7 @@ class _CustomerPickerState extends ConsumerState<_CustomerPicker> {
                     trailing: c.balance > 0
                         ? Text(
                             money(c.balance),
-                            style: const TextStyle(color: AppColors.warn, fontWeight: FontWeight.w700),
+                            style: TextStyle(color: AppColors.warn, fontWeight: FontWeight.w700),
                           )
                         : null,
                     onTap: () => Navigator.pop(context, c),

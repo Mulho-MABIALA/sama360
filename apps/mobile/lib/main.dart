@@ -4,6 +4,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'core/api/session_store.dart';
+import 'core/display.dart';
 import 'core/offline/kv_store.dart';
 import 'core/offline/pending_sales.dart';
 import 'core/providers.dart';
@@ -36,13 +37,29 @@ class SamaApp extends ConsumerWidget {
   final bool googleFonts;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) => MaterialApp.router(
-    title: 'Sama360',
-    debugShowCheckedModeBanner: false,
-    theme: AppTheme.light(googleFonts: googleFonts),
-    routerConfig: ref.watch(routerProvider),
-    locale: const Locale('fr'),
-    supportedLocales: const [Locale('fr'), Locale('en')],
-    localizationsDelegates: GlobalMaterialLocalizations.delegates,
-  );
+  Widget build(BuildContext context, WidgetRef ref) {
+    final display = ref.watch(displaySettingsProvider);
+    final brand = ref.watch(brandColorProvider);
+    return MaterialApp.router(
+      title: 'Sama360',
+      debugShowCheckedModeBanner: false,
+      theme: AppTheme.build(SamaPalette.light(brand), googleFonts: googleFonts),
+      darkTheme: AppTheme.build(SamaPalette.dark(brand), googleFonts: googleFonts),
+      themeMode: display.mode,
+      routerConfig: ref.watch(routerProvider),
+      locale: const Locale('fr'),
+      supportedLocales: const [Locale('fr'), Locale('en')],
+      localizationsDelegates: GlobalMaterialLocalizations.delegates,
+      builder: (context, child) {
+        // Mode effectif (système, clair ou sombre) et couleur de la boutique → palette de l'app.
+        syncPalette(Theme.of(context).brightness, brand);
+        if (!display.largeText) return child!;
+        final mq = MediaQuery.of(context);
+        return MediaQuery(
+          data: mq.copyWith(textScaler: TextScaler.linear((mq.textScaler.scale(1) * largeTextScale).clamp(1.0, 2.0))),
+          child: child!,
+        );
+      },
+    );
+  }
 }

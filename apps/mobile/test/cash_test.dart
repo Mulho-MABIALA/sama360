@@ -57,7 +57,8 @@ void main() {
           "difference": -500,
           "lines": [{"method": "cash", "expected": 12500, "counted": 12000, "difference": -500}],
           "movements": [{"id": "m", "direction": "out", "amount": 3000, "reason": "Banque", "createdAt": "2026-11-16T12:00:00Z"}]
-        }''') as Map<String, dynamic>,
+        }''')
+            as Map<String, dynamic>,
       );
       expect((s.open, s.openingFloat, s.report.salesTotal, s.difference), (false, 10000, 15000, -500));
       expect(s.report.methods.last.method, PayMethod.orangeMoney);
@@ -159,7 +160,11 @@ void main() {
       expect(find.text('Moussa Sow'), findsOneWidget);
       expect(textMatching(r'^Manque 500 FCFA$'), findsOneWidget);
       expect(textMatching(r'^Attendu 34 000 F · compté 33 500 F$'), findsOneWidget);
-      await tester.scrollUntilVisible(find.text('Note : Billet de 500 F déchiré'), 200, scrollable: find.byType(Scrollable).first);
+      await tester.scrollUntilVisible(
+        find.text('Note : Billet de 500 F déchiré'),
+        200,
+        scrollable: find.byType(Scrollable).first,
+      );
       await tester.tap(find.byTooltip('Imprimer le rapport'));
       await tester.runAsync(() => Future<void>.delayed(const Duration(seconds: 1)));
       await tester.pumpAndSettle();

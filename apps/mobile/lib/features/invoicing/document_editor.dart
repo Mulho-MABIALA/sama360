@@ -281,7 +281,7 @@ class _DocumentEditorScreenState extends ConsumerState<DocumentEditorScreen> {
                             Expanded(
                               child: Text(
                                 _discountValue > 0 ? 'Total après remise' : 'Total',
-                                style: const TextStyle(color: AppColors.muted, fontWeight: FontWeight.w600),
+                                style: TextStyle(color: AppColors.muted, fontWeight: FontWeight.w600),
                               ),
                             ),
                             Text(money(_total), style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800)),
@@ -349,10 +349,10 @@ class _LineTile extends StatelessWidget {
               children: [
                 Text(line.name, style: const TextStyle(fontWeight: FontWeight.w700)),
                 if ((line.description ?? '').isNotEmpty)
-                  Text(line.description!, style: const TextStyle(fontSize: 12, color: AppColors.muted)),
+                  Text(line.description!, style: TextStyle(fontSize: 12, color: AppColors.muted)),
                 Text(
                   '${qty(line.quantity)} × ${moneyShort(line.unitPrice)} = ${moneyShort(line.total)}',
-                  style: const TextStyle(fontSize: 13, color: AppColors.muted),
+                  style: TextStyle(fontSize: 13, color: AppColors.muted),
                 ),
               ],
             ),
@@ -463,7 +463,7 @@ class _LineSheetState extends State<_LineSheet> {
         if (_error != null)
           Padding(
             padding: const EdgeInsets.only(top: 8),
-            child: Text(_error!, style: const TextStyle(color: AppColors.danger)),
+            child: Text(_error!, style: TextStyle(color: AppColors.danger)),
           ),
         const SizedBox(height: 16),
         FilledButton(onPressed: _ok, child: const Text('Valider la ligne')),

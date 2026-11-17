@@ -185,7 +185,7 @@ class ReceiptPaper extends StatelessWidget {
   Widget build(BuildContext context) {
     final s = sale;
     final b = business;
-    const small = TextStyle(fontSize: 12, color: AppColors.muted);
+    final small = TextStyle(fontSize: 12, color: AppColors.muted);
     Widget row(String l, String r, {TextStyle? style}) => Padding(
       padding: const EdgeInsets.symmetric(vertical: 2),
       child: Row(
@@ -209,7 +209,7 @@ class ReceiptPaper extends StatelessWidget {
         Container(
           padding: const EdgeInsets.fromLTRB(20, 22, 20, 18),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: AppColors.card,
             borderRadius: BorderRadius.circular(18),
             border: Border.all(color: AppColors.line),
           ),
@@ -260,7 +260,7 @@ class ReceiptPaper extends StatelessWidget {
                   child: row(
                     'Reste à payer',
                     moneyShort(s.due),
-                    style: const TextStyle(fontWeight: FontWeight.w800, color: AppColors.warnText),
+                    style: TextStyle(fontWeight: FontWeight.w800, color: AppColors.warnText),
                   ),
                 ),
               const _Dashed(),
@@ -269,7 +269,7 @@ class ReceiptPaper extends StatelessWidget {
                 textAlign: TextAlign.center,
                 style: TextStyle(fontWeight: FontWeight.w800),
               ),
-              const Text(
+              Text(
                 'Reçu émis avec Sama360',
                 textAlign: TextAlign.center,
                 style: TextStyle(fontSize: 11, color: AppColors.muted),
@@ -289,7 +289,7 @@ class ReceiptPaper extends StatelessWidget {
                       border: Border.all(color: AppColors.danger, width: 3),
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: const Text(
+                    child: Text(
                       'VENTE ANNULÉE',
                       style: TextStyle(
                         color: AppColors.danger,

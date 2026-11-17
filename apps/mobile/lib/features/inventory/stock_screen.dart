@@ -138,7 +138,7 @@ class _StockScreenState extends ConsumerState<StockScreen> {
                           ? 'Aucun produit suivi en stock.\nAjoutez votre premier produit.'
                           : 'Aucun produit ne correspond.',
                       textAlign: TextAlign.center,
-                      style: const TextStyle(color: AppColors.muted),
+                      style: TextStyle(color: AppColors.muted),
                     ),
                   ),
                 for (final it in items)
@@ -218,7 +218,7 @@ class _StockRow extends StatelessWidget {
                   const SizedBox(height: 2),
                   Text(
                     '${moneyShort(item.price)} · marge ${item.margin} %',
-                    style: const TextStyle(fontSize: 12, color: AppColors.muted),
+                    style: TextStyle(fontSize: 12, color: AppColors.muted),
                   ),
                 ],
               ),
@@ -241,7 +241,7 @@ class _StockRow extends StatelessWidget {
                     decoration: BoxDecoration(color: AppColors.warnBg, borderRadius: BorderRadius.circular(6)),
                     child: Text(
                       'Seuil ${item.threshold}',
-                      style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: AppColors.warnText),
+                      style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: AppColors.warnText),
                     ),
                   ),
               ],
@@ -318,7 +318,7 @@ class _StockEntrySheetState extends ConsumerState<_StockEntrySheet> {
                   const Text('Entrée de stock', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
                   Text(
                     '${widget.item.name} · actuellement ${qty(widget.item.onHand)}',
-                    style: const TextStyle(color: AppColors.muted),
+                    style: TextStyle(color: AppColors.muted),
                   ),
                 ],
               ),

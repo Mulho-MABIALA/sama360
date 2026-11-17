@@ -136,7 +136,7 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
               ),
             ),
             const SizedBox(height: 6),
-            Text(periodLabel(_period.from, _period.to), style: const TextStyle(color: AppColors.muted)),
+            Text(periodLabel(_period.from, _period.to), style: TextStyle(color: AppColors.muted)),
             const SizedBox(height: 12),
             AsyncView<ReportOverview>(
               value: report,
@@ -243,7 +243,7 @@ class _ReportBody extends StatelessWidget {
                               ),
                               Text(
                                 '${qty(p.quantity)} vendu(s) · bénéfice ${moneyShort(p.grossProfit)}',
-                                style: const TextStyle(fontSize: 12, color: AppColors.muted),
+                                style: TextStyle(fontSize: 12, color: AppColors.muted),
                               ),
                             ],
                           ),
@@ -302,7 +302,7 @@ class _ReportBody extends StatelessWidget {
           ),
         ],
         if (r.salesCount == 0)
-          const Padding(
+          Padding(
             padding: EdgeInsets.all(24),
             child: Text(
               'Aucune vente sur cette période.',
@@ -481,7 +481,7 @@ class _Kpi extends StatelessWidget {
       children: [
         Text(
           label,
-          style: const TextStyle(fontSize: 12, color: AppColors.muted, fontWeight: FontWeight.w600),
+          style: TextStyle(fontSize: 12, color: AppColors.muted, fontWeight: FontWeight.w600),
         ),
         FittedBox(
           fit: BoxFit.scaleDown,
@@ -499,7 +499,7 @@ class _Kpi extends StatelessWidget {
           hint,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
-          style: const TextStyle(fontSize: 11, color: AppColors.muted),
+          style: TextStyle(fontSize: 11, color: AppColors.muted),
         ),
       ],
     ),
@@ -537,7 +537,7 @@ class _Mini extends StatelessWidget {
   Widget build(BuildContext context) => Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
-      Text(label, style: const TextStyle(fontSize: 12, color: AppColors.muted)),
+      Text(label, style: TextStyle(fontSize: 12, color: AppColors.muted)),
       Text(value, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
     ],
   );
@@ -576,7 +576,7 @@ class _Bars extends StatelessWidget {
                       child: Text(
                         total == 0 ? '' : '${(r.value * 100 / total).round()} %',
                         textAlign: TextAlign.right,
-                        style: const TextStyle(color: AppColors.muted, fontSize: 12.5),
+                        style: TextStyle(color: AppColors.muted, fontSize: 12.5),
                       ),
                     ),
                   ],
@@ -593,7 +593,7 @@ class _Bars extends StatelessWidget {
                 ),
                 if (r.sub != null) ...[
                   const SizedBox(height: 2),
-                  Text(r.sub!, style: const TextStyle(fontSize: 11.5, color: AppColors.muted)),
+                  Text(r.sub!, style: TextStyle(fontSize: 11.5, color: AppColors.muted)),
                 ],
               ],
             ),
@@ -641,7 +641,7 @@ class _RevenueChartState extends State<RevenueChart> {
           sel == null
               ? summary
               : '${_label(sel.period, long: true)} : ${moneyShort(sel.revenue)} · ${sel.salesCount} vente(s) · bénéfice ${moneyShort(sel.grossProfit)}',
-          style: const TextStyle(fontSize: 12.5, color: AppColors.muted),
+          style: TextStyle(fontSize: 12.5, color: AppColors.muted),
         ),
         const SizedBox(height: 10),
         Semantics(
@@ -660,16 +660,16 @@ class _RevenueChartState extends State<RevenueChart> {
         const SizedBox(height: 6),
         Row(
           children: [
-            Text(_label(pts.first.period), style: const TextStyle(fontSize: 11, color: AppColors.muted)),
+            Text(_label(pts.first.period), style: TextStyle(fontSize: 11, color: AppColors.muted)),
             const Spacer(),
             if (pts.length > 2)
-              Text(_label(pts[pts.length ~/ 2].period), style: const TextStyle(fontSize: 11, color: AppColors.muted)),
+              Text(_label(pts[pts.length ~/ 2].period), style: TextStyle(fontSize: 11, color: AppColors.muted)),
             const Spacer(),
-            Text(_label(pts.last.period), style: const TextStyle(fontSize: 11, color: AppColors.muted)),
+            Text(_label(pts.last.period), style: TextStyle(fontSize: 11, color: AppColors.muted)),
           ],
         ),
         const SizedBox(height: 8),
-        const Row(
+        Row(
           children: [
             _Legend(color: AppColors.leaf, label: 'Chiffre d’affaires'),
             SizedBox(width: 14),
@@ -695,7 +695,7 @@ class _Legend extends StatelessWidget {
         decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(3)),
       ),
       const SizedBox(width: 5),
-      Text(label, style: const TextStyle(fontSize: 11.5, color: AppColors.muted)),
+      Text(label, style: TextStyle(fontSize: 11.5, color: AppColors.muted)),
     ],
   );
 }

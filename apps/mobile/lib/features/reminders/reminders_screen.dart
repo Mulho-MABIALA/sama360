@@ -225,7 +225,7 @@ class _Summary extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
+              Text(
                 'À relancer aujourd’hui',
                 style: TextStyle(color: AppColors.muted, fontWeight: FontWeight.w600),
               ),
@@ -240,7 +240,7 @@ class _Summary extends StatelessWidget {
                 '${queue.dueCount} relance${queue.dueCount > 1 ? 's' : ''} · '
                 '${moneyShort(queue.totalAmount)} d’impayés en tout · '
                 '${queue.remindedThisWeek} rappel${queue.remindedThisWeek > 1 ? 's' : ''} cette semaine',
-                style: const TextStyle(color: AppColors.muted, fontSize: 12.5),
+                style: TextStyle(color: AppColors.muted, fontSize: 12.5),
               ),
             ],
           ),
@@ -310,14 +310,14 @@ class ReminderTile extends StatelessWidget {
                     if (i.lastRemindedAt != null)
                       Text(
                         'Relancé ${agoText(i.lastRemindedAt!, now)}',
-                        style: const TextStyle(fontSize: 12, color: AppColors.muted),
+                        style: TextStyle(fontSize: 12, color: AppColors.muted),
                       ),
                   ],
                 ),
               ),
               Text(
                 moneyShort(i.amount),
-                style: const TextStyle(fontWeight: FontWeight.w800, color: AppColors.warn),
+                style: TextStyle(fontWeight: FontWeight.w800, color: AppColors.warn),
               ),
             ],
           ),
@@ -414,7 +414,7 @@ class _ReminderComposerState extends ConsumerState<ReminderComposer> {
           ),
           Text(
             '${i.name} · ${money(i.amount)}${i.isInvoice ? ' · ${i.invoiceNumber}' : ''}',
-            style: const TextStyle(color: AppColors.muted),
+            style: TextStyle(color: AppColors.muted),
           ),
           const SizedBox(height: 12),
           Wrap(
@@ -485,7 +485,7 @@ class _LogTile extends StatelessWidget {
                 ),
                 Text(
                   '$label${log.byName == null ? '' : ' · par ${firstName(log.byName)}'} · ${agoText(log.at, now)}',
-                  style: const TextStyle(color: AppColors.muted, fontSize: 12.5),
+                  style: TextStyle(color: AppColors.muted, fontSize: 12.5),
                 ),
               ],
             ),
@@ -518,7 +518,7 @@ class _Empty extends StatelessWidget {
         Text(
           text,
           textAlign: TextAlign.center,
-          style: const TextStyle(color: AppColors.muted),
+          style: TextStyle(color: AppColors.muted),
         ),
       ],
     ),

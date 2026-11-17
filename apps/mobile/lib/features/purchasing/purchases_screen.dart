@@ -24,13 +24,13 @@ class PurchaseStatusChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final (bg, fg) = late
-        ? (const Color(0xFFFDE7E4), AppColors.danger)
+        ? AppColors.tone(const Color(0xFFFDE7E4), AppColors.danger)
         : switch (status) {
-            PurchaseStatus.draft => (const Color(0xFFEFF1F0), AppColors.muted),
-            PurchaseStatus.ordered => (const Color(0xFFE6EFFC), const Color(0xFF1F5BB8)),
-            PurchaseStatus.partial => (AppColors.warnBg, AppColors.warnText),
-            PurchaseStatus.received => (AppColors.greenSoft, AppColors.greenDark),
-            PurchaseStatus.cancelled => (const Color(0xFFEFF1F0), AppColors.muted),
+            PurchaseStatus.draft => AppColors.tone(const Color(0xFFEFF1F0), AppColors.muted),
+            PurchaseStatus.ordered => AppColors.tone(const Color(0xFFE6EFFC), const Color(0xFF1F5BB8)),
+            PurchaseStatus.partial => AppColors.tone(AppColors.warnBg, AppColors.warnText),
+            PurchaseStatus.received => AppColors.tone(AppColors.greenSoft, AppColors.greenDark),
+            PurchaseStatus.cancelled => AppColors.tone(const Color(0xFFEFF1F0), AppColors.muted),
           };
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
@@ -85,10 +85,10 @@ class PurchaseTile extends StatelessWidget {
             if (p.due > 0)
               Text(
                 'à payer ${moneyShort(p.due)}',
-                style: const TextStyle(fontSize: 11.5, color: AppColors.warn, fontWeight: FontWeight.w700),
+                style: TextStyle(fontSize: 11.5, color: AppColors.warn, fontWeight: FontWeight.w700),
               )
             else if (p.status == PurchaseStatus.received && p.paid >= p.receivedTotal)
-              const Text(
+              Text(
                 'payé',
                 style: TextStyle(fontSize: 11.5, color: AppColors.green, fontWeight: FontWeight.w700),
               ),
@@ -187,14 +187,14 @@ class _PurchasesScreenState extends ConsumerState<PurchasesScreen> {
               padding: const EdgeInsets.symmetric(vertical: 40),
               child: Column(
                 children: [
-                  const Icon(Icons.local_shipping_outlined, size: 44, color: AppColors.muted),
+                  Icon(Icons.local_shipping_outlined, size: 44, color: AppColors.muted),
                   const SizedBox(height: 8),
                   Text(switch (_filter) {
                     PurchaseFilter.open => 'Aucune commande en cours',
                     PurchaseFilter.unpaid => 'Vous ne devez rien à vos fournisseurs',
                     PurchaseFilter.received => 'Aucune commande reçue',
                     PurchaseFilter.all => 'Enregistrez votre premier achat',
-                  }, style: const TextStyle(color: AppColors.muted)),
+                  }, style: TextStyle(color: AppColors.muted)),
                 ],
               ),
             )
@@ -227,7 +227,7 @@ class _PurchasesScreenState extends ConsumerState<PurchasesScreen> {
         value: suppliers,
         onRetry: () => ref.invalidate(suppliersProvider(_search)),
         data: (list) => list.isEmpty
-            ? const Padding(
+            ? Padding(
                 padding: EdgeInsets.symmetric(vertical: 40),
                 child: Center(
                   child: Text('Ajoutez vos grossistes et fournisseurs', style: TextStyle(color: AppColors.muted)),
@@ -406,9 +406,9 @@ class SupplierScreen extends ConsumerWidget {
                       style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w800),
                     ),
                     if (o.supplier.phone != null)
-                      Text('+221 ${displayPhone(o.supplier.phone!)}', style: const TextStyle(color: AppColors.muted)),
+                      Text('+221 ${displayPhone(o.supplier.phone!)}', style: TextStyle(color: AppColors.muted)),
                     if (o.supplier.address != null)
-                      Text(o.supplier.address!, style: const TextStyle(color: AppColors.muted, fontSize: 12.5)),
+                      Text(o.supplier.address!, style: TextStyle(color: AppColors.muted, fontSize: 12.5)),
                     if (o.supplier.phone != null) ...[
                       const SizedBox(height: 10),
                       Row(
@@ -468,7 +468,9 @@ class SupplierScreen extends ConsumerWidget {
                                     child: FilledButton.icon(
                                       style: FilledButton.styleFrom(
                                         backgroundColor: Colors.white,
-                                        foregroundColor: AppColors.ink,
+                                        foregroundColor: const Color(
+                                          0xFF13241C,
+                                        ), // bouton blanc sur carte verte : texte toujours foncé
                                         minimumSize: const Size.fromHeight(46),
                                       ),
                                       onPressed: () => _pay(context, ref, o),
@@ -533,7 +535,7 @@ class SupplierScreen extends ConsumerWidget {
                   padding: const EdgeInsets.all(14),
                   child: Row(
                     children: [
-                      const Icon(Icons.sticky_note_2_outlined, size: 20, color: AppColors.muted),
+                      Icon(Icons.sticky_note_2_outlined, size: 20, color: AppColors.muted),
                       const SizedBox(width: 10),
                       Expanded(child: Text(o.supplier.notes!, style: const TextStyle(fontSize: 13.5))),
                     ],
@@ -560,10 +562,7 @@ class SupplierScreen extends ConsumerWidget {
                                   style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13.5),
                                 ),
                               ),
-                              Text(
-                                '× ${qty(p.quantity)}',
-                                style: const TextStyle(color: AppColors.muted, fontSize: 13),
-                              ),
+                              Text('× ${qty(p.quantity)}', style: TextStyle(color: AppColors.muted, fontSize: 13)),
                               const SizedBox(width: 12),
                               Text(
                                 'dernier prix ${moneyShort(p.lastCost)}',
@@ -580,7 +579,7 @@ class SupplierScreen extends ConsumerWidget {
               const Text('Commandes', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800)),
               const SizedBox(height: 8),
               if (o.orders.isEmpty)
-                const Padding(
+                Padding(
                   padding: EdgeInsets.all(12),
                   child: Text('Aucune commande pour l’instant', style: TextStyle(color: AppColors.muted)),
                 ),
@@ -598,7 +597,7 @@ class SupplierScreen extends ConsumerWidget {
                     children: [
                       for (final (i, p) in o.payments.indexed) ...[
                         ListTile(
-                          leading: const Icon(Icons.check_circle_outline_rounded, color: AppColors.green),
+                          leading: Icon(Icons.check_circle_outline_rounded, color: AppColors.green),
                           title: Text(
                             '${p.method?.label ?? 'Paiement'} · ${p.number ?? ''}',
                             style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
@@ -606,7 +605,7 @@ class SupplierScreen extends ConsumerWidget {
                           subtitle: Text(dateTime(p.paidAt), style: const TextStyle(fontSize: 12)),
                           trailing: Text(
                             '− ${moneyShort(p.amount)}',
-                            style: const TextStyle(color: AppColors.green, fontWeight: FontWeight.w800),
+                            style: TextStyle(color: AppColors.green, fontWeight: FontWeight.w800),
                           ),
                         ),
                         if (i < o.payments.length - 1) const Divider(height: 1, indent: 14, endIndent: 14),
@@ -669,7 +668,7 @@ class _PaySheetState extends State<PaySheet> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Text(widget.title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
-        Text(widget.subtitle, style: const TextStyle(color: AppColors.muted)),
+        Text(widget.subtitle, style: TextStyle(color: AppColors.muted)),
         const SizedBox(height: 14),
         TextField(
           key: const Key('payAmount'),

@@ -182,6 +182,22 @@ export class SalesController {
         await tx.execute(sql`SELECT coalesce(sum(amount), 0)::bigint AS total FROM sales.customer_ledger`)
       ).rows[0] as { total: string };
 
+      // Courbe de l'accueil : chiffre d'affaires des 7 derniers jours (jusqu'à « to »)
+      // et total des 7 jours d'avant, pour la tendance.
+      const week = (
+        await tx.execute(sql`
+          SELECT to_char(d, 'YYYY-MM-DD') AS day, coalesce(sum(s.total), 0)::bigint AS revenue
+          FROM generate_series(${to}::date - 6, ${to}::date, interval '1 day') d
+          LEFT JOIN sales.sales s
+            ON s.status = 'completed' AND s.sold_at >= d AND s.sold_at < d + interval '1 day'
+          GROUP BY d ORDER BY d`)
+      ).rows as { day: string; revenue: string }[];
+      const prevWeek = (
+        await tx.execute(sql`
+          SELECT coalesce(sum(total), 0)::bigint AS revenue FROM sales.sales
+          WHERE status = 'completed' AND sold_at >= ${to}::date - 13 AND sold_at < ${to}::date - 6`)
+      ).rows[0] as { revenue: string };
+
       const revenue = Number(totals.revenue);
       const cost = Number(totals.cost);
       const expensesTotal = Number(exp.total);
@@ -204,6 +220,8 @@ export class SalesController {
           salesCount: Number(v.count),
           revenue: Number(v.revenue),
         })),
+        last7Days: week.map((d) => ({ date: d.day, revenue: Number(d.revenue) })),
+        previous7DaysRevenue: Number(prevWeek.revenue),
         topProducts: top.map((p) => ({
           productId: p.product_id,
           name: p.name,

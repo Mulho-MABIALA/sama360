@@ -5,6 +5,9 @@ import 'package:material_ui/material_ui.dart';
 import 'package:sama360/features/auth/auth_controller.dart';
 import 'package:sama360/features/catalog/product_photo.dart';
 
+import 'package:sama360/features/sales/cart.dart';
+import 'package:sama360/features/shell/shell.dart';
+
 import 'helpers.dart';
 
 void main() {
@@ -17,7 +20,10 @@ void main() {
   testWidgets('la barre du bas n’a plus d’onglet Compte ; l’avatar ouvre le profil', (tester) async {
     phoneSize(tester);
     await pumpSama(tester);
-    expect(find.byType(NavigationDestination), findsNWidgets(4));
+    // Accueil, Stock, Vendre (au centre), Clients, Ventes
+    for (final t in ['Accueil', 'Stock', 'Vendre', 'Clients', 'Ventes']) {
+      expect(find.text(t), findsWidgets);
+    }
     expect(find.text('Compte'), findsNothing);
 
     await tester.tap(find.text('AD').first); // avatar de l'en-tête
@@ -85,5 +91,18 @@ void main() {
     await tester.pumpAndSettle();
     expect(repo.loggedOutEverywhere, isTrue);
     expect(c.read(authProvider).value!.signedIn, isFalse);
+  });
+
+  testWidgets('bouton Vendre au centre : ouvre la caisse et compte les articles du panier', (tester) async {
+    phoneSize(tester);
+    final (c, _) = await pumpSama(tester);
+    expect(find.byKey(const Key('cart_badge')), findsNothing);
+    await tester.tap(find.byType(SellButton));
+    await tester.pumpAndSettle();
+    expect(routerOf(c).state.uri.path, '/pos');
+    c.read(cartProvider.notifier).add(demoProducts[1]);
+    c.read(cartProvider.notifier).add(demoProducts[1]);
+    await tester.pump();
+    expect(find.descendant(of: find.byKey(const Key('cart_badge')), matching: find.text('2')), findsOneWidget);
   });
 }

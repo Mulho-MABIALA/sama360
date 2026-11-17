@@ -573,6 +573,11 @@ describe('Socle Sama360 (e2e)', () => {
         onCredit: 15000,
         receivables: 10000,
       });
+      // Courbe des 7 derniers jours : aujourd'hui en dernier, avec le CA du jour
+      expect(s.last7Days).toHaveLength(7);
+      expect(s.last7Days[6]).toEqual({ date: new Date().toISOString().slice(0, 10), revenue: 31600 });
+      expect(s.last7Days.slice(0, 6).every((d: { revenue: number }) => d.revenue === 0)).toBe(true);
+      expect(s.previous7DaysRevenue).toBe(0);
       expect(s.byMethod).toEqual([
         { method: 'cash', amount: 11600 },
         { method: 'wave', amount: 5000 },
@@ -1508,6 +1513,21 @@ describe('Socle Sama360 (e2e)', () => {
       await http.put('/v1/shop/settings').set(A()).send({ enabled: false }).expect(200);
       await http.get(pub()).expect(404);
       await http.put('/v1/shop/settings').set(A()).send({ enabled: true }).expect(200);
+    });
+
+    it('couleur de la boutique : enregistrée, vérifiée, appliquée à la vitrine (lisible)', async () => {
+      const A = () => auth(awa.accessToken, awaBiz);
+      const r = await http.patch('/v1/business').set(A()).send({ brandColor: 'ffd600' }).expect(200);
+      expect(r.body.business.brandColor).toBe('#FFD600');
+      expect((await http.get('/v1/business').set(A()).expect(200)).body.business.brandColor).toBe('#FFD600');
+      await http.patch('/v1/business').set(A()).send({ brandColor: 'jaune' }).expect(422);
+      const slugNow = (await http.get('/v1/business').set(A())).body.business.slug as string;
+      const shop = (await http.get(`/v1/public/shops/${slugNow}`).expect(200)).body.shop;
+      // Jaune trop clair pour du texte blanc : la vitrine reçoit une version assombrie
+      expect(shop.brandColor).toMatch(/^#[0-9A-F]{6}$/);
+      expect(shop.brandColor).not.toBe('#FFD600');
+      await http.patch('/v1/business').set(A()).send({ brandColor: null }).expect(200);
+      expect((await http.get(`/v1/public/shops/${slugNow}`).expect(200)).body.shop.brandColor).toBeNull();
     });
   });
 

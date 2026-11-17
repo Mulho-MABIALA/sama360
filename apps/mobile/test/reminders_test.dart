@@ -31,7 +31,15 @@ void main() {
     invoiceNumber: 'FAC-2026-0007',
     due: true,
   );
-  const credit = ReminderItem(kind: 'credit', id: 'k1', customerId: 'k1', name: 'Ndèye Sarr', amount: 11000, daysLate: 40, due: true);
+  const credit = ReminderItem(
+    kind: 'credit',
+    id: 'k1',
+    customerId: 'k1',
+    name: 'Ndèye Sarr',
+    amount: 11000,
+    daysLate: 40,
+    due: true,
+  );
 
   group('logique', () {
     test('état du retard', () {

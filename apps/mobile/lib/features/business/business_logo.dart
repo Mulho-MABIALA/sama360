@@ -61,7 +61,7 @@ Future<void> changeBusinessLogo(BuildContext context, WidgetRef ref, CurrentBusi
             padding: EdgeInsets.fromLTRB(20, 0, 20, 4),
             child: Text('Logo de l’entreprise', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
           ),
-          const Padding(
+          Padding(
             padding: EdgeInsets.fromLTRB(20, 0, 20, 8),
             child: Text(
               'Il apparaît en haut de vos factures et devis. Une image carrée sur fond blanc rend le mieux.',
@@ -70,19 +70,19 @@ Future<void> changeBusinessLogo(BuildContext context, WidgetRef ref, CurrentBusi
             ),
           ),
           ListTile(
-            leading: const Icon(Icons.photo_library_rounded, color: AppColors.green),
+            leading: Icon(Icons.photo_library_rounded, color: AppColors.green),
             title: const Text('Choisir dans la galerie'),
             onTap: () => Navigator.pop(ctx, _LogoAction.gallery),
           ),
           ListTile(
-            leading: const Icon(Icons.photo_camera_rounded, color: AppColors.green),
+            leading: Icon(Icons.photo_camera_rounded, color: AppColors.green),
             title: const Text('Prendre une photo'),
             onTap: () => Navigator.pop(ctx, _LogoAction.camera),
           ),
           if (business.logoFileId != null)
             ListTile(
-              leading: const Icon(Icons.delete_outline_rounded, color: AppColors.danger),
-              title: const Text('Retirer le logo', style: TextStyle(color: AppColors.danger)),
+              leading: Icon(Icons.delete_outline_rounded, color: AppColors.danger),
+              title: Text('Retirer le logo', style: TextStyle(color: AppColors.danger)),
               onTap: () => Navigator.pop(ctx, _LogoAction.remove),
             ),
           const SizedBox(height: 8),
@@ -123,7 +123,7 @@ class AddLogoHint extends ConsumerWidget {
         radius: 18,
         onTap: () => changeBusinessLogo(context, ref, b),
         padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
-        child: const Row(
+        child: Row(
           children: [
             GlossyOrb(icon: Icons.add_photo_alternate_rounded, color: Color(0xFF7A5AF8), size: 36),
             SizedBox(width: 12),

@@ -49,21 +49,21 @@ Future<Category?> pickOrCreateCategory(BuildContext context, WidgetRef ref, {Cat
             data: (list) => ListView(
               children: [
                 ListTile(
-                  leading: const Icon(Icons.add_circle_outline_rounded, color: AppColors.green),
+                  leading: Icon(Icons.add_circle_outline_rounded, color: AppColors.green),
                   title: const Text('Nouvelle catégorie', style: TextStyle(fontWeight: FontWeight.w700)),
                   onTap: () => Navigator.pop(ctx, 'new'),
                 ),
                 ListTile(
                   leading: const Icon(Icons.label_off_outlined),
                   title: const Text('Sans catégorie'),
-                  trailing: selected == null ? const Icon(Icons.check_rounded, color: AppColors.green) : null,
+                  trailing: selected == null ? Icon(Icons.check_rounded, color: AppColors.green) : null,
                   onTap: () => Navigator.pop(ctx, const Category(id: '', name: '')),
                 ),
                 for (final c in list)
                   ListTile(
                     leading: const Icon(Icons.label_outline_rounded),
                     title: Text(c.name),
-                    trailing: selected?.id == c.id ? const Icon(Icons.check_rounded, color: AppColors.green) : null,
+                    trailing: selected?.id == c.id ? Icon(Icons.check_rounded, color: AppColors.green) : null,
                     onTap: () => Navigator.pop(ctx, c),
                   ),
               ],
@@ -131,7 +131,7 @@ class CategoriesScreen extends ConsumerWidget {
         data: (list) => ListView(
           padding: const EdgeInsets.fromLTRB(16, 0, 16, 100),
           children: [
-            const Padding(
+            Padding(
               padding: EdgeInsets.only(bottom: 12),
               child: Text(
                 'Les catégories rangent vos produits dans la caisse et le stock.',
@@ -147,7 +147,7 @@ class CategoriesScreen extends ConsumerWidget {
                   padding: const EdgeInsets.fromLTRB(14, 6, 6, 6),
                   child: Row(
                     children: [
-                      const Icon(Icons.label_rounded, color: AppColors.green),
+                      Icon(Icons.label_rounded, color: AppColors.green),
                       const SizedBox(width: 12),
                       Expanded(
                         child: Column(
@@ -158,7 +158,7 @@ class CategoriesScreen extends ConsumerWidget {
                               c.productCount == 0
                                   ? 'Aucun produit'
                                   : '${c.productCount} produit${c.productCount > 1 ? 's' : ''}',
-                              style: const TextStyle(fontSize: 12.5, color: AppColors.muted),
+                              style: TextStyle(fontSize: 12.5, color: AppColors.muted),
                             ),
                           ],
                         ),

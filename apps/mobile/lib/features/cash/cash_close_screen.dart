@@ -109,7 +109,7 @@ class _CashCloseScreenState extends ConsumerState<CashCloseScreen> {
         onRetry: () => refreshCash(ref),
         data: (s) {
           if (s == null || !s.open) {
-            return const Center(
+            return Center(
               child: Text('Aucune caisse ouverte', style: TextStyle(color: AppColors.muted)),
             );
           }
@@ -124,7 +124,7 @@ class _CashCloseScreenState extends ConsumerState<CashCloseScreen> {
                   children: [
                     Text(
                       '${s.number} · ${s.userName ?? ''} · ouverte à ${hourOf(s.openedAt)}',
-                      style: const TextStyle(color: AppColors.muted),
+                      style: TextStyle(color: AppColors.muted),
                     ),
                     const SizedBox(height: 12),
                     for (final m in lines) ...[
@@ -163,7 +163,7 @@ class _CashCloseScreenState extends ConsumerState<CashCloseScreen> {
                     children: [
                       Row(
                         children: [
-                          const Expanded(
+                          Expanded(
                             child: Text(
                               'Écart',
                               style: TextStyle(color: AppColors.muted, fontWeight: FontWeight.w600),
@@ -239,7 +239,7 @@ class _CountTile extends StatelessWidget {
               Expanded(
                 child: Text(line.method.label, style: const TextStyle(fontWeight: FontWeight.w800)),
               ),
-              Text('Attendu ${moneyShort(line.expected)}', style: const TextStyle(color: AppColors.muted)),
+              Text('Attendu ${moneyShort(line.expected)}', style: TextStyle(color: AppColors.muted)),
             ],
           ),
           const SizedBox(height: 10),
@@ -332,7 +332,7 @@ class _BanknoteCounter extends StatelessWidget {
                   icon: const Icon(Icons.add_circle_outline_rounded),
                 ),
                 const Spacer(),
-                Text(moneyShort(d * (pieces[d] ?? 0)), style: const TextStyle(color: AppColors.muted, fontSize: 13)),
+                Text(moneyShort(d * (pieces[d] ?? 0)), style: TextStyle(color: AppColors.muted, fontSize: 13)),
               ],
             ),
         ],

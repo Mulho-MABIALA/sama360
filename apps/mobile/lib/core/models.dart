@@ -71,6 +71,7 @@ class CurrentBusiness {
     this.address,
     this.ninea,
     this.logoFileId,
+    this.brandColor,
     required this.role,
     required this.permissions,
     required this.modules,
@@ -83,6 +84,9 @@ class CurrentBusiness {
   final String? address;
   final String? ninea;
   final String? logoFileId;
+
+  /// Couleur choisie par le commerçant (« #0A7E4F ») : accents de l'app, reçus, boutique en ligne.
+  final String? brandColor;
   final String role;
   final List<String> permissions;
   final List<String> modules;
@@ -99,6 +103,7 @@ class CurrentBusiness {
       address: b['address'] as String?,
       ninea: b['ninea'] as String?,
       logoFileId: b['logoFileId'] as String?,
+      brandColor: b['brandColor'] as String?,
       role: me['role'] as String,
       permissions: List<String>.from(me['permissions'] as List),
       modules: ((j['modules'] as List?) ?? const [])
@@ -307,6 +312,8 @@ class DaySummary {
     required this.collected,
     required this.receivables,
     this.bySeller = const [],
+    this.last7Days = const [],
+    this.previous7DaysRevenue = 0,
   });
   final int salesCount;
   final int revenue;
@@ -319,6 +326,10 @@ class DaySummary {
   /// Ventes du jour par vendeur, du plus gros chiffre au plus petit.
   final List<SellerStat> bySeller;
 
+  /// Chiffre d'affaires des 7 derniers jours (le dernier = aujourd'hui) et des 7 jours d'avant.
+  final List<int> last7Days;
+  final int previous7DaysRevenue;
+
   factory DaySummary.fromJson(Map<String, dynamic> j) => DaySummary(
     salesCount: _int(j['salesCount']),
     revenue: _int(j['revenue']),
@@ -328,6 +339,8 @@ class DaySummary {
     collected: _int(j['collected']),
     receivables: _int(j['receivables']),
     bySeller: [for (final v in (j['bySeller'] as List?) ?? const []) SellerStat.fromJson(v as Map<String, dynamic>)],
+    last7Days: [for (final d in (j['last7Days'] as List?) ?? const []) _int((d as Map)['revenue'])],
+    previous7DaysRevenue: _int(j['previous7DaysRevenue']),
   );
 }
 
@@ -634,11 +647,8 @@ class CustomerTopProduct {
   final double quantity;
   final int total;
 
-  factory CustomerTopProduct.fromJson(Map<String, dynamic> j) => CustomerTopProduct(
-    name: j['name'] as String,
-    quantity: _dbl(j['quantity']),
-    total: _int(j['total']),
-  );
+  factory CustomerTopProduct.fromJson(Map<String, dynamic> j) =>
+      CustomerTopProduct(name: j['name'] as String, quantity: _dbl(j['quantity']), total: _int(j['total']));
 }
 
 /// Fiche client complète : solde, plafond, statistiques, achats et relevé du carnet.
@@ -1503,7 +1513,9 @@ class PurchaseDetail {
       : (summary.total > summary.receivedTotal ? summary.total : summary.receivedTotal) - summary.paid;
 
   bool get editable =>
-      (status == PurchaseStatus.draft || status == PurchaseStatus.ordered) && summary.receivedTotal == 0 && summary.paid == 0;
+      (status == PurchaseStatus.draft || status == PurchaseStatus.ordered) &&
+      summary.receivedTotal == 0 &&
+      summary.paid == 0;
 
   factory PurchaseDetail.fromJson(Map<String, dynamic> j) => PurchaseDetail(
     summary: PurchaseSummary.fromJson({...j, 'supplierName': (j['supplier'] as Map)['name']}),
@@ -1633,12 +1645,15 @@ class SupplierOverview {
       openOrders: _int(s['openOrders']),
       lastOrderAt: _day(s['lastOrderAt']),
       orders: ((j['orders'] as List?) ?? []).map((e) => PurchaseSummary.fromJson(e as Map<String, dynamic>)).toList(),
-      payments: ((j['payments'] as List?) ?? []).map((e) => PurchasePayment.fromJson(e as Map<String, dynamic>)).toList(),
-      products: ((j['products'] as List?) ?? []).map((e) => SupplierProduct.fromJson(e as Map<String, dynamic>)).toList(),
+      payments: ((j['payments'] as List?) ?? [])
+          .map((e) => PurchasePayment.fromJson(e as Map<String, dynamic>))
+          .toList(),
+      products: ((j['products'] as List?) ?? [])
+          .map((e) => SupplierProduct.fromJson(e as Map<String, dynamic>))
+          .toList(),
     );
   }
 }
-
 
 // =====================================================================
 // Boutique en ligne

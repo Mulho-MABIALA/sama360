@@ -180,7 +180,7 @@ class _CashSessionScreenState extends ConsumerState<CashSessionScreen> {
             ],
             if ((s.closingNote ?? '').isNotEmpty) ...[
               const SizedBox(height: 10),
-              Text('Note : ${s.closingNote}', style: const TextStyle(color: AppColors.muted)),
+              Text('Note : ${s.closingNote}', style: TextStyle(color: AppColors.muted)),
             ],
             if (s.open && s.userId != me && canManage) ...[
               const SizedBox(height: 16),
@@ -231,7 +231,7 @@ class CashHistoryScreen extends ConsumerWidget {
         value: list,
         onRetry: () => ref.invalidate(cashSessionsProvider),
         data: (rows) => rows.isEmpty
-            ? const Center(
+            ? Center(
                 child: Text('Aucune caisse pour l’instant', style: TextStyle(color: AppColors.muted)),
               )
             : RefreshIndicator(
@@ -249,7 +249,7 @@ class CashHistoryScreen extends ConsumerWidget {
                           width: 42,
                           height: 42,
                           decoration: BoxDecoration(
-                            color: c.open ? AppColors.greenSoft : const Color(0xFFEFF1F0),
+                            color: c.open ? AppColors.greenSoft : AppColors.line,
                             borderRadius: BorderRadius.circular(14),
                           ),
                           child: Icon(
@@ -268,7 +268,7 @@ class CashHistoryScreen extends ConsumerWidget {
                           style: const TextStyle(fontSize: 12),
                         ),
                         trailing: c.open
-                            ? const Text(
+                            ? Text(
                                 'Ouverte',
                                 style: TextStyle(color: AppColors.green, fontWeight: FontWeight.w800),
                               )

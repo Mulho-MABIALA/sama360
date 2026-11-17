@@ -50,20 +50,22 @@ class MonumentBackdrop extends ConsumerWidget {
       child: Stack(
         fit: StackFit.expand,
         children: [
-          Image.asset(
-            m.asset,
-            key: ValueKey(m.asset),
-            fit: BoxFit.cover,
-            alignment: const Alignment(0, -0.2),
-            gaplessPlayback: true,
-            frameBuilder: (context, child, frame, sync) => sync
-                ? child
-                : AnimatedOpacity(
-                    opacity: frame == null ? 0 : 1,
-                    duration: const Duration(milliseconds: 500),
-                    child: child,
-                  ),
-            errorBuilder: (_, _, _) => const SizedBox.shrink(),
+          KenBurns(
+            child: Image.asset(
+              m.asset,
+              key: ValueKey(m.asset),
+              fit: BoxFit.cover,
+              alignment: const Alignment(0, -0.2),
+              gaplessPlayback: true,
+              frameBuilder: (context, child, frame, sync) => sync
+                  ? child
+                  : AnimatedOpacity(
+                      opacity: frame == null ? 0 : 1,
+                      duration: const Duration(milliseconds: 500),
+                      child: child,
+                    ),
+              errorBuilder: (_, _, _) => const SizedBox.shrink(),
+            ),
           ),
           // Voile : sombre en haut (logo, salutation), vert profond en bas (carte caisse).
           const DecoratedBox(
@@ -143,17 +145,17 @@ Future<void> showMonumentCredits(BuildContext context, Monument m) => showModalB
           const SizedBox(height: 2),
           Row(
             children: [
-              const Icon(Icons.place_rounded, size: 16, color: AppColors.green),
+              Icon(Icons.place_rounded, size: 16, color: AppColors.green),
               const SizedBox(width: 4),
               Expanded(
-                child: Text(m.place, style: const TextStyle(color: AppColors.muted)),
+                child: Text(m.place, style: TextStyle(color: AppColors.muted)),
               ),
             ],
           ),
           const SizedBox(height: 12),
           Text(
             'Photo : ${m.author} — ${m.license}, via Wikimedia Commons',
-            style: const TextStyle(fontSize: 12, color: AppColors.muted),
+            style: TextStyle(fontSize: 12, color: AppColors.muted),
           ),
           const SizedBox(height: 4),
           TextButton.icon(
@@ -163,9 +165,48 @@ Future<void> showMonumentCredits(BuildContext context, Monument m) => showModalB
             label: const Text('Voir la photo et sa licence'),
           ),
           const SizedBox(height: 4),
-          const Text('Un nouveau monument chaque jour.', style: TextStyle(fontSize: 12, color: AppColors.muted)),
+          Text('Un nouveau monument chaque jour.', style: TextStyle(fontSize: 12, color: AppColors.muted)),
         ],
       ),
     ),
   ),
 );
+
+/// Zoom très lent sur la photo (effet « Ken Burns ») : l'en-tête vit sans distraire.
+/// Immobile si le téléphone demande moins d'animations.
+class KenBurns extends StatefulWidget {
+  const KenBurns({super.key, required this.child});
+  final Widget child;
+  @override
+  State<KenBurns> createState() => _KenBurnsState();
+}
+
+class _KenBurnsState extends State<KenBurns> with SingleTickerProviderStateMixin {
+  late final _c = AnimationController(vsync: this, duration: const Duration(seconds: 22));
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (Motion.of(context)) {
+      if (!_c.isAnimating) _c.repeat(reverse: true);
+    } else {
+      _c.stop();
+    }
+  }
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => AnimatedBuilder(
+    animation: _c,
+    builder: (context, child) {
+      final t = Curves.easeInOut.transform(_c.value);
+      return Transform.scale(scale: 1 + 0.08 * t, alignment: Alignment(-0.3 + 0.6 * t, -0.2), child: child);
+    },
+    child: widget.child,
+  );
+}

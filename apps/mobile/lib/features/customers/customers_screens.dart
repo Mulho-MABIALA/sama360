@@ -169,7 +169,7 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
                     padding: const EdgeInsets.symmetric(vertical: 40),
                     child: Column(
                       children: [
-                        const Icon(Icons.people_outline_rounded, size: 44, color: AppColors.muted),
+                        Icon(Icons.people_outline_rounded, size: 44, color: AppColors.muted),
                         const SizedBox(height: 8),
                         Text(
                           _search.isNotEmpty
@@ -180,7 +180,7 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
                                   CustomerFilter.all => 'Ajoutez votre premier client',
                                 },
                           textAlign: TextAlign.center,
-                          style: const TextStyle(color: AppColors.muted),
+                          style: TextStyle(color: AppColors.muted),
                         ),
                       ],
                     ),
@@ -325,7 +325,7 @@ class _CustomerTile extends StatelessWidget {
               ),
             ),
             if (c.overLimit)
-              const Text(
+              Text(
                 'Plafond dépassé',
                 style: TextStyle(fontSize: 11, color: AppColors.danger, fontWeight: FontWeight.w700),
               ),
@@ -512,7 +512,7 @@ class _CustomerScreenState extends ConsumerState<CustomerScreen> {
                   onTap: () => context.push('/invoices'),
                   child: Row(
                     children: [
-                      const Icon(Icons.receipt_long_rounded, color: AppColors.warn),
+                      Icon(Icons.receipt_long_rounded, color: AppColors.warn),
                       const SizedBox(width: 10),
                       Expanded(
                         child: Text(
@@ -521,7 +521,7 @@ class _CustomerScreenState extends ConsumerState<CustomerScreen> {
                           style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
                         ),
                       ),
-                      const Icon(Icons.chevron_right_rounded, color: AppColors.muted),
+                      Icon(Icons.chevron_right_rounded, color: AppColors.muted),
                     ],
                   ),
                 ),
@@ -534,7 +534,7 @@ class _CustomerScreenState extends ConsumerState<CustomerScreen> {
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Icon(Icons.sticky_note_2_outlined, size: 20, color: AppColors.muted),
+                      Icon(Icons.sticky_note_2_outlined, size: 20, color: AppColors.muted),
                       const SizedBox(width: 10),
                       Expanded(child: Text(o.customer.notes!, style: const TextStyle(fontSize: 13.5))),
                     ],
@@ -564,7 +564,7 @@ class _CustomerScreenState extends ConsumerState<CustomerScreen> {
 
   List<Widget> _ledgerTab(CustomerOverview o) => [
     if (o.entries.isEmpty)
-      const Padding(
+      Padding(
         padding: EdgeInsets.all(16),
         child: Text('Aucun mouvement au carnet de crédit', style: TextStyle(color: AppColors.muted)),
       )
@@ -583,7 +583,7 @@ class _CustomerScreenState extends ConsumerState<CustomerScreen> {
 
   List<Widget> _purchasesTab(CustomerOverview o) => [
     if (o.recentSales.isEmpty)
-      const Padding(
+      Padding(
         padding: EdgeInsets.all(16),
         child: Text('Aucun achat pour l’instant', style: TextStyle(color: AppColors.muted)),
       )
@@ -598,7 +598,7 @@ class _CustomerScreenState extends ConsumerState<CustomerScreen> {
                   width: 36,
                   height: 36,
                   decoration: BoxDecoration(color: AppColors.greenSoft, borderRadius: BorderRadius.circular(12)),
-                  child: const Icon(Icons.shopping_bag_outlined, size: 18, color: AppColors.green),
+                  child: Icon(Icons.shopping_bag_outlined, size: 18, color: AppColors.green),
                 ),
                 title: Text(
                   s.number,
@@ -641,7 +641,7 @@ class _CustomerScreenState extends ConsumerState<CustomerScreen> {
                     Expanded(
                       child: Text(p.name, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13.5)),
                     ),
-                    Text('× ${qty(p.quantity)}', style: const TextStyle(color: AppColors.muted, fontSize: 13)),
+                    Text('× ${qty(p.quantity)}', style: TextStyle(color: AppColors.muted, fontSize: 13)),
                     const SizedBox(width: 12),
                     Text(moneyShort(p.total), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
                   ],
@@ -680,19 +680,19 @@ class _Header extends StatelessWidget {
             textAlign: TextAlign.center,
             style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w800),
           ),
-          if (c.phone != null) Text('+221 ${displayPhone(c.phone!)}', style: const TextStyle(color: AppColors.muted)),
+          if (c.phone != null) Text('+221 ${displayPhone(c.phone!)}', style: TextStyle(color: AppColors.muted)),
           if (c.address != null)
             Text(
               c.address!,
               textAlign: TextAlign.center,
-              style: const TextStyle(color: AppColors.muted, fontSize: 12.5),
+              style: TextStyle(color: AppColors.muted, fontSize: 12.5),
             ),
           if (o.stats.firstPurchaseAt != null)
             Padding(
               padding: const EdgeInsets.only(top: 2),
               child: Text(
                 'Client depuis ${DateFormat('MMMM yyyy', 'fr').format(o.stats.firstPurchaseAt!.toLocal())}',
-                style: const TextStyle(color: AppColors.muted, fontSize: 12),
+                style: TextStyle(color: AppColors.muted, fontSize: 12),
               ),
             ),
           if (c.phone != null) ...[
@@ -851,7 +851,7 @@ class _BalanceCard extends StatelessWidget {
                   FilledButton.icon(
                     style: FilledButton.styleFrom(
                       backgroundColor: Colors.white,
-                      foregroundColor: AppColors.ink,
+                      foregroundColor: const Color(0xFF13241C), // bouton blanc sur carte verte : texte toujours foncé
                       minimumSize: const Size.fromHeight(46),
                       textStyle: buttonText,
                     ),
@@ -967,7 +967,7 @@ class _ReminderSheetState extends ConsumerState<_ReminderSheet> {
         const Text('Rappel de paiement', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
         Text(
           '${widget.overview.customer.name} · ${money(widget.overview.balance)}',
-          style: const TextStyle(color: AppColors.muted),
+          style: TextStyle(color: AppColors.muted),
         ),
         const SizedBox(height: 12),
         Wrap(
@@ -1074,7 +1074,7 @@ class _AdjustSheetState extends ConsumerState<_AdjustSheet> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         const Text('Ajuster le solde', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
-        Text('Solde actuel : ${money(widget.balance)}', style: const TextStyle(color: AppColors.muted)),
+        Text('Solde actuel : ${money(widget.balance)}', style: TextStyle(color: AppColors.muted)),
         const SizedBox(height: 12),
         Wrap(
           spacing: 8,
@@ -1094,7 +1094,7 @@ class _AdjustSheetState extends ConsumerState<_AdjustSheet> {
           _increase
               ? 'Pour reprendre une dette notée dans votre ancien cahier.'
               : 'Efface une partie de la dette (geste commercial, erreur de saisie).',
-          style: const TextStyle(color: AppColors.muted, fontSize: 12.5),
+          style: TextStyle(color: AppColors.muted, fontSize: 12.5),
         ),
         const SizedBox(height: 12),
         TextField(
@@ -1163,7 +1163,7 @@ class _RepaySheetState extends ConsumerState<_RepaySheet> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         const Text('Remboursement', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
-        Text('Dette actuelle : ${money(widget.balance)}', style: const TextStyle(color: AppColors.muted)),
+        Text('Dette actuelle : ${money(widget.balance)}', style: TextStyle(color: AppColors.muted)),
         const SizedBox(height: 14),
         TextField(
           key: const Key('repayAmount'),

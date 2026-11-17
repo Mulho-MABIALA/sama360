@@ -326,7 +326,7 @@ class _StatusBanner extends StatelessWidget {
         DocStatusPill(status: d.status, overdue: d.overdue),
         const SizedBox(width: 10),
         Expanded(
-          child: Text(text, style: const TextStyle(color: AppColors.muted, fontSize: 13)),
+          child: Text(text, style: TextStyle(color: AppColors.muted, fontSize: 13)),
         ),
       ],
     );
@@ -343,7 +343,7 @@ class DocumentPaper extends StatelessWidget {
   Widget build(BuildContext context) {
     final d = doc;
     final b = business;
-    const small = TextStyle(fontSize: 12, color: AppColors.muted);
+    final small = TextStyle(fontSize: 12, color: AppColors.muted);
     Widget total(String l, String v, {bool strong = false, Color? color}) => Padding(
       padding: const EdgeInsets.symmetric(vertical: 2),
       child: Row(
@@ -362,7 +362,7 @@ class DocumentPaper extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.fromLTRB(18, 20, 18, 18),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.card,
         borderRadius: BorderRadius.circular(18),
         border: Border.all(color: AppColors.line),
         boxShadow: const [BoxShadow(color: Color(0x140B3D2E), blurRadius: 24, offset: Offset(0, 10))],
@@ -379,7 +379,7 @@ class DocumentPaper extends StatelessWidget {
                   children: [
                     Text(
                       b.name,
-                      style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: AppColors.green),
+                      style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: AppColors.green),
                     ),
                     if (b.phone != null) Text('Tél. ${b.phone}', style: small),
                     if (b.city != null) Text(b.city!, style: small),
@@ -392,7 +392,7 @@ class DocumentPaper extends StatelessWidget {
                   Text(docTitle(d), style: const TextStyle(fontWeight: FontWeight.w900, letterSpacing: 1)),
                   Text(
                     d.number,
-                    style: const TextStyle(fontWeight: FontWeight.w800, color: AppColors.green),
+                    style: TextStyle(fontWeight: FontWeight.w800, color: AppColors.green),
                   ),
                   Text(docDate(d.issueDate), style: small),
                 ],
@@ -530,7 +530,7 @@ class _PaymentSheetState extends ConsumerState<_PaymentSheet> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         const Text('Enregistrer un paiement', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
-        Text('Reste à payer : ${money(widget.doc.due)}', style: const TextStyle(color: AppColors.muted)),
+        Text('Reste à payer : ${money(widget.doc.due)}', style: TextStyle(color: AppColors.muted)),
         const SizedBox(height: 14),
         TextField(
           key: const Key('payAmount'),

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 
+import '../../core/celebrate.dart';
 import '../../core/api/api_client.dart';
 import '../../core/format.dart';
 import '../../core/glass.dart';
@@ -118,14 +119,14 @@ class _PosScreenState extends ConsumerState<PosScreen> {
   Future<void> _showQueued(PendingSale p) => showDialog<void>(
     context: context,
     builder: (ctx) => AlertDialog(
-      icon: const Icon(Icons.cloud_off_rounded, color: AppColors.warn, size: 46),
+      icon: Icon(Icons.cloud_off_rounded, color: AppColors.warn, size: 46),
       title: const Text('Vente gardée sur le téléphone'),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           Text(money(p.total), style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w800)),
           const SizedBox(height: 10),
-          const Text(
+          Text(
             'Pas de connexion pour l’instant. La vente est bien enregistrée sur ce téléphone '
             'et sera envoyée automatiquement dès le retour du réseau.',
             textAlign: TextAlign.center,
@@ -138,47 +139,64 @@ class _PosScreenState extends ConsumerState<PosScreen> {
     ),
   );
 
-  Future<void> _showSuccess(SaleResult sale, Contact? customer) => showDialog<void>(
-    context: context,
-    builder: (ctx) => AlertDialog(
-      icon: const Icon(Icons.check_circle_rounded, color: AppColors.green, size: 48),
-      title: const Text('Vente enregistrée'),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
+  Future<void> _showSuccess(SaleResult sale, Contact? customer) {
+    final milestone = saleMilestone(sale.number);
+    return showDialog<void>(
+      context: context,
+      builder: (ctx) => Stack(
         children: [
-          Text(sale.number, style: const TextStyle(color: AppColors.muted)),
-          const SizedBox(height: 8),
-          Text(money(sale.total), style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w800)),
-          if (sale.due > 0) ...[
-            const SizedBox(height: 8),
-            Text(
-              '${money(sale.due)} ajoutés au crédit de ${customer?.name ?? 'ce client'}',
-              textAlign: TextAlign.center,
-              style: const TextStyle(color: AppColors.warn, fontWeight: FontWeight.w700),
+          if (milestone != null) const Positioned.fill(child: ConfettiBurst()),
+          AlertDialog(
+            icon: const SuccessCheck(),
+            title: const Text('Vente enregistrée'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (milestone != null) ...[
+                  Text(
+                    milestone,
+                    key: const Key('sale_milestone'),
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: AppColors.green, fontWeight: FontWeight.w800, fontSize: 15),
+                  ),
+                  const SizedBox(height: 6),
+                ],
+                Text(sale.number, style: TextStyle(color: AppColors.muted)),
+                const SizedBox(height: 8),
+                Text(money(sale.total), style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w800)),
+                if (sale.due > 0) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    '${money(sale.due)} ajoutés au crédit de ${customer?.name ?? 'ce client'}',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: AppColors.warn, fontWeight: FontWeight.w700),
+                  ),
+                ],
+              ],
             ),
-          ],
+            actionsAlignment: MainAxisAlignment.center,
+            actions: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  FilledButton.icon(
+                    onPressed: () {
+                      Navigator.pop(ctx);
+                      context.push('/sales/${sale.id}');
+                    },
+                    icon: const Icon(Icons.receipt_long_rounded),
+                    label: const Text('Voir le reçu'),
+                  ),
+                  const SizedBox(height: 8),
+                  OutlinedButton(onPressed: () => Navigator.pop(ctx), child: const Text('Nouvelle vente')),
+                ],
+              ),
+            ],
+          ),
         ],
       ),
-      actionsAlignment: MainAxisAlignment.center,
-      actions: [
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            FilledButton.icon(
-              onPressed: () {
-                Navigator.pop(ctx);
-                context.push('/sales/${sale.id}');
-              },
-              icon: const Icon(Icons.receipt_long_rounded),
-              label: const Text('Voir le reçu'),
-            ),
-            const SizedBox(height: 8),
-            OutlinedButton(onPressed: () => Navigator.pop(ctx), child: const Text('Nouvelle vente')),
-          ],
-        ),
-      ],
-    ),
-  );
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -218,7 +236,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
                 suffixIcon: IconButton(
                   tooltip: 'Scanner un code-barres',
                   onPressed: _scan,
-                  icon: const Icon(Icons.qr_code_scanner_rounded, color: AppColors.green),
+                  icon: Icon(Icons.qr_code_scanner_rounded, color: AppColors.green),
                 ),
               ),
               onChanged: (v) => setState(() => _search = v.trim().toLowerCase()),
@@ -285,7 +303,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
 class _EmptyCatalog extends StatelessWidget {
   const _EmptyCatalog();
   @override
-  Widget build(BuildContext context) => const Center(
+  Widget build(BuildContext context) => Center(
     child: Padding(
       padding: EdgeInsets.all(32),
       child: Text(
@@ -316,7 +334,7 @@ class _ProductCard extends StatelessWidget {
     final inCart = quantity > 0;
     final low = stock?.low ?? false;
     return Material(
-      color: Colors.white.withValues(alpha: inCart ? 0.92 : 0.74),
+      color: AppColors.surface(inCart ? 0.92 : 0.74),
       shadowColor: const Color(0x330B3D2E),
       elevation: inCart ? 6 : 0,
       shape: RoundedRectangleBorder(
@@ -351,7 +369,7 @@ class _ProductCard extends StatelessWidget {
                             TextSpan(
                               children: [
                                 TextSpan(text: moneyShort(product.unitPriceFor(quantity))),
-                                const TextSpan(
+                                TextSpan(
                                   text: '  gros',
                                   style: TextStyle(
                                     fontSize: 11,
@@ -441,11 +459,7 @@ class _CheckoutPanel extends ConsumerWidget {
                           cart.customer == null
                               ? '$articles article(s) · Choisir un client'
                               : '$articles article(s) · ${cart.customer!.name}',
-                          style: const TextStyle(
-                            fontSize: 12,
-                            color: AppColors.muted,
-                            decoration: TextDecoration.underline,
-                          ),
+                          style: TextStyle(fontSize: 12, color: AppColors.muted, decoration: TextDecoration.underline),
                         ),
                       ),
                       Text(money(cart.total), style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800)),
@@ -484,7 +498,7 @@ class _CheckoutPanel extends ConsumerWidget {
                   padding: const EdgeInsets.only(top: 6),
                   child: Text(
                     'Reste à crédit : ${money((cart.total - cart.deposit).clamp(0, cart.total))}',
-                    style: const TextStyle(color: AppColors.warnText, fontWeight: FontWeight.w700, fontSize: 13),
+                    style: TextStyle(color: AppColors.warnText, fontWeight: FontWeight.w700, fontSize: 13),
                   ),
                 ),
               if (cart.customer?.creditLimit != null)
@@ -543,7 +557,7 @@ class _CashClosedBanner extends ConsumerWidget {
         radius: 16,
         onTap: () => context.push('/cash'),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-        child: const Row(
+        child: Row(
           children: [
             Icon(Icons.lock_clock_rounded, size: 20, color: AppColors.warnText),
             SizedBox(width: 10),
@@ -566,6 +580,13 @@ class _CashClosedBanner extends ConsumerWidget {
 
 class _ModeButton extends StatelessWidget {
   const _ModeButton({required this.mode, required this.selected, required this.onTap});
+
+  /// Bouton choisi : fond doux, bordure et texte de la couleur du moyen de paiement (adaptés au mode sombre).
+  static (Color, Color, Color) _selected(Color soft, Color border, Color text) {
+    final (bg, fg) = AppColors.tone(soft, text);
+    return (bg, AppColors.isDark ? fg : border, fg);
+  }
+
   final PaymentMode mode;
   final bool selected;
   final VoidCallback onTap;
@@ -573,11 +594,15 @@ class _ModeButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final (bg, border, fg) = switch ((mode, selected)) {
-      (PaymentMode.wave, true) => (const Color(0xFFEAF5FE), const Color(0xFF1D9BF0), const Color(0xFF0B4F82)),
-      (PaymentMode.orangeMoney, true) => (const Color(0xFFFFF1E6), const Color(0xFFF07B14), const Color(0xFF8A3D00)),
-      (PaymentMode.credit, true) => (AppColors.warnBg, AppColors.warn, AppColors.warnText),
-      (_, true) => (AppColors.greenSoft, AppColors.green, AppColors.greenDark),
-      _ => (Colors.white, AppColors.line, AppColors.ink),
+      (PaymentMode.wave, true) => _selected(const Color(0xFFEAF5FE), const Color(0xFF1D9BF0), const Color(0xFF0B4F82)),
+      (PaymentMode.orangeMoney, true) => _selected(
+        const Color(0xFFFFF1E6),
+        const Color(0xFFF07B14),
+        const Color(0xFF8A3D00),
+      ),
+      (PaymentMode.credit, true) => _selected(AppColors.warnBg, AppColors.warn, AppColors.warnText),
+      (_, true) => _selected(AppColors.greenSoft, AppColors.green, AppColors.greenDark),
+      _ => (AppColors.surface(), AppColors.line, AppColors.ink),
     };
     return Semantics(
       selected: selected,

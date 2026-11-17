@@ -40,12 +40,12 @@ Future<PickedPhoto?> choosePhoto(BuildContext context, WidgetRef ref) async {
         mainAxisSize: MainAxisSize.min,
         children: [
           ListTile(
-            leading: const Icon(Icons.photo_camera_rounded, color: AppColors.green),
+            leading: Icon(Icons.photo_camera_rounded, color: AppColors.green),
             title: const Text('Prendre une photo'),
             onTap: () => Navigator.pop(ctx, ImageSource.camera),
           ),
           ListTile(
-            leading: const Icon(Icons.photo_library_rounded, color: AppColors.green),
+            leading: Icon(Icons.photo_library_rounded, color: AppColors.green),
             title: const Text('Choisir dans la galerie'),
             onTap: () => Navigator.pop(ctx, ImageSource.gallery),
           ),
@@ -80,7 +80,7 @@ class ProductThumb extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final placeholder = Container(
       alignment: Alignment.center,
-      color: highlight ? AppColors.greenSoft : const Color(0xFFEEF4F0),
+      color: highlight ? AppColors.greenSoft : (AppColors.isDark ? AppColors.mint : const Color(0xFFEEF4F0)),
       child: Text(
         productInitials(name),
         style: TextStyle(color: AppColors.green, fontWeight: FontWeight.w800, fontSize: (size ?? height ?? 48) * 0.34),
@@ -144,11 +144,11 @@ class PhotoField extends ConsumerWidget {
                 border: Border.all(color: AppColors.line),
               ),
               child: photo == null
-                  ? const Icon(Icons.add_a_photo_rounded, color: AppColors.green, size: 30)
+                  ? Icon(Icons.add_a_photo_rounded, color: AppColors.green, size: 30)
                   : Image.memory(
                       Uint8List.fromList(photo!.bytes),
                       fit: BoxFit.cover,
-                      errorBuilder: (_, _, _) => const Icon(Icons.broken_image_outlined, color: AppColors.muted),
+                      errorBuilder: (_, _, _) => Icon(Icons.broken_image_outlined, color: AppColors.muted),
                     ),
             ),
           ),
@@ -167,7 +167,7 @@ class PhotoField extends ConsumerWidget {
                 photo == null
                     ? 'Facultatif — aide à retrouver le produit à la caisse.'
                     : 'Touchez la photo pour la changer.',
-                style: const TextStyle(color: AppColors.muted, fontSize: 12.5),
+                style: TextStyle(color: AppColors.muted, fontSize: 12.5),
               ),
               if (photo != null)
                 TextButton(

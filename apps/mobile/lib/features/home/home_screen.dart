@@ -14,6 +14,8 @@ import '../../core/offline/pending_sales.dart';
 import '../offline/offline_ui.dart';
 import '../profile/profile_screen.dart';
 import '../notifications/notifications_screen.dart' show tabRoutes;
+import '../../core/charts.dart';
+import '../../core/skeleton.dart';
 import '../catalog/scan_lookup.dart';
 import 'monument.dart';
 import 'promo_carousel.dart';
@@ -162,7 +164,7 @@ class HomeScreen extends ConsumerWidget {
             children: [
               const Text('Tous les services', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
               const SizedBox(height: 4),
-              const Text('De nouveaux services arrivent régulièrement.', style: TextStyle(color: AppColors.muted)),
+              Text('De nouveaux services arrivent régulièrement.', style: TextStyle(color: AppColors.muted)),
               const SizedBox(height: 14),
               GridView.count(
                 crossAxisCount: 4,
@@ -333,9 +335,9 @@ class _Hero extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
             child: Row(
               children: [
-                const Icon(Icons.search_rounded, color: AppColors.green),
+                Icon(Icons.search_rounded, color: AppColors.green),
                 const SizedBox(width: 10),
-                const Expanded(
+                Expanded(
                   child: Text(
                     'Rechercher un produit, un service…',
                     style: TextStyle(color: AppColors.muted, fontSize: 14),
@@ -361,7 +363,7 @@ class _ScanButton extends ConsumerWidget {
     child: InkResponse(
       radius: 22,
       onTap: () => scanAndShowProduct(context, ref),
-      child: const Padding(
+      child: Padding(
         padding: EdgeInsets.all(4),
         child: Icon(Icons.qr_code_scanner_rounded, color: AppColors.ink, size: 22),
       ),
@@ -437,6 +439,64 @@ class _GlassIcon extends StatelessWidget {
       ),
     ),
   );
+}
+
+/// Courbe des ventes des 7 derniers jours et tendance par rapport à la semaine d'avant.
+class _WeekCurve extends StatelessWidget {
+  const _WeekCurve({required this.summary});
+  final DaySummary summary;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = weekTrend(summary.last7Days, summary.previous7DaysRevenue);
+    final up = (t ?? 0) >= 0;
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        Expanded(
+          child: SalesSparkline(values: summary.last7Days, color: AppColors.glow, height: 38),
+        ),
+        const SizedBox(width: 12),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            const Text('7 jours', style: TextStyle(fontSize: 11.5, color: _CashCard._muted)),
+            const SizedBox(height: 2),
+            Container(
+              key: const Key('week_trend'),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                color: (t == null ? Colors.white : (up ? AppColors.glow : const Color(0xFFFFB4A8))).withValues(
+                  alpha: 0.18,
+                ),
+                borderRadius: BorderRadius.circular(999),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (t != null)
+                    Icon(
+                      up ? Icons.trending_up_rounded : Icons.trending_down_rounded,
+                      size: 14,
+                      color: up ? AppColors.glow : const Color(0xFFFFB4A8),
+                    ),
+                  if (t != null) const SizedBox(width: 3),
+                  Text(
+                    t == null ? 'Nouveau' : trendLabel(t),
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w800,
+                      color: t == null ? Colors.white : (up ? AppColors.glow : const Color(0xFFFFB4A8)),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
 }
 
 /// Carte « Caisse du jour » en verre sombre, avec reflet miroir qui la traverse.
@@ -530,9 +590,20 @@ class _CashCard extends ConsumerWidget {
               AsyncView<DaySummary>(
                 value: ref.watch(summaryProvider),
                 onRetry: () => ref.invalidate(summaryProvider),
-                loading: const SizedBox(
+                loading: SizedBox(
                   height: 96,
-                  child: Center(child: CircularProgressIndicator(color: AppColors.glow)),
+                  child: Shimmer(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: const [
+                        Bone(width: 150, height: 30),
+                        SizedBox(height: 10),
+                        Bone(width: 110, height: 12),
+                        SizedBox(height: 14),
+                        Bone(height: 36, width: double.infinity, radius: 14),
+                      ],
+                    ),
+                  ),
                 ),
                 data: (s) => Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -547,21 +618,25 @@ class _CashCard extends ConsumerWidget {
                               FittedBox(
                                 fit: BoxFit.scaleDown,
                                 alignment: Alignment.centerLeft,
-                                child: Text.rich(
-                                  TextSpan(
-                                    children: [
-                                      TextSpan(text: moneyShort(s.revenue).replaceAll(' F', '')),
-                                      const TextSpan(
-                                        text: ' F',
-                                        style: TextStyle(fontSize: 17, color: _muted),
-                                      ),
-                                    ],
-                                  ),
-                                  style: const TextStyle(
-                                    fontSize: 32,
-                                    fontWeight: FontWeight.w800,
-                                    letterSpacing: -0.8,
-                                    color: Colors.white,
+                                child: CountUp(
+                                  value: s.revenue,
+                                  builder: (context, shown) => Text.rich(
+                                    TextSpan(
+                                      children: [
+                                        TextSpan(text: moneyShort(shown).replaceAll(' F', '')),
+                                        const TextSpan(
+                                          text: ' F',
+                                          style: TextStyle(fontSize: 17, color: _muted),
+                                        ),
+                                      ],
+                                    ),
+                                    style: const TextStyle(
+                                      fontSize: 32,
+                                      fontWeight: FontWeight.w800,
+                                      letterSpacing: -0.8,
+                                      color: Colors.white,
+                                      fontFeatures: [FontFeature.tabularFigures()],
+                                    ),
                                   ),
                                 ),
                               ),
@@ -576,6 +651,7 @@ class _CashCard extends ConsumerWidget {
                         actions,
                       ],
                     ),
+                    if (s.last7Days.length >= 2) ...[const SizedBox(height: 10), _WeekCurve(summary: s)],
                     const SizedBox(height: 14),
                     Container(
                       padding: const EdgeInsets.symmetric(vertical: 10),
@@ -688,7 +764,7 @@ class _SellersOfDay extends ConsumerWidget {
                               const SizedBox(height: 3),
                               Text(
                                 '${v.salesCount} vente${v.salesCount > 1 ? 's' : ''}',
-                                style: const TextStyle(fontSize: 12, color: AppColors.muted),
+                                style: TextStyle(fontSize: 12, color: AppColors.muted),
                               ),
                             ],
                           ),
@@ -829,14 +905,14 @@ class _ShopOrdersBanner extends StatelessWidget {
         Expanded(
           child: Text(
             count == 1 ? '1 nouvelle commande en ligne' : '$count nouvelles commandes en ligne',
-            style: const TextStyle(color: AppColors.greenDark, fontWeight: FontWeight.w800),
+            style: TextStyle(color: AppColors.greenDark, fontWeight: FontWeight.w800),
           ),
         ),
-        const Text(
+        Text(
           'Voir',
           style: TextStyle(color: AppColors.greenDark, fontWeight: FontWeight.w800),
         ),
-        const Icon(Icons.chevron_right_rounded, color: AppColors.greenDark),
+        Icon(Icons.chevron_right_rounded, color: AppColors.greenDark),
       ],
     ),
   );
@@ -859,14 +935,14 @@ class _LowStockBanner extends StatelessWidget {
         Expanded(
           child: Text(
             count == 1 ? '1 produit en stock bas' : '$count produits en stock bas',
-            style: const TextStyle(color: AppColors.warnText, fontWeight: FontWeight.w800),
+            style: TextStyle(color: AppColors.warnText, fontWeight: FontWeight.w800),
           ),
         ),
-        const Text(
+        Text(
           'Voir',
           style: TextStyle(color: AppColors.warnText, fontWeight: FontWeight.w800),
         ),
-        const Icon(Icons.chevron_right_rounded, color: AppColors.warnText),
+        Icon(Icons.chevron_right_rounded, color: AppColors.warnText),
       ],
     ),
   );

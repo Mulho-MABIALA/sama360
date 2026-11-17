@@ -88,7 +88,7 @@ class TeamScreen extends ConsumerWidget {
                     ),
                   ),
                 if (list.length <= 1)
-                  const Padding(
+                  Padding(
                     padding: EdgeInsets.fromLTRB(12, 12, 12, 0),
                     child: Text(
                       'Ajoutez un vendeur ou un gérant : chacun se connecte avec son propre numéro '
@@ -119,7 +119,7 @@ class TeamScreen extends ConsumerWidget {
     await showDialog<void>(
       context: context,
       builder: (ctx) => AlertDialog(
-        icon: const Icon(Icons.how_to_reg_rounded, color: AppColors.green, size: 46),
+        icon: Icon(Icons.how_to_reg_rounded, color: AppColors.green, size: 46),
         title: const Text('Invitation enregistrée'),
         content: Text(
           '${invited.name ?? '+221 ${displayPhone(invited.phone)}'} pourra se connecter avec son numéro. '
@@ -206,7 +206,7 @@ class _MemberCard extends ConsumerWidget {
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15),
                 ),
-                Text('+221 ${displayPhone(m.phone)}', style: const TextStyle(color: AppColors.muted, fontSize: 13)),
+                Text('+221 ${displayPhone(m.phone)}', style: TextStyle(color: AppColors.muted, fontSize: 13)),
                 if (statusLabel != null)
                   Text(
                     statusLabel,
@@ -227,7 +227,7 @@ class _MemberCard extends ConsumerWidget {
               ),
             ),
           ),
-          if (onTap != null) const Icon(Icons.chevron_right_rounded, color: AppColors.muted),
+          if (onTap != null) Icon(Icons.chevron_right_rounded, color: AppColors.muted),
         ],
       ),
     );
@@ -250,7 +250,7 @@ class _RolePicker extends StatelessWidget {
             selected: value == r,
             button: true,
             child: Material(
-              color: value == r ? roleColor(r.api).withValues(alpha: 0.10) : Colors.white.withValues(alpha: 0.7),
+              color: value == r ? roleColor(r.api).withValues(alpha: 0.10) : AppColors.surface(0.7),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(16),
                 side: BorderSide(color: value == r ? roleColor(r.api) : AppColors.line, width: value == r ? 2 : 1),
@@ -272,7 +272,7 @@ class _RolePicker extends StatelessWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(r.label, style: const TextStyle(fontWeight: FontWeight.w800)),
-                            Text(r.description, style: const TextStyle(fontSize: 12.5, color: AppColors.muted)),
+                            Text(r.description, style: TextStyle(fontSize: 12.5, color: AppColors.muted)),
                           ],
                         ),
                       ),
@@ -341,7 +341,7 @@ class _InviteSheetState extends ConsumerState<_InviteSheet> {
         children: [
           const Text('Inviter dans l’équipe', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
           const SizedBox(height: 4),
-          const Text(
+          Text(
             'La personne se connectera avec ce numéro et recevra un code par SMS.',
             style: TextStyle(color: AppColors.muted),
           ),
@@ -434,7 +434,7 @@ class _ManageSheetState extends ConsumerState<_ManageSheet> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Text(m.displayName, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
-            Text('+221 ${displayPhone(m.phone)}', style: const TextStyle(color: AppColors.muted)),
+            Text('+221 ${displayPhone(m.phone)}', style: TextStyle(color: AppColors.muted)),
             const SizedBox(height: 16),
             const Text('Rôle', style: TextStyle(fontWeight: FontWeight.w800)),
             const SizedBox(height: 8),

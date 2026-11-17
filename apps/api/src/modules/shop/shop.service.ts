@@ -1,3 +1,4 @@
+import { readableOnWhite } from '../../shared/color';
 import { Injectable } from '@nestjs/common';
 import { sql } from 'drizzle-orm';
 import { DbService, Tx } from '../../shared/db/db.service';
@@ -85,11 +86,19 @@ export class ShopService {
   // ------------------------------------------------------------------ public
 
   /** Entreprise d'une boutique ouverte, d'après son adresse (slug). Sinon 404. */
-  async resolve(slug: string): Promise<{ id: string; name: string; phone: string | null; address: string | null; city: string | null; logoFileId: string | null }> {
+  async resolve(slug: string): Promise<{
+    id: string;
+    name: string;
+    phone: string | null;
+    address: string | null;
+    city: string | null;
+    logoFileId: string | null;
+    brandColor: string | null;
+  }> {
     const [b] = (
       await this.dbs.transaction((tx) =>
         tx.execute(sql`
-          SELECT id, name, phone, address, city, logo_file_id FROM core.businesses
+          SELECT id, name, phone, address, city, logo_file_id, brand_color FROM core.businesses
           WHERE slug = ${slug.toLowerCase()} AND deleted_at IS NULL`),
       )
     ).rows as Row[];
@@ -101,6 +110,7 @@ export class ShopService {
       address: (b.address as string) ?? null,
       city: (b.city as string) ?? null,
       logoFileId: (b.logo_file_id as string) ?? null,
+      brandColor: b.brand_color ? readableOnWhite(b.brand_color as string) : null,
     };
   }
 
@@ -132,6 +142,7 @@ export class ShopService {
           whatsapp: settings.whatsapp ?? b.phone,
           address: [b.address, b.city].filter(Boolean).join(', ') || null,
           logoFileId: b.logoFileId,
+          brandColor: b.brandColor,
           pickup: settings.pickup,
           delivery: settings.delivery,
           deliveryFee: settings.deliveryFee,

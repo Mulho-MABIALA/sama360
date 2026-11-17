@@ -606,9 +606,15 @@ void main() {
       final t = await repo.verifyOtp(phone, await _otpFor(phone));
       await store.save(Session(accessToken: t.access, refreshToken: t.refresh));
       await repo.updateName('Coumba Ndiaye');
-      client.businessId = await repo.createBusiness(name: 'Ndiaye Quincaillerie test', category: 'boutique', city: 'Dakar');
+      client.businessId = await repo.createBusiness(
+        name: 'Ndiaye Quincaillerie test',
+        category: 'boutique',
+        city: 'Dakar',
+      );
 
-      final ciment = await repo.saveProduct(const ProductDraft(name: 'Ciment 50 kg', price: 5000, cost: 4000, unit: 'sac'));
+      final ciment = await repo.saveProduct(
+        const ProductDraft(name: 'Ciment 50 kg', price: 5000, cost: 4000, unit: 'sac'),
+      );
       await repo.addStock(ciment.id, 10); // 10 sacs à 4 000
       final grossiste = await repo.saveCustomer(
         const CustomerDraft(name: 'Sococim dépôt', phone: '+221776001122'),
@@ -620,7 +626,9 @@ void main() {
         SamaRepository.purchaseBody(
           id: const Uuid().v7(),
           supplierId: grossiste.id,
-          lines: [PurchaseLineDraft(productId: ciment.id, name: ciment.name, quantity: 30, unitCost: 4400, unit: 'sac')],
+          lines: [
+            PurchaseLineDraft(productId: ciment.id, name: ciment.name, quantity: 30, unitCost: 4400, unit: 'sac'),
+          ],
           expectedDate: DateTime.now().add(const Duration(days: 3)),
         ),
       );
@@ -632,7 +640,10 @@ void main() {
         lines: [(lineId: order.lines.single.id, quantity: 10, unitCost: 4400)],
         payment: (amount: 20000, method: PayMethod.wave),
       );
-      expect((d.status, d.summary.receivedTotal, d.summary.paid, d.summary.due), (PurchaseStatus.partial, 44000, 20000, 24000));
+      expect(
+        (d.status, d.summary.receivedTotal, d.summary.paid, d.summary.due),
+        (PurchaseStatus.partial, 44000, 20000, 24000),
+      );
       expect((await repo.product(ciment.id)).cost, 4200); // (10 × 4 000 + 10 × 4 400) / 20
       final stock = await repo.stock();
       expect(stock.items.firstWhere((i) => i.productId == ciment.id).onHand, 20);
@@ -669,7 +680,11 @@ void main() {
       final t = await repo.verifyOtp(phone, await _otpFor(phone));
       await store.save(Session(accessToken: t.access, refreshToken: t.refresh));
       await repo.updateName('Mame Diarra');
-      client.businessId = await repo.createBusiness(name: 'Diarra Couture test ${Random().nextInt(99999)}', category: 'boutique', city: 'Dakar');
+      client.businessId = await repo.createBusiness(
+        name: 'Diarra Couture test ${Random().nextInt(99999)}',
+        category: 'boutique',
+        city: 'Dakar',
+      );
 
       final robe = await repo.saveProduct(const ProductDraft(name: 'Robe wax', price: 12000, published: true));
       await repo.addStock(robe.id, 4);

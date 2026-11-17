@@ -434,4 +434,25 @@ void main() {
     await tester.pumpAndSettle();
     await _shot(tester, '26_scan_accueil');
   });
+
+  testWidgets('affichage', (tester) async {
+    phoneSize(tester);
+    await pumpSama(tester, location: '/settings/display');
+    await _shot(tester, '27_affichage');
+  });
+
+  testWidgets('accueil en mode sombre', (tester) async {
+    phoneSize(tester);
+    await pumpSama(tester, dark: true, overrides: [monumentDateProvider.overrideWithValue(DateTime(2026, 11, 16))]);
+    final ctx = tester.element(find.byType(MonumentBackdrop));
+    await tester.runAsync(() => precacheImage(AssetImage(monumentOfDay(DateTime(2026, 11, 16)).asset), ctx));
+    await tester.pumpAndSettle();
+    await _shot(tester, '28_accueil_sombre');
+  });
+
+  testWidgets('couleur de boutique Océan', (tester) async {
+    phoneSize(tester);
+    await pumpSama(tester, location: '/pos', repo: FakeRepo()..brandColor = '#1565C0');
+    await _shot(tester, '29_couleur_ocean');
+  });
 }

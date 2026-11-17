@@ -160,7 +160,7 @@ class _PurchaseScreenState extends ConsumerState<PurchaseScreen> {
                     ),
                   ),
                 if (canWrite && d.status.open && d.summary.receivedTotal == 0 && d.summary.paid == 0)
-                  const PopupMenuItem(
+                  PopupMenuItem(
                     value: 'cancel',
                     child: ListTile(
                       contentPadding: EdgeInsets.zero,
@@ -206,7 +206,7 @@ class _PurchaseScreenState extends ConsumerState<PurchaseScreen> {
                         padding: const EdgeInsets.all(14),
                         child: Row(
                           children: [
-                            const Icon(Icons.sticky_note_2_outlined, size: 20, color: AppColors.muted),
+                            Icon(Icons.sticky_note_2_outlined, size: 20, color: AppColors.muted),
                             const SizedBox(width: 10),
                             Expanded(child: Text(d.note!, style: const TextStyle(fontSize: 13.5))),
                           ],
@@ -236,7 +236,7 @@ class _PurchaseScreenState extends ConsumerState<PurchaseScreen> {
         (
           r.receivedAt,
           ListTile(
-            leading: const Icon(Icons.inventory_rounded, color: AppColors.green),
+            leading: Icon(Icons.inventory_rounded, color: AppColors.green),
             title: Text(
               'Marchandise reçue${r.note == null ? '' : ' · ${r.note}'}',
               style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
@@ -260,7 +260,7 @@ class _PurchaseScreenState extends ConsumerState<PurchaseScreen> {
             subtitle: Text(dateTime(p.paidAt), style: const TextStyle(fontSize: 12)),
             trailing: Text(
               '− ${moneyShort(p.amount)}',
-              style: const TextStyle(fontWeight: FontWeight.w800, color: AppColors.green),
+              style: TextStyle(fontWeight: FontWeight.w800, color: AppColors.green),
             ),
           ),
         ),
@@ -285,7 +285,12 @@ class _Header extends StatelessWidget {
     onTap: () => context.push('/suppliers/${d.supplier.id}'),
     child: Row(
       children: [
-        Avatar(name: d.supplier.name, size: 46, bg: const Color(0xFFE6EFFC), fg: const Color(0xFF1F5BB8)),
+        Avatar(
+          name: d.supplier.name,
+          size: 46,
+          bg: AppColors.softOf(const Color(0xFFE6EFFC), const Color(0xFF1F5BB8)),
+          fg: AppColors.strongOf(const Color(0xFFE6EFFC), const Color(0xFF1F5BB8)),
+        ),
         const SizedBox(width: 12),
         Expanded(
           child: Column(
@@ -295,7 +300,7 @@ class _Header extends StatelessWidget {
               Text(
                 'Commandé le ${purchaseDay(d.summary.orderDate)}'
                 '${d.summary.expectedDate == null || !d.status.open ? '' : ' · livraison ${purchaseDay(d.summary.expectedDate!)}'}',
-                style: const TextStyle(color: AppColors.muted, fontSize: 12.5),
+                style: TextStyle(color: AppColors.muted, fontSize: 12.5),
               ),
             ],
           ),
@@ -539,7 +544,7 @@ class _ReceiveSheetState extends ConsumerState<_ReceiveSheet> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           const Text('Réceptionner la marchandise', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
-          const Text(
+          Text(
             'Corrigez les quantités arrivées et le prix s’il a changé. Le stock et le coût d’achat moyen sont mis à jour.',
             style: TextStyle(color: AppColors.muted, fontSize: 12.5),
           ),
@@ -556,7 +561,7 @@ class _ReceiveSheetState extends ConsumerState<_ReceiveSheet> {
                         Text(l.name, style: const TextStyle(fontWeight: FontWeight.w700)),
                         Text(
                           'Reste à recevoir : ${qty(l.remaining)}${l.unit == 'pièce' ? '' : ' ${l.unit}'}',
-                          style: const TextStyle(color: AppColors.muted, fontSize: 12),
+                          style: TextStyle(color: AppColors.muted, fontSize: 12),
                         ),
                         const SizedBox(height: 6),
                         Row(

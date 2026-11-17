@@ -37,15 +37,8 @@ void main() {
 
   group('logique', () {
     test('quantité proposée pour un produit en stock bas', () {
-      StockItem item(double onHand, int threshold) => StockItem(
-        productId: 'p',
-        name: 'P',
-        price: 0,
-        cost: 0,
-        threshold: threshold,
-        onHand: onHand,
-        low: true,
-      );
+      StockItem item(double onHand, int threshold) =>
+          StockItem(productId: 'p', name: 'P', price: 0, cost: 0, threshold: threshold, onHand: onHand, low: true);
       expect(suggestedReorder(item(2, 5)), 8);
       expect(suggestedReorder(item(0, 5)), 10);
       expect(suggestedReorder(item(9.5, 5)), 1);
@@ -78,7 +71,8 @@ void main() {
                      "receivedQty": 10, "unitCost": 1400, "total": 42000}],
           "receipts": [{"id": "r1", "total": 14000, "note": null, "receivedAt": "2026-11-12T09:00:00Z", "receivedBy": "Awa"}],
           "payments": [{"id": "p1", "method": "orange_money", "amount": 5000, "reference": null, "paidAt": "2026-11-12T10:00:00Z"}]
-        }''') as Map<String, dynamic>,
+        }''')
+            as Map<String, dynamic>,
       );
       expect(d.status, PurchaseStatus.partial);
       expect(d.summary.supplierName, 'Grossiste');
@@ -232,10 +226,7 @@ void main() {
       await tester.pumpAndSettle();
       final (id, lines, _, payment) = repo.receptions.single;
       expect(id, 'po1');
-      expect(lines, [
-        (lineId: 'l11', quantity: 24.0, unitCost: 2000),
-        (lineId: 'l12', quantity: 30.0, unitCost: 850),
-      ]);
+      expect(lines, [(lineId: 'l11', quantity: 24.0, unitCost: 2000), (lineId: 'l12', quantity: 30.0, unitCost: 850)]);
       expect(payment, (amount: 20000, method: PayMethod.cash));
       expect(find.text('Marchandise reçue : le stock est à jour'), findsOneWidget);
     });

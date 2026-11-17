@@ -33,6 +33,14 @@ const _lightBlobs = [
   _Blob(Color(0x4DC8B9FF), Alignment(1.1, 1.1), 0.58, 4.4),
 ];
 
+/// Fond clair en mode sombre : mêmes nappes, très atténuées, sur un vert nuit.
+const _nightBlobs = [
+  _Blob(Color(0x4021C98A), Alignment(-1.1, -1.0), 0.75, 0.0),
+  _Blob(Color(0x330FA3A0), Alignment(1.2, -0.25), 0.62, 1.7),
+  _Blob(Color(0x24FF9A4D), Alignment(-1.0, 0.85), 0.62, 3.1),
+  _Blob(Color(0x2E8E7CF6), Alignment(1.1, 1.1), 0.58, 4.4),
+];
+
 const _deepBlobs = [
   _Blob(Color(0xB321C98A), Alignment(-1.0, -1.1), 0.85, 0.0),
   _Blob(Color(0x8C0FA3A0), Alignment(1.15, -0.5), 0.7, 2.0),
@@ -72,12 +80,19 @@ class _AuroraBackgroundState extends State<AuroraBackground> with SingleTickerPr
   @override
   Widget build(BuildContext context) {
     final deep = widget.tone == AuroraTone.deep;
+    final night = !deep && AppColors.isDark;
     return CustomPaint(
       painter: _AuroraPainter(
         _controller,
-        blobs: deep ? _deepBlobs : _lightBlobs,
+        blobs: deep
+            ? _deepBlobs
+            : night
+            ? _nightBlobs
+            : _lightBlobs,
         base: deep
             ? const [Color(0xFF042A21), Color(0xFF07473A), Color(0xFF0A5F49)]
+            : night
+            ? const [Color(0xFF07110D), Color(0xFF0B1913)]
             : const [Color(0xFFF3FAF6), Color(0xFFEFF6F3)],
       ),
       child: widget.child,
@@ -210,6 +225,7 @@ class Glass extends StatelessWidget {
   Widget build(BuildContext context) {
     final r = BorderRadius.circular(radius);
     final dark = tone == GlassTone.dark;
+    final night = !dark && AppColors.isDark; // verre clair affiché en mode sombre
     Widget content = Padding(padding: padding, child: child);
     if (onTap != null) {
       content = Material(
@@ -223,7 +239,7 @@ class Glass extends StatelessWidget {
         boxShadow: shadow
             ? [
                 BoxShadow(
-                  color: dark ? const Color(0x33000000) : const Color(0x170B3D2E),
+                  color: dark || night ? const Color(0x40000000) : const Color(0x170B3D2E),
                   blurRadius: 26,
                   spreadRadius: -6,
                   offset: const Offset(0, 12),
@@ -236,8 +252,8 @@ class Glass extends StatelessWidget {
         child: BackdropFilter(
           filter: ImageFilter.blur(sigmaX: blur, sigmaY: blur),
           child: CustomPaint(
-            painter: _GlassFillPainter(radius: radius, dark: dark, tint: tint),
-            foregroundPainter: _GlassBorderPainter(radius: radius, dark: dark),
+            painter: _GlassFillPainter(radius: radius, dark: dark, night: night, tint: tint),
+            foregroundPainter: _GlassBorderPainter(radius: radius, dark: dark, night: night),
             child: content,
           ),
         ),
@@ -247,9 +263,10 @@ class Glass extends StatelessWidget {
 }
 
 class _GlassFillPainter extends CustomPainter {
-  _GlassFillPainter({required this.radius, required this.dark, this.tint});
+  _GlassFillPainter({required this.radius, required this.dark, this.night = false, this.tint});
   final double radius;
   final bool dark;
+  final bool night;
   final Color? tint;
 
   @override
@@ -258,6 +275,8 @@ class _GlassFillPainter extends CustomPainter {
     final rr = RRect.fromRectAndRadius(rect, Radius.circular(radius));
     final colors = dark
         ? [Colors.white.withValues(alpha: 0.17), Colors.white.withValues(alpha: 0.07)]
+        : night
+        ? [const Color(0xD11A2A23), const Color(0xB8121F19)]
         : [Colors.white.withValues(alpha: 0.86), Colors.white.withValues(alpha: 0.62)];
     canvas.drawRRect(
       rr,
@@ -287,7 +306,13 @@ class _GlassFillPainter extends CustomPainter {
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
           colors: [
-            Colors.white.withValues(alpha: dark ? 0.16 : 0.55),
+            Colors.white.withValues(
+              alpha: dark
+                  ? 0.16
+                  : night
+                  ? 0.05
+                  : 0.55,
+            ),
             Colors.white.withValues(alpha: 0),
           ],
         ).createShader(Rect.fromLTWH(0, 0, size.width, math.min(h * 0.52, 110))),
@@ -296,13 +321,15 @@ class _GlassFillPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(_GlassFillPainter old) => old.radius != radius || old.dark != dark || old.tint != tint;
+  bool shouldRepaint(_GlassFillPainter old) =>
+      old.radius != radius || old.dark != dark || old.night != night || old.tint != tint;
 }
 
 class _GlassBorderPainter extends CustomPainter {
-  _GlassBorderPainter({required this.radius, required this.dark});
+  _GlassBorderPainter({required this.radius, required this.dark, this.night = false});
   final double radius;
   final bool dark;
+  final bool night;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -321,13 +348,19 @@ class _GlassBorderPainter extends CustomPainter {
                   Colors.white.withValues(alpha: 0.06),
                   Colors.white.withValues(alpha: 0.25),
                 ]
+              : night
+              ? [
+                  Colors.white.withValues(alpha: 0.2),
+                  Colors.white.withValues(alpha: 0.04),
+                  Colors.white.withValues(alpha: 0.1),
+                ]
               : [Colors.white, Colors.white.withValues(alpha: 0.35), const Color(0x4D9CC9B3)],
         ).createShader(rect),
     );
   }
 
   @override
-  bool shouldRepaint(_GlassBorderPainter old) => old.radius != radius || old.dark != dark;
+  bool shouldRepaint(_GlassBorderPainter old) => old.radius != radius || old.dark != dark || old.night != night;
 }
 
 /// Reflet de lumière qui traverse la carte en diagonale (effet miroir).
@@ -515,7 +548,7 @@ class BrandMark extends StatelessWidget {
     alignment: Alignment.center,
     decoration: BoxDecoration(
       borderRadius: BorderRadius.circular(size * 0.32),
-      gradient: const LinearGradient(
+      gradient: LinearGradient(
         begin: Alignment.topLeft,
         end: Alignment.bottomRight,
         colors: [Color(0xFF7DF0B5), AppColors.leaf, AppColors.green],

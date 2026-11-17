@@ -39,7 +39,7 @@ class PromoSlide {
   final String? comingSoon; // ou : message « bientôt »
 }
 
-const defaultPromos = [
+final defaultPromos = [
   PromoSlide(
     id: 'pro',
     tag: 'OFFRE',

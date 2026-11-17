@@ -4,7 +4,9 @@ import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:material_ui/material_ui.dart';
 
+import '../../core/display.dart';
 import '../../core/format.dart';
+import '../shop/shop_screen.dart' show shopUrl;
 import '../../core/glass.dart';
 import '../../core/models.dart';
 import '../../core/providers.dart';
@@ -61,19 +63,19 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               child: Text('Photo de profil', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
             ),
             ListTile(
-              leading: const Icon(Icons.photo_camera_rounded, color: AppColors.green),
+              leading: Icon(Icons.photo_camera_rounded, color: AppColors.green),
               title: const Text('Prendre une photo'),
               onTap: () => Navigator.pop(ctx, _PhotoAction.camera),
             ),
             ListTile(
-              leading: const Icon(Icons.photo_library_rounded, color: AppColors.green),
+              leading: Icon(Icons.photo_library_rounded, color: AppColors.green),
               title: const Text('Choisir dans la galerie'),
               onTap: () => Navigator.pop(ctx, _PhotoAction.gallery),
             ),
             if (me.avatarFileId != null)
               ListTile(
-                leading: const Icon(Icons.delete_outline_rounded, color: AppColors.danger),
-                title: const Text('Retirer la photo', style: TextStyle(color: AppColors.danger)),
+                leading: Icon(Icons.delete_outline_rounded, color: AppColors.danger),
+                title: Text('Retirer la photo', style: TextStyle(color: AppColors.danger)),
                 onTap: () => Navigator.pop(ctx, _PhotoAction.remove),
               ),
             const SizedBox(height: 8),
@@ -151,7 +153,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 unsent == 1
                     ? 'Attention : 1 vente n’a pas encore été envoyée. Elle sera perdue si vous vous déconnectez.'
                     : 'Attention : $unsent ventes n’ont pas encore été envoyées. Elles seront perdues si vous vous déconnectez.',
-                style: const TextStyle(color: AppColors.danger),
+                style: TextStyle(color: AppColors.danger),
               ),
         actions: [
           CancelButton(onPressed: () => Navigator.pop(ctx, false)),
@@ -234,7 +236,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                         color: const Color(0xFF0E9384),
                         label: link?.roleName ?? 'Entreprise',
                         value: link?.name ?? 'Aucune entreprise choisie',
-                        trailing: const Text(
+                        trailing: Text(
                           'Changer',
                           style: TextStyle(color: AppColors.green, fontWeight: FontWeight.w800),
                         ),
@@ -254,7 +256,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                                   child: Column(
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
-                                      const Text(
+                                      Text(
                                         'Logo',
                                         style: TextStyle(
                                           fontSize: 12,
@@ -266,14 +268,14 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                                         business.logoFileId == null ? 'Ajouter un logo' : 'Changer le logo',
                                         style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
                                       ),
-                                      const Text(
+                                      Text(
                                         'Affiché sur vos factures et devis',
                                         style: TextStyle(fontSize: 11.5, color: AppColors.muted),
                                       ),
                                     ],
                                   ),
                                 ),
-                                const Icon(Icons.chevron_right_rounded, color: AppColors.muted),
+                                Icon(Icons.chevron_right_rounded, color: AppColors.muted),
                               ],
                             ),
                           ),
@@ -283,8 +285,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                           icon: Icons.language_rounded,
                           color: const Color(0xFF1D7AF0),
                           label: 'Boutique en ligne',
-                          value: 'sama360.com/${business.slug}',
-                          hint: 'Bientôt disponible',
+                          value: shopUrl(
+                            ref.watch(apiBaseUrlProvider),
+                            '/s/${business.slug}',
+                          ).replaceFirst(RegExp(r'^https?://'), ''),
+                          hint: 'Commandes, produits publiés, partage',
+                          onTap: () => context.push('/shop'),
                         ),
                       if (ref.can('members:read'))
                         _Row(
@@ -320,9 +326,23 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     ],
                   ),
                   const SizedBox(height: 16),
-                  const _Section(
+                  _Section(
                     title: 'Application',
                     children: [
+                      _Row(
+                        icon: Icons.palette_rounded,
+                        color: const Color(0xFF7A5AF8),
+                        label: 'Affichage',
+                        value: switch (ref.watch(displaySettingsProvider).mode) {
+                          ThemeMode.system => 'Automatique',
+                          ThemeMode.light => 'Mode clair',
+                          ThemeMode.dark => 'Mode sombre',
+                        },
+                        hint: ref.can('business:update')
+                            ? 'Mode sombre, grands caractères, couleur de la boutique'
+                            : 'Mode sombre, grands caractères',
+                        onTap: () => context.push('/settings/display'),
+                      ),
                       _Row(
                         icon: Icons.translate_rounded,
                         color: Color(0xFF0A8453),
@@ -432,7 +452,7 @@ class _Header extends ConsumerWidget {
                                 : const MeAvatar(size: 110),
                           ),
                         ),
-                        const Positioned(
+                        Positioned(
                           right: 2,
                           bottom: 2,
                           child: GlossyOrb(icon: Icons.photo_camera_rounded, color: AppColors.green, size: 38),
@@ -561,7 +581,7 @@ class _Row extends StatelessWidget {
               children: [
                 Text(
                   label,
-                  style: const TextStyle(fontSize: 12, color: AppColors.muted, fontWeight: FontWeight.w600),
+                  style: TextStyle(fontSize: 12, color: AppColors.muted, fontWeight: FontWeight.w600),
                 ),
                 Text(
                   value,
@@ -571,14 +591,14 @@ class _Row extends StatelessWidget {
                     color: muted ? AppColors.muted : AppColors.ink,
                   ),
                 ),
-                if (hint != null) Text(hint!, style: const TextStyle(fontSize: 11.5, color: AppColors.muted)),
+                if (hint != null) Text(hint!, style: TextStyle(fontSize: 11.5, color: AppColors.muted)),
               ],
             ),
           ),
           if (trailing != null)
             trailing!
           else if (onTap != null)
-            const Icon(Icons.chevron_right_rounded, color: AppColors.muted),
+            Icon(Icons.chevron_right_rounded, color: AppColors.muted),
         ],
       ),
     ),

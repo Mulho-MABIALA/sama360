@@ -53,7 +53,7 @@ class SalesHistoryScreen extends ConsumerWidget {
                 const SizedBox(height: 12),
                 const PendingSalesSection(),
                 if (list.isEmpty && ref.watch(pendingForBusinessProvider).isEmpty)
-                  const Padding(
+                  Padding(
                     padding: EdgeInsets.all(32),
                     child: Text(
                       "Aucune vente aujourd'hui pour l'instant.",
@@ -71,7 +71,9 @@ class SalesHistoryScreen extends ConsumerWidget {
                           width: 42,
                           height: 42,
                           decoration: BoxDecoration(
-                            color: s.status == 'voided' ? const Color(0xFFFBEAEA) : AppColors.greenSoft,
+                            color: s.status == 'voided'
+                                ? AppColors.softOf(const Color(0xFFFBEAEA), AppColors.danger)
+                                : AppColors.greenSoft,
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: Icon(
@@ -104,11 +106,7 @@ class SalesHistoryScreen extends ConsumerWidget {
                             if (s.due > 0 && s.status != 'voided')
                               Text(
                                 'Crédit ${moneyShort(s.due)}',
-                                style: const TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w700,
-                                  color: AppColors.warnText,
-                                ),
+                                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.warnText),
                               ),
                           ],
                         ),

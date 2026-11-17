@@ -10,6 +10,9 @@ import 'package:sama360/core/api/api_client.dart';
 import 'package:sama360/core/api/session_store.dart';
 import 'package:sama360/core/glass.dart';
 import 'package:sama360/core/models.dart';
+import 'package:sama360/core/offline/kv_store.dart';
+import 'package:sama360/core/offline/pending_sales.dart' show keyValueStoreProvider;
+import 'package:sama360/core/theme.dart';
 import 'package:sama360/core/providers.dart';
 import 'package:sama360/core/repositories.dart';
 import 'package:sama360/features/auth/auth_controller.dart';
@@ -139,8 +142,18 @@ class FakeRepo extends SamaRepository {
   String? logoFileId;
   int logoUploads = 0;
 
+  /// Couleur de la boutique (null : vert Sama360).
+  String? brandColor;
+  final brandColorUpdates = <String?>[];
+
   @override
-  Future<CurrentBusiness> currentBusiness() async => logoFileId == null
+  Future<void> updateBrandColor(String? hex) async {
+    brandColorUpdates.add(hex);
+    brandColor = hex;
+  }
+
+  @override
+  Future<CurrentBusiness> currentBusiness() async => logoFileId == null && brandColor == null
       ? demoBusiness
       : CurrentBusiness(
           id: demoBusiness.id,
@@ -150,6 +163,7 @@ class FakeRepo extends SamaRepository {
           phone: demoBusiness.phone,
           address: demoBusiness.address,
           logoFileId: logoFileId,
+          brandColor: brandColor,
           role: demoBusiness.role,
           permissions: demoBusiness.permissions,
           modules: demoBusiness.modules,
@@ -198,6 +212,8 @@ class FakeRepo extends SamaRepository {
       SellerStat(userId: 'u2', name: 'Moussa Fall', salesCount: 4, revenue: 28500),
       SellerStat(userId: 'u3', name: '+221770000099', salesCount: 1, revenue: 6000),
     ],
+    last7Days: [52000, 61000, 48500, 73000, 69000, 91000, 86500],
+    previous7DaysRevenue: 427000,
   );
 
   @override
@@ -351,20 +367,72 @@ class FakeRepo extends SamaRepository {
         CustomerTopProduct(name: 'Savon noir', quantity: 12, total: 18000),
       ],
       recentSales: [
-        CustomerSale(id: 's1', number: 'VEN-2026-0412', total: 9000, due: 4000, status: 'completed', soldAt: DateTime(2026, 11, 14, 10, 32), itemCount: 3),
-        CustomerSale(id: 's2', number: 'VEN-2026-0388', total: 8500, due: 8500, status: 'completed', soldAt: DateTime(2026, 11, 6, 11, 20), itemCount: 2),
+        CustomerSale(
+          id: 's1',
+          number: 'VEN-2026-0412',
+          total: 9000,
+          due: 4000,
+          status: 'completed',
+          soldAt: DateTime(2026, 11, 14, 10, 32),
+          itemCount: 3,
+        ),
+        CustomerSale(
+          id: 's2',
+          number: 'VEN-2026-0388',
+          total: 8500,
+          due: 8500,
+          status: 'completed',
+          soldAt: DateTime(2026, 11, 6, 11, 20),
+          itemCount: 2,
+        ),
       ],
       entries: [
-        LedgerEntry(id: 'e1', type: 'debt', amount: 4000, note: 'VEN-2026-0412', at: DateTime(2026, 11, 14, 10, 32), refType: 'sale', balanceAfter: 17500),
-        LedgerEntry(id: 'e2', type: 'repayment', amount: -10000, method: 'wave', at: DateTime(2026, 11, 9, 18, 5), balanceAfter: 13500),
-        LedgerEntry(id: 'e3', type: 'debt', amount: 8500, note: 'VEN-2026-0388', at: DateTime(2026, 11, 6, 11, 20), refType: 'sale', balanceAfter: 23500),
-        LedgerEntry(id: 'e4', type: 'adjustment', amount: 15000, note: 'Cahier papier', at: DateTime(2026, 11, 2, 16, 47), refType: 'opening_debt', balanceAfter: 15000),
+        LedgerEntry(
+          id: 'e1',
+          type: 'debt',
+          amount: 4000,
+          note: 'VEN-2026-0412',
+          at: DateTime(2026, 11, 14, 10, 32),
+          refType: 'sale',
+          balanceAfter: 17500,
+        ),
+        LedgerEntry(
+          id: 'e2',
+          type: 'repayment',
+          amount: -10000,
+          method: 'wave',
+          at: DateTime(2026, 11, 9, 18, 5),
+          balanceAfter: 13500,
+        ),
+        LedgerEntry(
+          id: 'e3',
+          type: 'debt',
+          amount: 8500,
+          note: 'VEN-2026-0388',
+          at: DateTime(2026, 11, 6, 11, 20),
+          refType: 'sale',
+          balanceAfter: 23500,
+        ),
+        LedgerEntry(
+          id: 'e4',
+          type: 'adjustment',
+          amount: 15000,
+          note: 'Cahier papier',
+          at: DateTime(2026, 11, 2, 16, 47),
+          refType: 'opening_debt',
+          balanceAfter: 15000,
+        ),
       ],
     );
   }
 
   @override
-  Future<Contact> saveCustomer(CustomerDraft draft, {String? id, bool withLimit = true, String type = 'customer'}) async {
+  Future<Contact> saveCustomer(
+    CustomerDraft draft, {
+    String? id,
+    bool withLimit = true,
+    String type = 'customer',
+  }) async {
     savedCustomers.add((id, draft.toJson(withLimit: withLimit)));
     savedTypes.add(type);
     return Contact(id: id ?? 'new-customer', name: draft.name, phone: draft.phone, creditLimit: draft.creditLimit);
@@ -387,7 +455,8 @@ class FakeRepo extends SamaRepository {
   final purchaseUpdates = <(String, Map<String, dynamic>)>[];
   final confirmed = <String>[];
   final cancelledPurchases = <String>[];
-  final receptions = <(String, List<({String lineId, double quantity, int unitCost})>, String?, ({int amount, PayMethod method})?)>[];
+  final receptions =
+      <(String, List<({String lineId, double quantity, int unitCost})>, String?, ({int amount, PayMethod method})?)>[];
   final purchasePayments = <(String, int, PayMethod)>[];
   final supplierPayments = <(String, int, PayMethod)>[];
   final purchaseQueries = <(PurchaseFilter, String?)>[];
@@ -463,14 +532,44 @@ class FakeRepo extends SamaRepository {
     final summary = demoPurchases.firstWhere((p) => p.id == id);
     final lines = switch (id) {
       'po2' => const [
-        PurchaseLine(id: 'l21', productId: 'p4', name: 'Crème éclaircissante bio', quantity: 20, receivedQty: 10, unitCost: 4000, total: 80000),
-        PurchaseLine(id: 'l22', productId: 'p5', name: 'Shampoing aloe vera', quantity: 20, receivedQty: 10, unitCost: 2000, total: 40000),
+        PurchaseLine(
+          id: 'l21',
+          productId: 'p4',
+          name: 'Crème éclaircissante bio',
+          quantity: 20,
+          receivedQty: 10,
+          unitCost: 4000,
+          total: 80000,
+        ),
+        PurchaseLine(
+          id: 'l22',
+          productId: 'p5',
+          name: 'Shampoing aloe vera',
+          quantity: 20,
+          receivedQty: 10,
+          unitCost: 2000,
+          total: 40000,
+        ),
       ],
       'po4' => const [
-        PurchaseLine(id: 'l41', productId: 'p3', name: 'Huile de coco 500 ml', quantity: 10, unitCost: 2600, total: 26000),
+        PurchaseLine(
+          id: 'l41',
+          productId: 'p3',
+          name: 'Huile de coco 500 ml',
+          quantity: 10,
+          unitCost: 2600,
+          total: 26000,
+        ),
       ],
       _ => const [
-        PurchaseLine(id: 'l11', productId: 'p1', name: 'Beurre de karité 250 g', quantity: 24, unitCost: 2000, total: 48000),
+        PurchaseLine(
+          id: 'l11',
+          productId: 'p1',
+          name: 'Beurre de karité 250 g',
+          quantity: 24,
+          unitCost: 2000,
+          total: 48000,
+        ),
         PurchaseLine(id: 'l12', productId: 'p2', name: 'Savon noir', quantity: 50, unitCost: 800, total: 40000),
       ],
     };
@@ -484,7 +583,15 @@ class FakeRepo extends SamaRepository {
       note: id == 'po1' ? 'Livrer à la boutique de Sandaga' : null,
       lines: lines,
       receipts: id == 'po2'
-          ? [PurchaseReceipt(id: 'r1', total: 60000, note: 'Premier carton', receivedAt: DateTime(2026, 11, 8, 9, 30), receivedBy: 'Awa Diallo')]
+          ? [
+              PurchaseReceipt(
+                id: 'r1',
+                total: 60000,
+                note: 'Premier carton',
+                receivedAt: DateTime(2026, 11, 8, 9, 30),
+                receivedBy: 'Awa Diallo',
+              ),
+            ]
           : const [],
       payments: id == 'po2'
           ? [PurchasePayment(id: 'pp1', method: PayMethod.wave, amount: 40000, paidAt: DateTime(2026, 11, 8, 10))]
@@ -531,7 +638,12 @@ class FakeRepo extends SamaRepository {
   }
 
   @override
-  Future<PurchaseDetail> payPurchase(String id, {required int amount, required PayMethod method, String? paymentId}) async {
+  Future<PurchaseDetail> payPurchase(
+    String id, {
+    required int amount,
+    required PayMethod method,
+    String? paymentId,
+  }) async {
     purchasePayments.add((id, amount, method));
     return _detail(id);
   }
@@ -569,7 +681,13 @@ class FakeRepo extends SamaRepository {
     lastOrderAt: DateTime.now().subtract(const Duration(days: 6)),
     orders: [demoPurchases[0], demoPurchases[2]],
     payments: [
-      PurchasePayment(id: 'sp1', method: PayMethod.cash, amount: 50000, paidAt: DateTime(2026, 11, 1, 17), number: 'BC-2026-0001'),
+      PurchasePayment(
+        id: 'sp1',
+        method: PayMethod.cash,
+        amount: 50000,
+        paidAt: DateTime(2026, 11, 1, 17),
+        number: 'BC-2026-0001',
+      ),
     ],
     products: const [
       SupplierProduct(productId: 'p1', name: 'Beurre de karité 250 g', quantity: 96, lastCost: 2000),
@@ -608,7 +726,14 @@ class FakeRepo extends SamaRepository {
       address: 'Ouakam, près de la mosquée',
       note: 'Appeler avant de passer',
       lines: const [
-        ShopOrderLine(id: 'sl1', productId: 'p1', name: 'Beurre de karité 250 g', quantity: 2, unitPrice: 3500, total: 7000),
+        ShopOrderLine(
+          id: 'sl1',
+          productId: 'p1',
+          name: 'Beurre de karité 250 g',
+          quantity: 2,
+          unitPrice: 3500,
+          total: 7000,
+        ),
         ShopOrderLine(id: 'sl2', productId: 'p6', name: 'Parfum Thiouraye', quantity: 3, unitPrice: 5000, total: 15000),
       ],
     ),
@@ -624,7 +749,14 @@ class FakeRepo extends SamaRepository {
       lineCount: 1,
       createdAt: DateTime(2026, 11, 15, 18, 5),
       lines: const [
-        ShopOrderLine(id: 'sl3', productId: 'p1', name: 'Beurre de karité 250 g', quantity: 2, unitPrice: 3500, total: 7000),
+        ShopOrderLine(
+          id: 'sl3',
+          productId: 'p1',
+          name: 'Beurre de karité 250 g',
+          quantity: 2,
+          unitPrice: 3500,
+          total: 7000,
+        ),
       ],
     ),
     ShopOrder(
@@ -641,7 +773,14 @@ class FakeRepo extends SamaRepository {
       createdAt: DateTime(2026, 11, 14, 11),
       saleId: 's1',
       lines: const [
-        ShopOrderLine(id: 'sl4', productId: 'p3', name: 'Huile de coco 500 ml', quantity: 2, unitPrice: 4000, total: 8000),
+        ShopOrderLine(
+          id: 'sl4',
+          productId: 'p3',
+          name: 'Huile de coco 500 ml',
+          quantity: 2,
+          unitPrice: 4000,
+          total: 8000,
+        ),
       ],
     ),
   ];
@@ -740,7 +879,13 @@ class FakeRepo extends SamaRepository {
       expectedTotal: 70500,
     ),
     movements: [
-      CashMovement(id: 'm1', isIn: false, amount: 20000, reason: 'Dépôt à la banque', createdAt: DateTime(2026, 11, 16, 12, 40)),
+      CashMovement(
+        id: 'm1',
+        isIn: false,
+        amount: 20000,
+        reason: 'Dépôt à la banque',
+        createdAt: DateTime(2026, 11, 16, 12, 40),
+      ),
     ],
   );
 
@@ -931,7 +1076,13 @@ class FakeRepo extends SamaRepository {
 
   @override
   Future<List<CashSessionSummary>> cashSessions() async => [
-    CashSessionSummary(id: 'cs1', number: 'Z-2026-0007', open: true, userName: 'Awa Diallo', openedAt: DateTime(2026, 11, 16, 8, 12)),
+    CashSessionSummary(
+      id: 'cs1',
+      number: 'Z-2026-0007',
+      open: true,
+      userName: 'Awa Diallo',
+      openedAt: DateTime(2026, 11, 16, 8, 12),
+    ),
     CashSessionSummary(
       id: 'cs0',
       number: 'Z-2026-0006',
@@ -1394,6 +1545,7 @@ Future<(ProviderContainer, FakeRepo)> pumpSama(
   String location = '/',
   List<Override> overrides = const [],
   FakeRepo? repo,
+  bool dark = false,
 }) async {
   Motion.enabled = false; // animations d'ambiance infinies : incompatibles avec pumpAndSettle
   await initializeDateFormatting('fr');
@@ -1403,10 +1555,12 @@ Future<(ProviderContainer, FakeRepo)> pumpSama(
       sessionStoreProvider.overrideWithValue(MemorySessionStore()),
       repoProvider.overrideWithValue(repo),
       authProvider.overrideWith(FakeAuth.new),
+      if (dark) keyValueStoreProvider.overrideWithValue(MemoryStore()..data['display.settings'] = '{"mode":"dark"}'),
       ...overrides,
     ],
   );
   addTearDown(container.dispose);
+  AppColors.palette = SamaPalette.light(); // chaque test repart du mode clair
   await tester.pumpWidget(UncontrolledProviderScope(container: container, child: const SamaApp(googleFonts: false)));
   await tester.pumpAndSettle();
   if (location != '/') {

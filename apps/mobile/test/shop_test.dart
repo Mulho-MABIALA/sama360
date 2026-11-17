@@ -89,7 +89,10 @@ void main() {
 
       await tester.tap(find.text('Partager'));
       await tester.pumpAndSettle();
-      expect(actions.whatsApp!.queryParameters['text'], startsWith('Découvrez Awa Beauté en ligne et commandez directement ici'));
+      expect(
+        actions.whatsApp!.queryParameters['text'],
+        startsWith('Découvrez Awa Beauté en ligne et commandez directement ici'),
+      );
       expect(actions.whatsApp!.queryParameters['text'], endsWith('/s/awa-beaute'));
       await tester.tap(find.text('Copier'));
       await tester.pumpAndSettle();
@@ -128,12 +131,10 @@ void main() {
       await tester.tap(find.text('Mettre ma boutique en ligne'));
       await tester.pumpAndSettle();
       final s = repo.shopSettingsSaved.single;
-      expect((s.enabled, s.whatsapp, s.deliveryFee, s.description), (
-        true,
-        '+221771112233',
-        1500,
-        'Cosmétiques naturels livrés à Dakar',
-      ));
+      expect(
+        (s.enabled, s.whatsapp, s.deliveryFee, s.description),
+        (true, '+221771112233', 1500, 'Cosmétiques naturels livrés à Dakar'),
+      );
       expect(repo.publishCalls, [(null, true)]);
       expect(find.text('Votre boutique est en ligne !'), findsOneWidget);
       expect(routerOf(c).state.matchedLocation, '/shop');

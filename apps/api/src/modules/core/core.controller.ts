@@ -17,6 +17,7 @@ import { CurrentTenant, CurrentUser, RequirePermission } from '../../shared/auth
 import { env } from '../../shared/config/env';
 import { AppError } from '../../shared/http/app-error';
 import { parse } from '../../shared/http/zod';
+import { normalizeHex } from '../../shared/color';
 import { normalizePhone } from '../../shared/phone';
 import { BusinessesService } from './businesses.service';
 import { MembersService } from './members.service';
@@ -31,7 +32,14 @@ const CreateBusiness = z.object({
   address: text(500).nullish(),
   ninea: text(30).nullish(),
 });
-const UpdateBusiness = CreateBusiness.partial();
+const UpdateBusiness = CreateBusiness.partial().extend({
+  // Couleur de la boutique (« #0A7E4F ») ; null pour revenir au vert Sama360
+  brandColor: z
+    .string()
+    .regex(/^#?[0-9a-fA-F]{6}$/, 'couleur attendue au format #RRGGBB')
+    .transform((v) => normalizeHex(v)!)
+    .nullish(),
+});
 
 const InviteMember = z.object({
   phone: z.string().min(6).max(25),

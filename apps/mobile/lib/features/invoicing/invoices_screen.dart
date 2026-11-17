@@ -13,13 +13,13 @@ import '../business/business_logo.dart';
 
 /// Couleurs d'un statut (fond, texte) — contrastes ≥ 4,5:1.
 (Color, Color) docStatusColors(String status, {bool overdue = false}) {
-  if (overdue) return (const Color(0xFFFBEAEA), AppColors.danger);
+  if (overdue) return AppColors.tone(const Color(0xFFFBEAEA), AppColors.danger);
   return switch (status) {
-    'paid' || 'accepted' || 'invoiced' => (AppColors.greenSoft, AppColors.greenDark),
-    'partial' => (const Color(0xFFE6F0FF), const Color(0xFF1D4FA8)),
-    'unpaid' || 'pending' => (AppColors.warnBg, AppColors.warnText),
-    'declined' || 'cancelled' => (const Color(0xFFEDEFEE), AppColors.muted),
-    _ => (AppColors.line, AppColors.ink),
+    'paid' || 'accepted' || 'invoiced' => AppColors.tone(AppColors.greenSoft, AppColors.greenDark),
+    'partial' => AppColors.tone(const Color(0xFFE6F0FF), const Color(0xFF1D4FA8)),
+    'unpaid' || 'pending' => AppColors.tone(AppColors.warnBg, AppColors.warnText),
+    'declined' || 'cancelled' => AppColors.tone(const Color(0xFFEDEFEE), AppColors.muted),
+    _ => AppColors.tone(AppColors.line, AppColors.ink),
   };
 }
 
@@ -113,7 +113,7 @@ class _InvoicesScreenState extends ConsumerState<InvoicesScreen> {
                                 k == DocKind.quote ? 'Nouveau devis' : 'Nouvelle facture',
                                 style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
                               ),
-                              Text(text, style: const TextStyle(color: AppColors.muted)),
+                              Text(text, style: TextStyle(color: AppColors.muted)),
                             ],
                           ),
                         ),
@@ -182,7 +182,7 @@ class _InvoicesScreenState extends ConsumerState<InvoicesScreen> {
                               textAlign: TextAlign.center,
                               style: TextStyle(
                                 fontWeight: FontWeight.w800,
-                                color: _kind == k ? Colors.white : AppColors.ink,
+                                color: _kind == k ? AppColors.ground : AppColors.ink,
                               ),
                             ),
                           ),
@@ -219,7 +219,7 @@ class _InvoicesScreenState extends ConsumerState<InvoicesScreen> {
                             ? 'Aucun devis pour l’instant.\nUn devis se transforme en facture en un geste.'
                             : 'Aucune facture ici.',
                         textAlign: TextAlign.center,
-                        style: const TextStyle(color: AppColors.muted),
+                        style: TextStyle(color: AppColors.muted),
                       ),
                     )
                   : Column(
@@ -364,9 +364,9 @@ class _DocCard extends StatelessWidget {
                 ),
                 Text(
                   d.number,
-                  style: const TextStyle(color: AppColors.muted, fontSize: 12.5, fontWeight: FontWeight.w600),
+                  style: TextStyle(color: AppColors.muted, fontSize: 12.5, fontWeight: FontWeight.w600),
                 ),
-                Text(sub, style: const TextStyle(color: AppColors.muted, fontSize: 12)),
+                Text(sub, style: TextStyle(color: AppColors.muted, fontSize: 12)),
               ],
             ),
           ),

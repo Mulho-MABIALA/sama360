@@ -19,7 +19,7 @@ const tabRoutes = {'/', '/pos', '/stock', '/customers'};
   'sale_voided' => (Icons.receipt_long_rounded, const Color(0xFFC62828)),
   'invoices_overdue' => (Icons.request_quote_rounded, const Color(0xFF7A5AF8)),
   'credit_stale' => (Icons.menu_book_rounded, const Color(0xFF2F6FDB)),
-  'cash_open' || 'cash_open_team' => (Icons.point_of_sale_rounded, const Color(0xFF13241C)),
+  'cash_open' || 'cash_open_team' => (Icons.point_of_sale_rounded, AppColors.ink),
   'welcome' => (Icons.celebration_rounded, const Color(0xFFE0533D)),
   _ => (Icons.notifications_rounded, AppColors.green),
 };
@@ -201,13 +201,13 @@ class NotificationTile extends StatelessWidget {
                       const SizedBox(width: 8),
                       Text(
                         notificationTime(n.createdAt, now),
-                        style: const TextStyle(color: AppColors.muted, fontSize: 11.5),
+                        style: TextStyle(color: AppColors.muted, fontSize: 11.5),
                       ),
                     ],
                   ),
                   if (n.body.isNotEmpty) ...[
                     const SizedBox(height: 3),
-                    Text(n.body, style: const TextStyle(color: AppColors.muted, fontSize: 13, height: 1.3)),
+                    Text(n.body, style: TextStyle(color: AppColors.muted, fontSize: 13, height: 1.3)),
                   ],
                 ],
               ),
@@ -219,7 +219,7 @@ class NotificationTile extends StatelessWidget {
                   key: ValueKey('unread_${n.id}'),
                   width: 9,
                   height: 9,
-                  decoration: const BoxDecoration(color: AppColors.green, shape: BoxShape.circle),
+                  decoration: BoxDecoration(color: AppColors.green, shape: BoxShape.circle),
                 ),
               ),
           ],
@@ -232,7 +232,7 @@ class NotificationTile extends StatelessWidget {
 class _Empty extends StatelessWidget {
   const _Empty();
   @override
-  Widget build(BuildContext context) => const Center(
+  Widget build(BuildContext context) => Center(
     child: Padding(
       padding: EdgeInsets.all(32),
       child: Column(

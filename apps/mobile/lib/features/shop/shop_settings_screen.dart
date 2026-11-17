@@ -334,7 +334,7 @@ class _ShopProductsScreenState extends ConsumerState<ShopProductsScreen> {
             children: [
               Text(
                 '$count produit${count > 1 ? 's' : ''} sur ${all.length} visible${count > 1 ? 's' : ''} dans la boutique',
-                style: const TextStyle(color: AppColors.muted),
+                style: TextStyle(color: AppColors.muted),
               ),
               const SizedBox(height: 10),
               TextField(

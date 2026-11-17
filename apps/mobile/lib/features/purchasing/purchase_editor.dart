@@ -256,7 +256,7 @@ class _PurchaseEditorScreenState extends ConsumerState<PurchaseEditorScreen> {
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
                             if (_lines.isEmpty)
-                              const Padding(
+                              Padding(
                                 padding: EdgeInsets.only(bottom: 8),
                                 child: Text(
                                   'Ajoutez les produits à acheter : le prix proposé est votre coût d’achat actuel.',
@@ -361,10 +361,7 @@ class _PurchaseEditorScreenState extends ConsumerState<PurchaseEditorScreen> {
                                   ],
                                 ),
                               ] else ...[
-                                const Text(
-                                  'Livraison attendue',
-                                  style: TextStyle(color: AppColors.muted, fontSize: 13),
-                                ),
+                                Text('Livraison attendue', style: TextStyle(color: AppColors.muted, fontSize: 13)),
                                 const SizedBox(height: 8),
                                 Wrap(
                                   spacing: 8,
@@ -412,7 +409,7 @@ class _PurchaseEditorScreenState extends ConsumerState<PurchaseEditorScreen> {
                       children: [
                         Row(
                           children: [
-                            const Expanded(
+                            Expanded(
                               child: Text(
                                 'Total',
                                 style: TextStyle(color: AppColors.muted, fontWeight: FontWeight.w600),
@@ -491,7 +488,7 @@ class _LineTile extends StatelessWidget {
                 Text(line.name, style: const TextStyle(fontWeight: FontWeight.w700)),
                 Text(
                   '${qty(line.quantity)} × ${moneyShort(line.unitCost)} = ${moneyShort(line.total)}',
-                  style: const TextStyle(fontSize: 13, color: AppColors.muted),
+                  style: TextStyle(fontSize: 13, color: AppColors.muted),
                 ),
               ],
             ),
@@ -578,7 +575,7 @@ class _LineSheetState extends State<_LineSheet> {
         if (_error != null)
           Padding(
             padding: const EdgeInsets.only(top: 8),
-            child: Text(_error!, style: const TextStyle(color: AppColors.danger)),
+            child: Text(_error!, style: TextStyle(color: AppColors.danger)),
           ),
         const SizedBox(height: 16),
         FilledButton(onPressed: _ok, child: const Text('Valider')),
@@ -756,7 +753,7 @@ class _SupplierPickerState extends ConsumerState<_SupplierPicker> {
               value: list,
               onRetry: () => ref.invalidate(suppliersProvider(_q)),
               data: (rows) => rows.isEmpty
-                  ? const Center(
+                  ? Center(
                       child: Text(
                         'Aucun fournisseur : créez-le avec « Nouveau »',
                         style: TextStyle(color: AppColors.muted),
@@ -779,7 +776,7 @@ class _SupplierPickerState extends ConsumerState<_SupplierPicker> {
                           trailing: s.due > 0
                               ? Text(
                                   'dû ${moneyShort(s.due)}',
-                                  style: const TextStyle(color: AppColors.warn, fontWeight: FontWeight.w700),
+                                  style: TextStyle(color: AppColors.warn, fontWeight: FontWeight.w700),
                                 )
                               : null,
                           onTap: () => Navigator.pop(context, s.toContact()),

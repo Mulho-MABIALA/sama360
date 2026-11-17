@@ -21,7 +21,7 @@ body{font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color:var(
 button{font:inherit;cursor:pointer}
 .wrap{max-width:980px;margin:0 auto;padding:0 16px 120px}
 .hero{margin:16px 0;border-radius:26px;padding:22px;color:#fff;position:relative;overflow:hidden;
-  background:linear-gradient(135deg,#0B6E47 0%,#052E24 55%,#0E4F5C 100%);box-shadow:0 18px 40px rgba(5,46,36,.25)}
+  background:var(--hero,linear-gradient(135deg,#0B6E47 0%,#052E24 55%,#0E4F5C 100%));box-shadow:0 18px 40px rgba(5,46,36,.25)}
 .hero:after{content:"";position:absolute;inset:-40% auto auto -20%;width:60%;height:180%;transform:rotate(20deg);
   background:linear-gradient(90deg,transparent,rgba(255,255,255,.14),transparent)}
 .brand{display:flex;gap:14px;align-items:center}
@@ -137,6 +137,13 @@ input:focus,textarea:focus{border-color:var(--green)}
   function renderShop(){
     var s = state.data.shop;
     document.title = s.name + ' · boutique en ligne';
+    if (s.brandColor && /^#[0-9A-F]{6}$/.test(s.brandColor)) {
+      var root = document.documentElement.style;
+      root.setProperty('--green', s.brandColor);
+      root.setProperty('--soft', 'color-mix(in srgb, ' + s.brandColor + ' 12%, white)');
+      root.setProperty('--hero', 'linear-gradient(135deg,' + s.brandColor + ' 0%, color-mix(in srgb, ' + s.brandColor + ' 55%, black) 100%)');
+      var meta = document.querySelector('meta[name=theme-color]'); if (meta) meta.setAttribute('content', s.brandColor);
+    }
     var wa = s.whatsapp ? 'https://wa.me/' + s.whatsapp.replace(/\\D/g,'') : null;
     var cats = state.data.categories;
     app.innerHTML =

@@ -84,7 +84,7 @@ class _BusinessScreenState extends ConsumerState<BusinessScreen> {
                       title: Text(b.name, style: const TextStyle(fontWeight: FontWeight.w800)),
                       subtitle: Text(b.roleName),
                       trailing: b.id == auth?.businessId
-                          ? const Icon(Icons.check_circle, color: AppColors.green)
+                          ? Icon(Icons.check_circle, color: AppColors.green)
                           : const Icon(Icons.chevron_right),
                       onTap: () async {
                         await ref.read(authProvider.notifier).selectBusiness(b.id);
@@ -100,7 +100,7 @@ class _BusinessScreenState extends ConsumerState<BusinessScreen> {
                 label: const Text('Créer une entreprise'),
               ),
             ] else ...[
-              const Text(
+              Text(
                 'Créez votre espace : boutique, restaurant, salon… Vous pourrez inviter votre équipe ensuite.',
                 style: TextStyle(color: AppColors.muted),
               ),

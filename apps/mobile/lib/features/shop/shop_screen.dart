@@ -22,12 +22,12 @@ class ShopStatusChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final (bg, fg) = switch (status) {
-      ShopOrderStatus.newOrder => (const Color(0xFFFDE7E4), AppColors.danger),
-      ShopOrderStatus.confirmed => (const Color(0xFFE6EFFC), const Color(0xFF1F5BB8)),
-      ShopOrderStatus.ready => (AppColors.warnBg, AppColors.warnText),
-      ShopOrderStatus.delivering => (const Color(0xFFEDE7FB), const Color(0xFF5B3CC4)),
-      ShopOrderStatus.completed => (AppColors.greenSoft, AppColors.greenDark),
-      ShopOrderStatus.cancelled => (const Color(0xFFEFF1F0), AppColors.muted),
+      ShopOrderStatus.newOrder => AppColors.tone(const Color(0xFFFDE7E4), AppColors.danger),
+      ShopOrderStatus.confirmed => AppColors.tone(const Color(0xFFE6EFFC), const Color(0xFF1F5BB8)),
+      ShopOrderStatus.ready => AppColors.tone(AppColors.warnBg, AppColors.warnText),
+      ShopOrderStatus.delivering => AppColors.tone(const Color(0xFFEDE7FB), const Color(0xFF5B3CC4)),
+      ShopOrderStatus.completed => AppColors.tone(AppColors.greenSoft, AppColors.greenDark),
+      ShopOrderStatus.cancelled => AppColors.tone(const Color(0xFFEFF1F0), AppColors.muted),
     };
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
@@ -107,7 +107,7 @@ class _ShopScreenState extends ConsumerState<ShopScreen> {
         onTap: () => context.push('/shop/products'),
         child: Row(
           children: [
-            const Icon(Icons.storefront_rounded, color: AppColors.green),
+            Icon(Icons.storefront_rounded, color: AppColors.green),
             const SizedBox(width: 10),
             Expanded(
               child: Text(
@@ -115,11 +115,11 @@ class _ShopScreenState extends ConsumerState<ShopScreen> {
                 style: const TextStyle(fontWeight: FontWeight.w700),
               ),
             ),
-            const Text(
+            Text(
               'Choisir',
               style: TextStyle(color: AppColors.green, fontWeight: FontWeight.w700),
             ),
-            const Icon(Icons.chevron_right_rounded, color: AppColors.green),
+            Icon(Icons.chevron_right_rounded, color: AppColors.green),
           ],
         ),
       ),
@@ -146,14 +146,14 @@ class _ShopScreenState extends ConsumerState<ShopScreen> {
                 padding: const EdgeInsets.symmetric(vertical: 32),
                 child: Column(
                   children: [
-                    const Icon(Icons.shopping_bag_outlined, size: 44, color: AppColors.muted),
+                    Icon(Icons.shopping_bag_outlined, size: 44, color: AppColors.muted),
                     const SizedBox(height: 8),
                     Text(
                       _filter == ShopOrderFilter.done
                           ? 'Aucune commande terminée'
                           : 'Pas de commande pour l’instant.\nPartagez votre lien sur WhatsApp !',
                       textAlign: TextAlign.center,
-                      style: const TextStyle(color: AppColors.muted),
+                      style: TextStyle(color: AppColors.muted),
                     ),
                   ],
                 ),
@@ -185,7 +185,9 @@ class ShopOrderTile extends StatelessWidget {
         width: 42,
         height: 42,
         decoration: BoxDecoration(
-          color: o.status == ShopOrderStatus.newOrder ? const Color(0xFFFDE7E4) : AppColors.greenSoft,
+          color: o.status == ShopOrderStatus.newOrder
+              ? AppColors.softOf(const Color(0xFFFDE7E4), AppColors.danger)
+              : AppColors.greenSoft,
           borderRadius: BorderRadius.circular(14),
         ),
         child: Icon(
@@ -319,7 +321,7 @@ class _Closed extends StatelessWidget {
           style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
         ),
         const SizedBox(height: 8),
-        const Text(
+        Text(
           'Vos produits sur une page web à partager sur WhatsApp, Facebook ou TikTok. '
           'Vos clients commandent sans compte, vous recevez la commande ici, vous livrez, '
           'et la vente s’enregistre toute seule dans votre caisse.',
@@ -353,7 +355,7 @@ class _Closed extends StatelessWidget {
             label: const Text('Ouvrir ma boutique'),
           )
         else
-          const Text('Demandez au gérant d’ouvrir la boutique en ligne.', style: TextStyle(color: AppColors.muted)),
+          Text('Demandez au gérant d’ouvrir la boutique en ligne.', style: TextStyle(color: AppColors.muted)),
       ],
     ),
   );

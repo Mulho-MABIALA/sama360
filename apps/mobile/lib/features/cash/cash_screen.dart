@@ -81,7 +81,7 @@ class _OpenFormState extends ConsumerState<_OpenForm> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const Center(
+            Center(
               child: GlossyOrb(icon: Icons.point_of_sale_rounded, color: AppColors.green, size: 68),
             ),
             const SizedBox(height: 14),
@@ -91,7 +91,7 @@ class _OpenFormState extends ConsumerState<_OpenForm> {
               style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
             ),
             const SizedBox(height: 6),
-            const Text(
+            Text(
               'Comptez la monnaie de départ. Le soir, Sama360 vous dira combien vous devez avoir '
               'en espèces, Wave et Orange Money.',
               textAlign: TextAlign.center,
@@ -313,7 +313,7 @@ class CashMethodTile extends StatelessWidget {
               child: Row(
                 children: [
                   Expanded(
-                    child: Text(label, style: const TextStyle(color: AppColors.muted, fontSize: 13)),
+                    child: Text(label, style: TextStyle(color: AppColors.muted, fontSize: 13)),
                   ),
                   Text(
                     '${amount < 0 ? '−' : '+'} ${moneyShort(amount.abs())}',
@@ -326,8 +326,7 @@ class CashMethodTile extends StatelessWidget {
                 ],
               ),
             ),
-          if (line.breakdown.isEmpty)
-            const Text('Aucun mouvement', style: TextStyle(color: AppColors.muted, fontSize: 13)),
+          if (line.breakdown.isEmpty) Text('Aucun mouvement', style: TextStyle(color: AppColors.muted, fontSize: 13)),
         ],
       ),
     ),
@@ -423,7 +422,7 @@ class _MovementSheetState extends ConsumerState<_MovementSheet> {
           widget.isIn
               ? 'Espèces ajoutées dans la caisse (hors ventes)'
               : 'Espèces retirées de la caisse (hors dépenses : utilisez « Dépense »)',
-          style: const TextStyle(color: AppColors.muted, fontSize: 13),
+          style: TextStyle(color: AppColors.muted, fontSize: 13),
         ),
         const SizedBox(height: 14),
         TextField(

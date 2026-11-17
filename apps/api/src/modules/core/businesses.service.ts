@@ -19,6 +19,10 @@ export interface CreateBusinessInput {
   ninea?: string | null;
 }
 
+export interface UpdateBusinessInput extends Partial<CreateBusinessInput> {
+  brandColor?: string | null;
+}
+
 @Injectable()
 export class BusinessesService {
   constructor(
@@ -91,7 +95,7 @@ export class BusinessesService {
     });
   }
 
-  async update(businessId: string, input: Partial<CreateBusinessInput>) {
+  async update(businessId: string, input: UpdateBusinessInput) {
     const [business] = await this.dbs.db
       .update(businesses)
       .set({ ...input, updatedAt: new Date() })

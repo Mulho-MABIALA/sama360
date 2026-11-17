@@ -95,7 +95,8 @@ void main() {
                          "status": "completed", "soldAt": "2026-11-14T10:00:00Z", "itemCount": 3}],
         "entries": [{"id": "e1", "entryType": "debt", "amount": "4000", "method": null, "refType": "sale",
                      "refId": "s1", "note": "VEN-1", "occurredAt": "2026-11-14T10:00:00Z", "balanceAfter": "17500"}]
-      }''') as Map<String, dynamic>,
+      }''')
+            as Map<String, dynamic>,
       );
       expect(parsed.balance, 17500);
       expect(parsed.customer.balance, 17500);
@@ -232,13 +233,21 @@ void main() {
       expect(textMatching(r'^1 facture à encaisser : 30 000 FCFA$'), findsOneWidget);
 
       // Carnet avec le solde après chaque mouvement
-      await tester.scrollUntilVisible(find.text('Ancienne dette · Cahier papier'), 200, scrollable: find.byType(Scrollable).first);
+      await tester.scrollUntilVisible(
+        find.text('Ancienne dette · Cahier papier'),
+        200,
+        scrollable: find.byType(Scrollable).first,
+      );
       expect(textMatching(r'solde 13 500 F$'), findsOneWidget);
 
       await tester.scrollUntilVisible(find.text('Achats'), -200, scrollable: find.byType(Scrollable).first);
       await tester.tap(find.text('Achats'));
       await tester.pumpAndSettle();
-      await tester.scrollUntilVisible(find.text('Ce qu’il achète le plus'), 200, scrollable: find.byType(Scrollable).first);
+      await tester.scrollUntilVisible(
+        find.text('Ce qu’il achète le plus'),
+        200,
+        scrollable: find.byType(Scrollable).first,
+      );
       expect(find.text('Beurre de karité 250 g'), findsOneWidget);
       await tester.scrollUntilVisible(find.text('VEN-2026-0412'), -200, scrollable: find.byType(Scrollable).first);
       await tester.tap(find.text('VEN-2026-0412'));
@@ -332,11 +341,7 @@ void main() {
     testWidgets('relevé de compte partagé en PDF', (tester) async {
       phoneSize(tester);
       final actions = RecordingActions();
-      await pumpSama(
-        tester,
-        location: '/customers/k1',
-        overrides: [receiptActionsProvider.overrideWithValue(actions)],
-      );
+      await pumpSama(tester, location: '/customers/k1', overrides: [receiptActionsProvider.overrideWithValue(actions)]);
       await tester.tap(find.byTooltip('Plus d’actions'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Relevé de compte (PDF)'));
@@ -358,7 +363,12 @@ void main() {
   test('relevé PDF : en-tête, tableau et polices embarquées', () async {
     final repo = FakeRepo();
     final o = await repo.customerOverview('k1');
-    final bytes = await buildStatementPdf(o, demoBusiness, fonts: await ReceiptFonts.load(), now: DateTime(2026, 11, 16));
+    final bytes = await buildStatementPdf(
+      o,
+      demoBusiness,
+      fonts: await ReceiptFonts.load(),
+      now: DateTime(2026, 11, 16),
+    );
     final raw = latin1.decode(bytes);
     expect(raw.startsWith('%PDF-'), isTrue);
     expect(raw, contains('/FontFile2'));

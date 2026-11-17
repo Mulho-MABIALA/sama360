@@ -70,7 +70,7 @@ class ProductQuickSheet extends ConsumerWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Text(p.name, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
-            if (p.barcode != null) Text(p.barcode!, style: const TextStyle(color: AppColors.muted, fontSize: 12.5)),
+            if (p.barcode != null) Text(p.barcode!, style: TextStyle(color: AppColors.muted, fontSize: 12.5)),
             const SizedBox(height: 14),
             Row(
               children: [

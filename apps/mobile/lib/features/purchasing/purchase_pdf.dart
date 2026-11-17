@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 
+import '../../core/pdf_brand.dart';
 import '../../core/format.dart';
 import '../../core/models.dart';
 import '../sales/receipt.dart' show ReceiptFonts, receiptMoney;
@@ -26,10 +27,11 @@ String purchaseText(PurchaseDetail d, CurrentBusiness b) {
 /// Bon de commande A4 : lignes, quantités, prix d'achat convenus et total.
 Future<List<int>> buildPurchasePdf(PurchaseDetail d, CurrentBusiness b, {ReceiptFonts? fonts, List<int>? logo}) async {
   final f = fonts ?? await ReceiptFonts.load();
-  const green = PdfColor.fromInt(0xFF097E4F);
+  final brandColors = pdfBrandColors(b);
+  final green = brandColors.brand;
   const ink = PdfColor.fromInt(0xFF13241C);
   const muted = PdfColor.fromInt(0xFF5E6E66);
-  const soft = PdfColor.fromInt(0xFFE4F5EC);
+  final soft = brandColors.soft;
   final base = pw.TextStyle(font: f.regular, fontSize: 9.5, color: ink);
   final bold = pw.TextStyle(font: f.bold, fontSize: 9.5, color: ink);
   final small = base.copyWith(fontSize: 8.5, color: muted);
@@ -120,7 +122,7 @@ Future<List<int>> buildPurchasePdf(PurchaseDetail d, CurrentBusiness b, {Receipt
               ],
           ],
           headerStyle: bold.copyWith(color: PdfColors.white, fontSize: 9),
-          headerDecoration: const pw.BoxDecoration(color: green),
+          headerDecoration: pw.BoxDecoration(color: green),
           cellStyle: base,
           cellPadding: const pw.EdgeInsets.symmetric(horizontal: 6, vertical: 5),
           rowDecoration: const pw.BoxDecoration(

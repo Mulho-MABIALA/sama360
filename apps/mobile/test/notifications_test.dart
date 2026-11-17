@@ -27,7 +27,16 @@ void main() {
       expect(notificationGroup(DateTime(2026, 11, 10), now), 'Plus tôt');
     });
     test('chaque type a son icône', () {
-      for (final k in ['stock_low', 'shop_order', 'sale_voided', 'invoices_overdue', 'credit_stale', 'cash_open', 'welcome', 'autre']) {
+      for (final k in [
+        'stock_low',
+        'shop_order',
+        'sale_voided',
+        'invoices_overdue',
+        'credit_stale',
+        'cash_open',
+        'welcome',
+        'autre',
+      ]) {
         expect(notificationStyle(k).$1, isA<IconData>());
       }
     });

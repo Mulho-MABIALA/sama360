@@ -128,7 +128,7 @@ class _SyncBannerState extends ConsumerState<SyncBanner> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(title, style: const TextStyle(fontWeight: FontWeight.w800)),
-                    Text(subtitle, style: const TextStyle(fontSize: 12.5, color: AppColors.muted)),
+                    Text(subtitle, style: TextStyle(fontSize: 12.5, color: AppColors.muted)),
                   ],
                 ),
               ),
@@ -172,7 +172,7 @@ class PendingSalesSection extends ConsumerWidget {
                   width: 42,
                   height: 42,
                   decoration: BoxDecoration(
-                    color: p.failed ? const Color(0xFFFBEAEA) : AppColors.warnBg,
+                    color: p.failed ? AppColors.softOf(const Color(0xFFFBEAEA), AppColors.danger) : AppColors.warnBg,
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Icon(
@@ -193,7 +193,7 @@ class PendingSalesSection extends ConsumerWidget {
                 ),
                 trailing: Text(
                   moneyShort(p.total),
-                  style: const TextStyle(fontWeight: FontWeight.w800, color: AppColors.ink, fontSize: 14),
+                  style: TextStyle(fontWeight: FontWeight.w800, color: AppColors.ink, fontSize: 14),
                 ),
                 onTap: () => _details(context, ref, p),
               ),
@@ -223,16 +223,19 @@ class PendingSalesSection extends ConsumerWidget {
             Text(
               'Faite le ${DateFormat('d MMMM à HH:mm', 'fr').format(p.soldAt.toLocal())}'
               '${p.customerName == null ? '' : ' · ${p.customerName}'}',
-              style: const TextStyle(color: AppColors.muted),
+              style: TextStyle(color: AppColors.muted),
             ),
             if (p.error != null) ...[
               const SizedBox(height: 12),
               Container(
                 padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(color: const Color(0xFFFBEAEA), borderRadius: BorderRadius.circular(12)),
+                decoration: BoxDecoration(
+                  color: AppColors.softOf(const Color(0xFFFBEAEA), AppColors.danger),
+                  borderRadius: BorderRadius.circular(12),
+                ),
                 child: Text(
                   p.error!,
-                  style: const TextStyle(color: AppColors.danger, fontWeight: FontWeight.w600),
+                  style: TextStyle(color: AppColors.danger, fontWeight: FontWeight.w600),
                 ),
               ),
             ],

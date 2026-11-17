@@ -99,10 +99,7 @@ class _PhoneScreenState extends ConsumerState<PhoneScreen> {
                       style: TextStyle(fontSize: 21, fontWeight: FontWeight.w800),
                     ),
                     const SizedBox(height: 6),
-                    const Text(
-                      'Nous vous envoyons un code de connexion par SMS.',
-                      style: TextStyle(color: AppColors.muted),
-                    ),
+                    Text('Nous vous envoyons un code de connexion par SMS.', style: TextStyle(color: AppColors.muted)),
                     const SizedBox(height: 20),
                     TextField(
                       key: const Key('phone'),
@@ -215,7 +212,7 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
           children: [
             const Text('Code de connexion', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800)),
             const SizedBox(height: 6),
-            Text('Envoyé au +221 ${displayPhone(widget.phone)}', style: const TextStyle(color: AppColors.muted)),
+            Text('Envoyé au +221 ${displayPhone(widget.phone)}', style: TextStyle(color: AppColors.muted)),
             const SizedBox(height: 24),
             TextField(
               key: const Key('code'),
@@ -282,7 +279,7 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
           children: [
             const Text('Bienvenue sur Sama360', style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800)),
             const SizedBox(height: 6),
-            const Text('Comment vous appelez-vous ?', style: TextStyle(color: AppColors.muted, fontSize: 15)),
+            Text('Comment vous appelez-vous ?', style: TextStyle(color: AppColors.muted, fontSize: 15)),
             const SizedBox(height: 24),
             TextField(
               key: const Key('fullName'),

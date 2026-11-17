@@ -175,7 +175,7 @@ class _ShopOrderScreenState extends ConsumerState<ShopOrderScreen> {
                         padding: const EdgeInsets.all(14),
                         child: Row(
                           children: [
-                            const Icon(Icons.sticky_note_2_outlined, size: 20, color: AppColors.muted),
+                            Icon(Icons.sticky_note_2_outlined, size: 20, color: AppColors.muted),
                             const SizedBox(width: 10),
                             Expanded(child: Text(o.note!, style: const TextStyle(fontSize: 13.5))),
                           ],
@@ -184,7 +184,7 @@ class _ShopOrderScreenState extends ConsumerState<ShopOrderScreen> {
                     ],
                     if (o.status == ShopOrderStatus.cancelled && o.cancelReason != null) ...[
                       const SizedBox(height: 10),
-                      Text('Annulée : ${o.cancelReason}', style: const TextStyle(color: AppColors.muted)),
+                      Text('Annulée : ${o.cancelReason}', style: TextStyle(color: AppColors.muted)),
                     ],
                     if (o.saleId != null) ...[
                       const SizedBox(height: 10),
@@ -253,7 +253,7 @@ class _Customer extends ConsumerWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(o.customerName, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
-                    Text('+221 ${displayPhone(o.customerPhone)}', style: const TextStyle(color: AppColors.muted)),
+                    Text('+221 ${displayPhone(o.customerPhone)}', style: TextStyle(color: AppColors.muted)),
                   ],
                 ),
               ),
@@ -278,7 +278,7 @@ class _Customer extends ConsumerWidget {
               ),
             ],
           ),
-          Text('Commandée le ${dateTime(o.createdAt)}', style: const TextStyle(color: AppColors.muted, fontSize: 12)),
+          Text('Commandée le ${dateTime(o.createdAt)}', style: TextStyle(color: AppColors.muted, fontSize: 12)),
           Row(
             children: [
               TextButton.icon(
@@ -384,7 +384,7 @@ class _CollectSheetState extends State<_CollectSheet> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           const Text('Encaisser la commande', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
-          Text('Total : ${money(widget.order.total)}', style: const TextStyle(color: AppColors.muted)),
+          Text('Total : ${money(widget.order.total)}', style: TextStyle(color: AppColors.muted)),
           const SizedBox(height: 14),
           TextField(
             key: const Key('collectAmount'),
@@ -399,7 +399,7 @@ class _CollectSheetState extends State<_CollectSheet> {
               padding: const EdgeInsets.only(top: 6),
               child: Text(
                 'Le reste (${money(rest)}) va au carnet de crédit de ${firstName(widget.order.customerName)}',
-                style: const TextStyle(color: AppColors.warnText, fontWeight: FontWeight.w700, fontSize: 13),
+                style: TextStyle(color: AppColors.warnText, fontWeight: FontWeight.w700, fontSize: 13),
               ),
             ),
           const SizedBox(height: 12),
