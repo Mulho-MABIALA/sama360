@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:sama360/core/models.dart';
 import 'package:sama360/core/widgets.dart';
+import 'package:sama360/features/home/promo_carousel.dart';
 import 'package:sama360/features/team/team_screen.dart';
 
 import 'helpers.dart';
@@ -80,6 +81,14 @@ void main() {
     expect(opened!.path, '/221701234567');
     expect(Uri.decodeComponent(opened!.query), contains('Bonjour Ibou'));
     expect(find.text('Ibou Ndiaye'), findsOneWidget);
+  });
+
+  testWidgets('bannière « Invitez votre vendeur » : ouvre directement l’invitation', (tester) async {
+    phoneSize(tester);
+    expect(defaultPromos.firstWhere((p) => p.id == 'team').route, '/team?invite=1');
+    expect(defaultPromos.firstWhere((p) => p.id == 'shop').route, '/shop');
+    await pumpSama(tester, location: '/team?invite=1');
+    expect(find.byKey(const Key('invitePhone')), findsOneWidget);
   });
 
   testWidgets('changer le rôle, suspendre puis retirer un membre', (tester) async {

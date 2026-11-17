@@ -153,7 +153,10 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (_, s) => CustomerEditorScreen(customerId: s.pathParameters['id']!),
       ),
       GoRoute(path: '/account', builder: (_, _) => const ProfileScreen()),
-      GoRoute(path: '/team', builder: (_, _) => const TeamScreen()),
+      GoRoute(
+        path: '/team',
+        builder: (_, s) => TeamScreen(openInvite: s.uri.queryParameters['invite'] == '1'),
+      ),
       GoRoute(path: '/categories', builder: (_, _) => const CategoriesScreen()),
       GoRoute(
         path: '/products/new',

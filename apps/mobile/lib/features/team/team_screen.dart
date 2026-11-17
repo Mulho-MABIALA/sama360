@@ -33,11 +33,29 @@ String inviteMessage({required String business, required String phone, String? n
     'Installe l’application et connecte-toi avec ton numéro ${intlPhone(phone)} : '
     'un code te sera envoyé par SMS.';
 
-class TeamScreen extends ConsumerWidget {
-  const TeamScreen({super.key});
+class TeamScreen extends ConsumerStatefulWidget {
+  const TeamScreen({super.key, this.openInvite = false});
+
+  /// Ouvre tout de suite la fiche d'invitation (bannière « Invitez votre vendeur »).
+  final bool openInvite;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<TeamScreen> createState() => _TeamScreenState();
+}
+
+class _TeamScreenState extends ConsumerState<TeamScreen> {
+  @override
+  void initState() {
+    super.initState();
+    if (widget.openInvite) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && ref.read(canProvider('members:invite'))) _invite(context, ref);
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final members = ref.watch(membersProvider);
     final canInvite = ref.can('members:invite');
     final canManage = ref.can('members:manage');

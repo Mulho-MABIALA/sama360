@@ -27,7 +27,7 @@ import 'helpers.dart';
 /// Dépôt dont les photos de produits sont de vraies images.
 class _PhotoRepo extends FakeRepo {
   @override
-  Future<List<int>?> fileBytes(String fileId) async => File('assets/photos/$fileId.jpg').readAsBytesSync();
+  Future<List<int>?> fileBytes(String fileId) async => File('test/fixtures/photos/$fileId.jpg').readAsBytesSync();
 }
 
 class _SignedOut extends AuthController {

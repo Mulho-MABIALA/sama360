@@ -74,19 +74,19 @@ final defaultPromos = [
     ink: Color(0xFF0B4D33),
     icon: Icons.group_add_rounded,
     iconColor: AppColors.green,
-    comingSoon: "L'invitation depuis l'app arrive bientôt",
+    route: '/team?invite=1',
   ),
   PromoSlide(
     id: 'shop',
-    tag: 'BIENTÔT',
+    tag: 'NOUVEAU',
     title: 'Votre boutique en ligne',
     body: 'Un lien à partager sur WhatsApp, vos clients commandent.',
-    cta: 'En savoir plus',
+    cta: 'Ouvrir',
     colors: [Color(0xFFF1ECFF), Color(0xFFDDD3FF)],
     ink: Color(0xFF3B2A86),
     icon: Icons.storefront_rounded,
     iconColor: Color(0xFF7A5AF8),
-    comingSoon: 'La boutique en ligne arrive bientôt sur Sama360',
+    route: '/shop',
   ),
 ];
 
@@ -138,7 +138,9 @@ class _PromoCarouselState extends ConsumerState<PromoCarousel> {
 
   void _open(PromoSlide s) {
     if (s.route != null) {
-      context.go(s.route!);
+      // Onglets du bas : on y va ; autres écrans : par-dessus l'accueil (retour possible)
+      const tabs = ['/', '/stock', '/customers', '/sales'];
+      tabs.contains(s.route) ? context.go(s.route!) : context.push(s.route!);
     } else if (s.comingSoon != null) {
       showInfo(context, s.comingSoon!);
     }
