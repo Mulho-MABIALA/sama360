@@ -195,7 +195,7 @@ describe('Socle Sama360 (e2e)', () => {
 
       const res = await http.get('/v1/business').set(auth(awa.accessToken, awaBiz)).expect(200);
       expect(res.body.business.name).toBe('Awa Beauté');
-      expect(res.body.me).toEqual({ role: 'owner', permissions: ['*'] });
+      expect(res.body.me).toMatchObject({ role: 'owner', permissions: ['*'], location: { id: null, locked: false } });
       expect(res.body.modules).toHaveLength(6);
     });
 
@@ -3415,6 +3415,148 @@ describe('Socle Sama360 (e2e)', () => {
         .set(A())
         .attach('file', Buffer.from('%PDF-1.7 pas une photo'), { filename: 'x.pdf', contentType: 'application/pdf' })
         .expect(422);
+    });
+  });
+
+  describe('Points de vente', () => {
+    const A = () => auth(awa.accessToken, awaBiz);
+    const At = (loc: string) => ({ ...A(), 'X-Location-Id': loc });
+    let main: string;
+    let medina: string;
+    let product: string;
+    const onHand = async (headers: Record<string, string>) =>
+      (
+        (await http.get('/v1/inventory/stock').set(headers).expect(200)).body.items as {
+          productId: string;
+          onHand: number;
+          byLocation: Record<string, number>;
+        }[]
+      ).find((i) => i.productId === product)!;
+    // La sortie de stock d'une vente passe par les événements : on attend qu'elle soit appliquée
+    const stockAt = async (loc: string, expected: number) => {
+      await relay.relayOnce();
+      return waitFor(
+        async () => (await onHand(At(loc))).onHand,
+        (v) => v === expected,
+      );
+    };
+
+    beforeAll(async () => {
+      product = (
+        await http
+          .post('/v1/catalog/products')
+          .set(A())
+          .send({ name: 'Thé Ataya vert', price: 1000, cost: 600 })
+          .expect(201)
+      ).body.id;
+      await http
+        .post('/v1/inventory/movements')
+        .set(A())
+        .send({ productId: product, type: 'purchase', quantity: 10, unitCost: 600 })
+        .expect(201);
+    });
+
+    it('un point de vente principal existe ; on en ouvre un deuxième', async () => {
+      const list = await http.get('/v1/locations').set(A()).expect(200);
+      expect(list.body.current).toMatchObject({ id: null, locked: false });
+      main = list.body.data.find((l: { isDefault: boolean }) => l.isDefault).id;
+      expect(list.body.current.writeTo).toBe(main);
+
+      const created = await http
+        .post('/v1/locations')
+        .set(A())
+        .send({ name: 'Boutique Médina', address: 'Rue 11 x 6, Médina' })
+        .expect(201);
+      medina = created.body.id;
+      expect(created.body).toMatchObject({ name: 'Boutique Médina', isDefault: false });
+      await http.post('/v1/locations').set(A()).send({ name: 'boutique médina' }).expect(409);
+    });
+
+    it('transfert de marchandise : sortie d’un côté, entrée de l’autre, sans dépasser le stock', async () => {
+      const tr = await http
+        .post('/v1/inventory/transfers')
+        .set(A())
+        .send({ fromId: main, toId: medina, lines: [{ productId: product, quantity: 4 }] })
+        .expect(201);
+      expect(tr.body).toMatchObject({ from: { id: main }, to: { name: 'Boutique Médina' } });
+      expect(tr.body.number).toMatch(/^TR-\d{4}-0001$/);
+
+      expect((await onHand(At(medina))).onHand).toBe(4);
+      expect((await onHand(At(main))).onHand).toBe(6);
+      const all = await onHand(A());
+      expect(all.onHand).toBe(10);
+      expect(all.byLocation).toEqual({ [main]: 6, [medina]: 4 });
+
+      const tooMuch = await http
+        .post('/v1/inventory/transfers')
+        .set(A())
+        .send({ fromId: medina, toId: main, lines: [{ productId: product, quantity: 5 }] })
+        .expect(422);
+      expect(tooMuch.body.error.code).toBe('INSUFFICIENT_STOCK');
+    });
+
+    it('une vente au point de vente choisi sort de son stock et compte dans ses chiffres', async () => {
+      const sale = await http
+        .post('/v1/sales')
+        .set(At(medina))
+        .send({ items: [{ productId: product, quantity: 1 }], payments: [{ method: 'cash', amount: 1000 }] })
+        .expect(201);
+      expect(await stockAt(medina, 3)).toBe(3);
+      expect((await onHand(At(main))).onHand).toBe(6);
+
+      const list = await http.get('/v1/sales').set(At(medina)).expect(200);
+      expect(list.body.data.map((s: { id: string }) => s.id)).toEqual([sale.body.id]);
+
+      const mine = await http.get('/v1/sales/summary').set(At(medina)).expect(200);
+      expect(mine.body).toMatchObject({ salesCount: 1, revenue: 1000, locationId: medina });
+      const everything = await http.get('/v1/sales/summary').set(A()).expect(200);
+      expect(everything.body.locationId).toBeNull();
+      expect(everything.body.salesCount).toBeGreaterThan(1);
+      expect(everything.body.byLocation).toEqual(
+        expect.arrayContaining([expect.objectContaining({ locationId: medina, salesCount: 1, revenue: 1000 })]),
+      );
+    });
+
+    it('un vendeur rattaché vend toujours dans son point de vente', async () => {
+      await http
+        .post('/v1/members')
+        .set(A())
+        .send({ phone: '+221770009191', fullName: 'Fatou Médina', roleKey: 'cashier', locationId: medina })
+        .expect(201);
+      const fatou = (await login('+221770009191')).accessToken;
+      const me = await http.get('/v1/business').set(auth(fatou, awaBiz)).expect(200);
+      expect(me.body.me.location).toEqual({ id: medina, writeTo: medina, locked: true });
+
+      // Même s'il demande le principal, sa vente reste à la Médina
+      await http
+        .post('/v1/sales')
+        .set({ ...auth(fatou, awaBiz), 'X-Location-Id': main })
+        .send({ items: [{ productId: product, quantity: 1 }], payments: [{ method: 'cash', amount: 1000 }] })
+        .expect(201);
+      expect(await stockAt(medina, 2)).toBe(2);
+
+      const members = await http.get('/v1/members').set(A()).expect(200);
+      expect(members.body.find((m: { fullName: string }) => m.fullName === 'Fatou Médina').locationId).toBe(medina);
+    });
+
+    it('fermer un point de vente : pas le principal, et pas avec du stock dedans', async () => {
+      await http.post(`/v1/locations/${main}/archive`).set(A()).expect(422);
+      const full = await http.post(`/v1/locations/${medina}/archive`).set(A()).expect(409);
+      expect(full.body.error.code).toBe('LOCATION_NOT_EMPTY');
+
+      await http
+        .post('/v1/inventory/transfers')
+        .set(A())
+        .send({ fromId: medina, toId: main, lines: [{ productId: product, quantity: 2 }] })
+        .expect(201);
+      await http.post(`/v1/locations/${medina}/archive`).set(A()).expect(200);
+
+      const list = await http.get('/v1/locations').set(A()).expect(200);
+      expect(list.body.data.map((l: { id: string }) => l.id)).not.toContain(medina);
+      const members = await http.get('/v1/members').set(A()).expect(200);
+      expect(members.body.find((m: { fullName: string }) => m.fullName === 'Fatou Médina').locationId).toBeNull();
+      // Une ancienne sélection sur le téléphone retombe sur « tous les points de vente »
+      expect((await http.get('/v1/sales/summary').set(At(medina)).expect(200)).body.locationId).toBeNull();
     });
   });
 

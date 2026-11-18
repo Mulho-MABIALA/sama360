@@ -23,7 +23,9 @@ class SamaRepository {
   String cacheKey(String path, {Map<String, dynamic>? query, bool user = false}) {
     final q = (query?.entries.where((e) => e.value != null).toList() ?? [])..sort((a, b) => a.key.compareTo(b.key));
     final qs = q.map((e) => '${e.key}=${e.value}').join('&');
-    return '$cachePrefix${user ? 'user' : (api.businessId ?? '-')}:$path${qs.isEmpty ? '' : '?$qs'}';
+    // Le point de vente choisi change les chiffres : il fait partie de la clé
+    final scope = user ? 'user' : '${api.businessId ?? '-'}${api.locationId == null ? '' : '@${api.locationId}'}';
+    return '$cachePrefix$scope:$path${qs.isEmpty ? '' : '?$qs'}';
   }
 
   /// Lecture avec repli sur la dernière réponse connue si le réseau manque.
@@ -685,11 +687,64 @@ class SamaRepository {
   Future<List<Member>> members() async =>
       (await _cachedGet<List<dynamic>>('/v1/members')).map((e) => Member.fromJson(e as Map<String, dynamic>)).toList();
 
-  Future<void> inviteMember({required String phone, String? fullName, required TeamRole role}) =>
-      api.post<void>('/v1/members', data: {'phone': phone, 'fullName': ?fullName, 'roleKey': role.api});
+  Future<void> inviteMember({required String phone, String? fullName, required TeamRole role, String? locationId}) =>
+      api.post<void>(
+        '/v1/members',
+        data: {'phone': phone, 'fullName': ?fullName, 'roleKey': role.api, 'locationId': ?locationId},
+      );
 
-  Future<void> updateMember(String id, {TeamRole? role, String? status}) =>
-      api.patch<void>('/v1/members/$id', data: {'roleKey': ?role?.api, 'status': ?status});
+  /// [locationId] : '' pour « tous les points de vente », null pour ne pas changer.
+  Future<void> updateMember(String id, {TeamRole? role, String? status, String? locationId}) => api.patch<void>(
+    '/v1/members/$id',
+    data: {
+      'roleKey': ?role?.api,
+      'status': ?status,
+      if (locationId != null) 'locationId': locationId.isEmpty ? null : locationId,
+    },
+  );
+
+  // ---------- Points de vente ----------
+  Future<LocationsState> locations() async =>
+      LocationsState.fromJson(await _cachedGet<Map<String, dynamic>>('/v1/locations'));
+
+  Future<ShopLocation> saveLocation({String? id, required String name, String? address, String? phone}) async {
+    final data = {'name': name, 'address': address, 'phone': phone};
+    return ShopLocation.fromJson(
+      id == null
+          ? await api.post<Map<String, dynamic>>('/v1/locations', data: data)
+          : await api.patch<Map<String, dynamic>>('/v1/locations/$id', data: data),
+    );
+  }
+
+  Future<void> makeMainLocation(String id) => api.patch<void>('/v1/locations/$id', data: {'makeDefault': true});
+
+  Future<void> archiveLocation(String id) => api.post<void>('/v1/locations/$id/archive');
+
+  Future<StockTransfer> transferStock({
+    required String id,
+    required String fromId,
+    required String toId,
+    required List<({String productId, double quantity})> lines,
+    String? note,
+  }) async => StockTransfer.fromJson(
+    await api.post<Map<String, dynamic>>(
+      '/v1/inventory/transfers',
+      data: {
+        'id': id,
+        'fromId': fromId,
+        'toId': toId,
+        'lines': [
+          for (final l in lines) {'productId': l.productId, 'quantity': l.quantity},
+        ],
+        'note': ?note,
+      },
+    ),
+  );
+
+  Future<List<StockTransfer>> transfers() async => [
+    for (final t in await _cachedGet<List<dynamic>>('/v1/inventory/transfers'))
+      StockTransfer.fromJson(t as Map<String, dynamic>),
+  ];
 
   Future<void> removeMember(String id) => api.delete<void>('/v1/members/$id');
 

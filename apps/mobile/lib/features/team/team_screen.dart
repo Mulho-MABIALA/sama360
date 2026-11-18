@@ -316,6 +316,7 @@ class _InviteSheetState extends ConsumerState<_InviteSheet> {
   final _phone = TextEditingController();
   final _name = TextEditingController();
   TeamRole _role = TeamRole.cashier;
+  String _location = ''; // '' = tous les points de vente
   String? _error;
   bool _busy = false;
 
@@ -338,7 +339,9 @@ class _InviteSheetState extends ConsumerState<_InviteSheet> {
       _busy = true;
     });
     try {
-      await ref.read(repoProvider).inviteMember(phone: phone, fullName: name, role: _role);
+      await ref
+          .read(repoProvider)
+          .inviteMember(phone: phone, fullName: name, role: _role, locationId: _location.isEmpty ? null : _location);
       if (mounted) Navigator.pop(context, (phone: phone, name: name));
     } on ApiException catch (e) {
       if (mounted) {
@@ -392,6 +395,7 @@ class _InviteSheetState extends ConsumerState<_InviteSheet> {
           const Text('Rôle', style: TextStyle(fontWeight: FontWeight.w800)),
           const SizedBox(height: 8),
           _RolePicker(value: _role, onChanged: (r) => setState(() => _role = r)),
+          MemberLocationPicker(value: _location, onChanged: (v) => setState(() => _location = v)),
           const SizedBox(height: 8),
           BusyButton(label: 'Envoyer l’invitation', busy: _busy, onPressed: _send),
         ],
@@ -473,6 +477,11 @@ class _ManageSheetState extends ConsumerState<_ManageSheet> {
                   ? null
                   : () => _run(() => repo.updateMember(m.id, role: _role), 'Rôle mis à jour'),
             ),
+            if (!m.isOwner)
+              MemberLocationPicker(
+                value: m.locationId ?? '',
+                onChanged: (v) => _run(() => repo.updateMember(m.id, locationId: v), 'Point de vente mis à jour'),
+              ),
             const SizedBox(height: 10),
             OutlinedButton.icon(
               onPressed: _busy
@@ -493,6 +502,40 @@ class _ManageSheetState extends ConsumerState<_ManageSheet> {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Point de vente d'un membre (quand il y en a plusieurs) : '' = tous.
+class MemberLocationPicker extends ConsumerWidget {
+  const MemberLocationPicker({super.key, required this.value, required this.onChanged});
+  final String value;
+  final ValueChanged<String> onChanged;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final s = ref.watch(locationsProvider).value;
+    if (s == null || !s.several) return const SizedBox.shrink();
+    final current = value.isEmpty || s.byId(value) != null ? value : '';
+    return Padding(
+      padding: const EdgeInsets.only(top: 12, bottom: 4),
+      child: DropdownButtonFormField<String>(
+        key: const Key('member_location'),
+        initialValue: current,
+        decoration: const InputDecoration(
+          labelText: 'Point de vente',
+          helperText: 'Un vendeur rattaché vend et voit le stock de ce point de vente seulement',
+          helperMaxLines: 2,
+          prefixIcon: Icon(Icons.place_rounded),
+        ),
+        items: [
+          const DropdownMenuItem(value: '', child: Text('Tous les points de vente')),
+          for (final l in s.list) DropdownMenuItem(value: l.id, child: Text(l.name)),
+        ],
+        onChanged: (v) {
+          if (v != null && v != current) onChanged(v);
+        },
       ),
     );
   }

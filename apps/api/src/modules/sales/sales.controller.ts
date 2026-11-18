@@ -2,11 +2,12 @@ import { Body, Controller, Get, HttpCode, Param, ParseUUIDPipe, Post, Query, Res
 import { and, desc, eq, gte, lt, SQL, sql } from 'drizzle-orm';
 import type { Response } from 'express';
 import { z } from 'zod';
-import { AuthUser, TenantContext } from '../../shared/auth/auth.types';
+import { AuthUser, TenantContext, locationFor } from '../../shared/auth/auth.types';
 import { CurrentTenant, CurrentUser, RequireModule, RequirePermission } from '../../shared/auth/decorators';
 import { DbService } from '../../shared/db/db.service';
 import { contacts, customerLedger, expenses, sales, users } from '../../shared/db/schema';
 import { AppError } from '../../shared/http/app-error';
+import { atLocation } from '../../shared/tenant/location';
 import { PageQuery, parse } from '../../shared/http/zod';
 import { SalesService } from './sales.service';
 
@@ -38,6 +39,8 @@ const CreateSale = z.object({
   soldAt: z.coerce.date().optional(),
   note: z.string().max(500).nullish(),
   redeemRewards: z.coerce.number().int().min(0).max(100).optional(),
+  /** Point de vente de la vente (vente hors ligne envoyée plus tard depuis une autre boutique). */
+  locationId: z.string().uuid().nullish(),
 });
 
 const VoidSale = z.object({ reason: z.string().trim().min(3).max(500) });
@@ -82,7 +85,10 @@ export class SalesController {
     @Res({ passthrough: true }) res: Response,
   ) {
     const input = parse(CreateSale, body);
-    const result = await this.salesService.create(t.businessId, user.id, input);
+    const result = await this.salesService.create(t.businessId, user.id, {
+      ...input,
+      locationId: locationFor(t, input.locationId),
+    });
     res.status(result.created ? 201 : 200);
     return result.sale;
   }
@@ -100,6 +106,7 @@ export class SalesController {
       if (q.customerId) where.push(eq(sales.customerId, q.customerId));
       if (q.status) where.push(eq(sales.status, q.status));
       if (q.cursor) where.push(lt(sales.id, q.cursor));
+      if (t.locationFilter) where.push(eq(sales.warehouseId, t.locationFilter));
       const rows = await tx
         .select({
           id: sales.id,
@@ -112,6 +119,7 @@ export class SalesController {
           total: sales.total,
           paid: sales.paid,
           soldAt: sales.soldAt,
+          locationId: sales.warehouseId,
         })
         .from(sales)
         .leftJoin(contacts, eq(contacts.id, sales.customerId))
@@ -132,7 +140,8 @@ export class SalesController {
     const q = parse(Period, query);
     const from = q.from ?? today();
     const to = q.to ?? from;
-    if (startOf(to) < startOf(from)) throw new AppError('VALIDATION_FAILED', 'La date de fin précède la date de début', 422);
+    if (startOf(to) < startOf(from))
+      throw new AppError('VALIDATION_FAILED', 'La date de fin précède la date de début', 422);
     const [start, end] = [startOf(from), endOf(to)];
 
     return this.dbs.withTenant(t.businessId, async (tx) => {
@@ -144,14 +153,14 @@ export class SalesController {
                  coalesce(sum(paid), 0)::bigint AS collected,
                  coalesce(sum(total - paid), 0)::bigint AS on_credit
           FROM sales.sales
-          WHERE status = 'completed' AND sold_at >= ${start} AND sold_at < ${end}`)
+          WHERE status = 'completed' AND sold_at >= ${start} AND sold_at < ${end} ${atLocation(t, 'warehouse_id')}`)
       ).rows[0] as Record<string, string | number>;
 
       const byMethod = (
         await tx.execute(sql`
           SELECT p.method, coalesce(sum(p.amount), 0)::bigint AS amount
           FROM sales.sale_payments p JOIN sales.sales s ON s.id = p.sale_id
-          WHERE s.status = 'completed' AND s.sold_at >= ${start} AND s.sold_at < ${end}
+          WHERE s.status = 'completed' AND s.sold_at >= ${start} AND s.sold_at < ${end} ${atLocation(t, 's.warehouse_id')}
           GROUP BY p.method ORDER BY 2 DESC`)
       ).rows as { method: string; amount: string }[];
 
@@ -165,7 +174,7 @@ export class SalesController {
         await tx.execute(sql`
           SELECT i.product_id, i.name, sum(i.quantity) AS quantity, sum(i.total)::bigint AS revenue
           FROM sales.sale_items i JOIN sales.sales s ON s.id = i.sale_id
-          WHERE s.status = 'completed' AND s.sold_at >= ${start} AND s.sold_at < ${end}
+          WHERE s.status = 'completed' AND s.sold_at >= ${start} AND s.sold_at < ${end} ${atLocation(t, 's.warehouse_id')}
           GROUP BY i.product_id, i.name ORDER BY revenue DESC LIMIT 5`)
       ).rows as { product_id: string | null; name: string; quantity: string; revenue: string }[];
 
@@ -175,7 +184,7 @@ export class SalesController {
           SELECT s.cashier_id, coalesce(u.full_name, u.phone) AS name, u.avatar_file_id,
                  count(*)::int AS count, coalesce(sum(s.total), 0)::bigint AS revenue
           FROM sales.sales s JOIN core.users u ON u.id = s.cashier_id
-          WHERE s.status = 'completed' AND s.sold_at >= ${start} AND s.sold_at < ${end}
+          WHERE s.status = 'completed' AND s.sold_at >= ${start} AND s.sold_at < ${end} ${atLocation(t, 's.warehouse_id')}
           GROUP BY s.cashier_id, u.full_name, u.phone, u.avatar_file_id ORDER BY revenue DESC`)
       ).rows as { cashier_id: string; name: string; avatar_file_id: string | null; count: number; revenue: string }[];
 
@@ -191,13 +200,26 @@ export class SalesController {
           FROM generate_series(${to}::date - 6, ${to}::date, interval '1 day') d
           LEFT JOIN sales.sales s
             ON s.status = 'completed' AND s.sold_at >= d AND s.sold_at < d + interval '1 day'
+              ${atLocation(t, 's.warehouse_id')}
           GROUP BY d ORDER BY d`)
       ).rows as { day: string; revenue: string }[];
       const prevWeek = (
         await tx.execute(sql`
           SELECT coalesce(sum(total), 0)::bigint AS revenue FROM sales.sales
-          WHERE status = 'completed' AND sold_at >= ${to}::date - 13 AND sold_at < ${to}::date - 6`)
+          WHERE status = 'completed' AND sold_at >= ${to}::date - 13 AND sold_at < ${to}::date - 6
+            ${atLocation(t, 'warehouse_id')}`)
       ).rows[0] as { revenue: string };
+
+      // Tous les points de vente : la part de chacun sur la période
+      const byLocation = (
+        await tx.execute(sql`
+          SELECT w.id, w.name, count(s.id)::int AS count, coalesce(sum(s.total), 0)::bigint AS revenue
+          FROM inventory.warehouses w
+          LEFT JOIN sales.sales s ON s.warehouse_id = w.id AND s.status = 'completed'
+            AND s.sold_at >= ${start} AND s.sold_at < ${end}
+          WHERE w.archived_at IS NULL ${atLocation(t, 'w.id')}
+          GROUP BY w.id, w.name, w.is_default ORDER BY w.is_default DESC, w.name`)
+      ).rows as { id: string; name: string; count: number; revenue: string }[];
 
       const revenue = Number(totals.revenue);
       const cost = Number(totals.cost);
@@ -223,6 +245,13 @@ export class SalesController {
         })),
         last7Days: week.map((d) => ({ date: d.day, revenue: Number(d.revenue) })),
         previous7DaysRevenue: Number(prevWeek.revenue),
+        locationId: t.locationFilter,
+        byLocation: byLocation.map((l) => ({
+          locationId: l.id,
+          name: l.name,
+          salesCount: Number(l.count),
+          revenue: Number(l.revenue),
+        })),
         topProducts: top.map((p) => ({
           productId: p.product_id,
           name: p.name,

@@ -47,6 +47,13 @@ class _StockScreenState extends ConsumerState<StockScreen> {
       appBar: AppBar(
         title: const Text('Stock', style: TextStyle(fontWeight: FontWeight.w800)),
         actions: [
+          if (canWrite && (ref.watch(locationsProvider).value?.several ?? false))
+            IconButton(
+              key: const Key('stock_transfer'),
+              tooltip: 'Transférer entre points de vente',
+              onPressed: () => context.push('/stock/transfer'),
+              icon: const Icon(Icons.swap_horiz_rounded),
+            ),
           if (ref.can('inventory:read'))
             IconButton(
               tooltip: 'Achats et fournisseurs',
@@ -189,13 +196,25 @@ class _StockScreenState extends ConsumerState<StockScreen> {
   }
 }
 
-class _StockRow extends StatelessWidget {
+class _StockRow extends ConsumerWidget {
   const _StockRow({required this.item, this.onTap});
   final StockItem item;
   final VoidCallback? onTap;
 
   @override
-  Widget build(BuildContext context) => Card(
+  Widget build(BuildContext context, WidgetRef ref) {
+    // Tous les points de vente regardés : le détail par point de vente sous le nom
+    final locs = ref.watch(locationsProvider).value;
+    final breakdown = locs != null && locs.several && locs.currentId == null
+        ? [
+            for (final l in locs.list)
+              if ((item.byLocation[l.id] ?? 0) != 0) '${l.name} ${qty(item.byLocation[l.id]!)}',
+          ].join(' · ')
+        : '';
+    return _card(context, breakdown);
+  }
+
+  Widget _card(BuildContext context, String breakdown) => Card(
     child: InkWell(
       borderRadius: BorderRadius.circular(16),
       onTap: onTap,
@@ -220,6 +239,13 @@ class _StockRow extends StatelessWidget {
                     '${moneyShort(item.price)} · marge ${item.margin} %',
                     style: TextStyle(fontSize: 12, color: AppColors.muted),
                   ),
+                  if (breakdown.isNotEmpty)
+                    Text(
+                      breakdown,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(fontSize: 12, color: AppColors.muted, fontWeight: FontWeight.w600),
+                    ),
                 ],
               ),
             ),

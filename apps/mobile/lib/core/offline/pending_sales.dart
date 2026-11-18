@@ -171,6 +171,9 @@ class PendingSalesController extends Notifier<List<PendingSale>> {
       soldAt: soldAt,
       redeemRewards: redeemRewards,
     );
+    // Point de vente au moment de la vente : une vente hors ligne envoyée plus tard reste au bon endroit
+    final location = ref.read(apiClientProvider).locationId;
+    if (location != null) body['locationId'] = location;
     try {
       final sale = await ref.read(repoProvider).postSale(body, businessId: businessId);
       unawaited(sync()); // d'éventuelles ventes plus anciennes partent aussi

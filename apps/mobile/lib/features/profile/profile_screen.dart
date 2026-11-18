@@ -343,6 +343,20 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                               : 'Passez à Pro pour la boutique en ligne, les vendeurs, les livraisons…',
                           onTap: () => context.push('/pro'),
                         ),
+                      if (business != null && ref.can('business:update'))
+                        _Row(
+                          key: const Key('locations_row'),
+                          icon: Icons.place_rounded,
+                          color: const Color(0xFF2E90FA),
+                          label: 'Points de vente',
+                          value: switch (ref.watch(locationsProvider).value?.list.length) {
+                            null => '',
+                            1 => '1 boutique',
+                            final n => '$n boutiques',
+                          },
+                          hint: 'Plusieurs boutiques : un stock et une caisse chacune',
+                          onTap: () => context.push('/locations'),
+                        ),
                       if (business != null)
                         _Row(
                           key: const Key('referral_row'),

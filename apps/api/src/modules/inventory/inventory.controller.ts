@@ -57,21 +57,29 @@ export class InventoryController {
     });
   }
 
-  /** État du stock de l'entrepôt par défaut, produits suivis uniquement. */
+  /**
+   * État du stock, produits suivis uniquement : du point de vente choisi, ou de tous les
+   * points de vente (somme, avec le détail par point de vente dans byLocation).
+   */
   @Get('stock')
   @RequirePermission('inventory:read')
   stock(@CurrentTenant() t: TenantContext, @Query() query: unknown) {
     const q = parse(StockQuery, query);
     return this.dbs.withTenant(t.businessId, async (tx) => {
-      const warehouseId = await this.inventory.defaultWarehouse(tx, t.businessId);
+      const warehouseId = t.locationFilter;
       const search = q.search ? `%${q.search}%` : null;
       const res = await tx.execute(sql`
         SELECT p.id, p.name, p.sku, p.price, p.cost, p.low_stock_threshold, p.image_file_ids[1] AS image_file_id,
-               coalesce(sl.on_hand, 0) AS on_hand
+               coalesce(sum(sl.on_hand) FILTER (WHERE ${warehouseId}::uuid IS NULL OR sl.warehouse_id = ${warehouseId}), 0)
+                 AS on_hand,
+               coalesce(jsonb_object_agg(sl.warehouse_id, sl.on_hand) FILTER (WHERE sl.warehouse_id IS NOT NULL), '{}')
+                 AS by_location
         FROM catalog.products p
-        LEFT JOIN inventory.stock_levels sl ON sl.product_id = p.id AND sl.warehouse_id = ${warehouseId}
+        LEFT JOIN inventory.stock_levels sl ON sl.product_id = p.id
+          AND sl.warehouse_id IN (SELECT id FROM inventory.warehouses WHERE archived_at IS NULL)
         WHERE p.deleted_at IS NULL AND p.track_stock
           AND (${search}::text IS NULL OR p.name ILIKE ${search})
+        GROUP BY p.id
         ORDER BY p.name`);
       type Row = {
         id: string;
@@ -82,6 +90,7 @@ export class InventoryController {
         low_stock_threshold: number;
         image_file_id: string | null;
         on_hand: string;
+        by_location: Record<string, string | number>;
       };
       const items = (res.rows as Row[])
         .map((r) => {
@@ -98,6 +107,7 @@ export class InventoryController {
             onHand: qty,
             low: qty <= r.low_stock_threshold,
             value: Math.round(qty * cost),
+            byLocation: Object.fromEntries(Object.entries(r.by_location).map(([k, v]) => [k, Number(v)])),
           };
         })
         .filter((r) => !q.lowOnly || r.low);
@@ -143,7 +153,7 @@ export class InventoryController {
     const input = parse(MovementBody, body);
     return this.dbs.withTenant(t.businessId, async (tx) => {
       const product = await this.inventory.trackedProduct(tx, input.productId);
-      const warehouseId = await this.inventory.defaultWarehouse(tx, t.businessId);
+      const warehouseId = await this.inventory.location(tx, t.businessId, t.warehouseId);
       const res = await this.inventory.applyMovement(tx, {
         businessId: t.businessId,
         productId: product.id,
@@ -168,7 +178,7 @@ export class InventoryController {
       throw new AppError('VALIDATION_FAILED', 'Un produit apparaît plusieurs fois', 422);
     }
     return this.dbs.withTenant(t.businessId, async (tx) => {
-      const warehouseId = await this.inventory.defaultWarehouse(tx, t.businessId);
+      const warehouseId = await this.inventory.location(tx, t.businessId, t.warehouseId);
       const results = [];
       for (const item of input.items) {
         const product = await this.inventory.trackedProduct(tx, item.productId);

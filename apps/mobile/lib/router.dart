@@ -19,6 +19,7 @@ import 'features/cash/cash_close_screen.dart';
 import 'features/cash/cash_screen.dart';
 import 'features/cash/cash_session_screen.dart';
 import 'features/customers/customer_editor.dart';
+import 'features/locations/locations_screen.dart';
 import 'features/purchasing/invoice_scan_screen.dart';
 import 'features/purchasing/purchase_editor.dart';
 import 'features/pro/pro_screen.dart';
@@ -132,6 +133,8 @@ final routerProvider = Provider<GoRouter>((ref) {
           prefill: s.extra is PurchasePrefill ? s.extra! as PurchasePrefill : null,
         ),
       ),
+      GoRoute(path: '/locations', builder: (_, _) => const LocationsScreen()),
+      GoRoute(path: '/stock/transfer', builder: (_, _) => const TransferScreen()),
       GoRoute(
         path: '/purchases/scan',
         builder: (_, s) => InvoiceScanScreen(photo: s.extra is PickedPhoto ? s.extra! as PickedPhoto : null),

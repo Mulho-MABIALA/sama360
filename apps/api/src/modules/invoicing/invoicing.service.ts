@@ -64,7 +64,7 @@ export class InvoicingService {
   ) {}
 
   /** Crée un devis ou une facture. Idempotent si le mobile fournit l'identifiant. */
-  async create(businessId: string, userId: string, input: DocumentInput) {
+  async create(businessId: string, userId: string, input: DocumentInput, locationId?: string) {
     return this.dbs.withTenant(businessId, async (tx) => {
       if (input.id) {
         const existing = await this.findFull(tx, input.id);
@@ -81,6 +81,7 @@ export class InvoicingService {
         throw new AppError('VALIDATION_FAILED', 'L’échéance précède la date du document', 422);
       }
       await this.insertDocument(tx, {
+        locationId,
         id,
         businessId,
         userId,
@@ -137,7 +138,8 @@ export class InvoicingService {
   async setQuoteStatus(businessId: string, id: string, status: 'accepted' | 'declined' | 'pending') {
     return this.dbs.withTenant(businessId, async (tx) => {
       const doc = await this.lock(tx, id);
-      if (doc.kind !== 'quote') throw new AppError('VALIDATION_FAILED', 'Seul un devis peut être accepté ou refusé', 422);
+      if (doc.kind !== 'quote')
+        throw new AppError('VALIDATION_FAILED', 'Seul un devis peut être accepté ou refusé', 422);
       if (doc.status === 'invoiced') {
         throw new AppError('DOCUMENT_LOCKED', 'Ce devis est déjà transformé en facture', HttpStatus.CONFLICT);
       }
@@ -147,10 +149,17 @@ export class InvoicingService {
   }
 
   /** Transforme un devis en facture (une seule fois : renvoie la facture existante sinon). */
-  async convert(businessId: string, userId: string, quoteId: string, input: { dueDate?: string | null }) {
+  async convert(
+    businessId: string,
+    userId: string,
+    quoteId: string,
+    input: { dueDate?: string | null },
+    locationId?: string,
+  ) {
     return this.dbs.withTenant(businessId, async (tx) => {
       const quote = await this.lock(tx, quoteId);
-      if (quote.kind !== 'quote') throw new AppError('VALIDATION_FAILED', 'Seul un devis se transforme en facture', 422);
+      if (quote.kind !== 'quote')
+        throw new AppError('VALIDATION_FAILED', 'Seul un devis se transforme en facture', 422);
       const [already] = await tx
         .select({ id: documents.id })
         .from(documents)
@@ -169,6 +178,7 @@ export class InvoicingService {
       const id = newId();
       const issueDate = today();
       await this.insertDocument(tx, {
+        locationId,
         id,
         businessId,
         userId,
@@ -208,7 +218,8 @@ export class InvoicingService {
         if (p) return { created: false, document: (await this.findFull(tx, p.documentId))! };
       }
       const doc = await this.lock(tx, invoiceId);
-      if (doc.kind !== 'invoice') throw new AppError('VALIDATION_FAILED', 'Un paiement s’enregistre sur une facture', 422);
+      if (doc.kind !== 'invoice')
+        throw new AppError('VALIDATION_FAILED', 'Un paiement s’enregistre sur une facture', 422);
       if (doc.status === 'cancelled') {
         throw new AppError('DOCUMENT_LOCKED', 'Cette facture est annulée', HttpStatus.CONFLICT);
       }
@@ -253,10 +264,19 @@ export class InvoicingService {
       }
       await tx
         .update(documents)
-        .set({ status: 'cancelled', cancelledAt: new Date(), cancelReason: reason, sourceId: null, updatedAt: new Date() })
+        .set({
+          status: 'cancelled',
+          cancelledAt: new Date(),
+          cancelReason: reason,
+          sourceId: null,
+          updatedAt: new Date(),
+        })
         .where(eq(documents.id, invoiceId));
       if (doc.sourceId) {
-        await tx.update(documents).set({ status: 'accepted', updatedAt: new Date() }).where(eq(documents.id, doc.sourceId));
+        await tx
+          .update(documents)
+          .set({ status: 'accepted', updatedAt: new Date() })
+          .where(eq(documents.id, doc.sourceId));
       }
       const lines = await tx.select().from(documentLines).where(eq(documentLines.documentId, invoiceId));
       if (doc.warehouseId && lines.some((l) => l.trackStock)) {
@@ -338,6 +358,8 @@ export class InvoicingService {
     d: {
       id: string;
       businessId: string;
+      /** Point de vente d'où sort la marchandise facturée. */
+      locationId?: string;
       userId: string;
       kind: DocumentKind;
       customerId: string;
@@ -355,7 +377,7 @@ export class InvoicingService {
   ) {
     const number = await this.nextNumber(tx, d.businessId, d.kind, Number(d.issueDate.slice(0, 4)));
     const isInvoice = d.kind === 'invoice';
-    const warehouseId = isInvoice ? await this.inventory.defaultWarehouse(tx, d.businessId) : null;
+    const warehouseId = isInvoice ? await this.inventory.location(tx, d.businessId, d.locationId) : null;
     await tx.insert(documents).values({
       id: d.id,
       businessId: d.businessId,
@@ -508,5 +530,10 @@ export function isOverdue(
   doc: { kind: string; status: string; dueDate: string | null },
   day = new Date().toISOString().slice(0, 10),
 ): boolean {
-  return doc.kind === 'invoice' && (doc.status === 'unpaid' || doc.status === 'partial') && !!doc.dueDate && doc.dueDate < day;
+  return (
+    doc.kind === 'invoice' &&
+    (doc.status === 'unpaid' || doc.status === 'partial') &&
+    !!doc.dueDate &&
+    doc.dueDate < day
+  );
 }

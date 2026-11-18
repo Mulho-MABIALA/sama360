@@ -42,7 +42,7 @@ export class CashController {
   @Post('open')
   @RequirePermission('sales:create')
   open(@CurrentTenant() t: TenantContext, @CurrentUser() u: AuthUser, @Body() body: unknown) {
-    return this.cash.open(t.businessId, u.id, parse(Open, body ?? {}));
+    return this.cash.open(t.businessId, u.id, parse(Open, body ?? {}), t.warehouseId);
   }
 
   @Post('current/movements')
@@ -74,7 +74,7 @@ export class CashController {
   @Get('sessions')
   @RequirePermission('sales:read')
   list(@CurrentTenant() t: TenantContext, @CurrentUser() u: AuthUser, @Query() query: unknown) {
-    return this.cash.list(t.businessId, u.id, parse(List, query), manages(t));
+    return this.cash.list(t.businessId, u.id, parse(List, query), manages(t), t.locationFilter);
   }
 
   @Get('sessions/:id')

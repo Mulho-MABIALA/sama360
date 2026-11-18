@@ -39,32 +39,37 @@ const CreateBusiness = z.object({
   // Code de parrainage d'un autre commerçant (facultatif)
   referralCode: z.string().trim().max(12).optional(),
 });
-const UpdateBusiness = CreateBusiness.omit({ referralCode: true }).partial().extend({
-  // Activité : produits, services ou les deux (adapte l'accueil et les premiers pas)
-  focus: z.enum(FOCUSES).optional(),
-  // Le patron a masqué la carte « Premiers pas »
-  onboardingDismissed: z.boolean().optional(),
-  // Couleur de la boutique (« #0A7E4F ») ; null pour revenir au vert Sama360
-  brandColor: z
-    .string()
-    .regex(/^#?[0-9a-fA-F]{6}$/, 'couleur attendue au format #RRGGBB')
-    .transform((v) => normalizeHex(v)!)
-    .nullish(),
-  // Obliger à ouvrir la caisse avant de vendre
-  requireOpenCash: z.boolean().optional(),
-});
+const UpdateBusiness = CreateBusiness.omit({ referralCode: true })
+  .partial()
+  .extend({
+    // Activité : produits, services ou les deux (adapte l'accueil et les premiers pas)
+    focus: z.enum(FOCUSES).optional(),
+    // Le patron a masqué la carte « Premiers pas »
+    onboardingDismissed: z.boolean().optional(),
+    // Couleur de la boutique (« #0A7E4F ») ; null pour revenir au vert Sama360
+    brandColor: z
+      .string()
+      .regex(/^#?[0-9a-fA-F]{6}$/, 'couleur attendue au format #RRGGBB')
+      .transform((v) => normalizeHex(v)!)
+      .nullish(),
+    // Obliger à ouvrir la caisse avant de vendre
+    requireOpenCash: z.boolean().optional(),
+  });
 
 const InviteMember = z.object({
   phone: z.string().min(6).max(25),
   fullName: text(120).optional(),
   roleKey: z.enum(['manager', 'cashier', 'accountant']),
+  /** Point de vente du membre (vendeur rattaché) ; absent = tous. */
+  locationId: z.string().uuid().nullish(),
 });
 const UpdateMember = z
   .object({
     roleKey: z.enum(['manager', 'cashier', 'accountant']).optional(),
     status: z.enum(['active', 'suspended']).optional(),
+    locationId: z.string().uuid().nullable().optional(),
   })
-  .refine((v) => v.roleKey || v.status, 'roleKey ou status requis');
+  .refine((v) => v.roleKey || v.status || v.locationId !== undefined, 'roleKey, status ou locationId requis');
 
 @Controller('v1')
 export class CoreController {
@@ -85,7 +90,15 @@ export class CoreController {
   @RequirePermission('business:read')
   async current(@CurrentTenant() tenant: TenantContext) {
     const data = await this.businesses.getCurrent(tenant.businessId);
-    return { ...data, me: { role: tenant.roleKey, permissions: tenant.permissions } };
+    return {
+      ...data,
+      me: {
+        role: tenant.roleKey,
+        permissions: tenant.permissions,
+        // Point de vente : celui auquel le membre est rattaché (locked), sinon le choix envoyé par l'app
+        location: { id: tenant.locationFilter, writeTo: tenant.warehouseId, locked: tenant.locationLocked },
+      },
+    };
   }
 
   /** Logo de l'entreprise (JPEG, PNG ou WebP), affiché sur les factures et devis. */

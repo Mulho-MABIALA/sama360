@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import type { RoleKey } from '@sama360/contracts';
-import { and, eq } from 'drizzle-orm';
-import { DbService } from '../../shared/db/db.service';
+import { and, eq, sql } from 'drizzle-orm';
+import { DbService, Tx } from '../../shared/db/db.service';
 import { auditLogs, memberships, roles, users } from '../../shared/db/schema';
 import { OutboxService } from '../../shared/events/outbox.service';
 import { AppError } from '../../shared/http/app-error';
@@ -26,6 +26,7 @@ export class MembersService {
         phone: users.phone,
         fullName: users.fullName,
         avatarFileId: users.avatarFileId,
+        locationId: memberships.warehouseId,
         createdAt: memberships.createdAt,
       })
       .from(memberships)
@@ -42,9 +43,10 @@ export class MembersService {
   async invite(
     businessId: string,
     actorId: string,
-    input: { phone: string; fullName?: string; roleKey: Exclude<RoleKey, 'owner'> },
+    input: { phone: string; fullName?: string; roleKey: Exclude<RoleKey, 'owner'>; locationId?: string | null },
   ) {
     return this.dbs.withTenant(businessId, async (tx) => {
+      if (input.locationId) await this.assertLocation(tx, input.locationId);
       let [user] = await tx.select().from(users).where(eq(users.phone, input.phone)).limit(1);
       if (!user) {
         [user] = await tx
@@ -69,6 +71,7 @@ export class MembersService {
         roleId: SYSTEM_ROLE_IDS[input.roleKey],
         status,
         invitedBy: actorId,
+        warehouseId: input.locationId ?? null,
       });
 
       await this.outbox.record(tx, {
@@ -88,8 +91,9 @@ export class MembersService {
     businessId: string,
     actorId: string,
     membershipId: string,
-    input: { roleKey?: Exclude<RoleKey, 'owner'>; status?: 'active' | 'suspended' },
+    input: { roleKey?: Exclude<RoleKey, 'owner'>; status?: 'active' | 'suspended'; locationId?: string | null },
   ) {
+    if (input.locationId) await this.dbs.withTenant(businessId, (tx) => this.assertLocation(tx, input.locationId!));
     return this.dbs.transaction(async (tx) => {
       const [m] = await tx
         .select({ id: memberships.id, roleId: memberships.roleId, userId: memberships.userId })
@@ -105,6 +109,7 @@ export class MembersService {
         .set({
           ...(input.roleKey ? { roleId: SYSTEM_ROLE_IDS[input.roleKey] } : {}),
           ...(input.status ? { status: input.status } : {}),
+          ...(input.locationId !== undefined ? { warehouseId: input.locationId } : {}),
         })
         .where(eq(memberships.id, membershipId))
         .returning();
@@ -120,6 +125,12 @@ export class MembersService {
       });
       return updated;
     });
+  }
+
+  /** Point de vente actif de l'entreprise (sinon 404). */
+  private async assertLocation(tx: Tx, id: string) {
+    const r = await tx.execute(sql`SELECT 1 FROM inventory.warehouses WHERE id = ${id} AND archived_at IS NULL`);
+    if (!r.rows.length) throw AppError.notFound('Point de vente');
   }
 
   /** Retire un membre de l'entreprise (son compte et ses ventes passées restent). */

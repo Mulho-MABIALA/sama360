@@ -5,7 +5,18 @@ import { AppError } from '../../shared/http/app-error';
 import { newId } from '../../shared/ids';
 import { fcfa } from './sales.service';
 
-export const CASH_METHODS = ['cash', 'wave', 'orange_money', 'free_money', 'mtn_momo', 'moov_money', 'airtel_money', 'card', 'transfer', 'cheque'] as const;
+export const CASH_METHODS = [
+  'cash',
+  'wave',
+  'orange_money',
+  'free_money',
+  'mtn_momo',
+  'moov_money',
+  'airtel_money',
+  'card',
+  'transfer',
+  'cheque',
+] as const;
 export type CashMethod = (typeof CASH_METHODS)[number];
 
 /** Montants d'une session pour un moyen de paiement. */
@@ -53,14 +64,16 @@ export function expectedByMethod(openingFloat: number, f: CashFlows): MethodLine
       expected: 0,
     };
     line.expected =
-      line.opening + line.sales + line.repayments + line.invoices + line.movementsIn -
-      line.expenses - line.suppliers - line.movementsOut;
+      line.opening +
+      line.sales +
+      line.repayments +
+      line.invoices +
+      line.movementsIn -
+      line.expenses -
+      line.suppliers -
+      line.movementsOut;
     return line;
-  }).filter(
-    (l) =>
-      l.method === 'cash' ||
-      l.sales || l.repayments || l.invoices || l.expenses || l.suppliers,
-  );
+  }).filter((l) => l.method === 'cash' || l.sales || l.repayments || l.invoices || l.expenses || l.suppliers);
 }
 
 /** Écarts compté − attendu, par moyen et au total. Un moyen non compté vaut son attendu (pas d'écart). */
@@ -81,7 +94,12 @@ const sumBy = (rows: Row[]) =>
 export class CashService {
   constructor(private readonly dbs: DbService) {}
 
-  open(businessId: string, userId: string, input: { openingFloat: number; note?: string | null }) {
+  open(
+    businessId: string,
+    userId: string,
+    input: { openingFloat: number; note?: string | null },
+    locationId: string | null = null,
+  ) {
     return this.dbs.withTenant(businessId, async (tx) => {
       const existing = await this.openFor(tx, userId);
       if (existing) {
@@ -97,9 +115,10 @@ export class CashService {
         RETURNING last_value`);
       const n = (seq.rows[0] as { last_value: number }).last_value;
       await tx.execute(sql`
-        INSERT INTO sales.cash_sessions (id, business_id, number, user_id, opening_float, opening_note)
+        INSERT INTO sales.cash_sessions (id, business_id, number, user_id, opening_float, opening_note, warehouse_id)
         VALUES (${id}, ${businessId}, ${`Z-${year}-${String(n).padStart(4, '0')}`}, ${userId}, ${input.openingFloat},
-                ${input.note?.trim() || null})`);
+                ${input.note?.trim() || null},
+                coalesce(${locationId}::uuid, (SELECT id FROM inventory.warehouses WHERE is_default)))`);
       return this.detail(tx, id);
     });
   }
@@ -112,11 +131,7 @@ export class CashService {
     });
   }
 
-  addMovement(
-    businessId: string,
-    userId: string,
-    input: { direction: 'in' | 'out'; amount: number; reason: string },
-  ) {
+  addMovement(businessId: string, userId: string, input: { direction: 'in' | 'out'; amount: number; reason: string }) {
     return this.dbs.withTenant(businessId, async (tx) => {
       const s = await this.openFor(tx, userId);
       if (!s) throw new AppError('CONFLICT', 'Ouvrez d’abord votre caisse', 409);
@@ -124,9 +139,14 @@ export class CashService {
         const report = await this.report(tx, s);
         const cash = report.methods.find((m) => m.method === 'cash')!.expected;
         if (input.amount > cash) {
-          throw new AppError('VALIDATION_FAILED', `Il n’y a que ${fcfa(Math.max(0, cash))} en espèces dans la caisse`, 422, {
-            cash,
-          });
+          throw new AppError(
+            'VALIDATION_FAILED',
+            `Il n’y a que ${fcfa(Math.max(0, cash))} en espèces dans la caisse`,
+            422,
+            {
+              cash,
+            },
+          );
         }
       }
       await tx.execute(sql`
@@ -149,7 +169,8 @@ export class CashService {
     return this.dbs.withTenant(businessId, async (tx) => {
       const s = input.sessionId ? await this.lock(tx, input.sessionId) : await this.openFor(tx, userId, true);
       if (!s) throw new AppError('CONFLICT', 'Aucune caisse ouverte', 409);
-      if (s.user_id !== userId && !canManage) throw AppError.forbidden('Seul le gérant peut clôturer la caisse d’un vendeur');
+      if (s.user_id !== userId && !canManage)
+        throw AppError.forbidden('Seul le gérant peut clôturer la caisse d’un vendeur');
       if (s.status !== 'open') throw new AppError('DOCUMENT_LOCKED', 'Cette caisse est déjà clôturée', 409);
 
       const closedAt = new Date();
@@ -166,16 +187,25 @@ export class CashService {
     });
   }
 
-  list(businessId: string, userId: string, q: { userId?: string; limit: number; offset: number }, canManage: boolean) {
+  list(
+    businessId: string,
+    userId: string,
+    q: { userId?: string; limit: number; offset: number },
+    canManage: boolean,
+    locationFilter: string | null = null,
+  ) {
     return this.dbs.withTenant(businessId, async (tx) => {
       const who = canManage ? q.userId : userId;
       const rows = (
         await tx.execute(sql`
           SELECT s.id, s.number, s.status, s.user_id, u.full_name, s.opening_float, s.opened_at, s.closed_at,
                  s.difference, s.summary->>'salesTotal' AS sales_total, s.summary->>'salesCount' AS sales_count,
-                 (SELECT sum((v)::bigint) FROM jsonb_each_text(s.counted) AS e(k, v)) AS counted_total
+                 (SELECT sum((v)::bigint) FROM jsonb_each_text(s.counted) AS e(k, v)) AS counted_total,
+                 s.warehouse_id, w.name AS location_name
           FROM sales.cash_sessions s LEFT JOIN core.users u ON u.id = s.user_id
+          LEFT JOIN inventory.warehouses w ON w.id = s.warehouse_id
           WHERE true ${who ? sql`AND s.user_id = ${who}` : sql``}
+            ${locationFilter ? sql`AND s.warehouse_id = ${locationFilter}` : sql``}
           ORDER BY s.opened_at DESC, s.id DESC LIMIT ${q.limit + 1} OFFSET ${q.offset}`)
       ).rows as Row[];
       return {
@@ -192,6 +222,8 @@ export class CashService {
           salesCount: r.sales_count === null ? null : Number(r.sales_count),
           countedTotal: r.counted_total === null ? null : Number(r.counted_total),
           difference: r.difference === null ? null : Number(r.difference),
+          locationId: (r.warehouse_id as string) ?? null,
+          locationName: (r.location_name as string) ?? null,
         })),
         nextOffset: rows.length > q.limit ? q.offset + q.limit : null,
       };
@@ -297,9 +329,10 @@ export class CashService {
   private async detail(tx: Tx, id: string) {
     const [s] = (
       await tx.execute(sql`
-        SELECT s.*, u.full_name AS user_name, c.full_name AS closed_by_name
+        SELECT s.*, u.full_name AS user_name, c.full_name AS closed_by_name, w.name AS location_name
         FROM sales.cash_sessions s
         LEFT JOIN core.users u ON u.id = s.user_id LEFT JOIN core.users c ON c.id = s.closed_by
+        LEFT JOIN inventory.warehouses w ON w.id = s.warehouse_id
         WHERE s.id = ${id}`)
     ).rows as Row[];
     if (!s) throw AppError.notFound('Caisse');
@@ -325,6 +358,8 @@ export class CashService {
       closedAt: (s.closed_at as Date) ?? null,
       closedByName: (s.closed_by_name as string) ?? null,
       closingNote: (s.closing_note as string) ?? null,
+      locationId: (s.warehouse_id as string) ?? null,
+      locationName: (s.location_name as string) ?? null,
       report,
       counted,
       difference: s.difference === null ? null : Number(s.difference),

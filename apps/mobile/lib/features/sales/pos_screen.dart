@@ -16,6 +16,7 @@ import '../../core/offline/pending_sales.dart';
 import '../../core/providers.dart';
 import '../../core/theme.dart';
 import '../../core/widgets.dart';
+import '../locations/locations_screen.dart' show SellingAtBanner;
 import '../catalog/product_photo.dart';
 import '../customers/customer_picker.dart';
 import '../offline/offline_ui.dart';
@@ -669,6 +670,7 @@ class _CheckoutPanel extends ConsumerWidget {
               ],
             ),
             if (cart.customer != null && !cart.isEmpty) LoyaltyRewardChip(customer: cart.customer!),
+            const SellingAtBanner(),
             const SizedBox(height: 10),
             Builder(
               builder: (context) {

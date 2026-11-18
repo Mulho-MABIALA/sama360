@@ -29,6 +29,8 @@ export interface CreateSaleInput {
   note?: string | null;
   /** Récompenses de fidélité utilisées (chacune = remise du programme, contre ses points). */
   redeemRewards?: number;
+  /** Point de vente (déjà résolu par le contrôleur) ; le principal si absent (boutique en ligne). */
+  locationId?: string | null;
 }
 
 @Injectable()
@@ -131,7 +133,7 @@ export class SalesService {
 
       const id = input.id ?? newId();
       const soldAt = saleDate(input.soldAt);
-      const warehouseId = await this.inventory.defaultWarehouse(tx, businessId);
+      const warehouseId = await this.inventory.location(tx, businessId, input.locationId);
       const number = await this.nextNumber(tx, businessId, 'sale', 'VEN', soldAt.getUTCFullYear());
 
       await tx.insert(sales).values({

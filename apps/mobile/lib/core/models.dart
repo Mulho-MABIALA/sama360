@@ -165,7 +165,8 @@ enum ProFeature {
   insights('insights', 'Statistiques avancées et rapport de la semaine'),
   assistant('assistant', 'Assistant IA'),
   documents('documents', 'Coffre de documents'),
-  invoiceScan('invoice_scan', 'Facture fournisseur en photo');
+  invoiceScan('invoice_scan', 'Facture fournisseur en photo'),
+  multiShop('multi_shop', 'Plusieurs points de vente');
 
   const ProFeature(this.key, this.label);
   final String key;
@@ -460,6 +461,7 @@ class StockItem {
     required this.onHand,
     required this.low,
     this.imageFileId,
+    this.byLocation = const {},
   });
   final String productId;
   final String name;
@@ -470,6 +472,9 @@ class StockItem {
   final bool low;
   final String? imageFileId;
 
+  /// Quantité par point de vente (id → quantité), quand on regarde tous les points de vente.
+  final Map<String, double> byLocation;
+
   factory StockItem.fromJson(Map<String, dynamic> j) => StockItem(
     productId: j['productId'] as String,
     name: j['name'] as String,
@@ -479,6 +484,7 @@ class StockItem {
     onHand: _num(j['onHand']),
     low: j['low'] as bool? ?? false,
     imageFileId: j['imageFileId'] as String?,
+    byLocation: {for (final e in ((j['byLocation'] as Map?) ?? const {}).entries) e.key as String: _num(e.value)},
   );
 
   int get margin => price == 0 ? 0 : (((price - cost) / price) * 100).round();
@@ -492,6 +498,7 @@ class StockItem {
     onHand: onHand ?? this.onHand,
     low: low ?? this.low,
     imageFileId: imageFileId,
+    byLocation: byLocation,
   );
 }
 
@@ -523,6 +530,7 @@ class DaySummary {
     this.bySeller = const [],
     this.last7Days = const [],
     this.previous7DaysRevenue = 0,
+    this.byLocation = const [],
   });
   final int salesCount;
   final int revenue;
@@ -539,6 +547,9 @@ class DaySummary {
   final List<int> last7Days;
   final int previous7DaysRevenue;
 
+  /// Chiffre du jour de chaque point de vente (tous les points de vente regardés).
+  final List<LocationStat> byLocation;
+
   factory DaySummary.fromJson(Map<String, dynamic> j) => DaySummary(
     salesCount: _int(j['salesCount']),
     revenue: _int(j['revenue']),
@@ -550,7 +561,24 @@ class DaySummary {
     bySeller: [for (final v in (j['bySeller'] as List?) ?? const []) SellerStat.fromJson(v as Map<String, dynamic>)],
     last7Days: [for (final d in (j['last7Days'] as List?) ?? const []) _int((d as Map)['revenue'])],
     previous7DaysRevenue: _int(j['previous7DaysRevenue']),
+    byLocation: [
+      for (final l in (j['byLocation'] as List?) ?? const [])
+        LocationStat(
+          id: (l as Map)['locationId'] as String,
+          name: l['name'] as String? ?? '',
+          salesCount: _int(l['salesCount']),
+          revenue: _int(l['revenue']),
+        ),
+    ],
   );
+}
+
+class LocationStat {
+  const LocationStat({required this.id, required this.name, required this.salesCount, required this.revenue});
+  final String id;
+  final String name;
+  final int salesCount;
+  final int revenue;
 }
 
 class SellerStat {
@@ -616,6 +644,7 @@ class Member {
     required this.roleName,
     required this.status,
     this.avatarFileId,
+    this.locationId,
   });
   final String id;
   final String userId;
@@ -625,6 +654,9 @@ class Member {
   final String roleName;
   final String status; // active, invited, suspended
   final String? avatarFileId;
+
+  /// Point de vente auquel le membre est rattaché ; null = tous.
+  final String? locationId;
 
   bool get isOwner => role == 'owner';
   String get displayName => (fullName ?? '').trim().isEmpty ? phone : fullName!;
@@ -638,6 +670,7 @@ class Member {
     roleName: j['roleName'] as String? ?? j['role'] as String,
     status: j['status'] as String? ?? 'active',
     avatarFileId: j['avatarFileId'] as String?,
+    locationId: j['locationId'] as String?,
   );
 }
 
@@ -3463,4 +3496,102 @@ class InvoiceScan {
       remaining: (j['remaining'] as num?)?.toInt() ?? 0,
     );
   }
+}
+
+// ---------- Points de vente ----------
+
+/// Point de vente (boutique) : son stock, sa caisse, ses ventes ; catalogue et clients communs.
+class ShopLocation {
+  const ShopLocation({
+    required this.id,
+    required this.name,
+    this.address,
+    this.phone,
+    this.isDefault = false,
+    this.members = 0,
+    this.todayRevenue = 0,
+    this.stockValue = 0,
+  });
+  final String id;
+  final String name;
+  final String? address;
+  final String? phone;
+  final bool isDefault;
+  final int members;
+  final int todayRevenue;
+  final int stockValue;
+
+  factory ShopLocation.fromJson(Map<String, dynamic> j) => ShopLocation(
+    id: j['id'] as String,
+    name: j['name'] as String,
+    address: j['address'] as String?,
+    phone: j['phone'] as String?,
+    isDefault: j['isDefault'] == true,
+    members: _int(j['members']),
+    todayRevenue: _int(j['todayRevenue']),
+    stockValue: _int(j['stockValue']),
+  );
+}
+
+/// Points de vente ouverts et celui actif pour moi.
+class LocationsState {
+  const LocationsState({required this.list, this.currentId, required this.writeTo, this.locked = false});
+  final List<ShopLocation> list;
+
+  /// Point de vente regardé ; null = tous.
+  final String? currentId;
+
+  /// Où vont mes ventes, ma caisse et mes mouvements de stock.
+  final String writeTo;
+
+  /// Vendeur rattaché à un point de vente : il ne peut pas en changer.
+  final bool locked;
+
+  bool get several => list.length > 1;
+  ShopLocation? byId(String? id) => list.where((l) => l.id == id).firstOrNull;
+  ShopLocation? get current => byId(currentId);
+  ShopLocation? get writeLocation => byId(writeTo);
+  String nameOf(String? id) => byId(id)?.name ?? 'Point de vente fermé';
+
+  factory LocationsState.fromJson(Map<String, dynamic> j) {
+    final c = (j['current'] as Map<String, dynamic>?) ?? const {};
+    return LocationsState(
+      list: [for (final l in j['data'] as List) ShopLocation.fromJson(l as Map<String, dynamic>)],
+      currentId: c['id'] as String?,
+      writeTo: c['writeTo'] as String? ?? '',
+      locked: c['locked'] == true,
+    );
+  }
+}
+
+class StockTransfer {
+  const StockTransfer({
+    required this.id,
+    required this.number,
+    required this.fromName,
+    required this.toName,
+    required this.lines,
+    this.createdByName,
+    required this.createdAt,
+  });
+  final String id;
+  final String number;
+  final String fromName;
+  final String toName;
+  final List<({String productId, String name, double quantity})> lines;
+  final String? createdByName;
+  final DateTime createdAt;
+
+  factory StockTransfer.fromJson(Map<String, dynamic> j) => StockTransfer(
+    id: j['id'] as String,
+    number: j['number'] as String,
+    fromName: (j['from'] as Map)['name'] as String,
+    toName: (j['to'] as Map)['name'] as String,
+    lines: [
+      for (final l in j['lines'] as List)
+        (productId: (l as Map)['productId'] as String, name: l['name'] as String, quantity: _num(l['quantity'])),
+    ],
+    createdByName: j['createdByName'] as String?,
+    createdAt: DateTime.parse(j['createdAt'] as String).toLocal(),
+  );
 }

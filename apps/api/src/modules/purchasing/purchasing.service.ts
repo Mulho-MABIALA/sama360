@@ -45,6 +45,8 @@ export interface CreatePurchaseInput {
   /** Achat direct : la marchandise est déjà là (marché, grossiste au comptant). */
   receive?: boolean;
   payment?: PaymentInput | null;
+  /** Point de vente qui reçoit la marchandise (le principal si absent). */
+  locationId?: string | null;
 }
 export interface ReceiveInput {
   lines?: { lineId: string; quantity: number; unitCost?: number }[];
@@ -129,7 +131,7 @@ export class PurchasingService {
       const orderDate = input.orderDate ?? today();
       const id = input.id ?? newId();
       const number = await this.nextNumber(tx, businessId, Number(orderDate.slice(0, 4)));
-      const warehouseId = await this.inventory.defaultWarehouse(tx, businessId);
+      const warehouseId = await this.inventory.location(tx, businessId, input.locationId);
 
       await tx.execute(sql`
         INSERT INTO purchasing.orders

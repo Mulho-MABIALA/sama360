@@ -54,6 +54,14 @@ export class InventoryService {
     return created.id;
   }
 
+  /** Point de vente actif (non archivé) de l'entreprise ; le principal si [id] est absent. */
+  async location(tx: Tx, businessId: string, id?: string | null): Promise<string> {
+    if (!id) return this.defaultWarehouse(tx, businessId);
+    const r = await tx.execute(sql`SELECT 1 FROM inventory.warehouses WHERE id = ${id} AND archived_at IS NULL`);
+    if (!r.rows.length) throw new AppError('NOT_FOUND', 'Point de vente introuvable ou fermé', 404);
+    return id;
+  }
+
   /** Produit suivi en stock, sinon erreur explicite. */
   async trackedProduct(tx: Tx, productId: string) {
     const [p] = await tx
@@ -93,7 +101,7 @@ export class InventoryService {
       VALUES
         (${id}, ${m.businessId}, ${m.productId}, ${m.warehouseId}, ${m.type}, ${m.quantity}, ${m.unitCost ?? null},
          ${m.refType ?? null}, ${m.refId ?? null}, ${m.note ?? null}, ${m.createdBy ?? null}, ${m.occurredAt ?? new Date()})
-      ON CONFLICT (ref_type, ref_id, product_id, type) WHERE ref_id IS NOT NULL DO NOTHING
+      ON CONFLICT (ref_type, ref_id, product_id, type, warehouse_id) WHERE ref_id IS NOT NULL DO NOTHING
       RETURNING id`);
     if (inserted.rows.length === 0) {
       const current = await this.onHand(tx, m.productId, m.warehouseId);
@@ -121,7 +129,13 @@ export class InventoryService {
           businessId: m.businessId,
           aggregateId: m.productId,
           actorId: m.createdBy ?? null,
-          payload: { productId: m.productId, warehouseId: m.warehouseId, name: p.name, onHand: after, threshold: p.threshold },
+          payload: {
+            productId: m.productId,
+            warehouseId: m.warehouseId,
+            name: p.name,
+            onHand: after,
+            threshold: p.threshold,
+          },
         });
       }
     }

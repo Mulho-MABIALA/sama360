@@ -47,9 +47,47 @@ final repoProvider = Provider<SamaRepository>(
 /// Entreprise sélectionnée : toutes les données en dépendent et se rechargent quand elle change.
 final businessIdProvider = Provider<String?>((ref) => ref.watch(authProvider).value?.businessId);
 
+/// Point de vente choisi (null = tous), mémorisé pour chaque entreprise sur ce téléphone.
+class LocationChoice extends Notifier<String?> {
+  static String keyFor(String? businessId) => 'location:${businessId ?? '-'}';
+
+  @override
+  String? build() {
+    final biz = ref.watch(businessIdProvider);
+    final saved = ref.watch(keyValueStoreProvider).getString(keyFor(biz));
+    final id = saved == null || saved.isEmpty ? null : saved;
+    _apply(id);
+    return id;
+  }
+
+  Future<void> select(String? id) async {
+    await ref.read(keyValueStoreProvider).setString(keyFor(ref.read(businessIdProvider)), id ?? '');
+    _apply(id);
+    state = id;
+  }
+
+  /// Le client du dépôt est d'ordinaire le même que apiClientProvider (différent dans les tests).
+  void _apply(String? id) {
+    ref.read(apiClientProvider).locationId = id;
+    ref.read(repoProvider).api.locationId = id;
+  }
+}
+
+final locationIdProvider = NotifierProvider<LocationChoice, String?>(LocationChoice.new);
+
+/// Entreprise + point de vente : tout ce qui en dépend se recharge quand l'un change.
+final scopeProvider = Provider<String>((ref) => '${ref.watch(businessIdProvider)}|${ref.watch(locationIdProvider)}');
+
+/// Points de vente de l'entreprise et celui actif pour moi.
+final locationsProvider = FutureProvider<LocationsState>((ref) {
+  ref.watch(scopeProvider);
+  return ref.watch(repoProvider).locations();
+});
+
 final currentBusinessProvider = FutureProvider<CurrentBusiness>((ref) {
   final id = ref.watch(businessIdProvider);
   if (id == null) throw StateError('Aucune entreprise sélectionnée');
+  ref.watch(locationIdProvider);
   return ref.watch(repoProvider).currentBusiness();
 });
 
@@ -96,13 +134,13 @@ final canProvider = Provider.family<bool, String>((ref, permission) {
 });
 
 final summaryProvider = FutureProvider<DaySummary>((ref) {
-  ref.watch(businessIdProvider);
+  ref.watch(scopeProvider);
   return ref.watch(repoProvider).todaySummary();
 });
 
 /// Stock tel que le serveur le connaît.
 final stockRawProvider = FutureProvider<StockOverview>((ref) {
-  ref.watch(businessIdProvider);
+  ref.watch(scopeProvider);
   return ref.watch(repoProvider).stock();
 });
 
@@ -113,54 +151,54 @@ final stockProvider = FutureProvider<StockOverview>((ref) async {
 });
 
 final categoriesProvider = FutureProvider<List<Category>>((ref) {
-  ref.watch(businessIdProvider);
+  ref.watch(scopeProvider);
   return ref.watch(repoProvider).categories();
 });
 
 final productsProvider = FutureProvider<List<Product>>((ref) {
-  ref.watch(businessIdProvider);
+  ref.watch(scopeProvider);
   return ref.watch(repoProvider).products();
 });
 
 final debtorsProvider = FutureProvider<List<Debtor>>((ref) {
-  ref.watch(businessIdProvider);
+  ref.watch(scopeProvider);
   return ref.watch(repoProvider).debtors();
 });
 
 final ledgerProvider = FutureProvider.family<Ledger, String>((ref, customerId) {
-  ref.watch(businessIdProvider);
+  ref.watch(scopeProvider);
   return ref.watch(repoProvider).ledger(customerId);
 });
 
 typedef CustomerQuery = ({String search, CustomerFilter filter, CustomerSort sort});
 
 final customerListProvider = FutureProvider.family<CustomerList, CustomerQuery>((ref, q) {
-  ref.watch(businessIdProvider);
+  ref.watch(scopeProvider);
   return ref.watch(repoProvider).customerList(search: q.search, filter: q.filter, sort: q.sort);
 });
 
 final customerOverviewProvider = FutureProvider.family<CustomerOverview, String>((ref, id) {
-  ref.watch(businessIdProvider);
+  ref.watch(scopeProvider);
   return ref.watch(repoProvider).customerOverview(id);
 });
 
 final purchasesProvider = FutureProvider.family<PurchaseList, ({PurchaseFilter filter, String? supplierId})>((ref, q) {
-  ref.watch(businessIdProvider);
+  ref.watch(scopeProvider);
   return ref.watch(repoProvider).purchases(filter: q.filter, supplierId: q.supplierId);
 });
 
 final purchaseProvider = FutureProvider.family<PurchaseDetail, String>((ref, id) {
-  ref.watch(businessIdProvider);
+  ref.watch(scopeProvider);
   return ref.watch(repoProvider).purchase(id);
 });
 
 final suppliersProvider = FutureProvider.family<List<SupplierRow>, String>((ref, search) {
-  ref.watch(businessIdProvider);
+  ref.watch(scopeProvider);
   return ref.watch(repoProvider).suppliers(search: search);
 });
 
 final supplierProvider = FutureProvider.family<SupplierOverview, String>((ref, id) {
-  ref.watch(businessIdProvider);
+  ref.watch(scopeProvider);
   return ref.watch(repoProvider).supplierOverview(id);
 });
 
@@ -176,17 +214,17 @@ void refreshPurchasing(WidgetRef ref) {
 }
 
 final shopProvider = FutureProvider<ShopOverview>((ref) {
-  ref.watch(businessIdProvider);
+  ref.watch(scopeProvider);
   return ref.watch(repoProvider).shop();
 });
 
 final shopOrdersProvider = FutureProvider.family<List<ShopOrder>, ShopOrderFilter>((ref, filter) {
-  ref.watch(businessIdProvider);
+  ref.watch(scopeProvider);
   return ref.watch(repoProvider).shopOrders(filter: filter);
 });
 
 final shopOrderProvider = FutureProvider.family<ShopOrder, String>((ref, id) {
-  ref.watch(businessIdProvider);
+  ref.watch(scopeProvider);
   return ref.watch(repoProvider).shopOrder(id);
 });
 
@@ -197,7 +235,7 @@ void refreshShop(WidgetRef ref) {
 }
 
 final loyaltySettingsProvider = FutureProvider<LoyaltySettings>((ref) async {
-  ref.watch(businessIdProvider);
+  ref.watch(scopeProvider);
   try {
     return await ref.watch(repoProvider).loyaltySettings();
   } catch (_) {
@@ -206,12 +244,12 @@ final loyaltySettingsProvider = FutureProvider<LoyaltySettings>((ref) async {
 });
 
 final loyaltyDashboardProvider = FutureProvider<LoyaltyDashboard>((ref) {
-  ref.watch(businessIdProvider);
+  ref.watch(scopeProvider);
   return ref.watch(repoProvider).loyaltyDashboard();
 });
 
 final loyaltyCardProvider = FutureProvider.family<LoyaltyCard, String>((ref, customerId) {
-  ref.watch(businessIdProvider);
+  ref.watch(scopeProvider);
   return ref.watch(repoProvider).loyaltyCard(customerId);
 });
 
@@ -222,18 +260,18 @@ void refreshLoyalty(WidgetRef ref) {
 }
 
 final remindersProvider = FutureProvider<ReminderQueue>((ref) {
-  ref.watch(businessIdProvider);
+  ref.watch(scopeProvider);
   return ref.watch(repoProvider).reminders();
 });
 
 final notificationsProvider = FutureProvider<NotificationsPage>((ref) {
-  ref.watch(businessIdProvider);
+  ref.watch(scopeProvider);
   return ref.watch(repoProvider).notifications();
 });
 
 /// Nombre de notifications non lues ; 0 en cas d'erreur (hors connexion) pour ne jamais bloquer l'accueil.
 final unreadNotificationsProvider = FutureProvider<int>((ref) async {
-  ref.watch(businessIdProvider);
+  ref.watch(scopeProvider);
   try {
     return await ref.watch(repoProvider).unreadNotifications();
   } catch (_) {
@@ -247,17 +285,17 @@ void refreshNotifications(WidgetRef ref) {
 }
 
 final cashCurrentProvider = FutureProvider<CashSession?>((ref) {
-  ref.watch(businessIdProvider);
+  ref.watch(scopeProvider);
   return ref.watch(repoProvider).cashCurrent();
 });
 
 final cashSessionsProvider = FutureProvider<List<CashSessionSummary>>((ref) {
-  ref.watch(businessIdProvider);
+  ref.watch(scopeProvider);
   return ref.watch(repoProvider).cashSessions();
 });
 
 final cashSessionProvider = FutureProvider.family<CashSession, String>((ref, id) {
-  ref.watch(businessIdProvider);
+  ref.watch(scopeProvider);
   return ref.watch(repoProvider).cashSession(id);
 });
 
@@ -268,52 +306,52 @@ void refreshCash(WidgetRef ref) {
 }
 
 final saleProvider = FutureProvider.family<SaleDetail, String>((ref, id) {
-  ref.watch(businessIdProvider);
+  ref.watch(scopeProvider);
   return ref.watch(repoProvider).sale(id);
 });
 
 /// Ventes du jour : toutes pour qui voit les rapports, sinon seulement les miennes.
 final salesTodayProvider = FutureProvider<List<SaleSummary>>((ref) async {
-  ref.watch(businessIdProvider);
+  ref.watch(scopeProvider);
   final b = await ref.watch(currentBusinessProvider.future);
   return ref.watch(repoProvider).salesOfDay(null, !hasPermission(b.permissions, 'reports:read'));
 });
 
 final myDayProvider = FutureProvider<MyDay>((ref) {
-  ref.watch(businessIdProvider);
+  ref.watch(scopeProvider);
   return ref.watch(repoProvider).myDay();
 });
 
 final membersProvider = FutureProvider<List<Member>>((ref) {
-  ref.watch(businessIdProvider);
+  ref.watch(scopeProvider);
   return ref.watch(repoProvider).members();
 });
 
 /// Rapport d'une période (dates sans heure).
 /// Analyses sur les N derniers jours (7, 30, 90).
 final insightsProvider = FutureProvider.family<Insights, int>((ref, days) {
-  ref.watch(businessIdProvider);
+  ref.watch(scopeProvider);
   return ref.watch(repoProvider).insights(days);
 });
 
 /// Rapport de la semaine : null = semaine complète précédente, sinon un jour de la semaine voulue.
 final weeklyReportProvider = FutureProvider.family<WeeklyReport, DateTime?>((ref, week) {
-  ref.watch(businessIdProvider);
+  ref.watch(scopeProvider);
   return ref.watch(repoProvider).weeklyReport(week);
 });
 
 final reportProvider = FutureProvider.family<ReportOverview, ({DateTime from, DateTime to})>((ref, p) {
-  ref.watch(businessIdProvider);
+  ref.watch(scopeProvider);
   return ref.watch(repoProvider).report(p.from, p.to);
 });
 
 final productProvider = FutureProvider.family<Product, String>((ref, id) {
-  ref.watch(businessIdProvider);
+  ref.watch(scopeProvider);
   return ref.watch(repoProvider).product(id);
 });
 
 final invoicingSummaryProvider = FutureProvider<InvoicingSummary>((ref) {
-  ref.watch(businessIdProvider);
+  ref.watch(scopeProvider);
   return ref.watch(repoProvider).invoicingSummary();
 });
 
@@ -322,12 +360,12 @@ final documentsProvider = FutureProvider.family<List<DocSummary>, ({DocKind kind
   ref,
   f,
 ) {
-  ref.watch(businessIdProvider);
+  ref.watch(scopeProvider);
   return ref.watch(repoProvider).documents(kind: f.kind, status: f.status, overdue: f.overdue);
 });
 
 final documentProvider = FutureProvider.family<DocDetail, String>((ref, id) {
-  ref.watch(businessIdProvider);
+  ref.watch(scopeProvider);
   return ref.watch(repoProvider).document(id);
 });
 
@@ -373,12 +411,12 @@ final mustOpenCashProvider = Provider<bool>((ref) {
 
 /// Documents de la boutique (filtre par catégorie et recherche).
 final storedDocumentsProvider = FutureProvider.family<DocumentList, ({DocCategory? category, String search})>((ref, q) {
-  ref.watch(businessIdProvider);
+  ref.watch(scopeProvider);
   return ref.watch(repoProvider).storedDocuments(category: q.category, search: q.search);
 });
 
 final storedDocumentProvider = FutureProvider.family<BusinessDocument, String>((ref, id) {
-  ref.watch(businessIdProvider);
+  ref.watch(scopeProvider);
   return ref.watch(repoProvider).storedDocument(id);
 });
 
@@ -393,7 +431,7 @@ void refreshStoredDocuments(WidgetRef ref) {
 }
 
 final assistantStatusProvider = FutureProvider<AssistantStatus>((ref) {
-  ref.watch(businessIdProvider);
+  ref.watch(scopeProvider);
   return ref.watch(repoProvider).assistantStatus();
 });
 
@@ -408,7 +446,7 @@ class AssistantChatState {
 class AssistantChat extends Notifier<AssistantChatState> {
   @override
   AssistantChatState build() {
-    ref.watch(businessIdProvider);
+    ref.watch(scopeProvider);
     return const AssistantChatState();
   }
 
@@ -448,30 +486,30 @@ final assistantChatProvider = NotifierProvider<AssistantChat, AssistantChatState
 
 /// Rendez-vous d'un jour (avec le nombre de rendez-vous des jours voisins).
 final appointmentsProvider = FutureProvider.family<AppointmentList, DateTime>((ref, day) {
-  ref.watch(businessIdProvider);
+  ref.watch(scopeProvider);
   return ref.watch(repoProvider).appointments(day);
 });
 
 final bookingSettingsProvider = FutureProvider<BookingSettings>((ref) {
-  ref.watch(businessIdProvider);
+  ref.watch(scopeProvider);
   return ref.watch(repoProvider).bookingSettings();
 });
 
 /// Premiers pas (patron seulement : le guide parle de réglages de la boutique).
 final onboardingProvider = FutureProvider<Onboarding?>((ref) async {
-  ref.watch(businessIdProvider);
+  ref.watch(scopeProvider);
   if (!ref.watch(canProvider('business:update'))) return null;
   return ref.watch(repoProvider).onboarding();
 });
 
 final couriersProvider = FutureProvider<List<Courier>>((ref) {
-  ref.watch(businessIdProvider);
+  ref.watch(scopeProvider);
   return ref.watch(repoProvider).couriers();
 });
 
 /// Livraisons en cours (false) ou terminées (true).
 final deliveryBoardProvider = FutureProvider.family<DeliveryBoard, bool>((ref, done) {
-  ref.watch(businessIdProvider);
+  ref.watch(scopeProvider);
   return ref.watch(repoProvider).deliveryBoard(done: done);
 });
 

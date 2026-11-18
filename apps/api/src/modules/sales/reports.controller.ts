@@ -4,9 +4,19 @@ import { z } from 'zod';
 import { TenantContext } from '../../shared/auth/auth.types';
 import { CurrentTenant, RequireModule, RequirePermission } from '../../shared/auth/decorators';
 import { DbService, Tx } from '../../shared/db/db.service';
+import { atLocation } from '../../shared/tenant/location';
 import { AppError } from '../../shared/http/app-error';
 import { parse } from '../../shared/http/zod';
-import { bucketsOf, changePct, DAY_MS, dayStart, granularity, MAX_REPORT_DAYS, previousPeriod, spanDays } from './reports';
+import {
+  bucketsOf,
+  changePct,
+  DAY_MS,
+  dayStart,
+  granularity,
+  MAX_REPORT_DAYS,
+  previousPeriod,
+  spanDays,
+} from './reports';
 
 const day = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'format AAAA-MM-JJ');
 const Period = z.object({ from: day, to: day });
@@ -32,7 +42,7 @@ export class ReportsController {
     const g = granularity(from, to);
 
     return this.dbs.withTenant(t.businessId, async (tx) => {
-      const [cur, before] = await Promise.all([this.totals(tx, from, to), this.totals(tx, prev.from, prev.to)]);
+      const [cur, before] = await Promise.all([this.totals(tx, from, to, t), this.totals(tx, prev.from, prev.to, t)]);
       const start = dayStart(from);
       const end = new Date(dayStart(to).getTime() + DAY_MS);
       const bucket = g === 'day' ? sql`to_char(sold_at, 'YYYY-MM-DD')` : sql`to_char(sold_at, 'YYYY-MM')`;
@@ -43,7 +53,7 @@ export class ReportsController {
                  coalesce(sum(total), 0)::bigint AS revenue,
                  coalesce(sum(total - cost_total), 0)::bigint AS profit
           FROM sales.sales
-          WHERE status = 'completed' AND sold_at >= ${start} AND sold_at < ${end}
+          WHERE status = 'completed' AND sold_at >= ${start} AND sold_at < ${end} ${atLocation(t, 'warehouse_id')}
           GROUP BY 1`)
       ).rows as Row[];
       const byBucket = new Map(seriesRows.map((r) => [String(r.bucket), r]));
@@ -56,7 +66,7 @@ export class ReportsController {
         await tx.execute(sql`
           SELECT p.method, coalesce(sum(p.amount), 0)::bigint AS amount, count(DISTINCT s.id)::int AS count
           FROM sales.sale_payments p JOIN sales.sales s ON s.id = p.sale_id
-          WHERE s.status = 'completed' AND s.sold_at >= ${start} AND s.sold_at < ${end}
+          WHERE s.status = 'completed' AND s.sold_at >= ${start} AND s.sold_at < ${end} ${atLocation(t, 's.warehouse_id')}
           GROUP BY p.method ORDER BY 2 DESC`)
       ).rows as Row[];
 
@@ -65,7 +75,7 @@ export class ReportsController {
           SELECT i.product_id, i.name, sum(i.quantity) AS quantity, sum(i.total)::bigint AS revenue,
                  sum(i.total - round(i.quantity * i.unit_cost))::bigint AS profit
           FROM sales.sale_items i JOIN sales.sales s ON s.id = i.sale_id
-          WHERE s.status = 'completed' AND s.sold_at >= ${start} AND s.sold_at < ${end}
+          WHERE s.status = 'completed' AND s.sold_at >= ${start} AND s.sold_at < ${end} ${atLocation(t, 's.warehouse_id')}
           GROUP BY i.product_id, i.name ORDER BY revenue DESC LIMIT 10`)
       ).rows as Row[];
 
@@ -74,7 +84,7 @@ export class ReportsController {
           SELECT s.cashier_id, coalesce(u.full_name, u.phone) AS name, count(*)::int AS count,
                  coalesce(sum(s.total), 0)::bigint AS revenue
           FROM sales.sales s JOIN core.users u ON u.id = s.cashier_id
-          WHERE s.status = 'completed' AND s.sold_at >= ${start} AND s.sold_at < ${end}
+          WHERE s.status = 'completed' AND s.sold_at >= ${start} AND s.sold_at < ${end} ${atLocation(t, 's.warehouse_id')}
           GROUP BY s.cashier_id, u.full_name, u.phone ORDER BY revenue DESC`)
       ).rows as Row[];
 
@@ -114,7 +124,12 @@ export class ReportsController {
           revenue: n(p.revenue),
           grossProfit: n(p.profit),
         })),
-        bySeller: sellers.map((v) => ({ userId: v.cashier_id, name: v.name, salesCount: n(v.count), revenue: n(v.revenue) })),
+        bySeller: sellers.map((v) => ({
+          userId: v.cashier_id,
+          name: v.name,
+          salesCount: n(v.count),
+          revenue: n(v.revenue),
+        })),
         expensesByCategory: expenses.map((e) => ({ category: e.category, amount: n(e.amount), count: n(e.count) })),
         invoices: { invoiced: n(invoices.invoiced), count: n(invoices.count), received: n(invoices.received) },
       };
@@ -122,7 +137,7 @@ export class ReportsController {
   }
 
   /** Totaux d'une période : chiffre d'affaires, coût, bénéfices, dépenses, encaissé, crédit. */
-  private async totals(tx: Tx, from: string, to: string) {
+  private async totals(tx: Tx, from: string, to: string, t: Pick<TenantContext, 'locationFilter'>) {
     const start = dayStart(from);
     const end = new Date(dayStart(to).getTime() + DAY_MS);
     const s = (
@@ -134,12 +149,12 @@ export class ReportsController {
                coalesce(sum(total - paid), 0)::bigint AS on_credit,
                coalesce(sum(discount), 0)::bigint AS discounts
         FROM sales.sales
-        WHERE status = 'completed' AND sold_at >= ${start} AND sold_at < ${end}`)
+        WHERE status = 'completed' AND sold_at >= ${start} AND sold_at < ${end} ${atLocation(t, 'warehouse_id')}`)
     ).rows[0] as Row;
     const voided = (
       await tx.execute(sql`
         SELECT count(*)::int AS count FROM sales.sales
-        WHERE status = 'voided' AND sold_at >= ${start} AND sold_at < ${end}`)
+        WHERE status = 'voided' AND sold_at >= ${start} AND sold_at < ${end} ${atLocation(t, 'warehouse_id')}`)
     ).rows[0] as Row;
     const e = (
       await tx.execute(sql`

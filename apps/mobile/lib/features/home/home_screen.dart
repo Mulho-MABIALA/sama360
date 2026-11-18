@@ -18,6 +18,7 @@ import '../../core/charts.dart';
 import 'onboarding_card.dart';
 import '../../core/privacy.dart';
 import '../../core/skeleton.dart';
+import '../locations/locations_screen.dart';
 import '../catalog/scan_lookup.dart';
 import 'monument.dart';
 import 'promo_carousel.dart';
@@ -218,6 +219,7 @@ class HomeScreen extends ConsumerWidget {
                       ],
                     ),
                   ),
+                  if (canReports) const LocationsOfDay(),
                   if (canReports) const _SellersOfDay(),
                   const SizedBox(height: 22),
                   const _SectionTitle('À la une'),
@@ -405,6 +407,7 @@ class _Hero extends StatelessWidget {
                           ),
                         ),
                       ),
+                      const LocationChip(),
                       const SizedBox(height: 10),
                       card,
                     ],

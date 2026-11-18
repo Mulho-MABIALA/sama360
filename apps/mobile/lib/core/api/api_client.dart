@@ -56,6 +56,9 @@ class ApiClient {
   /// Entreprise courante, envoyée dans X-Business-Id.
   String? businessId;
 
+  /// Point de vente choisi (X-Location-Id) ; null = tous (les écritures vont au principal).
+  String? locationId;
+
   /// Faux dès qu'une requête échoue faute de réseau, vrai à la première réponse du serveur.
   final online = ValueNotifier<bool>(true);
 
@@ -66,6 +69,10 @@ class ApiClient {
     if (s != null && o.extra['public'] != true) o.headers['Authorization'] = 'Bearer ${s.accessToken}';
     // Une requête peut viser une autre entreprise (ex. vente hors ligne envoyée plus tard).
     if (businessId != null && o.extra['noBusiness'] != true) o.headers.putIfAbsent('X-Business-Id', () => businessId);
+    final explicitBusiness = o.headers['X-Business-Id'] != null && o.headers['X-Business-Id'] != businessId;
+    if (locationId != null && o.extra['noBusiness'] != true && !explicitBusiness) {
+      o.headers.putIfAbsent('X-Location-Id', () => locationId);
+    }
     h.next(o);
   }
 

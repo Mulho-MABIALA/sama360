@@ -714,6 +714,38 @@ void main() {
     await _shot(tester, '31_facture_verification');
   });
 
+  testWidgets('points de vente', (tester) async {
+    phoneSize(tester);
+    const two = [
+      ShopLocation(id: 'loc1', name: 'Boutique principale', isDefault: true, todayRevenue: 58000, stockValue: 820000),
+      ShopLocation(
+        id: 'loc2',
+        name: 'Boutique Médina',
+        address: 'Rue 11 x 6, Médina',
+        todayRevenue: 28500,
+        stockValue: 420000,
+        members: 1,
+      ),
+    ];
+    final repo = FakeRepo()..shopLocations = two;
+    await pumpSama(tester, repo: repo);
+    await _shot(tester, '32_accueil_points_de_vente');
+    await tester.tap(find.byKey(const Key('location_chip')));
+    await tester.pumpAndSettle();
+    await _shot(tester, '33_choix_point_de_vente');
+  });
+
+  testWidgets('gestion des points de vente', (tester) async {
+    phoneSize(tester);
+    final repo = FakeRepo()
+      ..shopLocations = const [
+        ShopLocation(id: 'loc1', name: 'Boutique principale', isDefault: true, todayRevenue: 58000, stockValue: 820000),
+        ShopLocation(id: 'loc2', name: 'Boutique Médina', address: 'Rue 11 x 6', todayRevenue: 28500, members: 1),
+      ];
+    await pumpSama(tester, location: '/locations', repo: repo);
+    await _shot(tester, '34_points_de_vente');
+  });
+
   testWidgets('notifications', (tester) async {
     phoneSize(tester);
     await pumpSama(tester, location: '/notifications');

@@ -364,7 +364,7 @@ class FakeRepo extends SamaRepository {
   }
 
   @override
-  Future<DaySummary> todaySummary() async => const DaySummary(
+  Future<DaySummary> todaySummary() async => DaySummary(
     salesCount: 12,
     revenue: 86500,
     grossProfit: 23300,
@@ -372,13 +372,19 @@ class FakeRepo extends SamaRepository {
     expenses: 2000,
     collected: 52500,
     receivables: 34000,
-    bySeller: [
+    bySeller: const [
       SellerStat(userId: 'u1', name: 'Awa Diallo', salesCount: 7, revenue: 52000),
       SellerStat(userId: 'u2', name: 'Moussa Fall', salesCount: 4, revenue: 28500),
       SellerStat(userId: 'u3', name: '+221770000099', salesCount: 1, revenue: 6000),
     ],
-    last7Days: [52000, 61000, 48500, 73000, 69000, 91000, 86500],
+    last7Days: const [52000, 61000, 48500, 73000, 69000, 91000, 86500],
     previous7DaysRevenue: 427000,
+    byLocation: shopLocations.length > 1 && api.locationId == null
+        ? [
+            for (final (i, l) in shopLocations.indexed)
+              LocationStat(id: l.id, name: l.name, salesCount: i == 0 ? 8 : 4, revenue: i == 0 ? 58000 : 28500),
+          ]
+        : const [],
   );
 
   @override
@@ -766,6 +772,67 @@ class FakeRepo extends SamaRepository {
 
   @override
   Future<PurchaseDetail> purchase(String id) async => _detail(id);
+
+  // ---------- Points de vente ----------
+  /// Points de vente du faux serveur ; un seul par défaut (rien ne change à l'écran).
+  List<ShopLocation> shopLocations = const [ShopLocation(id: 'loc1', name: 'Boutique principale', isDefault: true)];
+  String? lockedLocation; // vendeur rattaché
+  final savedLocations = <Map<String, Object?>>[];
+  final archivedLocations = <String>[];
+  final transferBodies = <Map<String, Object?>>[];
+  final memberUpdates = <Map<String, Object?>>[];
+
+  @override
+  Future<LocationsState> locations() async => LocationsState(
+    list: shopLocations,
+    currentId: lockedLocation ?? api.locationId,
+    writeTo: lockedLocation ?? api.locationId ?? shopLocations.first.id,
+    locked: lockedLocation != null,
+  );
+
+  @override
+  Future<ShopLocation> saveLocation({String? id, required String name, String? address, String? phone}) async {
+    savedLocations.add({'id': id, 'name': name, 'address': address, 'phone': phone});
+    final l = ShopLocation(id: id ?? 'loc${shopLocations.length + 1}', name: name, address: address);
+    shopLocations = [...shopLocations.where((x) => x.id != l.id), l];
+    return l;
+  }
+
+  @override
+  Future<void> archiveLocation(String id) async {
+    archivedLocations.add(id);
+    shopLocations = shopLocations.where((l) => l.id != id).toList();
+  }
+
+  @override
+  Future<void> makeMainLocation(String id) async {}
+
+  @override
+  Future<StockTransfer> transferStock({
+    required String id,
+    required String fromId,
+    required String toId,
+    required List<({String productId, double quantity})> lines,
+    String? note,
+  }) async {
+    transferBodies.add({
+      'fromId': fromId,
+      'toId': toId,
+      'lines': [for (final l in lines) (l.productId, l.quantity)],
+    });
+    String name(String id) => shopLocations.firstWhere((l) => l.id == id).name;
+    return StockTransfer(
+      id: id,
+      number: 'TR-2026-0001',
+      fromName: name(fromId),
+      toName: name(toId),
+      lines: const [],
+      createdAt: DateTime(2026, 11, 18),
+    );
+  }
+
+  @override
+  Future<List<StockTransfer>> transfers() async => const [];
 
   /// Facture lue par le faux serveur (null : réponse par défaut ci-dessous).
   InvoiceScan? invoiceScan;
@@ -1459,7 +1526,13 @@ class FakeRepo extends SamaRepository {
   Future<List<Member>> members() async => List.of(team);
 
   @override
-  Future<void> inviteMember({required String phone, String? fullName, required TeamRole role}) async {
+  Future<void> inviteMember({
+    required String phone,
+    String? fullName,
+    required TeamRole role,
+    String? locationId,
+  }) async {
+    if (locationId != null) memberUpdates.add({'invite': phone, 'locationId': locationId});
     if (team.any((m) => m.phone == phone)) {
       throw const ApiException('CONFLICT', 'Cette personne est déjà membre de l’entreprise', status: 409);
     }
@@ -1478,7 +1551,8 @@ class FakeRepo extends SamaRepository {
   }
 
   @override
-  Future<void> updateMember(String id, {TeamRole? role, String? status}) async {
+  Future<void> updateMember(String id, {TeamRole? role, String? status, String? locationId}) async {
+    if (locationId != null) memberUpdates.add({'id': id, 'locationId': locationId});
     final i = team.indexWhere((m) => m.id == id);
     final m = team[i];
     team[i] = Member(
@@ -1489,6 +1563,7 @@ class FakeRepo extends SamaRepository {
       role: role?.api ?? m.role,
       roleName: role?.label ?? m.roleName,
       status: status ?? m.status,
+      locationId: locationId == null ? m.locationId : (locationId.isEmpty ? null : locationId),
     );
   }
 

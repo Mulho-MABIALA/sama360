@@ -15,6 +15,15 @@ export interface TenantContext {
   country: CountryCode;
   /** Sama360 Pro actif (essai ou abonnement payé en cours). */
   pro: boolean;
+  /**
+   * Point de vente où s'écrivent ventes, caisse, réceptions et mouvements de stock :
+   * celui du vendeur rattaché, sinon celui choisi (en-tête X-Location-Id), sinon le principal.
+   */
+  warehouseId: string;
+  /** Filtre des lectures (ventes, rapports, stock) : un point de vente, ou null = tous. */
+  locationFilter: string | null;
+  /** Vendeur rattaché à un point de vente : il ne peut pas en changer. */
+  locationLocked: boolean;
 }
 
 export interface AppRequest extends Request {
@@ -25,4 +34,12 @@ export interface AppRequest extends Request {
 export interface AccessTokenPayload {
   sub: string;
   typ: 'access';
+}
+
+/**
+ * Point de vente d'une écriture : celui du vendeur rattaché (imposé), sinon celui indiqué
+ * dans la requête (vente hors ligne enregistrée plus tard), sinon le point de vente actif.
+ */
+export function locationFor(t: TenantContext, requested?: string | null): string {
+  return t.locationLocked ? t.warehouseId : (requested ?? t.warehouseId);
 }

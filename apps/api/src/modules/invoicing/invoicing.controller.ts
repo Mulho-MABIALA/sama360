@@ -38,7 +38,18 @@ const CreateDocument = DocumentBody.extend({
 const Payment = z.object({
   id: z.string().uuid().optional(),
   amount: z.coerce.number().int().positive().max(1_000_000_000_000),
-  method: z.enum(['cash', 'wave', 'orange_money', 'free_money', 'mtn_momo', 'moov_money', 'airtel_money', 'card', 'transfer', 'cheque']),
+  method: z.enum([
+    'cash',
+    'wave',
+    'orange_money',
+    'free_money',
+    'mtn_momo',
+    'moov_money',
+    'airtel_money',
+    'card',
+    'transfer',
+    'cheque',
+  ]),
   reference: z.string().trim().max(80).nullish(),
   paidAt: z.coerce.date().optional(),
 });
@@ -69,7 +80,7 @@ export class InvoicingController {
     @Body() body: unknown,
     @Res({ passthrough: true }) res: Response,
   ) {
-    const r = await this.invoicing.create(t.businessId, user.id, parse(CreateDocument, body));
+    const r = await this.invoicing.create(t.businessId, user.id, parse(CreateDocument, body), t.warehouseId);
     res.status(r.created ? 201 : 200);
     return r.document;
   }
@@ -189,7 +200,7 @@ export class InvoicingController {
     @Res({ passthrough: true }) res: Response,
   ) {
     const input = parse(z.object({ dueDate: day.nullish() }), body ?? {});
-    const r = await this.invoicing.convert(t.businessId, user.id, id, input);
+    const r = await this.invoicing.convert(t.businessId, user.id, id, input, t.warehouseId);
     res.status(r.created ? 201 : 200);
     return r.document;
   }

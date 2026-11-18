@@ -11,6 +11,7 @@ export const PRO_FEATURES = [
   'assistant', // assistant IA
   'documents', // coffre de documents
   'invoice_scan', // facture fournisseur en photo → achat et stock
+  'multi_shop', // plusieurs points de vente
 ] as const;
 export type ProFeature = (typeof PRO_FEATURES)[number];
 
@@ -23,6 +24,7 @@ export const PRO_FEATURE_LABELS: Record<ProFeature, string> = {
   assistant: 'Assistant IA',
   documents: 'Coffre de documents',
   invoice_scan: 'Facture fournisseur en photo',
+  multi_shop: 'Plusieurs points de vente',
 };
 
 /** Prix en francs CFA (XOF et XAF ont la même valeur). L'année = 10 mois. */

@@ -16,7 +16,7 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { Throttle } from '@nestjs/throttler';
 import type { Response } from 'express';
 import { z } from 'zod';
-import { AuthUser, TenantContext } from '../../shared/auth/auth.types';
+import { AuthUser, TenantContext, locationFor } from '../../shared/auth/auth.types';
 import { CurrentTenant, CurrentUser, RequireModule, RequirePermission, RequirePro } from '../../shared/auth/decorators';
 import { AppError } from '../../shared/http/app-error';
 import { parse } from '../../shared/http/zod';
@@ -61,8 +61,10 @@ const CreatePurchase = z.object({
   draft: z.boolean().optional(),
   receive: z.boolean().optional(),
   payment: Payment.nullish(),
+  /** Point de vente qui reçoit la marchandise (par défaut : celui choisi dans l'app). */
+  locationId: z.string().uuid().nullish(),
 });
-const UpdatePurchase = CreatePurchase.omit({ id: true, receive: true, payment: true }).partial();
+const UpdatePurchase = CreatePurchase.omit({ id: true, receive: true, payment: true, locationId: true }).partial();
 const Receive = z.object({
   lines: z
     .array(
@@ -126,7 +128,11 @@ export class PurchasingController {
     @Body() body: unknown,
     @Res({ passthrough: true }) res: Response,
   ) {
-    const { created, order } = await this.purchasing.create(t.businessId, user.id, parse(CreatePurchase, body));
+    const input = parse(CreatePurchase, body);
+    const { created, order } = await this.purchasing.create(t.businessId, user.id, {
+      ...input,
+      locationId: locationFor(t, input.locationId),
+    });
     res.status(created ? 201 : 200);
     return order;
   }

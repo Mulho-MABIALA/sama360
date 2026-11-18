@@ -10,6 +10,7 @@ import { effectivePlan, PRO_FEATURE_LABELS, ProFeature } from '../plans';
 import { DbService } from '../db/db.service';
 import { businesses, memberships, moduleActivations, roles, subscriptions } from '../db/schema';
 import { AppError } from '../http/app-error';
+import { newId } from '../ids';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -52,6 +53,7 @@ export class TenantGuard implements CanActivate {
         plan: subscriptions.plan,
         planStatus: subscriptions.status,
         periodEnd: subscriptions.currentPeriodEnd,
+        memberWarehouse: memberships.warehouseId,
       })
       .from(memberships)
       .innerJoin(roles, eq(roles.id, memberships.roleId))
@@ -68,13 +70,29 @@ export class TenantGuard implements CanActivate {
       .limit(1);
     if (!m) throw new AppError('NOT_A_MEMBER', "Vous n'avez pas accès à cette entreprise", 403);
 
-    const modules = await this.dbs.withTenant(businessId, async (tx) => {
+    const requested = req.header('x-location-id');
+    const { modules, locations } = await this.dbs.withTenant(businessId, async (tx) => {
       const rows = await tx
         .select({ module: moduleActivations.module })
         .from(moduleActivations)
         .where(sql`${moduleActivations.enabled} = true`);
-      return rows.map((r) => r.module);
+      let locs = (await tx.execute(sql`SELECT id, is_default FROM inventory.warehouses WHERE archived_at IS NULL`))
+        .rows as { id: string; is_default: boolean }[];
+      if (!locs.some((l) => l.is_default)) {
+        // Commerce créé avant les points de vente : on crée le principal
+        await tx.execute(sql`
+          INSERT INTO inventory.warehouses (id, business_id, name, is_default)
+          VALUES (${newId()}, ${businessId}, 'Boutique principale', true) ON CONFLICT DO NOTHING`);
+        locs = (await tx.execute(sql`SELECT id, is_default FROM inventory.warehouses WHERE archived_at IS NULL`))
+          .rows as { id: string; is_default: boolean }[];
+      }
+      return { modules: rows.map((r) => r.module), locations: locs };
     });
+    const main = locations.find((l) => l.is_default)!.id;
+    const active = (id?: string | null) => (id && locations.some((l) => l.id === id) ? id : null);
+    const pinned = active(m.memberWarehouse);
+    // Point de vente demandé inconnu ou archivé (sélection ancienne sur le téléphone) : on retombe sur « tous »
+    const chosen = pinned ?? active(requested && UUID_RE.test(requested) ? requested : null);
 
     if (permission && !hasPermission(m.permissions, permission)) {
       throw new AppError('INSUFFICIENT_PERMISSION', `Permission requise : ${permission}`, 403, { permission });
@@ -103,6 +121,9 @@ export class TenantGuard implements CanActivate {
       modules,
       country: countryOf(m.country).code,
       pro,
+      warehouseId: chosen ?? main,
+      locationFilter: chosen,
+      locationLocked: pinned !== null,
     };
     return true;
   }

@@ -108,6 +108,8 @@ export const memberships = core.table('memberships', {
   roleId: uuid('role_id').notNull(),
   status: varchar('status', { length: 20 }).notNull().default('active'),
   invitedBy: uuid('invited_by'),
+  /** Point de vente du membre (vendeur rattaché) ; null = tous. */
+  warehouseId: uuid('warehouse_id'),
   createdAt: ts('created_at').notNull().defaultNow(),
 });
 
@@ -236,10 +238,13 @@ export const warehouses = inventorySchema.table('warehouses', {
   businessId: uuid('business_id').notNull(),
   name: varchar('name', { length: 80 }).notNull(),
   isDefault: boolean('is_default').notNull().default(false),
+  address: varchar('address', { length: 200 }),
+  phone: varchar('phone', { length: 20 }),
+  archivedAt: ts('archived_at'),
   createdAt: ts('created_at').notNull().defaultNow(),
 });
 
-export type MovementType = 'purchase' | 'sale' | 'return' | 'adjustment' | 'count';
+export type MovementType = 'purchase' | 'sale' | 'return' | 'adjustment' | 'count' | 'transfer';
 
 export const stockMovements = inventorySchema.table('stock_movements', {
   id: uuid('id').primaryKey(),
