@@ -156,11 +156,16 @@ class ApiClient {
     required String filename,
     String field = 'file',
     Map<String, String> fields = const {},
+    Duration? receiveTimeout,
   }) => _wrap(
     () => dio.post<T>(
       path,
       data: FormData.fromMap({...fields, field: MultipartFile.fromBytes(bytes, filename: filename)}),
-      options: Options(contentType: 'multipart/form-data', sendTimeout: const Duration(seconds: 60)),
+      options: Options(
+        contentType: 'multipart/form-data',
+        sendTimeout: const Duration(seconds: 60),
+        receiveTimeout: receiveTimeout,
+      ),
     ),
   );
 

@@ -767,6 +767,54 @@ class FakeRepo extends SamaRepository {
   @override
   Future<PurchaseDetail> purchase(String id) async => _detail(id);
 
+  /// Facture lue par le faux serveur (null : réponse par défaut ci-dessous).
+  InvoiceScan? invoiceScan;
+  Object? scanError;
+  int scans = 0;
+
+  @override
+  Future<InvoiceScan> scanInvoice(List<int> bytes, {String filename = 'facture.jpg'}) async {
+    scans++;
+    if (scanError != null) throw scanError!;
+    return invoiceScan ??
+        InvoiceScan.fromJson({
+          'readable': true,
+          'supplier': {'id': 's1', 'name': 'Grossiste Sandaga', 'phone': '77 300 40 50'},
+          'number': 'FA-1187',
+          'date': '2026-11-17',
+          'total': 61000,
+          'remaining': 19,
+          'lines': [
+            {
+              'label': 'BEURRE KARITE 250G',
+              'quantity': 12,
+              'unitCost': 2000,
+              'productId': 'p1',
+              'confidence': 'high',
+              'candidates': [
+                {'id': 'p1', 'name': 'Beurre de karité 250 g', 'unit': 'pièce', 'cost': 2000, 'price': 3500},
+              ],
+            },
+            {
+              'label': 'Savon noir artisanal',
+              'quantity': 10,
+              'unitCost': 1500,
+              'productId': null,
+              'confidence': 'none',
+              'candidates': [],
+            },
+            {
+              'label': 'Transport',
+              'quantity': 1,
+              'unitCost': 2000,
+              'productId': null,
+              'confidence': 'none',
+              'candidates': [],
+            },
+          ],
+        });
+  }
+
   @override
   Future<PurchaseDetail> createPurchase(Map<String, dynamic> body) async {
     purchaseBodies.add(body);

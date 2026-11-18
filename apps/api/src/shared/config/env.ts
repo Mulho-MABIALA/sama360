@@ -67,6 +67,9 @@ const BaseSchema = z.object({
   ASSISTANT_MODEL: z.string().default('claude-haiku-5-5'),
   // Questions par boutique et par jour (maîtrise du coût)
   ASSISTANT_DAILY_LIMIT: z.coerce.number().int().min(1).max(10000).default(60),
+  // Lecture des factures fournisseurs en photo (même fournisseur d'IA que l'assistant)
+  SCAN_MODEL: z.string().optional(),
+  SCAN_DAILY_LIMIT: z.coerce.number().int().min(1).max(10000).default(20),
   // Sama360 Pro : numéros de l'équipe qui valident les paiements (ex. "+221771234567,+242061234567")
   ADMIN_PHONES: z.string().optional(),
   // Où payer l'abonnement, affiché aux commerçants (ex. "Wave ou Orange Money au 77 123 45 67 — Zolaa Tech")

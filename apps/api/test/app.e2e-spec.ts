@@ -3016,7 +3016,7 @@ describe('Socle Sama360 (e2e)', () => {
     });
   });
 
-  describe('Pays : Côte d\'Ivoire et Congo', () => {
+  describe("Pays : Côte d'Ivoire et Congo", () => {
     it('boutique ivoirienne : monnaie XOF, numéros à 10 chiffres, MTN MoMo', async () => {
       const kone = await login('+2250707123456');
       const res = await http
@@ -3081,7 +3081,11 @@ describe('Socle Sama360 (e2e)', () => {
     });
 
     it('refuse un pays non pris en charge', async () => {
-      await http.post('/v1/businesses').set(auth(awa.accessToken)).send({ name: 'Ailleurs', country: 'FR' }).expect(422);
+      await http
+        .post('/v1/businesses')
+        .set(auth(awa.accessToken))
+        .send({ name: 'Ailleurs', country: 'FR' })
+        .expect(422);
     });
   });
 
@@ -3128,7 +3132,10 @@ describe('Socle Sama360 (e2e)', () => {
       await http.get('/v1/reports/insights').set(I()).expect(402);
       await http.get(`/v1/public/shops/${slug}`).expect(404); // boutique en ligne fermée
       await http.get('/v1/catalog/products').set(I()).expect(200);
-      expect((await http.get('/v1/subscription').set(I()).expect(200)).body).toMatchObject({ pro: false, state: 'expired' });
+      expect((await http.get('/v1/subscription').set(I()).expect(200)).body).toMatchObject({
+        pro: false,
+        state: 'expired',
+      });
 
       // « J'ai payé »
       const req = (
@@ -3150,7 +3157,9 @@ describe('Socle Sama360 (e2e)', () => {
       const admin = await login('+221700000099');
       expect((await http.get('/v1/admin/me').set(auth(admin.accessToken)).expect(200)).body).toEqual({ admin: true });
       const list = (await http.get('/v1/admin/subscription-requests').set(auth(admin.accessToken)).expect(200)).body;
-      expect(list).toEqual([expect.objectContaining({ id: req.id, business: expect.objectContaining({ name: 'Ibou Quincaillerie' }) })]);
+      expect(list).toEqual([
+        expect.objectContaining({ id: req.id, business: expect.objectContaining({ name: 'Ibou Quincaillerie' }) }),
+      ]);
       const ok = (
         await http.post(`/v1/admin/subscription-requests/${req.id}/approve`).set(auth(admin.accessToken)).expect(201)
       ).body;
@@ -3177,7 +3186,11 @@ describe('Socle Sama360 (e2e)', () => {
 
       // Un 2e paiement : pas de nouveau mois offert ; un paiement refusé est signalé
       const r2 = (
-        await http.post('/v1/subscription/requests').set(I()).send({ cycle: 'yearly', method: 'orange_money', reference: 'OM-998877' }).expect(201)
+        await http
+          .post('/v1/subscription/requests')
+          .set(I())
+          .send({ cycle: 'yearly', method: 'orange_money', reference: 'OM-998877' })
+          .expect(201)
       ).body;
       expect(r2.amount).toBe(50000);
       await http
@@ -3191,7 +3204,11 @@ describe('Socle Sama360 (e2e)', () => {
       });
       // Un code de parrainage inconnu est simplement ignoré
       const x = await login('+221770010004');
-      await http.post('/v1/businesses').set(auth(x.accessToken)).send({ name: 'Sans parrain', referralCode: 'ZZZZZZ' }).expect(201);
+      await http
+        .post('/v1/businesses')
+        .set(auth(x.accessToken))
+        .send({ name: 'Sans parrain', referralCode: 'ZZZZZZ' })
+        .expect(201);
     });
   });
 
@@ -3308,6 +3325,96 @@ describe('Socle Sama360 (e2e)', () => {
         .set(auth(moussa.accessToken, moussaBiz))
         .expect(200)
         .expect((r) => expect(r.body.items).toEqual([]));
+    });
+  });
+
+  describe('Facture fournisseur en photo', () => {
+    const A = () => auth(awa.accessToken, awaBiz);
+    const photo = Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0]), Buffer.alloc(400, 7)]);
+    let supplier: string;
+    let riz: string;
+    const scan = () =>
+      http
+        .post('/v1/purchases/scan')
+        .set(A())
+        .attach('file', photo, { filename: 'facture.jpg', contentType: 'image/jpeg' });
+    const onHand = async (productId: string) =>
+      Number(
+        (
+          (await http.get('/v1/inventory/stock').set(A()).expect(200)).body.items as {
+            productId: string;
+            onHand: number;
+          }[]
+        ).find((i) => i.productId === productId)?.onHand ?? 0,
+      );
+
+    beforeAll(async () => {
+      supplier = (
+        await http.post('/v1/contacts').set(A()).send({ type: 'supplier', name: 'Sénégal Distribution' }).expect(201)
+      ).body.id;
+      riz = (
+        await http
+          .post('/v1/catalog/products')
+          .set(A())
+          .send({ name: 'Riz brisé parfumé 25 kg', price: 14500, cost: 12000 })
+          .expect(201)
+      ).body.id;
+    });
+
+    it('lit la facture et propose fournisseur, produits et prix', async () => {
+      const res = await scan().expect(200);
+      expect(res.body).toMatchObject({
+        readable: true,
+        supplier: { id: supplier, name: 'Sénégal Distribution' },
+        number: 'FA-2026-1187',
+        date: '2026-11-17',
+        total: 182000,
+        linesTotal: 182000,
+      });
+      expect(res.body.lines).toHaveLength(3);
+      expect(res.body.lines[0]).toMatchObject({
+        label: 'RIZ BRISE PARFUME 25KG',
+        quantity: 10,
+        unitCost: 12500,
+        productId: riz,
+        confidence: 'high',
+      });
+      // « Huile 1 L » existe, mais pas en 5 L : pas de rapprochement hasardeux
+      expect(res.body.lines[1].productId).toBeNull();
+    });
+
+    it('l’achat créé depuis la facture fait entrer le stock et retient les libellés', async () => {
+      const huile5 = (
+        await http.post('/v1/catalog/products').set(A()).send({ name: 'Huile Dinor 5 L', price: 7500 }).expect(201)
+      ).body.id;
+      const before = await onHand(riz);
+      const order = await http
+        .post('/v1/purchases')
+        .set(A())
+        .send({
+          supplierId: supplier,
+          receive: true,
+          orderDate: '2026-11-17',
+          note: 'Facture FA-2026-1187',
+          lines: [
+            { productId: riz, quantity: 10, unitCost: 12500, scanLabel: 'RIZ BRISE PARFUME 25KG' },
+            { productId: huile5, quantity: 6, unitCost: 6500, scanLabel: 'Huile Dinor 5L' },
+          ],
+        })
+        .expect(201);
+      expect(order.body).toMatchObject({ status: 'received', total: 164000 });
+      expect(await onHand(riz)).toBe(before + 10);
+
+      const again = await scan().expect(200);
+      expect(again.body.lines[1]).toMatchObject({ productId: huile5, confidence: 'memory' });
+    });
+
+    it('réservé à qui peut modifier le stock ; une photo est exigée', async () => {
+      await http
+        .post('/v1/purchases/scan')
+        .set(A())
+        .attach('file', Buffer.from('%PDF-1.7 pas une photo'), { filename: 'x.pdf', contentType: 'application/pdf' })
+        .expect(422);
     });
   });
 

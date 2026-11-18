@@ -11,6 +11,7 @@ import '../../core/models.dart';
 import '../../core/providers.dart';
 import '../../core/theme.dart';
 import '../../core/widgets.dart';
+import 'invoice_scan_screen.dart';
 import '../customers/customers_screens.dart' show sinceText;
 import '../sales/receipt_screen.dart' show receiptActionsProvider, whatsAppUri;
 
@@ -160,6 +161,7 @@ class _PurchasesScreenState extends ConsumerState<PurchasesScreen> {
               ],
             ),
             const SizedBox(height: 12),
+            if (!_suppliers && canWrite) ...[const ScanInvoiceBanner(), const SizedBox(height: 12)],
             if (_suppliers) ..._supplierList() else ..._orderList(list),
           ],
         ),

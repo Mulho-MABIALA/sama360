@@ -164,7 +164,8 @@ enum ProFeature {
   bookingOnline('booking_online', 'Réservation en ligne'),
   insights('insights', 'Statistiques avancées et rapport de la semaine'),
   assistant('assistant', 'Assistant IA'),
-  documents('documents', 'Coffre de documents');
+  documents('documents', 'Coffre de documents'),
+  invoiceScan('invoice_scan', 'Facture fournisseur en photo');
 
   const ProFeature(this.key, this.label);
   final String key;
@@ -1781,12 +1782,16 @@ class PurchaseLineDraft {
     required this.quantity,
     required this.unitCost,
     this.unit = 'pièce',
+    this.scanLabel,
   });
   final String productId;
   final String name;
   final double quantity;
   final int unitCost;
   final String unit;
+
+  /// Libellé lu sur la facture en photo : le serveur retient l'association pour la prochaine fois.
+  final String? scanLabel;
 
   int get total => (quantity * unitCost).round();
 
@@ -1796,9 +1801,15 @@ class PurchaseLineDraft {
     quantity: quantity ?? this.quantity,
     unitCost: unitCost ?? this.unitCost,
     unit: unit,
+    scanLabel: scanLabel,
   );
 
-  Map<String, dynamic> toJson() => {'productId': productId, 'quantity': quantity, 'unitCost': unitCost};
+  Map<String, dynamic> toJson() => {
+    'productId': productId,
+    'quantity': quantity,
+    'unitCost': unitCost,
+    'scanLabel': ?scanLabel,
+  };
 
   factory PurchaseLineDraft.fromLine(PurchaseLine l) =>
       PurchaseLineDraft(productId: l.productId, name: l.name, quantity: l.quantity, unitCost: l.unitCost, unit: l.unit);
@@ -3348,4 +3359,108 @@ class DeliveryBoard {
       for (final c in (j['withCouriers'] as List).cast<Map<String, dynamic>>()) CourierBalance.fromJson(c),
     ],
   );
+}
+
+// ---------- Facture fournisseur en photo ----------
+
+/// Degré de certitude du rapprochement d'une ligne de facture avec un produit.
+enum ScanConfidence {
+  memory, // déjà associé chez ce fournisseur
+  high,
+  low,
+  none;
+
+  static ScanConfidence of(String? v) => values.where((c) => c.name == v).firstOrNull ?? none;
+}
+
+class ScanCandidate {
+  const ScanCandidate({
+    required this.id,
+    required this.name,
+    required this.unit,
+    required this.cost,
+    required this.price,
+  });
+  final String id;
+  final String name;
+  final String unit;
+  final int cost;
+  final int price;
+
+  factory ScanCandidate.fromJson(Map<String, dynamic> j) => ScanCandidate(
+    id: j['id'] as String,
+    name: j['name'] as String,
+    unit: (j['unit'] as String?) ?? 'pièce',
+    cost: (j['cost'] as num?)?.toInt() ?? 0,
+    price: (j['price'] as num?)?.toInt() ?? 0,
+  );
+}
+
+class ScannedLine {
+  const ScannedLine({
+    required this.label,
+    required this.quantity,
+    required this.unitCost,
+    required this.productId,
+    required this.confidence,
+    required this.candidates,
+  });
+  final String label;
+  final double quantity;
+  final int unitCost;
+  final String? productId;
+  final ScanConfidence confidence;
+  final List<ScanCandidate> candidates;
+
+  ScanCandidate? get product => candidates.where((c) => c.id == productId).firstOrNull;
+
+  factory ScannedLine.fromJson(Map<String, dynamic> j) => ScannedLine(
+    label: j['label'] as String,
+    quantity: (j['quantity'] as num).toDouble(),
+    unitCost: (j['unitCost'] as num).toInt(),
+    productId: j['productId'] as String?,
+    confidence: ScanConfidence.of(j['confidence'] as String?),
+    candidates: [
+      for (final c in (j['candidates'] as List? ?? const [])) ScanCandidate.fromJson(c as Map<String, dynamic>),
+    ],
+  );
+}
+
+/// Ce que le serveur a lu sur la photo, rapproché du catalogue (rien n'est encore enregistré).
+class InvoiceScan {
+  const InvoiceScan({
+    required this.readable,
+    required this.supplierId,
+    required this.supplierName,
+    required this.supplierPhone,
+    required this.number,
+    required this.date,
+    required this.total,
+    required this.lines,
+    required this.remaining,
+  });
+  final bool readable;
+  final String? supplierId;
+  final String? supplierName;
+  final String? supplierPhone;
+  final String? number;
+  final DateTime? date;
+  final int? total;
+  final List<ScannedLine> lines;
+  final int remaining;
+
+  factory InvoiceScan.fromJson(Map<String, dynamic> j) {
+    final s = (j['supplier'] as Map<String, dynamic>?) ?? const {};
+    return InvoiceScan(
+      readable: j['readable'] as bool? ?? false,
+      supplierId: s['id'] as String?,
+      supplierName: s['name'] as String?,
+      supplierPhone: s['phone'] as String?,
+      number: j['number'] as String?,
+      date: DateTime.tryParse((j['date'] as String?) ?? ''),
+      total: (j['total'] as num?)?.toInt(),
+      lines: [for (final l in (j['lines'] as List? ?? const [])) ScannedLine.fromJson(l as Map<String, dynamic>)],
+      remaining: (j['remaining'] as num?)?.toInt() ?? 0,
+    );
+  }
 }

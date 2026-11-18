@@ -6,14 +6,27 @@ import { AppError } from '../../shared/http/app-error';
 import { newId } from '../../shared/ids';
 import { InventoryService } from '../inventory/inventory.service';
 import { fcfa } from '../sales/sales.service';
+import { rememberAliases } from './invoice-scan.service';
 
 export type PurchaseStatus = 'draft' | 'ordered' | 'partial' | 'received' | 'cancelled';
-export type PurchaseMethod = 'cash' | 'wave' | 'orange_money' | 'free_money' | 'mtn_momo' | 'moov_money' | 'airtel_money' | 'card' | 'transfer' | 'cheque';
+export type PurchaseMethod =
+  | 'cash'
+  | 'wave'
+  | 'orange_money'
+  | 'free_money'
+  | 'mtn_momo'
+  | 'moov_money'
+  | 'airtel_money'
+  | 'card'
+  | 'transfer'
+  | 'cheque';
 
 export interface PurchaseLineInput {
   productId: string;
   quantity: number;
   unitCost?: number;
+  /** Libellé lu sur la facture fournisseur (photo) : retenu pour reconnaître le produit la prochaine fois. */
+  scanLabel?: string | null;
 }
 export interface PaymentInput {
   id?: string;
@@ -71,7 +84,10 @@ export function statusAfterReceipt(lines: { quantity: number; receivedQty: numbe
  * Répartit un paiement fournisseur sur ses bons impayés, du plus ancien au plus récent.
  * Renvoie les montants par bon ; erreur si le paiement dépasse la dette totale.
  */
-export function allocatePayment(orders: { id: string; due: number }[], amount: number): { orderId: string; amount: number }[] {
+export function allocatePayment(
+  orders: { id: string; due: number }[],
+  amount: number,
+): { orderId: string; amount: number }[] {
   const out: { orderId: string; amount: number }[] = [];
   let rest = amount;
   for (const o of orders) {
@@ -121,6 +137,7 @@ export class PurchasingService {
         VALUES (${id}, ${businessId}, ${number}, ${input.draft ? 'draft' : 'ordered'}, ${input.supplierId}, ${orderDate},
                 ${input.expectedDate ?? null}, ${total}, ${input.note ?? null}, ${warehouseId}, ${userId})`);
       await this.insertLines(tx, businessId, id, lines);
+      await rememberAliases(tx, businessId, input.supplierId, input.lines);
 
       if (input.receive) await this.receiveIn(tx, businessId, userId, id, {});
       if (input.payment) await this.payIn(tx, businessId, userId, id, input.payment);
@@ -171,7 +188,11 @@ export class PurchasingService {
       const o = await this.lock(tx, id);
       if (o.status === 'cancelled') throw new AppError('DOCUMENT_LOCKED', 'Ce bon est déjà annulé', 409);
       if (Number(o.received_total) > 0) {
-        throw new AppError('DOCUMENT_LOCKED', 'De la marchandise a déjà été reçue : ce bon ne peut plus être annulé', 409);
+        throw new AppError(
+          'DOCUMENT_LOCKED',
+          'De la marchandise a déjà été reçue : ce bon ne peut plus être annulé',
+          409,
+        );
       }
       if (Number(o.paid) > 0) {
         throw new AppError('DOCUMENT_LOCKED', 'Ce bon a déjà des paiements : il ne peut pas être annulé', 409);
@@ -389,7 +410,8 @@ export class PurchasingService {
   private async receiveIn(tx: Tx, businessId: string, userId: string, orderId: string, input: ReceiveInput) {
     const o = await this.lock(tx, orderId);
     if (o.status === 'cancelled') throw new AppError('DOCUMENT_LOCKED', 'Ce bon est annulé', 409);
-    if (o.status === 'received') throw new AppError('DOCUMENT_LOCKED', 'Toute la marchandise de ce bon est déjà reçue', 409);
+    if (o.status === 'received')
+      throw new AppError('DOCUMENT_LOCKED', 'Toute la marchandise de ce bon est déjà reçue', 409);
     const lines = (
       await tx.execute(sql`
         SELECT id, product_id, name, quantity, received_qty, unit_cost
@@ -430,7 +452,13 @@ export class PurchasingService {
       const l = byId.get(w.lineId)!;
       const unitCost = w.unitCost ?? Number(l.unit_cost);
       receiptTotal += Math.round(w.quantity * unitCost);
-      receiptLines.push({ id: newId(), lineId: w.lineId, productId: l.product_id as string, quantity: w.quantity, unitCost });
+      receiptLines.push({
+        id: newId(),
+        lineId: w.lineId,
+        productId: l.product_id as string,
+        quantity: w.quantity,
+        unitCost,
+      });
     }
     if (receiptLines.length === 0) throw new AppError('VALIDATION_FAILED', 'Rien à recevoir', 422);
 
@@ -476,7 +504,9 @@ export class PurchasingService {
     const after = (
       await tx.execute(sql`SELECT quantity, received_qty FROM purchasing.order_lines WHERE order_id = ${orderId}`)
     ).rows as { quantity: string; received_qty: string }[];
-    const status = statusAfterReceipt(after.map((l) => ({ quantity: Number(l.quantity), receivedQty: Number(l.received_qty) })));
+    const status = statusAfterReceipt(
+      after.map((l) => ({ quantity: Number(l.quantity), receivedQty: Number(l.received_qty) })),
+    );
     await tx.execute(sql`
       UPDATE purchasing.orders SET
         status = ${status}, received_total = received_total + ${receiptTotal}, updated_at = now(),
@@ -584,9 +614,8 @@ export class PurchasingService {
   }
 
   private async assertSupplier(tx: Tx, supplierId: string, allowDeleted = false) {
-    const [c] = (
-      await tx.execute(sql`SELECT type, deleted_at FROM contacts.contacts WHERE id = ${supplierId}`)
-    ).rows as { type: string; deleted_at: Date | null }[];
+    const [c] = (await tx.execute(sql`SELECT type, deleted_at FROM contacts.contacts WHERE id = ${supplierId}`))
+      .rows as { type: string; deleted_at: Date | null }[];
     if (!c || (!allowDeleted && c.deleted_at)) throw AppError.notFound('Fournisseur');
     if (c.type === 'customer') {
       // Un client qui nous vend aussi de la marchandise devient « client et fournisseur »

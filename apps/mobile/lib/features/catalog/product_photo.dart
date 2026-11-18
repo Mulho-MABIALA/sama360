@@ -29,8 +29,18 @@ final photoPickerProvider = Provider<PhotoPicker>((ref) {
   };
 });
 
+/// Photo de document (facture) : plus grande, pour que les petits caractères restent lisibles.
+final documentPhotoPickerProvider = Provider<PhotoPicker>((ref) {
+  final picker = ImagePicker();
+  return (source) async {
+    final file = await picker.pickImage(source: source, maxWidth: 2000, maxHeight: 2000, imageQuality: 85);
+    if (file == null) return null;
+    return PickedPhoto(await file.readAsBytes(), file.name.isEmpty ? 'facture.jpg' : file.name);
+  };
+});
+
 /// Propose « appareil photo » ou « galerie » puis renvoie la photo choisie.
-Future<PickedPhoto?> choosePhoto(BuildContext context, WidgetRef ref) async {
+Future<PickedPhoto?> choosePhoto(BuildContext context, WidgetRef ref, {bool document = false}) async {
   final source = await showModalBottomSheet<ImageSource>(
     useRootNavigator: true,
     context: context,
@@ -55,7 +65,7 @@ Future<PickedPhoto?> choosePhoto(BuildContext context, WidgetRef ref) async {
     ),
   );
   if (source == null) return null;
-  return ref.read(photoPickerProvider)(source);
+  return ref.read(document ? documentPhotoPickerProvider : photoPickerProvider)(source);
 }
 
 /// Vignette d'un produit : sa photo si elle existe, sinon ses initiales.

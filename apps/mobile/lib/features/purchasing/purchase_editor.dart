@@ -13,6 +13,7 @@ import '../../core/theme.dart';
 import '../../core/widgets.dart';
 import '../catalog/barcode_scanner.dart';
 import '../catalog/product_photo.dart';
+import 'invoice_scan_screen.dart';
 
 /// Quantité proposée pour un produit en stock bas : de quoi remonter à deux fois le seuil.
 double suggestedReorder(StockItem i) {
@@ -20,11 +21,23 @@ double suggestedReorder(StockItem i) {
   return target < 1 ? 1 : target.ceilToDouble();
 }
 
+/// Achat pré-rempli depuis une facture fournisseur en photo.
+class PurchasePrefill {
+  const PurchasePrefill({required this.supplier, required this.lines, this.note, this.received = true});
+  final Contact supplier;
+  final List<PurchaseLineDraft> lines;
+  final String? note;
+
+  /// La marchandise est arrivée avec la facture : entrée en stock à l'enregistrement.
+  final bool received;
+}
+
 /// Création ou modification d'un bon de commande, ou achat direct (marchandise déjà reçue).
 class PurchaseEditorScreen extends ConsumerStatefulWidget {
-  const PurchaseEditorScreen({super.key, this.editId, this.supplierId, this.lowStock = false});
+  const PurchaseEditorScreen({super.key, this.editId, this.supplierId, this.lowStock = false, this.prefill});
   final String? editId;
   final String? supplierId;
+  final PurchasePrefill? prefill;
 
   /// Ouvert depuis l'alerte de stock bas : les produits concernés sont pré-remplis.
   final bool lowStock;
@@ -59,6 +72,11 @@ class _PurchaseEditorScreenState extends ConsumerState<PurchaseEditorScreen> {
           _lines.addAll(d.lines.map(PurchaseLineDraft.fromLine));
           _note.text = d.note ?? '';
           _deliveryDays = d.summary.expectedDate?.difference(d.summary.orderDate).inDays;
+        } else if (widget.prefill case final p?) {
+          _supplier = p.supplier;
+          _lines.addAll(p.lines);
+          _note.text = p.note ?? '';
+          _alreadyReceived = p.received;
         } else {
           if (widget.supplierId != null) {
             _supplier = (await ref.read(supplierProvider(widget.supplierId!).future)).supplier;
@@ -127,7 +145,7 @@ class _PurchaseEditorScreenState extends ConsumerState<PurchaseEditorScreen> {
       context: context,
       isScrollControlled: true,
       showDragHandle: true,
-      builder: (_) => const _ProductPicker(),
+      builder: (_) => const ProductPicker(),
     );
     if (p != null) _add(p);
   }
@@ -151,7 +169,7 @@ class _PurchaseEditorScreenState extends ConsumerState<PurchaseEditorScreen> {
       context: context,
       isScrollControlled: true,
       showDragHandle: true,
-      builder: (_) => const FractionallySizedBox(heightFactor: 0.8, child: _SupplierPicker()),
+      builder: (_) => const FractionallySizedBox(heightFactor: 0.8, child: SupplierPicker()),
     );
     if (s != null) setState(() => _supplier = s);
   }
@@ -281,6 +299,12 @@ class _PurchaseEditorScreenState extends ConsumerState<PurchaseEditorScreen> {
                                   (Icons.inventory_2_outlined, 'Produit', _pickProduct),
                                   (Icons.qr_code_scanner_rounded, 'Scanner', _scan),
                                   (Icons.trending_down_rounded, 'Stock bas', _addLowStock),
+                                  if (!_editing && _lines.isEmpty)
+                                    (
+                                      Icons.document_scanner_rounded,
+                                      'Facture',
+                                      () => startInvoiceScan(context, ref, replace: true),
+                                    ),
                                 ].indexed) ...[
                                   if (i > 0) const SizedBox(width: 8),
                                   Expanded(
@@ -583,13 +607,13 @@ class _LineSheetState extends State<_LineSheet> {
 }
 
 /// Choix d'un produit du catalogue (articles suivis ou non).
-class _ProductPicker extends ConsumerStatefulWidget {
-  const _ProductPicker();
+class ProductPicker extends ConsumerStatefulWidget {
+  const ProductPicker({super.key});
   @override
-  ConsumerState<_ProductPicker> createState() => _ProductPickerState();
+  ConsumerState<ProductPicker> createState() => ProductPickerState();
 }
 
-class _ProductPickerState extends ConsumerState<_ProductPicker> {
+class ProductPickerState extends ConsumerState<ProductPicker> {
   String _q = '';
 
   @override
@@ -642,13 +666,13 @@ class _ProductPickerState extends ConsumerState<_ProductPicker> {
 }
 
 /// Liste des fournisseurs avec recherche et création rapide.
-class _SupplierPicker extends ConsumerStatefulWidget {
-  const _SupplierPicker();
+class SupplierPicker extends ConsumerStatefulWidget {
+  const SupplierPicker({super.key});
   @override
-  ConsumerState<_SupplierPicker> createState() => _SupplierPickerState();
+  ConsumerState<SupplierPicker> createState() => SupplierPickerState();
 }
 
-class _SupplierPickerState extends ConsumerState<_SupplierPicker> {
+class SupplierPickerState extends ConsumerState<SupplierPicker> {
   String _q = '';
 
   Future<void> _create() async {

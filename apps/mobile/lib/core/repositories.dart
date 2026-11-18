@@ -471,6 +471,16 @@ class SamaRepository {
     if (payment != null) 'payment': {'amount': payment.amount, 'method': payment.method.api},
   };
 
+  /// Facture fournisseur en photo → proposition d'achat (la lecture prend de 5 à 40 secondes).
+  Future<InvoiceScan> scanInvoice(List<int> bytes, {String filename = 'facture.jpg'}) async => InvoiceScan.fromJson(
+    await api.upload<Map<String, dynamic>>(
+      '/v1/purchases/scan',
+      bytes,
+      filename: filename,
+      receiveTimeout: const Duration(seconds: 100),
+    ),
+  );
+
   Future<PurchaseDetail> createPurchase(Map<String, dynamic> body) async =>
       PurchaseDetail.fromJson(await api.post<Map<String, dynamic>>('/v1/purchases', data: body));
 

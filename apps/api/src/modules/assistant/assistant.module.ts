@@ -18,5 +18,7 @@ import { AnthropicClient, FakeLlmClient, LlmClient } from './llm';
       },
     },
   ],
+  // Le même client sert à lire les factures fournisseurs (module achats)
+  exports: [LlmClient],
 })
 export class AssistantModule {}

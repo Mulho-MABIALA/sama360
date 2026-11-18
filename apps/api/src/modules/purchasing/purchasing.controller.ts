@@ -1,23 +1,56 @@
-import { Body, Controller, Get, HttpCode, Param, ParseUUIDPipe, Patch, Post, Query, Res } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  Param,
+  ParseUUIDPipe,
+  Patch,
+  Post,
+  Query,
+  Res,
+  UploadedFile,
+  UseInterceptors,
+} from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { Throttle } from '@nestjs/throttler';
 import type { Response } from 'express';
 import { z } from 'zod';
 import { AuthUser, TenantContext } from '../../shared/auth/auth.types';
-import { CurrentTenant, CurrentUser, RequireModule, RequirePermission } from '../../shared/auth/decorators';
+import { CurrentTenant, CurrentUser, RequireModule, RequirePermission, RequirePro } from '../../shared/auth/decorators';
+import { AppError } from '../../shared/http/app-error';
 import { parse } from '../../shared/http/zod';
+import { InvoiceScanService } from './invoice-scan.service';
 import { PurchasingService } from './purchasing.service';
 
 const money = z.coerce.number().int().min(0).max(1_000_000_000_000);
 const positive = z.coerce.number().int().min(1).max(1_000_000_000_000);
 const quantity = z.coerce.number().positive().max(1_000_000);
 const day = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'format AAAA-MM-JJ');
-const method = z.enum(['cash', 'wave', 'orange_money', 'free_money', 'mtn_momo', 'moov_money', 'airtel_money', 'card', 'transfer', 'cheque']);
+const method = z.enum([
+  'cash',
+  'wave',
+  'orange_money',
+  'free_money',
+  'mtn_momo',
+  'moov_money',
+  'airtel_money',
+  'card',
+  'transfer',
+  'cheque',
+]);
 const Payment = z.object({
   id: z.string().uuid().optional(),
   amount: positive,
   method,
   reference: z.string().trim().max(80).nullish(),
 });
-const Line = z.object({ productId: z.string().uuid(), quantity, unitCost: money.optional() });
+const Line = z.object({
+  productId: z.string().uuid(),
+  quantity,
+  unitCost: money.optional(),
+  scanLabel: z.string().trim().max(160).nullish(),
+});
 const CreatePurchase = z.object({
   id: z.string().uuid().optional(),
   supplierId: z.string().uuid(),
@@ -32,7 +65,13 @@ const CreatePurchase = z.object({
 const UpdatePurchase = CreatePurchase.omit({ id: true, receive: true, payment: true }).partial();
 const Receive = z.object({
   lines: z
-    .array(z.object({ lineId: z.string().uuid(), quantity: z.coerce.number().min(0).max(1_000_000), unitCost: money.optional() }))
+    .array(
+      z.object({
+        lineId: z.string().uuid(),
+        quantity: z.coerce.number().min(0).max(1_000_000),
+        unitCost: money.optional(),
+      }),
+    )
     .min(1)
     .max(200)
     .optional(),
@@ -51,7 +90,26 @@ const ListSuppliers = z.object({ search: z.string().trim().max(80).optional() })
 @Controller('v1')
 @RequireModule('inventory')
 export class PurchasingController {
-  constructor(private readonly purchasing: PurchasingService) {}
+  constructor(
+    private readonly purchasing: PurchasingService,
+    private readonly scanner: InvoiceScanService,
+  ) {}
+
+  /**
+   * Facture fournisseur en photo (multipart, champ « file ») → proposition d'achat à vérifier.
+   * Rien n'est enregistré : l'achat est créé ensuite par POST /purchases (avec scanLabel par ligne).
+   */
+  @Post('purchases/scan')
+  @HttpCode(200)
+  @RequirePermission('inventory:write')
+  @RequirePro('invoice_scan')
+  @Throttle({ default: { limit: 6, ttl: 60_000 } })
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 20 * 1024 * 1024, files: 1 } }))
+  scan(@CurrentTenant() t: TenantContext, @UploadedFile() file?: { buffer: Buffer }) {
+    if (!file?.buffer?.length)
+      throw new AppError('VALIDATION_FAILED', 'Ajoutez la photo de la facture (champ « file »)', 422);
+    return this.scanner.scan(t, file.buffer);
+  }
 
   @Get('purchases')
   @RequirePermission('inventory:read')

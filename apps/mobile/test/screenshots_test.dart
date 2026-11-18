@@ -18,6 +18,7 @@ import 'package:sama360/core/offline/pending_sales.dart';
 import 'package:sama360/core/providers.dart';
 import 'package:sama360/features/auth/auth_controller.dart';
 import 'package:sama360/features/catalog/barcode_scanner.dart';
+import 'package:sama360/features/catalog/product_photo.dart';
 import 'package:sama360/features/home/monument.dart';
 import 'package:sama360/main.dart';
 
@@ -694,6 +695,23 @@ void main() {
       );
     await pumpSama(tester, location: '/referral', repo: repo);
     await _shot(tester, '23_parrainage');
+  });
+
+  testWidgets('facture en photo', (tester) async {
+    phoneSize(tester);
+    await pumpSama(
+      tester,
+      location: '/purchases',
+      overrides: [
+        documentPhotoPickerProvider.overrideWithValue((_) async => PickedPhoto(List<int>.filled(8, 1), 'f.jpg')),
+      ],
+    );
+    await _shot(tester, '30_achats_facture_photo');
+    await tester.tap(find.byKey(const Key('scan_invoice_banner')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Prendre une photo'));
+    await tester.pumpAndSettle();
+    await _shot(tester, '31_facture_verification');
   });
 
   testWidgets('notifications', (tester) async {
