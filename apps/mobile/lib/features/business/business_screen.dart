@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
@@ -39,6 +40,9 @@ class _BusinessScreenState extends ConsumerState<BusinessScreen> {
   final _name = TextEditingController();
   late final _city = TextEditingController(text: _country.cities.first);
   late Country _country = ref.read(loginCountryProvider);
+
+  /// Code de parrainage : repris du lien d'invitation (…/app/?ref=CODE) sur la version web.
+  final _referral = TextEditingController(text: kIsWeb ? (Uri.base.queryParameters['ref'] ?? '') : '');
   String _category = 'boutique';
   String _focus = 'products';
   bool _creating = false;
@@ -48,6 +52,7 @@ class _BusinessScreenState extends ConsumerState<BusinessScreen> {
   void dispose() {
     _name.dispose();
     _city.dispose();
+    _referral.dispose();
     super.dispose();
   }
 
@@ -62,6 +67,7 @@ class _BusinessScreenState extends ConsumerState<BusinessScreen> {
             category: _category == 'autre' ? null : _category,
             city: _city.text.trim().isEmpty ? null : _city.text.trim(),
             focus: _focus,
+            referralCode: _referral.text.trim().isEmpty ? null : _referral.text.trim().toUpperCase(),
             country: _country.code,
           );
       if (mounted) context.go('/');
@@ -193,6 +199,17 @@ class _BusinessScreenState extends ConsumerState<BusinessScreen> {
                   for (final city in _country.cities.take(5))
                     Pill(label: city, selected: _city.text == city, onTap: () => setState(() => _city.text = city)),
                 ],
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                key: const Key('referralCode'),
+                controller: _referral,
+                textCapitalization: TextCapitalization.characters,
+                decoration: const InputDecoration(
+                  labelText: 'Code de parrainage (facultatif)',
+                  hintText: 'ex. AWA7K2',
+                  helperText: 'Un commerçant vous a invité ? 1 mois Pro offert à chacun.',
+                ),
               ),
               const SizedBox(height: 24),
               BusyButton(label: "Créer l'entreprise", busy: _busy, onPressed: _create),

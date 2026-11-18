@@ -3,7 +3,7 @@ import { Throttle } from '@nestjs/throttler';
 import type { Response } from 'express';
 import { z } from 'zod';
 import type { AuthUser, TenantContext } from '../../shared/auth/auth.types';
-import { CurrentTenant, CurrentUser, Public, RequirePermission } from '../../shared/auth/decorators';
+import { CurrentTenant, CurrentUser, Public, RequirePermission, RequirePro } from '../../shared/auth/decorators';
 import { AppError } from '../../shared/http/app-error';
 import { parse } from '../../shared/http/zod';
 import { APPOINTMENT_STATUSES } from './booking';
@@ -71,6 +71,7 @@ export class BookingController {
   }
 
   @Put('settings')
+  @RequirePro('booking_online')
   @RequirePermission('business:update')
   saveSettings(@CurrentTenant() t: TenantContext, @Body() body: unknown) {
     return this.booking.saveSettings(t.businessId, parse(Settings, body));

@@ -79,6 +79,8 @@ class CurrentBusiness {
     this.requireOpenCash = false,
     this.focus,
     this.country = Country.sn,
+    this.proUntil,
+    this.trial = false,
     required this.role,
     required this.permissions,
     required this.modules,
@@ -103,6 +105,18 @@ class CurrentBusiness {
 
   /// Pays : indicatif des numéros, paiements mobiles, identifiant fiscal.
   final Country country;
+
+  /// Fin de Sama360 Pro (essai ou abonnement) ; null = jamais Pro.
+  final DateTime? proUntil;
+
+  /// Pro offert pour découvrir (30 jours à l'inscription).
+  final bool trial;
+
+  /// Pro actif : boutique en ligne, vendeurs, livraisons, assistant…
+  bool get isPro => proUntil != null && proUntil!.isAfter(DateTime.now());
+
+  /// Jours de Pro restants (arrondis au-dessus), 0 si terminé.
+  int get proDaysLeft => isPro ? (proUntil!.difference(DateTime.now()).inHours / 24).ceil() : 0;
   final String role;
   final List<String> permissions;
   final List<String> modules;
@@ -123,6 +137,8 @@ class CurrentBusiness {
       requireOpenCash: b['requireOpenCash'] == true,
       focus: (b['settings'] as Map?)?['focus'] as String?,
       country: Country.fromCode(b['country'] as String?),
+      proUntil: _proUntil(j['subscription'] as Map?),
+      trial: (j['subscription'] as Map?)?['status'] == 'trialing',
       role: me['role'] as String,
       permissions: List<String>.from(me['permissions'] as List),
       modules: ((j['modules'] as List?) ?? const [])
@@ -131,6 +147,171 @@ class CurrentBusiness {
           .toList(),
     );
   }
+}
+
+DateTime? _proUntil(Map? sub) {
+  if (sub == null || sub['plan'] != 'pro' || sub['currentPeriodEnd'] == null) return null;
+  return DateTime.tryParse(sub['currentPeriodEnd'] as String);
+}
+
+// ───────────────────────────────────────── Sama360 Pro et parrainage
+
+/// Fonctions réservées à Pro (mêmes clés que l'API : shared/plans.ts).
+enum ProFeature {
+  team('team', 'Vendeurs et gérants'),
+  shop('shop', 'Boutique en ligne et statuts WhatsApp'),
+  delivery('delivery', 'Livraisons et livreurs'),
+  bookingOnline('booking_online', 'Réservation en ligne'),
+  insights('insights', 'Statistiques avancées et rapport de la semaine'),
+  assistant('assistant', 'Assistant IA'),
+  documents('documents', 'Coffre de documents');
+
+  const ProFeature(this.key, this.label);
+  final String key;
+  final String label;
+
+  static ProFeature? of(String? key) => values.where((f) => f.key == key).firstOrNull;
+}
+
+enum ProState { trial, active, expired, free }
+
+class PaymentRequest {
+  const PaymentRequest({
+    required this.id,
+    required this.cycle,
+    required this.amount,
+    required this.method,
+    required this.reference,
+    required this.status,
+    required this.createdAt,
+    this.payerPhone,
+    this.note,
+    this.businessName,
+    this.businessCountry,
+    this.businessCity,
+    this.businessPhone,
+  });
+
+  final String id;
+  final String cycle; // monthly | yearly
+  final int amount;
+  final PayMethod method;
+  final String reference;
+  final String status; // pending | approved | rejected
+  final DateTime createdAt;
+  final String? payerPhone;
+  final String? note;
+  // Côté équipe Sama360
+  final String? businessName;
+  final Country? businessCountry;
+  final String? businessCity;
+  final String? businessPhone;
+
+  bool get pending => status == 'pending';
+  bool get yearly => cycle == 'yearly';
+
+  factory PaymentRequest.fromJson(Map<String, dynamic> j) {
+    final b = j['business'] as Map<String, dynamic>?;
+    return PaymentRequest(
+      id: j['id'] as String,
+      cycle: j['cycle'] as String,
+      amount: (j['amount'] as num).toInt(),
+      method: PayMethod.fromApi(j['method'] as String) ?? PayMethod.wave,
+      reference: j['reference'] as String,
+      status: j['status'] as String,
+      createdAt: DateTime.parse(j['createdAt'] as String),
+      payerPhone: j['payerPhone'] as String?,
+      note: j['note'] as String?,
+      businessName: b?['name'] as String?,
+      businessCountry: b == null ? null : Country.fromCode(b['country'] as String?),
+      businessCity: b?['city'] as String?,
+      businessPhone: b?['phone'] as String?,
+    );
+  }
+}
+
+class ProStatus {
+  const ProStatus({
+    required this.pro,
+    required this.state,
+    required this.daysLeft,
+    required this.monthly,
+    required this.yearly,
+    required this.methods,
+    this.endsAt,
+    this.currency = 'XOF',
+    this.payTo,
+    this.pending,
+    this.history = const [],
+    this.referralCode,
+  });
+
+  final bool pro;
+  final ProState state;
+  final DateTime? endsAt;
+  final int daysLeft;
+  final String currency;
+  final int monthly;
+  final int yearly;
+  final String? payTo;
+  final List<PayMethod> methods;
+  final PaymentRequest? pending;
+  final List<PaymentRequest> history;
+  final String? referralCode;
+
+  /// Dernière demande refusée (affichée tant qu'aucune autre n'a suivi).
+  PaymentRequest? get lastRejected => history.isNotEmpty && history.first.status == 'rejected' ? history.first : null;
+
+  factory ProStatus.fromJson(Map<String, dynamic> j) {
+    final prices = j['prices'] as Map<String, dynamic>;
+    return ProStatus(
+      pro: j['pro'] == true,
+      state: ProState.values.byName(j['state'] as String),
+      endsAt: j['endsAt'] == null ? null : DateTime.parse(j['endsAt'] as String),
+      daysLeft: (j['daysLeft'] as num?)?.toInt() ?? 0,
+      currency: j['currency'] as String? ?? 'XOF',
+      monthly: (prices['monthly'] as num).toInt(),
+      yearly: (prices['yearly'] as num).toInt(),
+      payTo: j['payTo'] as String?,
+      methods: [for (final m in (j['methods'] as List? ?? const [])) ?PayMethod.fromApi(m as String)],
+      pending: j['pending'] == null ? null : PaymentRequest.fromJson(j['pending'] as Map<String, dynamic>),
+      history: [
+        for (final h in (j['history'] as List? ?? const [])) PaymentRequest.fromJson(h as Map<String, dynamic>),
+      ],
+      referralCode: j['referralCode'] as String?,
+    );
+  }
+}
+
+class Referral {
+  const Referral({required this.name, required this.joinedAt, required this.rewarded, this.city});
+  final String name;
+  final String? city;
+  final DateTime joinedAt;
+  final bool rewarded;
+}
+
+class ReferralInfo {
+  const ReferralInfo({required this.code, required this.bonusDays, required this.daysEarned, required this.referrals});
+  final String code;
+  final int bonusDays;
+  final int daysEarned;
+  final List<Referral> referrals;
+
+  factory ReferralInfo.fromJson(Map<String, dynamic> j) => ReferralInfo(
+    code: j['code'] as String,
+    bonusDays: (j['bonusDays'] as num).toInt(),
+    daysEarned: (j['daysEarned'] as num).toInt(),
+    referrals: [
+      for (final r in (j['referrals'] as List))
+        Referral(
+          name: (r as Map)['name'] as String,
+          city: r['city'] as String?,
+          joinedAt: DateTime.parse(r['joinedAt'] as String),
+          rewarded: r['rewarded'] == true,
+        ),
+    ],
+  );
 }
 
 class Category {

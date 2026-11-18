@@ -1,12 +1,14 @@
 import { createParamDecorator, ExecutionContext, SetMetadata } from '@nestjs/common';
 import type { ModuleKey, Permission } from '@sama360/contracts';
 import { AppError } from '../http/app-error';
+import type { ProFeature } from '../plans';
 import type { AppRequest, AuthUser, TenantContext } from './auth.types';
 
 export const IS_PUBLIC = 'sama:isPublic';
 export const REQUIRED_PERMISSION = 'sama:permission';
 export const REQUIRED_MODULE = 'sama:module';
 export const TENANT_SCOPED = 'sama:tenant';
+export const REQUIRED_PRO = 'sama:pro';
 
 /** Route accessible sans jeton. */
 export const Public = () => SetMetadata(IS_PUBLIC, true);
@@ -19,6 +21,9 @@ export const RequirePermission = (permission: Permission) => SetMetadata(REQUIRE
 
 /** Exige que le module soit activé pour l'entreprise courante. */
 export const RequireModule = (module: ModuleKey) => SetMetadata(REQUIRED_MODULE, module);
+
+/** Fonction réservée à Sama360 Pro (essai ou abonnement en cours) ; implique TenantScoped. */
+export const RequirePro = (feature: ProFeature) => SetMetadata(REQUIRED_PRO, feature);
 
 export const CurrentUser = createParamDecorator((_: unknown, ctx: ExecutionContext): AuthUser => {
   const req = ctx.switchToHttp().getRequest<AppRequest>();

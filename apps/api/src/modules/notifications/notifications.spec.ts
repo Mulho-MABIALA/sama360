@@ -13,7 +13,7 @@ describe('notifications', () => {
   });
 
   it('chaque rôle voit ce qui le concerne', () => {
-    expect(visibleAudiences(['*'])).toHaveLength(8);
+    expect(visibleAudiences(['*'])).toHaveLength(9);
     const cashier = ['contacts:read', 'sales:read', 'sales:create', 'inventory:read', 'invoicing:read'];
     expect(visibleAudiences(cashier)).not.toContain('sales:void');
     expect(visibleAudiences(cashier)).not.toContain('reports:read');

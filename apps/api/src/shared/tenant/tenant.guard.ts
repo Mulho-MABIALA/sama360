@@ -1,13 +1,14 @@
 import { countryOf } from '../countries';
-import { CanActivate, ExecutionContext, Injectable } from '@nestjs/common';
+import { CanActivate, ExecutionContext, HttpStatus, Injectable } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { hasPermission } from '@sama360/contracts';
 import { and, eq, isNull } from 'drizzle-orm';
 import { sql } from 'drizzle-orm';
 import type { AppRequest } from '../auth/auth.types';
-import { IS_PUBLIC, REQUIRED_MODULE, REQUIRED_PERMISSION, TENANT_SCOPED } from '../auth/decorators';
+import { IS_PUBLIC, REQUIRED_MODULE, REQUIRED_PERMISSION, REQUIRED_PRO, TENANT_SCOPED } from '../auth/decorators';
+import { effectivePlan, PRO_FEATURE_LABELS, ProFeature } from '../plans';
 import { DbService } from '../db/db.service';
-import { businesses, memberships, moduleActivations, roles } from '../db/schema';
+import { businesses, memberships, moduleActivations, roles, subscriptions } from '../db/schema';
 import { AppError } from '../http/app-error';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -31,7 +32,8 @@ export class TenantGuard implements CanActivate {
     const permission = this.reflector.getAllAndOverride<string>(REQUIRED_PERMISSION, targets);
     const module = this.reflector.getAllAndOverride<string>(REQUIRED_MODULE, targets);
     const scoped = this.reflector.getAllAndOverride<boolean>(TENANT_SCOPED, targets);
-    if (!permission && !module && !scoped) return true;
+    const proFeature = this.reflector.getAllAndOverride<ProFeature>(REQUIRED_PRO, targets);
+    if (!permission && !module && !scoped && !proFeature) return true;
 
     const req = ctx.switchToHttp().getRequest<AppRequest>();
     const businessId = req.header('x-business-id');
@@ -47,10 +49,14 @@ export class TenantGuard implements CanActivate {
         roleKey: roles.key,
         permissions: roles.permissions,
         country: businesses.country,
+        plan: subscriptions.plan,
+        planStatus: subscriptions.status,
+        periodEnd: subscriptions.currentPeriodEnd,
       })
       .from(memberships)
       .innerJoin(roles, eq(roles.id, memberships.roleId))
       .innerJoin(businesses, eq(businesses.id, memberships.businessId))
+      .leftJoin(subscriptions, eq(subscriptions.businessId, memberships.businessId))
       .where(
         and(
           eq(memberships.businessId, businessId),
@@ -77,6 +83,18 @@ export class TenantGuard implements CanActivate {
       throw new AppError('MODULE_NOT_ENABLED', `Le module ${module} n'est pas activé`, 403, { module });
     }
 
+    const pro = effectivePlan(
+      m.plan ? { plan: m.plan, status: m.planStatus ?? 'active', currentPeriodEnd: m.periodEnd } : null,
+    ).pro;
+    if (proFeature && !pro) {
+      throw new AppError(
+        'PRO_REQUIRED',
+        `${PRO_FEATURE_LABELS[proFeature]} : fonction Sama360 Pro`,
+        HttpStatus.PAYMENT_REQUIRED,
+        { feature: proFeature },
+      );
+    }
+
     req.tenant = {
       businessId,
       membershipId: m.membershipId,
@@ -84,6 +102,7 @@ export class TenantGuard implements CanActivate {
       permissions: m.permissions,
       modules,
       country: countryOf(m.country).code,
+      pro,
     };
     return true;
   }

@@ -17,7 +17,7 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import type { Response } from 'express';
 import { z } from 'zod';
 import type { AuthUser, TenantContext } from '../../shared/auth/auth.types';
-import { CurrentTenant, CurrentUser, RequireModule, RequirePermission } from '../../shared/auth/decorators';
+import { CurrentTenant, CurrentUser, RequireModule, RequirePermission, RequirePro } from '../../shared/auth/decorators';
 import { env } from '../../shared/config/env';
 import { AppError } from '../../shared/http/app-error';
 import { parse } from '../../shared/http/zod';
@@ -78,6 +78,7 @@ export class DocumentsController {
 
   /** Ajout (multipart) : champ « file » (photo ou PDF) + title, category, note, expiresOn. */
   @Post()
+  @RequirePro('documents')
   @RequirePermission('documents:write')
   @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 25 * 1024 * 1024, files: 1 } }))
   create(
@@ -97,6 +98,7 @@ export class DocumentsController {
   }
 
   @Patch(':id')
+  @RequirePro('documents')
   @RequirePermission('documents:write')
   update(@CurrentTenant() t: TenantContext, @Param('id', ParseUUIDPipe) id: string, @Body() body: unknown) {
     return this.documents.update(t.businessId, id, parse(Fields.partial(), body));

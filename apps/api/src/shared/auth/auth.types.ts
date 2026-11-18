@@ -13,6 +13,8 @@ export interface TenantContext {
   modules: string[];
   /** Pays de l'entreprise (indicatif par défaut des numéros, moyens de paiement). */
   country: CountryCode;
+  /** Sama360 Pro actif (essai ou abonnement payé en cours). */
+  pro: boolean;
 }
 
 export interface AppRequest extends Request {

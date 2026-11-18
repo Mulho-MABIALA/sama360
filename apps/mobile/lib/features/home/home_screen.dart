@@ -23,7 +23,7 @@ import 'monument.dart';
 import 'promo_carousel.dart';
 
 class _Service {
-  const _Service(this.name, this.icon, this.color, {this.route, this.soon = false, this.art});
+  const _Service(this.name, this.icon, this.color, {this.route, this.soon = false, this.art, this.pro});
   final String name;
   final IconData icon;
   final Color color;
@@ -32,6 +32,9 @@ class _Service {
   final String? art;
   final String? route;
   final bool soon;
+
+  /// Fonction Sama360 Pro : sans Pro, la tuile mène à l'offre.
+  final ProFeature? pro;
 }
 
 /// Tuiles principales de l'accueil (7 + « Plus »).
@@ -58,10 +61,24 @@ const _bookingService = _Service(
   route: '/booking',
   art: 'reservation',
 );
-const _shopService = _Service('Boutique', Icons.storefront_rounded, Color(0xFF0E9384), route: '/shop', art: 'boutique');
+const _shopService = _Service(
+  'Boutique',
+  Icons.storefront_rounded,
+  Color(0xFF0E9384),
+  route: '/shop',
+  art: 'boutique',
+  pro: ProFeature.shop,
+);
 
 /// 7e tuile : l'équipe pour qui peut la voir, sinon les paiements (bientôt).
-const _teamService = _Service('Équipe', Icons.groups_rounded, Color(0xFFDB2777), route: '/team', art: 'equipe');
+const _teamService = _Service(
+  'Équipe',
+  Icons.groups_rounded,
+  Color(0xFFDB2777),
+  route: '/team',
+  art: 'equipe',
+  pro: ProFeature.team,
+);
 const _purchasesService = _Service(
   'Achats',
   Icons.local_shipping_rounded,
@@ -86,10 +103,31 @@ const _moreServices = [
   _purchasesService,
   _paymentsService,
   _shopService,
-  _Service('Documents', Icons.folder_rounded, Color(0xFF6B7280), route: '/documents', art: 'documents'),
-  _Service('Livraison', Icons.local_shipping_rounded, Color(0xFFD9822B), route: '/deliveries', art: 'livraison'),
+  _Service(
+    'Documents',
+    Icons.folder_rounded,
+    Color(0xFF6B7280),
+    route: '/documents',
+    art: 'documents',
+    pro: ProFeature.documents,
+  ),
+  _Service(
+    'Livraison',
+    Icons.local_shipping_rounded,
+    Color(0xFFD9822B),
+    route: '/deliveries',
+    art: 'livraison',
+    pro: ProFeature.delivery,
+  ),
   _Service('Réservation', Icons.event_available_rounded, Color(0xFF2F6FDB), route: '/booking', art: 'reservation'),
-  _Service('Assistant IA', Icons.auto_awesome_rounded, Color(0xFF7A5AF8), route: '/assistant', art: 'assistant'),
+  _Service(
+    'Assistant IA',
+    Icons.auto_awesome_rounded,
+    Color(0xFF7A5AF8),
+    route: '/assistant',
+    art: 'assistant',
+    pro: ProFeature.assistant,
+  ),
 ];
 
 class HomeScreen extends ConsumerWidget {
@@ -120,6 +158,8 @@ class HomeScreen extends ConsumerWidget {
     void open(_Service s) {
       if (s.soon) {
         showInfo(context, '${s.name} arrive bientôt sur Sama360');
+      } else if (s.pro != null && !ref.read(isProProvider)) {
+        context.push('/pro?feature=${s.pro!.key}');
       } else if (s.route == '/documents' && !ref.can('documents:read')) {
         showInfo(context, 'Documents : réservé au propriétaire, au gérant et au comptable');
       } else if (s.route == 'expense') {
@@ -1000,20 +1040,25 @@ class _LowStockBanner extends StatelessWidget {
 }
 
 /// Tuile de service : verre givré, pastille brillante, libellé.
-class _ServiceTile extends StatelessWidget {
+class _ServiceTile extends ConsumerWidget {
   const _ServiceTile({required this.service, required this.onTap});
   final _Service service;
   final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final locked = service.pro != null && !ref.watch(isProProvider);
     final (bg, fg) = AppColors.tone(
       Color.alphaBlend(service.color.withValues(alpha: 0.14), Colors.white),
       service.color,
     );
     return Semantics(
       button: true,
-      label: service.soon ? '${service.name}, bientôt disponible' : service.name,
+      label: service.soon
+          ? '${service.name}, bientôt disponible'
+          : locked
+          ? '${service.name}, fonction Pro'
+          : service.name,
       excludeSemantics: true,
       child: InkWell(
         onTap: onTap,
@@ -1040,6 +1085,22 @@ class _ServiceTile extends StatelessWidget {
                               Icon(service.icon, color: AppColors.isDark ? fg : service.color, size: 26),
                         ),
                 ),
+                if (locked)
+                  Positioned(
+                    top: -6,
+                    right: -10,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(colors: [Color(0xFFFFB020), Color(0xFFFF7A00)]),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: const Text(
+                        'PRO',
+                        style: TextStyle(color: Colors.white, fontSize: 8.5, fontWeight: FontWeight.w800),
+                      ),
+                    ),
+                  ),
                 if (service.soon)
                   Positioned(
                     top: -6,

@@ -10,6 +10,7 @@ import { newId } from '../../shared/ids';
 import { FilesService } from '../files/files.service';
 import { SYSTEM_ROLE_IDS } from './roles';
 import { slugify } from './slug';
+import { extendFrom, referralCode, TRIAL_DAYS } from '../../shared/plans';
 import { COUNTRIES, CountryCode } from '../../shared/countries';
 
 export interface CreateBusinessInput {
@@ -21,6 +22,7 @@ export interface CreateBusinessInput {
   ninea?: string | null;
   focus?: Focus | null;
   country?: CountryCode;
+  referralCode?: string;
 }
 
 export interface UpdateBusinessInput extends Partial<Omit<CreateBusinessInput, 'focus'>> {
@@ -45,6 +47,17 @@ export class BusinessesService {
   async create(ownerId: string, input: CreateBusinessInput) {
     const id = newId();
     const slug = await this.uniqueSlug(slugify(input.name));
+    const code = await this.uniqueReferralCode(input.name);
+    // Parrain : code saisi à l'inscription (insensible à la casse) ; un code inconnu est ignoré
+    const sponsor = input.referralCode
+      ? (
+          await this.dbs.db
+            .select({ id: businesses.id })
+            .from(businesses)
+            .where(sql`upper(${businesses.referralCode}) = ${input.referralCode.trim().toUpperCase()}`)
+            .limit(1)
+        )[0]
+      : undefined;
 
     return this.dbs.withTenant(id, async (tx) => {
       const [business] = await tx
@@ -62,6 +75,8 @@ export class BusinessesService {
           country: input.country ?? 'SN',
           currency: COUNTRIES[input.country ?? 'SN'].currency,
           settings: input.focus ? { focus: input.focus } : {},
+          referralCode: code,
+          referredBy: sponsor?.id ?? null,
         })
         .returning();
 
@@ -72,7 +87,15 @@ export class BusinessesService {
         roleId: SYSTEM_ROLE_IDS.owner,
         status: 'active',
       });
-      await tx.insert(subscriptions).values({ id: newId(), businessId: id, plan: 'free' });
+      // 30 jours de Pro offerts pour découvrir tout Sama360
+      const trialEnd = extendFrom(null, TRIAL_DAYS);
+      await tx.insert(subscriptions).values({
+        id: newId(),
+        businessId: id,
+        plan: 'pro',
+        status: 'trialing',
+        currentPeriodEnd: trialEnd,
+      });
       await tx.insert(moduleActivations).values(DEFAULT_MODULES.map((module) => ({ businessId: id, module })));
 
       await this.outbox.record(tx, {
@@ -83,8 +106,25 @@ export class BusinessesService {
         payload: { businessId: id, ownerId, name: business.name, category: business.category },
       });
 
-      return { business, modules: DEFAULT_MODULES, subscription: { plan: 'free' } };
+      return {
+        business,
+        modules: DEFAULT_MODULES,
+        subscription: { plan: 'pro', status: 'trialing', currentPeriodEnd: trialEnd },
+      };
     });
+  }
+
+  private async uniqueReferralCode(name: string): Promise<string> {
+    for (let i = 0; i < 10; i++) {
+      const code = referralCode(name);
+      const [taken] = await this.dbs.db
+        .select({ id: businesses.id })
+        .from(businesses)
+        .where(eq(businesses.referralCode, code))
+        .limit(1);
+      if (!taken) return code;
+    }
+    return referralCode(name) + referralCode('', Math.random).slice(3, 5);
   }
 
   async getCurrent(businessId: string) {

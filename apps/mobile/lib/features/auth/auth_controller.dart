@@ -91,10 +91,18 @@ class AuthController extends AsyncNotifier<AuthState> {
     String? city,
     String? focus,
     String? country,
+    String? referralCode,
   }) async {
     final id = await ref
         .read(repoProvider)
-        .createBusiness(name: name.trim(), category: category, city: city, focus: focus, country: country);
+        .createBusiness(
+          name: name.trim(),
+          category: category,
+          city: city,
+          focus: focus,
+          country: country,
+          referralCode: referralCode,
+        );
     await _store.saveBusinessId(id);
     state = AsyncData(await _load());
   }

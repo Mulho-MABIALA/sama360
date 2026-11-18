@@ -15,7 +15,7 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express';
 import { z } from 'zod';
 import { AuthUser, TenantContext } from '../../shared/auth/auth.types';
-import { CurrentTenant, CurrentUser, RequirePermission } from '../../shared/auth/decorators';
+import { CurrentTenant, CurrentUser, RequirePermission, RequirePro } from '../../shared/auth/decorators';
 import { env } from '../../shared/config/env';
 import { AppError } from '../../shared/http/app-error';
 import { parse } from '../../shared/http/zod';
@@ -36,8 +36,10 @@ const CreateBusiness = z.object({
   ninea: text(30).nullish(),
   // Pays : indicatif des numéros, monnaie (XOF / XAF), paiements mobiles
   country: z.enum(COUNTRY_CODES).optional(),
+  // Code de parrainage d'un autre commerçant (facultatif)
+  referralCode: z.string().trim().max(12).optional(),
 });
-const UpdateBusiness = CreateBusiness.partial().extend({
+const UpdateBusiness = CreateBusiness.omit({ referralCode: true }).partial().extend({
   // Activité : produits, services ou les deux (adapte l'accueil et les premiers pas)
   focus: z.enum(FOCUSES).optional(),
   // Le patron a masqué la carte « Premiers pas »
@@ -134,6 +136,7 @@ export class CoreController {
   }
 
   @Post('members')
+  @RequirePro('team')
   @RequirePermission('members:invite')
   invite(@CurrentTenant() tenant: TenantContext, @CurrentUser() user: AuthUser, @Body() body: unknown) {
     const input = parse(InviteMember, body);

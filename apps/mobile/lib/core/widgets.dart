@@ -1,8 +1,10 @@
 import 'dart:math' as math;
 
+import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
+import 'api/api_client.dart' show ApiException;
 import 'countries.dart';
 import 'format.dart';
 import 'providers.dart';
@@ -184,6 +186,22 @@ class Pill extends StatelessWidget {
 
 void showError(BuildContext context, Object error) {
   final text = error is String ? error : errorMessage(error);
+  // Fonction Pro : on propose de passer à Pro plutôt qu'une simple erreur
+  if (error is ApiException && error.code == 'PRO_REQUIRED') {
+    final feature = (error.details as Map?)?['feature'];
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(text),
+          action: SnackBarAction(
+            label: 'Passer à Pro',
+            onPressed: () => GoRouter.of(context).push('/pro${feature == null ? '' : '?feature=$feature'}'),
+          ),
+        ),
+      );
+    return;
+  }
   ScaffoldMessenger.of(context)
     ..hideCurrentSnackBar()
     ..showSnackBar(SnackBar(content: Text(text), backgroundColor: AppColors.danger));

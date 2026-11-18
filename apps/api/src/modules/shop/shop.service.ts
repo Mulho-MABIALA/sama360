@@ -86,7 +86,7 @@ export class ShopService {
 
   // ------------------------------------------------------------------ public
 
-  /** Entreprise d'une boutique ouverte, d'après son adresse (slug). Sinon 404. */
+  /** Entreprise d'une boutique ouverte (abonnement Pro en cours), d'après son adresse (slug). Sinon 404. */
   async resolve(slug: string): Promise<{
     id: string;
     name: string;
@@ -101,7 +101,9 @@ export class ShopService {
       await this.dbs.transaction((tx) =>
         tx.execute(sql`
           SELECT id, name, phone, address, city, logo_file_id, brand_color, country FROM core.businesses
-          WHERE slug = ${slug.toLowerCase()} AND deleted_at IS NULL`),
+          WHERE slug = ${slug.toLowerCase()} AND deleted_at IS NULL
+            AND EXISTS (SELECT 1 FROM core.subscriptions s WHERE s.business_id = core.businesses.id
+                        AND s.plan = 'pro' AND s.current_period_end > now())`),
       )
     ).rows as Row[];
     if (!b) throw AppError.notFound('Boutique');

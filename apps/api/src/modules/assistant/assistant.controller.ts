@@ -2,7 +2,7 @@ import { Body, Controller, Get, HttpCode, Post } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { z } from 'zod';
 import type { AuthUser, TenantContext } from '../../shared/auth/auth.types';
-import { CurrentTenant, CurrentUser, RequirePermission } from '../../shared/auth/decorators';
+import { CurrentTenant, CurrentUser, RequirePermission, RequirePro } from '../../shared/auth/decorators';
 import { parse } from '../../shared/http/zod';
 import { AssistantService } from './assistant.service';
 
@@ -26,6 +26,7 @@ export class AssistantController {
   }
 
   @Post('chat')
+  @RequirePro('assistant')
   @HttpCode(200)
   @RequirePermission('business:read')
   @Throttle({ default: { limit: 10, ttl: 60_000 } })

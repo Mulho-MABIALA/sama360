@@ -1,7 +1,7 @@
 import { Body, Controller, Get, Param, ParseUUIDPipe, Patch, Post, Query } from '@nestjs/common';
 import { z } from 'zod';
 import type { AuthUser, TenantContext } from '../../shared/auth/auth.types';
-import { CurrentTenant, CurrentUser, RequirePermission } from '../../shared/auth/decorators';
+import { CurrentTenant, CurrentUser, RequirePermission, RequirePro } from '../../shared/auth/decorators';
 import { parse } from '../../shared/http/zod';
 import { DELIVERY_STATUSES, VEHICLES } from './delivery';
 import { DeliveryService } from './delivery.service';
@@ -45,12 +45,14 @@ export class DeliveryController {
   }
 
   @Post('couriers')
+  @RequirePro('delivery')
   @RequirePermission('sales:create')
   addCourier(@CurrentTenant() t: TenantContext, @Body() body: unknown) {
     return this.delivery.addCourier(t.businessId, parse(Courier, body));
   }
 
   @Patch('couriers/:id')
+  @RequirePro('delivery')
   @RequirePermission('sales:create')
   updateCourier(@CurrentTenant() t: TenantContext, @Param('id', ParseUUIDPipe) id: string, @Body() body: unknown) {
     return this.delivery.updateCourier(t.businessId, id, parse(CourierPatch, body));
@@ -63,12 +65,14 @@ export class DeliveryController {
   }
 
   @Post('deliveries')
+  @RequirePro('delivery')
   @RequirePermission('sales:create')
   create(@CurrentTenant() t: TenantContext, @CurrentUser() user: AuthUser, @Body() body: unknown) {
     return this.delivery.create(t.businessId, user.id, parse(Delivery, body));
   }
 
   @Patch('deliveries/:id')
+  @RequirePro('delivery')
   @RequirePermission('sales:create')
   update(
     @CurrentTenant() t: TenantContext,
@@ -81,6 +85,7 @@ export class DeliveryController {
 
   /** Le livreur a remis l'argent : ses courses livrées sont soldées. */
   @Post('couriers/:id/settle')
+  @RequirePro('delivery')
   @RequirePermission('sales:create')
   settle(@CurrentTenant() t: TenantContext, @Param('id', ParseUUIDPipe) id: string) {
     return this.delivery.settle(t.businessId, id);

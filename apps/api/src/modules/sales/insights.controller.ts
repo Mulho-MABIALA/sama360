@@ -2,7 +2,7 @@ import { Controller, Get, Query } from '@nestjs/common';
 import { sql } from 'drizzle-orm';
 import { z } from 'zod';
 import { TenantContext } from '../../shared/auth/auth.types';
-import { CurrentTenant, RequireModule, RequirePermission } from '../../shared/auth/decorators';
+import { CurrentTenant, RequireModule, RequirePermission, RequirePro } from '../../shared/auth/decorators';
 import { DbService, Tx } from '../../shared/db/db.service';
 import { parse } from '../../shared/http/zod';
 import {
@@ -36,6 +36,7 @@ export class InsightsController {
   constructor(private readonly dbs: DbService) {}
 
   @Get('insights')
+  @RequirePro('insights')
   @RequirePermission('reports:read')
   insights(@CurrentTenant() t: TenantContext, @Query() query: unknown) {
     const { days } = parse(InsightsQuery, query);
@@ -59,6 +60,7 @@ export class InsightsController {
   }
 
   @Get('weekly')
+  @RequirePro('insights')
   @RequirePermission('reports:read')
   weekly(@CurrentTenant() t: TenantContext, @Query() query: unknown) {
     const { week } = parse(WeeklyQuery, query);

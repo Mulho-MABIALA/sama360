@@ -3,7 +3,7 @@ import { Throttle } from '@nestjs/throttler';
 import type { Response } from 'express';
 import { z } from 'zod';
 import { AuthUser, TenantContext } from '../../shared/auth/auth.types';
-import { CurrentTenant, CurrentUser, Public, RequireModule, RequirePermission } from '../../shared/auth/decorators';
+import { CurrentTenant, CurrentUser, Public, RequireModule, RequirePermission, RequirePro } from '../../shared/auth/decorators';
 import { AppError } from '../../shared/http/app-error';
 import { parse } from '../../shared/http/zod';
 import { storefrontPage } from './storefront.page';
@@ -106,6 +106,7 @@ export class ShopController {
   }
 
   @Put('v1/shop/settings')
+  @RequirePro('shop')
   @RequireModule('shop')
   @RequirePermission('catalog:write')
   settings(@CurrentTenant() t: TenantContext, @Body() body: unknown) {
@@ -113,6 +114,7 @@ export class ShopController {
   }
 
   @Post('v1/shop/publish')
+  @RequirePro('shop')
   @HttpCode(200)
   @RequireModule('shop')
   @RequirePermission('catalog:write')
@@ -135,6 +137,7 @@ export class ShopController {
   }
 
   @Post('v1/shop/orders/:id/status')
+  @RequirePro('shop')
   @HttpCode(200)
   @RequireModule('shop')
   @RequirePermission('sales:create')

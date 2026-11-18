@@ -6,6 +6,7 @@ import { AppError } from '../../shared/http/app-error';
 import { newId } from '../../shared/ids';
 import { hourLabel } from '../booking/booking';
 import { EXPIRY_WARNING_DAYS } from '../documents/documents';
+import { effectivePlan, SubscriptionRow } from '../../shared/plans';
 import { fcfa, weekOf } from '../sales/insights';
 
 /** Permissions qui ouvrent l'accès à une notification (colonne `audience`). */
@@ -18,6 +19,7 @@ export const AUDIENCES = [
   'reports:read',
   'contacts:read',
   'documents:read',
+  'business:update',
 ] as const;
 export type Audience = (typeof AUDIENCES)[number];
 
@@ -262,6 +264,38 @@ export class NotificationsService {
           link: '/reminders',
           audience: 'contacts:read',
           dedupeKey: `credit_stale:${isoWeek(now)}`,
+        });
+      }
+    }
+
+    // Sama360 Pro : fin d'essai ou d'abonnement (7 jours, la veille, puis terminé)
+    if (can('business:update')) {
+      const sub = (
+        await tx.execute(sql`
+          SELECT plan, status, current_period_end AS "currentPeriodEnd"
+          FROM core.subscriptions WHERE business_id = ${businessId}`)
+      ).rows[0] as unknown as SubscriptionRow | undefined;
+      const p = effectivePlan(sub, now);
+      const what = sub?.status === 'trialing' ? 'Votre essai Sama360 Pro' : 'Votre abonnement Sama360 Pro';
+      const end = p.endsAt?.slice(0, 10);
+      if (p.pro && p.daysLeft <= 7) {
+        const bucket = p.daysLeft <= 1 ? 1 : 7;
+        await this.push(tx, businessId, {
+          kind: 'pro_ending',
+          title: p.daysLeft <= 1 ? `${what} se termine demain` : `${what} se termine dans ${p.daysLeft} jours`,
+          body: 'Renouvelez pour garder la boutique en ligne, les vendeurs, les livraisons et l’assistant.',
+          link: '/pro',
+          audience: 'business:update',
+          dedupeKey: `pro_ending:${end}:${bucket}`,
+        });
+      } else if (p.state === 'expired' && p.endsAt && now.getTime() - Date.parse(p.endsAt) < 30 * 86_400_000) {
+        await this.push(tx, businessId, {
+          kind: 'pro_ended',
+          title: `${what} est terminé`,
+          body: 'Vos ventes, votre stock et vos clients restent là. Passez à Pro pour retrouver le reste.',
+          link: '/pro',
+          audience: 'business:update',
+          dedupeKey: `pro_ended:${end}`,
         });
       }
     }

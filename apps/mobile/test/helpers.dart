@@ -199,8 +199,16 @@ class FakeRepo extends SamaRepository {
     String? city,
     String? focus,
     String? country,
+    String? referralCode,
   }) async {
-    createdBusinesses.add({'name': name, 'category': category, 'city': city, 'focus': focus, 'country': country});
+    createdBusinesses.add({
+      'name': name,
+      'category': category,
+      'city': city,
+      'focus': focus,
+      'country': country,
+      'referralCode': ?referralCode,
+    });
     return 'b2';
   }
 
@@ -214,29 +222,113 @@ class FakeRepo extends SamaRepository {
   Future<void> updateCountry(String code) async => businessCountry = Country.fromCode(code);
 
   @override
-  Future<CurrentBusiness> currentBusiness() async =>
-      logoFileId == null &&
-          brandColor == null &&
-          !requireOpenCash &&
-          businessFocus == null &&
-          businessCountry == Country.sn
-      ? demoBusiness
-      : CurrentBusiness(
-          id: demoBusiness.id,
-          name: demoBusiness.name,
-          slug: demoBusiness.slug,
-          city: demoBusiness.city,
-          phone: demoBusiness.phone,
-          address: demoBusiness.address,
-          logoFileId: logoFileId,
-          brandColor: brandColor,
-          requireOpenCash: requireOpenCash,
-          focus: businessFocus,
-          country: businessCountry,
-          role: demoBusiness.role,
-          permissions: demoBusiness.permissions,
-          modules: demoBusiness.modules,
-        );
+  Future<CurrentBusiness> currentBusiness() async => CurrentBusiness(
+    id: demoBusiness.id,
+    name: demoBusiness.name,
+    slug: demoBusiness.slug,
+    city: demoBusiness.city,
+    phone: demoBusiness.phone,
+    address: demoBusiness.address,
+    logoFileId: logoFileId,
+    brandColor: brandColor,
+    requireOpenCash: requireOpenCash,
+    focus: businessFocus,
+    country: businessCountry,
+    proUntil: proUntil,
+    trial: proTrial,
+    role: demoBusiness.role,
+    permissions: demoBusiness.permissions,
+    modules: demoBusiness.modules,
+  );
+
+  // ── Sama360 Pro et parrainage
+  /// Pro jusqu'à… (par défaut : actif, pour ne rien verrouiller dans les autres tests).
+  DateTime? proUntil = DateTime(2100);
+  bool proTrial = false;
+  ProStatus? proStatus;
+  final proPayments = <Map<String, Object?>>[];
+  ReferralInfo referralInfo = const ReferralInfo(code: 'AWA7K2', bonusDays: 30, daysEarned: 0, referrals: []);
+  bool platformAdmin = false;
+  final adminQueue = <PaymentRequest>[];
+  final adminOps = <(String, String, String?)>[];
+
+  ProStatus get _defaultPro => ProStatus(
+    pro: proUntil != null && proUntil!.isAfter(DateTime.now()),
+    state: proUntil == null
+        ? ProState.free
+        : !proUntil!.isAfter(DateTime.now())
+        ? ProState.expired
+        : proTrial
+        ? ProState.trial
+        : ProState.active,
+    endsAt: proUntil,
+    daysLeft: proUntil == null ? 0 : proUntil!.difference(DateTime.now()).inDays.clamp(0, 99999),
+    monthly: 5000,
+    yearly: 50000,
+    payTo: 'Wave au 77 000 00 00 (Zolaa Tech)',
+    methods: businessCountry.mobileMoney,
+    referralCode: referralInfo.code,
+  );
+
+  @override
+  Future<ProStatus> subscription() async => proStatus ?? _defaultPro;
+
+  @override
+  Future<PaymentRequest> requestProPayment({
+    required String cycle,
+    required PayMethod method,
+    required String reference,
+    String? payerPhone,
+  }) async {
+    proPayments.add({'cycle': cycle, 'method': method, 'reference': reference, 'payerPhone': payerPhone});
+    final r = PaymentRequest(
+      id: 'pay${proPayments.length}',
+      cycle: cycle,
+      amount: cycle == 'yearly' ? 50000 : 5000,
+      method: method,
+      reference: reference,
+      payerPhone: payerPhone,
+      status: 'pending',
+      createdAt: DateTime(2026, 11, 18, 10),
+    );
+    final base = await subscription();
+    proStatus = ProStatus(
+      pro: base.pro,
+      state: base.state,
+      endsAt: base.endsAt,
+      daysLeft: base.daysLeft,
+      monthly: base.monthly,
+      yearly: base.yearly,
+      payTo: base.payTo,
+      methods: base.methods,
+      pending: r,
+      history: [r],
+      referralCode: base.referralCode,
+    );
+    return r;
+  }
+
+  @override
+  Future<ReferralInfo> referrals() async => referralInfo;
+
+  @override
+  Future<bool> isPlatformAdmin() async => platformAdmin;
+
+  @override
+  Future<List<PaymentRequest>> adminPaymentRequests({String status = 'pending'}) async =>
+      adminQueue.where((r) => r.status == status).toList();
+
+  @override
+  Future<void> approvePayment(String id) async {
+    adminOps.add(('approve', id, null));
+    adminQueue.removeWhere((r) => r.id == id);
+  }
+
+  @override
+  Future<void> rejectPayment(String id, String? note) async {
+    adminOps.add(('reject', id, note));
+    adminQueue.removeWhere((r) => r.id == id);
+  }
 
   @override
   Future<void> uploadBusinessLogo(List<int> bytes, {String filename = 'logo.png'}) async =>

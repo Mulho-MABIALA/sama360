@@ -53,6 +53,28 @@ final currentBusinessProvider = FutureProvider<CurrentBusiness>((ref) {
   return ref.watch(repoProvider).currentBusiness();
 });
 
+// ── Sama360 Pro
+
+/// Pro actif ? (vrai tant que l'entreprise charge, pour ne rien verrouiller à tort)
+final isProProvider = Provider<bool>((ref) => ref.watch(currentBusinessProvider).value?.isPro ?? true);
+
+final subscriptionProvider = FutureProvider.autoDispose<ProStatus>((ref) => ref.watch(repoProvider).subscription());
+
+final referralsProvider = FutureProvider.autoDispose<ReferralInfo>((ref) => ref.watch(repoProvider).referrals());
+
+/// Membre de l'équipe Sama360 (valide les paiements) ; faux en cas d'erreur.
+final platformAdminProvider = FutureProvider<bool>((ref) async {
+  try {
+    return await ref.watch(repoProvider).isPlatformAdmin();
+  } catch (_) {
+    return false;
+  }
+});
+
+final adminPaymentsProvider = FutureProvider.autoDispose.family<List<PaymentRequest>, String>(
+  (ref, status) => ref.watch(repoProvider).adminPaymentRequests(status: status),
+);
+
 /// Pays choisi à la connexion (avant d'avoir une entreprise).
 class LoginCountry extends Notifier<Country> {
   @override

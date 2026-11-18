@@ -670,6 +670,32 @@ void main() {
   testWidgets('statut WhatsApp (1 produit)', (tester) => statusShot(tester, 'x1', '21_statut_whatsapp', percent: 20));
   testWidgets('statut WhatsApp (3 produits)', (tester) => statusShot(tester, 'x1,x2,x3', '21b_statut_promo'));
 
+  testWidgets('sama360 pro', (tester) async {
+    phoneSize(tester);
+    final repo = FakeRepo()
+      ..proUntil = DateTime.now().add(const Duration(days: 23, hours: 3))
+      ..proTrial = true;
+    await pumpSama(tester, location: '/pro?feature=delivery', repo: repo);
+    await _shot(tester, '22_sama360_pro');
+  });
+
+  testWidgets('parrainage', (tester) async {
+    phoneSize(tester);
+    final repo = FakeRepo()
+      ..referralInfo = ReferralInfo(
+        code: 'AWA7K2',
+        bonusDays: 30,
+        daysEarned: 30,
+        referrals: [
+          Referral(name: 'Ibou Quincaillerie', city: 'Thiès', joinedAt: DateTime(2026, 11, 2), rewarded: true),
+          Referral(name: 'Koné Market', city: 'Abidjan', joinedAt: DateTime(2026, 11, 12), rewarded: false),
+          Referral(name: 'Chez Maman Mav', city: 'Brazzaville', joinedAt: DateTime(2026, 11, 15), rewarded: false),
+        ],
+      );
+    await pumpSama(tester, location: '/referral', repo: repo);
+    await _shot(tester, '23_parrainage');
+  });
+
   testWidgets('notifications', (tester) async {
     phoneSize(tester);
     await pumpSama(tester, location: '/notifications');

@@ -16,6 +16,8 @@ process.env.OTP_SECRET = 'test-otp-secret-0123456789-abcdefghijklmn';
 process.env.MAX_UPLOAD_MB = '1';
 process.env.ASSISTANT_PROVIDER = 'fake'; // faux modèle : toute la chaîne testée sans API payante
 process.env.ASSISTANT_DAILY_LIMIT = '6';
+process.env.ADMIN_PHONES = '+221700000099'; // équipe Sama360 (validation des paiements Pro)
+process.env.PRO_PAY_TO_SN = 'Wave au 77 000 00 00 (Zolaa Tech)';
 process.env.STORAGE_DIR = require('node:path').join(require('node:os').tmpdir(), `sama-e2e-${process.pid}`);
 
 import { INestApplication } from '@nestjs/common';
@@ -184,7 +186,7 @@ describe('Socle Sama360 (e2e)', () => {
       awaBiz = res.body.business.id;
       expect(res.body.business.slug).toBe('awa-beaute');
       expect(res.body.modules).toEqual(expect.arrayContaining(['sales', 'inventory', 'invoicing', 'shop']));
-      expect(res.body.subscription.plan).toBe('free');
+      expect(res.body.subscription).toMatchObject({ plan: 'pro', status: 'trialing' }); // 30 jours d'essai Pro
     });
 
     it('exige X-Business-Id et renvoie mes droits', async () => {
@@ -3080,6 +3082,116 @@ describe('Socle Sama360 (e2e)', () => {
 
     it('refuse un pays non pris en charge', async () => {
       await http.post('/v1/businesses').set(auth(awa.accessToken)).send({ name: 'Ailleurs', country: 'FR' }).expect(422);
+    });
+  });
+
+  describe('Sama360 Pro et parrainage', () => {
+    it('essai, fonctions verrouillées après la fin, paiement validé, mois offert au parrain', async () => {
+      const { sql } = await import('drizzle-orm');
+      // Le parrain
+      const fatou = await login('+221770010001');
+      const fBiz = (
+        await http.post('/v1/businesses').set(auth(fatou.accessToken)).send({ name: 'Fatou Mode' }).expect(201)
+      ).body.business.id;
+      const F = () => auth(fatou.accessToken, fBiz);
+      const fSub = (await http.get('/v1/subscription').set(F()).expect(200)).body;
+      expect(fSub).toMatchObject({ pro: true, state: 'trial', daysLeft: 30, currency: 'XOF' });
+      expect(fSub.prices).toEqual({ monthly: 5000, yearly: 50000 });
+      expect(fSub.payTo).toBe('Wave au 77 000 00 00 (Zolaa Tech)');
+      expect(fSub.referralCode).toMatch(/^FAT[A-Z2-9]{3}$/);
+      const fatouEnd = Date.parse(fSub.endsAt);
+
+      // Le filleul s'inscrit avec le code (en minuscules)
+      const ibou = await login('+221770010002');
+      const iBiz = (
+        await http
+          .post('/v1/businesses')
+          .set(auth(ibou.accessToken))
+          .send({ name: 'Ibou Quincaillerie', referralCode: fSub.referralCode.toLowerCase() })
+          .expect(201)
+      ).body.business.id;
+      const I = () => auth(ibou.accessToken, iBiz);
+      await http.put('/v1/shop/settings').set(I()).send({ enabled: true }).expect(200);
+      const slug = (await http.get('/v1/shop').set(I()).expect(200)).body.slug;
+      await http.get(`/v1/public/shops/${slug}`).expect(200);
+
+      let refs = (await http.get('/v1/referrals').set(F()).expect(200)).body;
+      expect(refs.referrals).toEqual([expect.objectContaining({ name: 'Ibou Quincaillerie', rewarded: false })]);
+
+      // Fin de l'essai : les fonctions Pro sont verrouillées, le reste marche
+      await dbs.db.execute(
+        sql`UPDATE core.subscriptions SET current_period_end = now() - interval '1 day' WHERE business_id = ${iBiz}`,
+      );
+      const locked = await http.post('/v1/couriers').set(I()).send({ name: 'Modou' }).expect(402);
+      expect(locked.body.error).toMatchObject({ code: 'PRO_REQUIRED', details: { feature: 'delivery' } });
+      await http.post('/v1/members').set(I()).send({ phone: '+221770010003', roleKey: 'cashier' }).expect(402);
+      await http.get('/v1/reports/insights').set(I()).expect(402);
+      await http.get(`/v1/public/shops/${slug}`).expect(404); // boutique en ligne fermée
+      await http.get('/v1/catalog/products').set(I()).expect(200);
+      expect((await http.get('/v1/subscription').set(I()).expect(200)).body).toMatchObject({ pro: false, state: 'expired' });
+
+      // « J'ai payé »
+      const req = (
+        await http
+          .post('/v1/subscription/requests')
+          .set(I())
+          .send({ cycle: 'monthly', method: 'wave', reference: 'TX-AB12CD', payerPhone: '77 001 00 02' })
+          .expect(201)
+      ).body;
+      expect(req).toMatchObject({ status: 'pending', amount: 5000, currency: 'XOF', payerPhone: '+221770010002' });
+      await http
+        .post('/v1/subscription/requests')
+        .set(I())
+        .send({ cycle: 'monthly', method: 'wave', reference: 'TX-AUTRE' })
+        .expect(409);
+
+      // L'équipe Sama360 valide
+      await http.get('/v1/admin/subscription-requests').set(auth(ibou.accessToken)).expect(403);
+      const admin = await login('+221700000099');
+      expect((await http.get('/v1/admin/me').set(auth(admin.accessToken)).expect(200)).body).toEqual({ admin: true });
+      const list = (await http.get('/v1/admin/subscription-requests').set(auth(admin.accessToken)).expect(200)).body;
+      expect(list).toEqual([expect.objectContaining({ id: req.id, business: expect.objectContaining({ name: 'Ibou Quincaillerie' }) })]);
+      const ok = (
+        await http.post(`/v1/admin/subscription-requests/${req.id}/approve`).set(auth(admin.accessToken)).expect(201)
+      ).body;
+      expect(ok.sponsorRewarded).toBe(true);
+      // 30 jours payés + 30 jours offerts (premier paiement d'un filleul)
+      const days = (Date.parse(ok.endsAt) - Date.now()) / 86_400_000;
+      expect(days).toBeGreaterThan(59);
+      expect(days).toBeLessThan(61);
+      await http.post(`/v1/admin/subscription-requests/${req.id}/approve`).set(auth(admin.accessToken)).expect(409);
+
+      await http.post('/v1/couriers').set(I()).send({ name: 'Modou' }).expect(201);
+      await http.get(`/v1/public/shops/${slug}`).expect(200);
+      const iSub = (await http.get('/v1/subscription').set(I()).expect(200)).body;
+      expect(iSub).toMatchObject({ pro: true, state: 'active', pending: null });
+      expect(iSub.history[0]).toMatchObject({ status: 'approved' });
+
+      // Le parrain gagne un mois, une seule fois
+      const fAfter = (await http.get('/v1/subscription').set(F()).expect(200)).body;
+      expect(Math.round((Date.parse(fAfter.endsAt) - fatouEnd) / 86_400_000)).toBe(30);
+      refs = (await http.get('/v1/referrals').set(F()).expect(200)).body;
+      expect(refs).toMatchObject({ daysEarned: 30, referrals: [expect.objectContaining({ rewarded: true })] });
+      const notes = (await http.get('/v1/notifications').set(F()).expect(200)).body;
+      expect(JSON.stringify(notes)).toContain('Parrainage : un mois Pro offert');
+
+      // Un 2e paiement : pas de nouveau mois offert ; un paiement refusé est signalé
+      const r2 = (
+        await http.post('/v1/subscription/requests').set(I()).send({ cycle: 'yearly', method: 'orange_money', reference: 'OM-998877' }).expect(201)
+      ).body;
+      expect(r2.amount).toBe(50000);
+      await http
+        .post(`/v1/admin/subscription-requests/${r2.id}/reject`)
+        .set(auth(admin.accessToken))
+        .send({ note: 'Référence introuvable sur notre compte Orange Money' })
+        .expect(201);
+      expect((await http.get('/v1/subscription').set(I()).expect(200)).body.history[0]).toMatchObject({
+        status: 'rejected',
+        note: 'Référence introuvable sur notre compte Orange Money',
+      });
+      // Un code de parrainage inconnu est simplement ignoré
+      const x = await login('+221770010004');
+      await http.post('/v1/businesses').set(auth(x.accessToken)).send({ name: 'Sans parrain', referralCode: 'ZZZZZZ' }).expect(201);
     });
   });
 

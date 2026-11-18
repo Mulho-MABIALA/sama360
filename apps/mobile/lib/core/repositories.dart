@@ -72,6 +72,38 @@ class SamaRepository {
   /// Couleur de la boutique (« #0A7E4F ») ; null pour revenir au vert Sama360.
   Future<void> updateRequireOpenCash(bool value) => api.patch<void>('/v1/business', data: {'requireOpenCash': value});
 
+  // ── Sama360 Pro et parrainage
+
+  Future<ProStatus> subscription() async => ProStatus.fromJson(await api.get<Map<String, dynamic>>('/v1/subscription'));
+
+  /// « J'ai payé » : référence de la transaction Wave / Orange Money / MoMo.
+  Future<PaymentRequest> requestProPayment({
+    required String cycle,
+    required PayMethod method,
+    required String reference,
+    String? payerPhone,
+  }) async => PaymentRequest.fromJson(
+    await api.post<Map<String, dynamic>>(
+      '/v1/subscription/requests',
+      data: {'cycle': cycle, 'method': method.api, 'reference': reference, 'payerPhone': ?payerPhone},
+    ),
+  );
+
+  Future<ReferralInfo> referrals() async => ReferralInfo.fromJson(await api.get<Map<String, dynamic>>('/v1/referrals'));
+
+  /// Équipe Sama360 : validation des paiements Pro.
+  Future<bool> isPlatformAdmin() async => (await api.get<Map<String, dynamic>>('/v1/admin/me'))['admin'] == true;
+
+  Future<List<PaymentRequest>> adminPaymentRequests({String status = 'pending'}) async => [
+    for (final r in await api.get<List<dynamic>>('/v1/admin/subscription-requests', query: {'status': status}))
+      PaymentRequest.fromJson(r as Map<String, dynamic>),
+  ];
+
+  Future<void> approvePayment(String id) => api.post<void>('/v1/admin/subscription-requests/$id/approve');
+
+  Future<void> rejectPayment(String id, String? note) =>
+      api.post<void>('/v1/admin/subscription-requests/$id/reject', data: {'note': ?note});
+
   Future<void> updateCountry(String code) => api.patch<void>('/v1/business', data: {'country': code});
 
   Future<void> updateBrandColor(String? hex) => api.patch<void>('/v1/business', data: {'brandColor': hex});
@@ -97,10 +129,18 @@ class SamaRepository {
     String? city,
     String? focus,
     String? country,
+    String? referralCode,
   }) async {
     final r = await api.post<Map<String, dynamic>>(
       '/v1/businesses',
-      data: {'name': name, 'category': ?category, 'city': ?city, 'focus': ?focus, 'country': ?country},
+      data: {
+        'name': name,
+        'category': ?category,
+        'city': ?city,
+        'focus': ?focus,
+        'country': ?country,
+        'referralCode': ?referralCode,
+      },
     );
     return (r['business'] as Map)['id'] as String;
   }

@@ -327,6 +327,42 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                           trailing: CountryFlag(business.country, width: 28),
                           onTap: ref.can('business:update') ? () => _changeCountry(business) : null,
                         ),
+                      if (business != null)
+                        _Row(
+                          key: const Key('pro_row'),
+                          icon: Icons.workspace_premium_rounded,
+                          color: const Color(0xFFFF7A00),
+                          label: 'Sama360 Pro',
+                          value: !business.isPro
+                              ? 'Offre gratuite'
+                              : business.trial
+                              ? 'Essai · ${business.proDaysLeft} j'
+                              : 'Actif · ${business.proDaysLeft} j',
+                          hint: business.isPro
+                              ? 'Boutique en ligne, vendeurs, livraisons, assistant…'
+                              : 'Passez à Pro pour la boutique en ligne, les vendeurs, les livraisons…',
+                          onTap: () => context.push('/pro'),
+                        ),
+                      if (business != null)
+                        _Row(
+                          key: const Key('referral_row'),
+                          icon: Icons.card_giftcard_rounded,
+                          color: const Color(0xFFDB2777),
+                          label: 'Parrainage',
+                          value: '1 mois offert',
+                          hint: 'Invitez un commerçant : 1 mois Pro pour chacun',
+                          onTap: () => context.push('/referral'),
+                        ),
+                      if (ref.watch(platformAdminProvider).value == true)
+                        _Row(
+                          key: const Key('admin_row'),
+                          icon: Icons.verified_user_rounded,
+                          color: const Color(0xFF13241C),
+                          label: 'Paiements Pro',
+                          value: 'Équipe Sama360',
+                          hint: 'Valider les abonnements payés',
+                          onTap: () => context.push('/admin/payments'),
+                        ),
                       if (business != null && ref.can('business:update'))
                         InkWell(
                           borderRadius: BorderRadius.circular(16),
