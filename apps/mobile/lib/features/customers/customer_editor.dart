@@ -190,11 +190,7 @@ class _CustomerEditorScreenState extends ConsumerState<CustomerEditorScreen> {
         ),
         actions: [
           if (_editing && canDelete)
-            IconButton(
-              tooltip: 'Supprimer le $who',
-              onPressed: _busy || !_loaded ? null : _delete,
-              icon: const Icon(Icons.delete_outline_rounded),
-            ),
+            TrashButton(tooltip: 'Supprimer le $who', onPressed: _busy || !_loaded ? null : _delete),
         ],
       ),
       body: !_loaded

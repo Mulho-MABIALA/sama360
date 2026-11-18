@@ -665,12 +665,7 @@ class _CheckoutPanel extends ConsumerWidget {
                     onClear: () => ctrl.setCustomer(null),
                   ),
                 ),
-                if (!cart.isEmpty)
-                  IconButton(
-                    tooltip: 'Vider le panier',
-                    onPressed: ctrl.clear,
-                    icon: Icon(Icons.delete_outline_rounded, color: AppColors.danger),
-                  ),
+                if (!cart.isEmpty) TrashButton(tooltip: 'Vider le panier', onPressed: ctrl.clear),
               ],
             ),
             if (cart.customer != null && !cart.isEmpty) LoyaltyRewardChip(customer: cart.customer!),

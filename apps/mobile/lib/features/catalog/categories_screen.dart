@@ -174,6 +174,7 @@ class CategoriesScreen extends ConsumerWidget {
                           icon: const Icon(Icons.edit_outlined),
                         ),
                         IconButton(
+                          style: IconButton.styleFrom(backgroundColor: AppColors.danger.withValues(alpha: 0.18)),
                           tooltip: 'Supprimer ${c.name}',
                           onPressed: () async {
                             final ok = await showDialog<bool>(
@@ -198,7 +199,7 @@ class CategoriesScreen extends ConsumerWidget {
                             if (ok != true || !context.mounted) return;
                             await _run(context, ref, () => repo.deleteCategory(c.id), 'Catégorie supprimée');
                           },
-                          icon: const Icon(Icons.delete_outline_rounded),
+                          icon: Icon(Icons.delete_rounded, color: AppColors.danger),
                         ),
                       ],
                     ],

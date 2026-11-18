@@ -189,7 +189,7 @@ void main() {
         overrides: [currentBusinessProvider.overrideWith((ref) async => cashierBusiness)],
       );
       expect(find.text('Seul le gérant ou le propriétaire peut le modifier'), findsOneWidget);
-      expect(find.byIcon(Icons.delete_outline_rounded), findsOneWidget);
+      expect(find.byIcon(Icons.delete_rounded), findsOneWidget);
       await tester.enterText(find.byKey(const Key('cName')), 'Fatou Ndiaye Diallo');
       await tester.tap(find.text('Enregistrer'));
       await tester.pumpAndSettle();
@@ -203,7 +203,7 @@ void main() {
     testWidgets('suppression refusée tant que le client doit de l’argent', (tester) async {
       phoneSize(tester);
       final (_, repo) = await pumpSama(tester, location: '/customers/k1/edit');
-      await tester.tap(find.byIcon(Icons.delete_outline_rounded));
+      await tester.tap(find.byIcon(Icons.delete_rounded));
       await tester.pumpAndSettle();
       expect(textMatching(r'doit encore 17 500 FCFA'), findsOneWidget);
       expect(repo.deletedCustomers, isEmpty);
@@ -212,7 +212,7 @@ void main() {
     testWidgets('suppression d’un client sans dette', (tester) async {
       phoneSize(tester);
       final (c, repo) = await pumpSama(tester, location: '/customers/c9/edit');
-      await tester.tap(find.byIcon(Icons.delete_outline_rounded));
+      await tester.tap(find.byIcon(Icons.delete_rounded));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Supprimer'));
       await tester.pumpAndSettle();

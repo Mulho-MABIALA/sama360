@@ -81,7 +81,7 @@ Future<void> changeBusinessLogo(BuildContext context, WidgetRef ref, CurrentBusi
           ),
           if (business.logoFileId != null)
             ListTile(
-              leading: Icon(Icons.delete_outline_rounded, color: AppColors.danger),
+              leading: Icon(Icons.delete_rounded, color: AppColors.danger),
               title: Text('Retirer le logo', style: TextStyle(color: AppColors.danger)),
               onTap: () => Navigator.pop(ctx, _LogoAction.remove),
             ),

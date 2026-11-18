@@ -76,7 +76,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             ),
             if (me.avatarFileId != null)
               ListTile(
-                leading: Icon(Icons.delete_outline_rounded, color: AppColors.danger),
+                leading: Icon(Icons.delete_rounded, color: AppColors.danger),
                 title: Text('Retirer la photo', style: TextStyle(color: AppColors.danger)),
                 onTap: () => Navigator.pop(ctx, _PhotoAction.remove),
               ),

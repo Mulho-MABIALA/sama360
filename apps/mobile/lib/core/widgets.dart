@@ -154,6 +154,27 @@ class StatTile extends StatelessWidget {
 /// Pastille de sélection (catégories, moyens de paiement, filtres).
 /// Agrandit la zone à toucher à [min]×[min] (48 par défaut, règle Android) sans changer le dessin.
 /// Le libellé d'accessibilité couvre toute la zone.
+/// Bouton corbeille : toujours rouge et bien visible (icône pleine sur fond rouge pâle).
+class TrashButton extends StatelessWidget {
+  const TrashButton({super.key, required this.tooltip, required this.onPressed});
+  final String tooltip;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) => IconButton(
+    tooltip: tooltip,
+    onPressed: onPressed,
+    style: IconButton.styleFrom(
+      backgroundColor: AppColors.danger.withValues(alpha: 0.18),
+      disabledBackgroundColor: AppColors.danger.withValues(alpha: 0.05),
+    ),
+    icon: Icon(
+      Icons.delete_rounded,
+      color: onPressed == null ? AppColors.danger.withValues(alpha: 0.4) : AppColors.danger,
+    ),
+  );
+}
+
 class TapTarget extends StatelessWidget {
   const TapTarget({super.key, required this.onTap, required this.child, this.min = 48});
   final VoidCallback? onTap;

@@ -225,12 +225,7 @@ class _ProductEditorScreenState extends ConsumerState<ProductEditorScreen> {
               onPressed: () => context.push('/status?ids=${widget.productId}'),
               icon: const Icon(Icons.auto_awesome_rounded),
             ),
-          if (_editing)
-            IconButton(
-              tooltip: 'Supprimer le produit',
-              onPressed: _busy ? null : _delete,
-              icon: const Icon(Icons.delete_outline_rounded),
-            ),
+          if (_editing) TrashButton(tooltip: 'Supprimer le produit', onPressed: _busy ? null : _delete),
         ],
       ),
       body: !_loaded

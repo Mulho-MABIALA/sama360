@@ -358,7 +358,9 @@ class _LineTile extends StatelessWidget {
           IconButton(
             tooltip: line.quantity <= 1 ? 'Retirer ${line.name}' : 'Une de moins',
             onPressed: onMinus,
-            icon: Icon(line.quantity <= 1 ? Icons.delete_outline_rounded : Icons.remove_circle_outline_rounded),
+            icon: line.quantity <= 1
+                ? Icon(Icons.delete_rounded, color: AppColors.danger)
+                : const Icon(Icons.remove_circle_outline_rounded),
           ),
           Text(qty(line.quantity), style: const TextStyle(fontWeight: FontWeight.w800)),
           IconButton(tooltip: 'Une de plus', onPressed: onPlus, icon: const Icon(Icons.add_circle_outline_rounded)),

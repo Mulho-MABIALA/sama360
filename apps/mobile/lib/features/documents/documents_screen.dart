@@ -696,11 +696,7 @@ class _StoredDocumentScreenState extends ConsumerState<StoredDocumentScreen> {
               onPressed: () => context.push('/documents/${widget.id}/edit'),
               icon: const Icon(Icons.edit_rounded),
             ),
-            IconButton(
-              tooltip: 'Supprimer',
-              onPressed: _busy ? null : () => _delete(doc.value!),
-              icon: const Icon(Icons.delete_outline_rounded),
-            ),
+            TrashButton(tooltip: 'Supprimer', onPressed: _busy ? null : () => _delete(doc.value!)),
           ],
         ],
       ),
