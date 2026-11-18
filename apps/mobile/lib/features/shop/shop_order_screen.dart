@@ -103,6 +103,7 @@ class _ShopOrderScreenState extends ConsumerState<ShopOrderScreen> {
         actions: [
           CancelButton(label: 'Retour', onPressed: () => Navigator.pop(ctx)),
           ConfirmButton(
+            danger: true,
             label: 'Oui, annuler',
             onPressed: () => Navigator.pop(ctx, c.text.trim().isEmpty ? 'Annulée par la boutique' : c.text.trim()),
           ),
@@ -216,6 +217,7 @@ class _ShopOrderScreenState extends ConsumerState<ShopOrderScreen> {
                           child: Text(o.delivery ? 'Déjà livrée et encaissée' : 'Déjà retirée et encaissée'),
                         ),
                       ConfirmButton(
+                        danger: true,
                         label: 'Annuler la commande',
                         onPressed: _busy ? null : () => _move(o, ShopOrderStatus.cancelled),
                       ),

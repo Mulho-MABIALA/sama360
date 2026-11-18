@@ -153,7 +153,7 @@ class _TeamScreenState extends ConsumerState<TeamScreen> {
               FilledButton.icon(
                 style: FilledButton.styleFrom(
                   backgroundColor: AppColors.whatsapp,
-                  foregroundColor: const Color(0xFF08361A),
+                  foregroundColor: AppColors.onWhatsapp,
                 ),
                 onPressed: () async {
                   Navigator.pop(ctx);
@@ -438,7 +438,7 @@ class _ManageSheetState extends ConsumerState<_ManageSheet> {
         ),
         actions: [
           CancelButton(onPressed: () => Navigator.pop(ctx, false)),
-          ConfirmButton(label: 'Retirer', onPressed: () => Navigator.pop(ctx, true)),
+          ConfirmButton(danger: true, label: 'Retirer', onPressed: () => Navigator.pop(ctx, true)),
         ],
       ),
     );

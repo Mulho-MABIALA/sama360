@@ -80,7 +80,7 @@ class _StockScreenState extends ConsumerState<StockScreen> {
           return RefreshIndicator(
             onRefresh: () async => ref.invalidate(stockRawProvider),
             child: ListView(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 96),
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 120),
               children: [
                 Row(
                   children: [

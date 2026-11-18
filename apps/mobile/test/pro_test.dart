@@ -155,8 +155,8 @@ void main() {
     await tester.enterText(find.byKey(const Key('businessName')), 'Ibou Quincaillerie');
     await tester.ensureVisible(find.byKey(const Key('referralCode')));
     await tester.enterText(find.byKey(const Key('referralCode')), 'awa7k2 ');
-    await tester.ensureVisible(find.text("Créer l'entreprise"));
-    await tester.tap(find.text("Créer l'entreprise"));
+    await tester.pumpAndSettle();
+    await tapCentered(tester, find.text("Créer l'entreprise"));
     await tester.pumpAndSettle();
     expect(repo.createdBusinesses.single, containsPair('referralCode', 'AWA7K2'));
   });

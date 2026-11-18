@@ -173,7 +173,7 @@ class _InvoicesScreenState extends ConsumerState<InvoicesScreen> {
                           onTap: () => setState(() => _kind = k),
                           child: AnimatedContainer(
                             duration: const Duration(milliseconds: 200),
-                            padding: const EdgeInsets.symmetric(vertical: 10),
+                            padding: const EdgeInsets.symmetric(vertical: 14),
                             decoration: BoxDecoration(
                               color: _kind == k ? AppColors.ink : Colors.transparent,
                               borderRadius: BorderRadius.circular(12),

@@ -116,7 +116,7 @@ class _WeeklyCard extends StatelessWidget {
           width: 44,
           height: 44,
           decoration: BoxDecoration(color: AppColors.whatsapp, borderRadius: BorderRadius.circular(14)),
-          child: const Icon(Icons.chat_rounded, color: Colors.white),
+          child: const Icon(Icons.chat_rounded, color: AppColors.onWhatsapp),
         ),
         const SizedBox(width: 12),
         Expanded(
@@ -579,7 +579,7 @@ class _WeeklyReportScreenState extends ConsumerState<WeeklyReportScreen> {
                   key: const Key('send_weekly'),
                   style: FilledButton.styleFrom(
                     backgroundColor: AppColors.whatsapp,
-                    foregroundColor: const Color(0xFF08361A),
+                    foregroundColor: AppColors.onWhatsapp,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                   ),
                   onPressed: () => _send(r),

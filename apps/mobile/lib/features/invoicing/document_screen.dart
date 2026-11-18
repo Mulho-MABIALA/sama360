@@ -92,7 +92,11 @@ class _DocumentScreenState extends ConsumerState<DocumentScreen> {
         ),
         actions: [
           CancelButton(label: 'Retour', onPressed: () => Navigator.pop(ctx, false)),
-          ConfirmButton(label: 'Oui, annuler', onPressed: () => Navigator.pop(ctx, reason.text.trim().length >= 3)),
+          ConfirmButton(
+            danger: true,
+            label: 'Oui, annuler',
+            onPressed: () => Navigator.pop(ctx, reason.text.trim().length >= 3),
+          ),
         ],
       ),
     );

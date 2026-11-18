@@ -186,7 +186,8 @@ class AuroraScaffold extends StatelessWidget {
         floatingActionButton: floatingActionButton == null || !padBottom
             ? floatingActionButton
             : Padding(
-                padding: EdgeInsets.only(bottom: bottomInset),
+                // Sous la barre en verre, le bouton rond « Vendre » dépasse : on garde 16 px d'écart.
+                padding: EdgeInsets.only(bottom: bottomInset + (bottomInset > 40 ? 24 : 0)),
                 child: floatingActionButton,
               ),
       ),

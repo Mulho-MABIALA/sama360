@@ -275,7 +275,7 @@ class PendingSalesSection extends ConsumerWidget {
                     content: const Text('Elle ne sera jamais envoyée ni comptée dans votre caisse.'),
                     actions: [
                       CancelButton(onPressed: () => Navigator.pop(d, false)),
-                      ConfirmButton(label: 'Supprimer', onPressed: () => Navigator.pop(d, true)),
+                      ConfirmButton(danger: true, label: 'Supprimer', onPressed: () => Navigator.pop(d, true)),
                     ],
                   ),
                 );

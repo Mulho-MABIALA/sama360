@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/services.dart';
+import 'package:flutter/widgets.dart' show Scrollable;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
@@ -2296,4 +2297,11 @@ void phoneSize(WidgetTester tester) {
   tester.view.physicalSize = const Size(780, 1688);
   tester.view.devicePixelRatio = 2;
   addTearDown(tester.view.reset);
+}
+
+/// Fait défiler jusqu'à placer l'élément au milieu de l'écran (hors des barres fixes) puis le touche.
+Future<void> tapCentered(WidgetTester tester, Finder finder) async {
+  await Scrollable.ensureVisible(tester.element(finder.first), alignment: 0.5);
+  await tester.pumpAndSettle();
+  await tester.tap(finder.first);
 }

@@ -243,6 +243,12 @@ class _CountTile extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 10),
+          // Libellé au-dessus du champ (pas de libellé flottant qui se décale dans la carte).
+          Text(
+            line.method == PayMethod.cash ? 'Espèces comptées' : 'Montant vérifié',
+            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.muted),
+          ),
+          const SizedBox(height: 6),
           Row(
             children: [
               Expanded(
@@ -251,11 +257,8 @@ class _CountTile extends StatelessWidget {
                   controller: controller,
                   keyboardType: TextInputType.number,
                   inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                  decoration: InputDecoration(
-                    labelText: line.method == PayMethod.cash ? 'Espèces comptées' : 'Montant vérifié',
-                    suffixText: 'FCFA',
-                    isDense: true,
-                  ),
+                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+                  decoration: InputDecoration(hintText: '0', suffixText: 'F'),
                   onChanged: (_) => onChanged(),
                 ),
               ),

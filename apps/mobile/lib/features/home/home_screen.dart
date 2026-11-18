@@ -330,21 +330,28 @@ class _Hero extends StatelessWidget {
                           const Spacer(),
                           const _Bell(),
                           const SizedBox(width: 8),
-                          InkWell(
-                            customBorder: const CircleBorder(),
+                          TapTarget(
                             onTap: () => context.push('/account'),
-                            child: Container(
-                              padding: const EdgeInsets.all(2.5),
-                              decoration: const BoxDecoration(
-                                shape: BoxShape.circle,
-                                gradient: LinearGradient(colors: [AppColors.glow, Color(0xFFFFC08A)]),
+                            child: Semantics(
+                              button: true,
+                              label: 'Mon compte',
+                              child: InkWell(
+                                customBorder: const CircleBorder(),
+                                onTap: () => context.push('/account'),
+                                child: Container(
+                                  padding: const EdgeInsets.all(2.5),
+                                  decoration: const BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    gradient: LinearGradient(colors: [AppColors.glow, Color(0xFFFFC08A)]),
+                                  ),
+                                  child: const ExcludeSemantics(child: MeAvatar(size: 38)),
+                                ),
                               ),
-                              child: const MeAvatar(size: 38),
                             ),
                           ),
                         ],
                       ),
-                      const SizedBox(height: 18),
+                      const SizedBox(height: 7),
                       Row(
                         children: [
                           Expanded(
@@ -364,39 +371,41 @@ class _Hero extends StatelessWidget {
                           const MonumentChip(),
                         ],
                       ),
-                      const SizedBox(height: 6),
                       Align(
                         alignment: Alignment.centerLeft,
-                        child: Glass(
-                          tone: GlassTone.dark,
-                          radius: 30,
-                          blur: 12,
-                          shadow: false,
+                        child: TapTarget(
                           onTap: () => context.push('/business'),
-                          padding: const EdgeInsets.fromLTRB(12, 7, 8, 7),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Icon(Icons.storefront_rounded, size: 17, color: AppColors.glow),
-                              const SizedBox(width: 7),
-                              ConstrainedBox(
-                                constraints: const BoxConstraints(maxWidth: 220),
-                                child: Text(
-                                  business ?? '',
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.w800,
-                                    fontSize: 15,
+                          child: Glass(
+                            tone: GlassTone.dark,
+                            radius: 30,
+                            blur: 12,
+                            shadow: false,
+                            onTap: () => context.push('/business'),
+                            padding: const EdgeInsets.fromLTRB(12, 7, 8, 7),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.storefront_rounded, size: 17, color: AppColors.glow),
+                                const SizedBox(width: 7),
+                                ConstrainedBox(
+                                  constraints: const BoxConstraints(maxWidth: 220),
+                                  child: Text(
+                                    business ?? '',
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.w800,
+                                      fontSize: 15,
+                                    ),
                                   ),
                                 ),
-                              ),
-                              const Icon(Icons.expand_more_rounded, size: 19, color: Colors.white),
-                            ],
+                                const Icon(Icons.expand_more_rounded, size: 19, color: Colors.white),
+                              ],
+                            ),
                           ),
                         ),
                       ),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 10),
                       card,
                     ],
                   ),
@@ -441,10 +450,10 @@ class _ScanButton extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) => Tooltip(
     message: 'Scanner un article',
     child: InkResponse(
-      radius: 22,
+      radius: 24,
       onTap: () => scanAndShowProduct(context, ref),
       child: Padding(
-        padding: EdgeInsets.all(4),
+        padding: EdgeInsets.all(13),
         child: Icon(Icons.qr_code_scanner_rounded, color: AppColors.ink, size: 22),
       ),
     ),
@@ -594,9 +603,9 @@ class _CashCard extends ConsumerWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         _RoundAction(icon: Icons.add_rounded, label: 'Vendre', filled: true, onTap: () => context.go('/pos')),
-        const SizedBox(width: 12),
+        const SizedBox(width: 6),
         _RoundAction(icon: Icons.menu_book_rounded, label: 'Crédits', onTap: () => context.go('/customers?debt=1')),
-        const SizedBox(width: 12),
+        const SizedBox(width: 6),
         _RoundAction(icon: Icons.south_west_rounded, label: 'Dépense', onTap: onExpense),
       ],
     );
@@ -938,42 +947,45 @@ class _RoundAction extends StatelessWidget {
     child: InkWell(
       borderRadius: BorderRadius.circular(24),
       onTap: onTap,
-      child: Column(
-        children: [
-          Container(
-            width: 46,
-            height: 46,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: filled
-                  ? const LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [Color(0xFFB4F8D6), AppColors.glow, Color(0xFF34C987)],
-                    )
-                  : null,
-              color: filled ? null : Colors.white.withValues(alpha: 0.14),
-              border: Border.all(color: Colors.white.withValues(alpha: filled ? 0.7 : 0.3)),
-              boxShadow: filled
-                  ? [
-                      BoxShadow(
-                        color: AppColors.glow.withValues(alpha: 0.45),
-                        blurRadius: 16,
-                        offset: const Offset(0, 5),
-                      ),
-                    ]
-                  : null,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minWidth: 52),
+        child: Column(
+          children: [
+            Container(
+              width: 46,
+              height: 46,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: filled
+                    ? const LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [Color(0xFFB4F8D6), AppColors.glow, Color(0xFF34C987)],
+                      )
+                    : null,
+                color: filled ? null : Colors.white.withValues(alpha: 0.14),
+                border: Border.all(color: Colors.white.withValues(alpha: filled ? 0.7 : 0.3)),
+                boxShadow: filled
+                    ? [
+                        BoxShadow(
+                          color: AppColors.glow.withValues(alpha: 0.45),
+                          blurRadius: 16,
+                          offset: const Offset(0, 5),
+                        ),
+                      ]
+                    : null,
+              ),
+              child: Icon(icon, size: 23, color: filled ? AppColors.deep : Colors.white),
             ),
-            child: Icon(icon, size: 23, color: filled ? AppColors.deep : Colors.white),
-          ),
-          const SizedBox(height: 5),
-          ExcludeSemantics(
-            child: Text(
-              label,
-              style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: Colors.white),
+            const SizedBox(height: 5),
+            ExcludeSemantics(
+              child: Text(
+                label,
+                style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: Colors.white),
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     ),
   );

@@ -182,7 +182,7 @@ class _ProductEditorScreenState extends ConsumerState<ProductEditorScreen> {
         ),
         actions: [
           CancelButton(onPressed: () => Navigator.pop(ctx, false)),
-          ConfirmButton(label: 'Supprimer', onPressed: () => Navigator.pop(ctx, true)),
+          ConfirmButton(danger: true, label: 'Supprimer', onPressed: () => Navigator.pop(ctx, true)),
         ],
       ),
     );

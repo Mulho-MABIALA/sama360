@@ -131,7 +131,7 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
       body: RefreshIndicator(
         onRefresh: () async => ref.invalidate(customerListProvider),
         child: ListView(
-          padding: const EdgeInsets.fromLTRB(16, 0, 16, 96),
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 120),
           children: [
             _TotalsCard(totals: list.value?.totals, onFilter: _setFilter),
             const SizedBox(height: 12),
@@ -868,7 +868,7 @@ class _BalanceCard extends StatelessWidget {
                   FilledButton.icon(
                     style: FilledButton.styleFrom(
                       backgroundColor: AppColors.whatsapp,
-                      foregroundColor: const Color(0xFF08361A),
+                      foregroundColor: AppColors.onWhatsapp,
                       minimumSize: const Size.fromHeight(46),
                       textStyle: buttonText,
                     ),
@@ -1003,7 +1003,7 @@ class _ReminderSheetState extends ConsumerState<_ReminderSheet> {
               child: FilledButton.icon(
                 style: FilledButton.styleFrom(
                   backgroundColor: AppColors.whatsapp,
-                  foregroundColor: const Color(0xFF08361A),
+                  foregroundColor: AppColors.onWhatsapp,
                   minimumSize: const Size.fromHeight(48),
                 ),
                 onPressed: () => _send('whatsapp'),

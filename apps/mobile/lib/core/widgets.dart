@@ -152,6 +152,29 @@ class StatTile extends StatelessWidget {
 }
 
 /// Pastille de sélection (catégories, moyens de paiement, filtres).
+/// Agrandit la zone à toucher à [min]×[min] (48 par défaut, règle Android) sans changer le dessin.
+/// Le libellé d'accessibilité couvre toute la zone.
+class TapTarget extends StatelessWidget {
+  const TapTarget({super.key, required this.onTap, required this.child, this.min = 48});
+  final VoidCallback? onTap;
+  final Widget child;
+  final double min;
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+    container: true,
+    child: GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      excludeFromSemantics: true,
+      onTap: onTap,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(minWidth: min, minHeight: min),
+        child: Center(widthFactor: 1, heightFactor: 1, child: child),
+      ),
+    ),
+  );
+}
+
 class Pill extends StatelessWidget {
   const Pill({super.key, required this.label, required this.selected, required this.onTap});
   final String label;
@@ -159,23 +182,26 @@ class Pill extends StatelessWidget {
   final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context) => Semantics(
-    selected: selected,
-    button: true,
-    child: Material(
-      color: selected ? AppColors.ink : AppColors.surface(0.72),
-      shape: StadiumBorder(side: BorderSide(color: selected ? AppColors.ink : AppColors.glassLine, width: 1.2)),
-      child: InkWell(
-        customBorder: const StadiumBorder(),
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
-          child: Text(
-            label,
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
-              color: selected ? AppColors.ground : AppColors.ink,
+  Widget build(BuildContext context) => TapTarget(
+    onTap: onTap,
+    child: Semantics(
+      selected: selected,
+      button: true,
+      child: Material(
+        color: selected ? AppColors.ink : AppColors.surface(0.72),
+        shape: StadiumBorder(side: BorderSide(color: selected ? AppColors.ink : AppColors.glassLine, width: 1.2)),
+        child: InkWell(
+          customBorder: const StadiumBorder(),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+            child: Text(
+              label,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
+                color: selected ? AppColors.ground : AppColors.ink,
+              ),
             ),
           ),
         ),
@@ -273,6 +299,7 @@ extension CanX on WidgetRef {
 }
 
 /// Bouton qui renonce (Annuler, Retour, Fermer…) : toujours rouge, partout dans l'app.
+/// Bouton « Annuler » : neutre (c'est l'action sans risque, elle ne doit pas inquiéter).
 class CancelButton extends StatelessWidget {
   const CancelButton({super.key, this.label = 'Annuler', required this.onPressed});
   final String label;
@@ -281,8 +308,8 @@ class CancelButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) => TextButton(
     style: TextButton.styleFrom(
-      foregroundColor: AppColors.danger,
-      backgroundColor: AppColors.danger.withValues(alpha: 0.10),
+      foregroundColor: AppColors.ink,
+      backgroundColor: AppColors.ink.withValues(alpha: 0.07),
       minimumSize: const Size(96, 44),
       padding: const EdgeInsets.symmetric(horizontal: 18),
       shape: const StadiumBorder(),
@@ -294,15 +321,17 @@ class CancelButton extends StatelessWidget {
 }
 
 /// Bouton qui valide (Valider, Créer, Supprimer, Confirmer…) : toujours vert, partout dans l'app.
+/// Bouton de confirmation : vert, ou rouge ([danger]) quand l'action supprime, retire ou déconnecte.
 class ConfirmButton extends StatelessWidget {
-  const ConfirmButton({super.key, required this.label, required this.onPressed});
+  const ConfirmButton({super.key, required this.label, required this.onPressed, this.danger = false});
   final String label;
   final VoidCallback? onPressed;
+  final bool danger;
 
   @override
   Widget build(BuildContext context) => FilledButton(
     style: FilledButton.styleFrom(
-      backgroundColor: AppColors.green,
+      backgroundColor: danger ? AppColors.danger : AppColors.green,
       foregroundColor: Colors.white,
       minimumSize: const Size(96, 44),
       padding: const EdgeInsets.symmetric(horizontal: 18),
@@ -389,35 +418,40 @@ class CountryPills extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Wrap(
     spacing: 8,
-    runSpacing: 8,
+    runSpacing: 0,
     children: [
       for (final c in Country.values)
-        Semantics(
-          button: true,
-          selected: value == c,
-          child: Material(
-            key: Key('country_${c.code}'),
-            color: value == c ? AppColors.ink : AppColors.surface(0.72),
-            shape: StadiumBorder(side: BorderSide(color: value == c ? AppColors.ink : AppColors.glassLine, width: 1.2)),
-            child: InkWell(
-              customBorder: const StadiumBorder(),
-              onTap: () => onChanged(c),
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(10, 8, 14, 8),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    CountryFlag(c),
-                    const SizedBox(width: 8),
-                    Text(
-                      c.name,
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: value == c ? FontWeight.w700 : FontWeight.w600,
-                        color: value == c ? AppColors.ground : AppColors.ink,
+        TapTarget(
+          onTap: () => onChanged(c),
+          child: Semantics(
+            button: true,
+            selected: value == c,
+            child: Material(
+              key: Key('country_${c.code}'),
+              color: value == c ? AppColors.ink : AppColors.surface(0.72),
+              shape: StadiumBorder(
+                side: BorderSide(color: value == c ? AppColors.ink : AppColors.glassLine, width: 1.2),
+              ),
+              child: InkWell(
+                customBorder: const StadiumBorder(),
+                onTap: () => onChanged(c),
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(10, 8, 14, 8),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      CountryFlag(c),
+                      const SizedBox(width: 8),
+                      Text(
+                        c.name,
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: value == c ? FontWeight.w700 : FontWeight.w600,
+                          color: value == c ? AppColors.ground : AppColors.ink,
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ),

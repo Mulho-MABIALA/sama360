@@ -273,8 +273,8 @@ class _PosScreenState extends ConsumerState<PosScreen> {
                         borderRadius: BorderRadius.circular(13),
                         onTap: _scan,
                         child: SizedBox(
-                          width: 42,
-                          height: 42,
+                          width: 48,
+                          height: 48,
                           child: Icon(Icons.qr_code_scanner_rounded, color: AppColors.onGreen, size: 22),
                         ),
                       ),
@@ -286,7 +286,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
           ),
           if (categories.isNotEmpty)
             SizedBox(
-              height: 40,
+              height: 48,
               child: ListView(
                 scrollDirection: Axis.horizontal,
                 padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -361,7 +361,7 @@ class _HeaderAction extends StatelessWidget {
       blur: 10,
       shadow: false,
       onTap: onTap,
-      child: SizedBox(width: 42, height: 42, child: Icon(icon, color: AppColors.ink, size: 21)),
+      child: SizedBox(width: 48, height: 48, child: Icon(icon, color: AppColors.ink, size: 22)),
     ),
   );
 }
@@ -668,7 +668,6 @@ class _CheckoutPanel extends ConsumerWidget {
                 if (!cart.isEmpty)
                   IconButton(
                     tooltip: 'Vider le panier',
-                    visualDensity: VisualDensity.compact,
                     onPressed: ctrl.clear,
                     icon: Icon(Icons.delete_outline_rounded, color: AppColors.danger),
                   ),
@@ -762,50 +761,53 @@ class _CustomerChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = customer;
-    return Material(
-      color: c == null ? AppColors.surface(0.6) : AppColors.greenSoft,
-      shape: StadiumBorder(
-        side: BorderSide(color: c == null ? AppColors.line : AppColors.green.withValues(alpha: 0.4)),
-      ),
-      child: InkWell(
-        customBorder: const StadiumBorder(),
-        onTap: onPick,
-        child: Padding(
-          padding: EdgeInsets.fromLTRB(4, 4, c == null ? 14 : 4, 4),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (c == null)
-                Container(
-                  width: 28,
-                  height: 28,
-                  decoration: BoxDecoration(color: AppColors.greenSoft, shape: BoxShape.circle),
-                  child: Icon(Icons.person_add_alt_1_rounded, size: 16, color: AppColors.green),
-                )
-              else
-                Avatar(name: c.name, size: 28),
-              const SizedBox(width: 8),
-              Flexible(
-                child: Text(
-                  c?.name ?? 'Client',
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontWeight: FontWeight.w700,
-                    fontSize: 13,
-                    color: c == null ? AppColors.ink : AppColors.greenDark,
+    return TapTarget(
+      onTap: onPick,
+      child: Material(
+        color: c == null ? AppColors.surface(0.6) : AppColors.greenSoft,
+        shape: StadiumBorder(
+          side: BorderSide(color: c == null ? AppColors.line : AppColors.green.withValues(alpha: 0.4)),
+        ),
+        child: InkWell(
+          customBorder: const StadiumBorder(),
+          onTap: onPick,
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(4, 4, c == null ? 14 : 4, 4),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (c == null)
+                  Container(
+                    width: 28,
+                    height: 28,
+                    decoration: BoxDecoration(color: AppColors.greenSoft, shape: BoxShape.circle),
+                    child: Icon(Icons.person_add_alt_1_rounded, size: 16, color: AppColors.green),
+                  )
+                else
+                  Avatar(name: c.name, size: 28),
+                const SizedBox(width: 8),
+                Flexible(
+                  child: Text(
+                    c?.name ?? 'Client',
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 13,
+                      color: c == null ? AppColors.ink : AppColors.greenDark,
+                    ),
                   ),
                 ),
-              ),
-              if (c != null)
-                IconButton(
-                  tooltip: 'Retirer le client',
-                  visualDensity: VisualDensity.compact,
-                  constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-                  padding: EdgeInsets.zero,
-                  onPressed: onClear,
-                  icon: Icon(Icons.close_rounded, size: 18, color: AppColors.greenDark),
-                ),
-            ],
+                if (c != null)
+                  IconButton(
+                    tooltip: 'Retirer le client',
+                    visualDensity: VisualDensity.compact,
+                    constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                    padding: EdgeInsets.zero,
+                    onPressed: onClear,
+                    icon: Icon(Icons.close_rounded, size: 18, color: AppColors.greenDark),
+                  ),
+              ],
+            ),
           ),
         ),
       ),

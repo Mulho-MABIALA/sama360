@@ -88,8 +88,8 @@ void main() {
     expect(find.text('Vous vendez surtout…'), findsOneWidget);
     await tester.ensureVisible(find.byKey(const Key('focus_both')));
     await tester.tap(find.byKey(const Key('focus_both')));
-    await tester.ensureVisible(find.text("Créer l'entreprise"));
-    await tester.tap(find.text("Créer l'entreprise"));
+    await tester.pumpAndSettle();
+    await tapCentered(tester, find.text("Créer l'entreprise"));
     await tester.pumpAndSettle();
     expect(repo.createdBusinesses.single, {
       'name': 'Salon Ndeye',

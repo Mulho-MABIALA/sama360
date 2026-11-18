@@ -28,8 +28,7 @@ class AmountsEye extends ConsumerWidget {
     final hidden = ref.watch(amountsHiddenProvider);
     return IconButton(
       tooltip: hidden ? 'Afficher les montants' : 'Masquer les montants',
-      visualDensity: VisualDensity.compact,
-      constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+      constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
       padding: EdgeInsets.zero,
       onPressed: () {
         HapticFeedback.selectionClick();

@@ -57,9 +57,13 @@ class _SuccessCheckState extends State<SuccessCheck> with SingleTickerProviderSt
       builder: (context, _) {
         final grow = Curves.elasticOut.transform((_c.value / 0.6).clamp(0, 1));
         final draw = Curves.easeOut.transform(((_c.value - 0.35) / 0.65).clamp(0, 1));
-        return Transform.scale(
-          scale: 0.4 + 0.6 * grow,
-          child: CustomPaint(size: Size.square(widget.size), painter: _CheckPainter(draw, AppColors.green)),
+        // Taille fixe : certains conteneurs (icône de dialogue sur le web) étirent sinon le dessin.
+        return SizedBox.square(
+          dimension: widget.size,
+          child: Transform.scale(
+            scale: 0.4 + 0.6 * grow,
+            child: CustomPaint(painter: _CheckPainter(draw, AppColors.green)),
+          ),
         );
       },
     ),

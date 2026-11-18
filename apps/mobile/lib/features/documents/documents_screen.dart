@@ -660,7 +660,7 @@ class _StoredDocumentScreenState extends ConsumerState<StoredDocumentScreen> {
         content: Text('« ${d.title} » sera supprimé définitivement, fichier compris.'),
         actions: [
           CancelButton(onPressed: () => Navigator.pop(ctx, false)),
-          ConfirmButton(label: 'Supprimer', onPressed: () => Navigator.pop(ctx, true)),
+          ConfirmButton(danger: true, label: 'Supprimer', onPressed: () => Navigator.pop(ctx, true)),
         ],
       ),
     );

@@ -329,9 +329,9 @@ class ReminderTile extends StatelessWidget {
                 Expanded(
                   child: FilledButton.icon(
                     style: FilledButton.styleFrom(
-                      backgroundColor: const Color(0xFF25D366),
+                      backgroundColor: AppColors.whatsapp,
+                      foregroundColor: AppColors.onWhatsapp,
                       shape: const StadiumBorder(),
-                      visualDensity: VisualDensity.compact,
                     ),
                     onPressed: onWhatsApp,
                     icon: const Icon(Icons.chat_rounded, size: 18),

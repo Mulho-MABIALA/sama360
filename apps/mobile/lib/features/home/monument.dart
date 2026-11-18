@@ -4,6 +4,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/glass.dart';
 import '../../core/theme.dart';
+import '../../core/widgets.dart' show TapTarget;
 import 'monuments_data.dart';
 
 /// Une photo de monument (Wikimedia Commons, licence libre) embarquée dans l'app.
@@ -91,30 +92,33 @@ class MonumentChip extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final m = monumentOfDay(ref.watch(monumentDateProvider));
-    return Tooltip(
-      message: 'Monument du jour',
-      child: Glass(
-        tone: GlassTone.dark,
-        radius: 20,
-        blur: 10,
-        shadow: false,
-        onTap: () => showMonumentCredits(context, m),
-        padding: const EdgeInsets.fromLTRB(8, 5, 10, 5),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.place_rounded, size: 14, color: AppColors.glow),
-            const SizedBox(width: 4),
-            ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 170),
-              child: Text(
-                m.name,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(color: Colors.white, fontSize: 11.5, fontWeight: FontWeight.w700),
+    return TapTarget(
+      onTap: () => showMonumentCredits(context, m),
+      child: Tooltip(
+        message: 'Monument du jour',
+        child: Glass(
+          tone: GlassTone.dark,
+          radius: 20,
+          blur: 10,
+          shadow: false,
+          onTap: () => showMonumentCredits(context, m),
+          padding: const EdgeInsets.fromLTRB(8, 5, 10, 5),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.place_rounded, size: 14, color: AppColors.glow),
+              const SizedBox(width: 4),
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 170),
+                child: Text(
+                  m.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(color: Colors.white, fontSize: 11.5, fontWeight: FontWeight.w700),
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

@@ -126,7 +126,7 @@ class _ShopScreenState extends ConsumerState<ShopScreen> {
       const SizedBox(height: 10),
       Glass(
         radius: 18,
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         onTap: () => context.push('/shop/products'),
         child: Row(
           children: [

@@ -109,9 +109,10 @@ Future<void> changeBusinessLogo(BuildContext context, WidgetRef ref, CurrentBusi
   }
 }
 
-/// Invitation à ajouter son logo (factures et devis), pour qui peut modifier l'entreprise.
+/// Invitation à ajouter son logo (reçus, factures et devis), pour qui peut modifier l'entreprise.
 class AddLogoHint extends ConsumerWidget {
-  const AddLogoHint({super.key});
+  const AddLogoHint({super.key, this.message = 'Il apparaîtra sur vos reçus, factures et devis.'});
+  final String message;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -125,17 +126,14 @@ class AddLogoHint extends ConsumerWidget {
         padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
         child: Row(
           children: [
-            GlossyOrb(icon: Icons.add_photo_alternate_rounded, color: Color(0xFF7A5AF8), size: 36),
+            const GlossyOrb(icon: Icons.add_photo_alternate_rounded, color: Color(0xFF7A5AF8), size: 36),
             SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text('Ajoutez votre logo', style: TextStyle(fontWeight: FontWeight.w800)),
-                  Text(
-                    'Il apparaîtra sur vos factures et devis.',
-                    style: TextStyle(fontSize: 12.5, color: AppColors.muted),
-                  ),
+                  Text(message, style: TextStyle(fontSize: 12.5, color: AppColors.muted)),
                 ],
               ),
             ),

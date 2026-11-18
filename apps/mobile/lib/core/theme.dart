@@ -180,6 +180,9 @@ abstract final class AppColors {
   static const saffron = Color(0xFFF2A93B);
   static const whatsapp = Color(0xFF25D366);
 
+  /// Texte et icônes sur le vert WhatsApp (contraste 6,8:1 ; le blanc n'atteint que 2:1).
+  static const onWhatsapp = Color(0xFF08361A);
+
   // Thème verre / aurora
   static const glow = Color(0xFF7DF0B5); // menthe lumineuse (sur fond sombre)
   static const deep = Color(0xFF052E24); // émeraude profond

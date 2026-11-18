@@ -142,11 +142,10 @@ void main() {
     await tester.ensureVisible(find.byKey(const Key('country_CG')));
     await tester.tap(find.byKey(const Key('country_CG')));
     await tester.pump();
-    await tester.ensureVisible(find.text('Pointe-Noire'));
-    await tester.tap(find.text('Pointe-Noire'));
+    await tapCentered(tester, find.text('Pointe-Noire'));
     await tester.pump();
-    await tester.ensureVisible(find.text("Créer l'entreprise"));
-    await tester.tap(find.text("Créer l'entreprise"));
+    await tester.pumpAndSettle();
+    await tapCentered(tester, find.text("Créer l'entreprise"));
     await tester.pumpAndSettle();
     expect(repo.createdBusinesses.single, containsPair('country', 'CG'));
     expect(repo.createdBusinesses.single, containsPair('city', 'Pointe-Noire'));

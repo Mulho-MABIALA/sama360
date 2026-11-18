@@ -231,20 +231,27 @@ class _StatusScreenState extends ConsumerState<StatusScreen> {
                 children: [
                   for (final t in StatusTheme.values)
                     Padding(
-                      padding: const EdgeInsets.only(right: 10),
+                      padding: const EdgeInsets.only(right: 4),
                       child: Semantics(
                         button: true,
                         selected: _theme == t,
                         label: 'Couleurs ${t.label}',
                         child: GestureDetector(
+                          behavior: HitTestBehavior.opaque,
                           onTap: () => setState(() => _theme = t),
-                          child: Container(
-                            width: 40,
-                            height: 40,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              gradient: LinearGradient(colors: t.colors),
-                              border: Border.all(color: _theme == t ? AppColors.ink : Colors.transparent, width: 3),
+                          child: SizedBox(
+                            width: 48,
+                            height: 48,
+                            child: Center(
+                              child: Container(
+                                width: 40,
+                                height: 40,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  gradient: LinearGradient(colors: t.colors),
+                                  border: Border.all(color: _theme == t ? AppColors.ink : Colors.transparent, width: 3),
+                                ),
+                              ),
                             ),
                           ),
                         ),

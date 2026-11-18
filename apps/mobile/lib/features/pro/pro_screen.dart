@@ -553,7 +553,10 @@ class ReferralScreen extends ConsumerWidget {
                 height: 52,
                 child: FilledButton.icon(
                   key: const Key('share_referral'),
-                  style: FilledButton.styleFrom(backgroundColor: AppColors.whatsapp),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: AppColors.whatsapp,
+                    foregroundColor: AppColors.onWhatsapp,
+                  ),
                   onPressed: () => ref.read(receiptActionsProvider).openWhatsApp(whatsAppUri(message)),
                   icon: const Icon(Icons.chat_rounded),
                   label: const Text('Inviter sur WhatsApp'),
@@ -695,7 +698,7 @@ class _AdminPaymentsScreenState extends ConsumerState<AdminPaymentsScreen> {
         ),
         actions: [
           CancelButton(onPressed: () => Navigator.pop(ctx, false)),
-          ConfirmButton(label: 'Refuser', onPressed: () => Navigator.pop(ctx, true)),
+          ConfirmButton(danger: true, label: 'Refuser', onPressed: () => Navigator.pop(ctx, true)),
         ],
       ),
     );

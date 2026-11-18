@@ -88,7 +88,7 @@ class _PurchaseScreenState extends ConsumerState<PurchaseScreen> {
         content: const Text('La commande reste dans l’historique, marquée « Annulé ».'),
         actions: [
           CancelButton(label: 'Retour', onPressed: () => Navigator.pop(ctx, false)),
-          ConfirmButton(label: 'Oui, annuler', onPressed: () => Navigator.pop(ctx, true)),
+          ConfirmButton(danger: true, label: 'Oui, annuler', onPressed: () => Navigator.pop(ctx, true)),
         ],
       ),
     );

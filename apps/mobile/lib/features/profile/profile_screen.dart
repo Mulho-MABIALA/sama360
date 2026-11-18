@@ -199,7 +199,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         ),
         actions: [
           CancelButton(onPressed: () => Navigator.pop(ctx, false)),
-          ConfirmButton(label: 'Tout déconnecter', onPressed: () => Navigator.pop(ctx, true)),
+          ConfirmButton(danger: true, label: 'Tout déconnecter', onPressed: () => Navigator.pop(ctx, true)),
         ],
       ),
     );
@@ -218,7 +218,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       builder: (ctx) => AlertDialog(
         title: const Text('Se déconnecter ?'),
         content: unsent == 0
-            ? null
+            ? const Text('Pour revenir, il faudra votre numéro et le code reçu par SMS.')
             : Text(
                 unsent == 1
                     ? 'Attention : 1 vente n’a pas encore été envoyée. Elle sera perdue si vous vous déconnectez.'
@@ -227,7 +227,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               ),
         actions: [
           CancelButton(onPressed: () => Navigator.pop(ctx, false)),
-          ConfirmButton(label: 'Déconnexion', onPressed: () => Navigator.pop(ctx, true)),
+          ConfirmButton(danger: true, label: 'Déconnexion', onPressed: () => Navigator.pop(ctx, true)),
         ],
       ),
     );

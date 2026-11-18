@@ -83,6 +83,7 @@ class _ReceiptScreenState extends ConsumerState<ReceiptScreen> {
         actions: [
           CancelButton(label: 'Retour', onPressed: () => Navigator.pop(ctx, false)),
           ConfirmButton(
+            danger: true,
             label: 'Oui, annuler',
             onPressed: () {
               if (reason.text.trim().length < 3) return;
@@ -140,7 +141,16 @@ class _ReceiptScreenState extends ConsumerState<ReceiptScreen> {
                   child: Center(
                     child: ConstrainedBox(
                       constraints: const BoxConstraints(maxWidth: 380),
-                      child: ReceiptPaper(sale: s, business: b),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          ReceiptPaper(sale: s, business: b),
+                          const AddLogoHint(
+                            key: Key('receipt_add_logo'),
+                            message: 'Il apparaîtra en haut de vos reçus (écran, PDF et impression).',
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
@@ -195,12 +205,9 @@ class _ActionsBar extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             FilledButton.icon(
-              style: FilledButton.styleFrom(
-                backgroundColor: AppColors.whatsapp,
-                foregroundColor: const Color(0xFF08361A),
-              ),
+              style: FilledButton.styleFrom(backgroundColor: AppColors.whatsapp, foregroundColor: AppColors.onWhatsapp),
               onPressed: busy == null ? onWhatsApp : null,
-              icon: busy == 'whatsapp' ? spinner(const Color(0xFF08361A)) : const Icon(Icons.chat_rounded),
+              icon: busy == 'whatsapp' ? spinner(AppColors.onWhatsapp) : const Icon(Icons.chat_rounded),
               label: Text(hasPhone ? 'Envoyer au client par WhatsApp' : 'Envoyer par WhatsApp'),
             ),
             const SizedBox(height: 10),

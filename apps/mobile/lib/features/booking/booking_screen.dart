@@ -1005,7 +1005,7 @@ class _BookingSettingsScreenState extends ConsumerState<BookingSettingsScreen> {
                                   child: FilledButton.icon(
                                     style: FilledButton.styleFrom(
                                       backgroundColor: AppColors.whatsapp,
-                                      foregroundColor: const Color(0xFF08361A),
+                                      foregroundColor: AppColors.onWhatsapp,
                                     ),
                                     onPressed: () => _share(url),
                                     icon: const Icon(Icons.chat_rounded, size: 18),
