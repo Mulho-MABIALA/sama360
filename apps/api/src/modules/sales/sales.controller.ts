@@ -8,7 +8,7 @@ import { CurrentTenant, CurrentUser, RequireModule, RequirePermission } from '..
 import { DbService } from '../../shared/db/db.service';
 import { contacts, customerLedger, expenses, sales, users } from '../../shared/db/schema';
 import { AppError } from '../../shared/http/app-error';
-import { atLocation } from '../../shared/tenant/location';
+import { atLocation, unpaidByCustomer } from '../../shared/tenant/location';
 import { PageQuery, parse } from '../../shared/http/zod';
 import { SalesService } from './sales.service';
 
@@ -170,7 +170,7 @@ export class SalesController {
       const exp = (
         await tx.execute(sql`
           SELECT coalesce(sum(amount), 0)::bigint AS total FROM sales.expenses
-          WHERE spent_at >= ${from}::date AND spent_at <= ${to}::date`)
+          WHERE spent_at >= ${from}::date AND spent_at <= ${to}::date ${atLocation(t, 'warehouse_id')}`)
       ).rows[0] as { total: string };
 
       const top = (
@@ -192,7 +192,7 @@ export class SalesController {
       ).rows as { cashier_id: string; name: string; avatar_file_id: string | null; count: number; revenue: string }[];
 
       const receivables = (
-        await tx.execute(sql`SELECT coalesce(sum(amount), 0)::bigint AS total FROM sales.customer_ledger`)
+        await tx.execute(sql`SELECT coalesce(sum(unpaid), 0)::bigint AS total FROM ${unpaidByCustomer(t)} u`)
       ).rows[0] as { total: string };
 
       // Courbe de l'accueil : chiffre d'affaires des 7 derniers jours (jusqu'à « to »)
@@ -237,7 +237,8 @@ export class SalesController {
         netProfit: revenue - cost - expensesTotal,
         collected: Number(totals.collected),
         onCredit: Number(totals.on_credit),
-        receivables: Number(receivables.total), // total dû par tous les clients, toutes périodes
+        // Total dû par les clients, toutes périodes (dans le point de vente choisi : la part de ses dettes)
+        receivables: Number(receivables.total),
         byMethod: byMethod.map((m) => ({ method: m.method, amount: Number(m.amount) })),
         bySeller: sellers.map((v) => ({
           userId: v.cashier_id,
@@ -294,11 +295,12 @@ export class SalesController {
   debtors(@CurrentTenant() t: TenantContext) {
     return this.dbs.withTenant(t.businessId, async (tx) => {
       const rows = await tx.execute(sql`
-        SELECT c.id, c.name, c.phone, sum(l.amount)::bigint AS balance, max(l.occurred_at) AS last_entry_at,
+        SELECT c.id, c.name, c.phone, u.unpaid AS balance, max(l.occurred_at) AS last_entry_at,
                min(l.occurred_at) FILTER (WHERE l.entry_type = 'debt') AS first_debt_at
-        FROM sales.customer_ledger l JOIN contacts.contacts c ON c.id = l.customer_id
-        GROUP BY c.id, c.name, c.phone
-        HAVING sum(l.amount) > 0
+        FROM ${unpaidByCustomer(t)} u
+        JOIN contacts.contacts c ON c.id = u.customer_id
+        JOIN sales.customer_ledger l ON l.customer_id = u.customer_id
+        GROUP BY c.id, c.name, c.phone, u.unpaid
         ORDER BY balance DESC`);
       return (rows.rows as Record<string, unknown>[]).map((r) => ({
         customerId: r.id,
@@ -343,7 +345,7 @@ export class SalesController {
     @Param('customerId', ParseUUIDPipe) customerId: string,
     @Body() body: unknown,
   ) {
-    return this.salesService.recordRepayment(t.businessId, user.id, customerId, parse(Repayment, body));
+    return this.salesService.recordRepayment(t.businessId, user.id, customerId, parse(Repayment, body), t.warehouseId);
   }
 
   @Get('expenses')
@@ -352,6 +354,7 @@ export class SalesController {
     const q = parse(Period, query);
     return this.dbs.withTenant(t.businessId, async (tx) => {
       const where: SQL[] = [];
+      if (t.locationFilter) where.push(eq(expenses.warehouseId, t.locationFilter));
       if (q.from) where.push(gte(expenses.spentAt, q.from));
       if (q.to) where.push(sql`${expenses.spentAt} <= ${q.to}::date`);
       return tx
@@ -367,7 +370,12 @@ export class SalesController {
   @RequirePermission('sales:create')
   addExpense(@CurrentTenant() t: TenantContext, @CurrentUser() user: AuthUser, @Body() body: unknown) {
     const input = parse(Expense, body);
-    return this.salesService.recordExpense(t.businessId, user.id, { ...input, spentAt: input.spentAt ?? today() });
+    return this.salesService.recordExpense(
+      t.businessId,
+      user.id,
+      { ...input, spentAt: input.spentAt ?? today() },
+      t.warehouseId,
+    );
   }
 
   @Get(':id')

@@ -235,12 +235,16 @@ export class CustomersService {
   }
 
   /** Ajustement manuel : reprise d'une ancienne dette (montant positif) ou remise de dette (négatif). */
-  adjust(businessId: string, actorId: string, customerId: string, input: { amount: number; reason: string }) {
+  adjust(
+    businessId: string,
+    actorId: string,
+    customerId: string,
+    input: { amount: number; reason: string },
+    warehouseId: string | null = null,
+  ) {
     return this.dbs.withTenant(businessId, async (tx) => {
       const [c] = (
-        await tx.execute(
-          sql`SELECT id, type, deleted_at FROM contacts.contacts WHERE id = ${customerId} FOR UPDATE`,
-        )
+        await tx.execute(sql`SELECT id, type, deleted_at FROM contacts.contacts WHERE id = ${customerId} FOR UPDATE`)
       ).rows as { id: string; type: string; deleted_at: Date | null }[];
       if (!c || c.deleted_at) throw AppError.notFound('Client');
       if (c.type === 'supplier') throw new AppError('VALIDATION_FAILED', 'Ce contact est un fournisseur', 422);
@@ -262,6 +266,7 @@ export class CustomersService {
         amount: input.amount,
         refType: input.amount > 0 ? 'opening_debt' : 'write_off',
         note: input.reason,
+        warehouseId,
         occurredAt: new Date(),
         createdBy: actorId,
       });

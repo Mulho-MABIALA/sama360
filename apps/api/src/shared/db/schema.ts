@@ -351,6 +351,8 @@ export const customerLedger = salesSchema.table('customer_ledger', {
   note: text('note'),
   occurredAt: ts('occurred_at').notNull(),
   createdBy: uuid('created_by'),
+  /** Point de vente de la dette ou du remboursement */
+  warehouseId: uuid('warehouse_id'),
 });
 
 export const expenses = salesSchema.table('expenses', {
@@ -363,6 +365,8 @@ export const expenses = salesSchema.table('expenses', {
   spentAt: date('spent_at', { mode: 'string' }).notNull(),
   createdBy: uuid('created_by').notNull(),
   createdAt: ts('created_at').notNull().defaultNow(),
+  /** Point de vente qui a dépensé */
+  warehouseId: uuid('warehouse_id'),
 });
 
 // ---------- fichiers ----------

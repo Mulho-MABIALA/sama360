@@ -92,6 +92,7 @@ export class ReportsController {
         await tx.execute(sql`
           SELECT category, coalesce(sum(amount), 0)::bigint AS amount, count(*)::int AS count
           FROM sales.expenses WHERE spent_at >= ${from}::date AND spent_at <= ${to}::date
+            ${atLocation(t, 'warehouse_id')}
           GROUP BY category ORDER BY 2 DESC`)
       ).rows as Row[];
 
@@ -159,7 +160,7 @@ export class ReportsController {
     const e = (
       await tx.execute(sql`
         SELECT coalesce(sum(amount), 0)::bigint AS total FROM sales.expenses
-        WHERE spent_at >= ${from}::date AND spent_at <= ${to}::date`)
+        WHERE spent_at >= ${from}::date AND spent_at <= ${to}::date ${atLocation(t, 'warehouse_id')}`)
     ).rows[0] as Row;
     const revenue = n(s.revenue);
     const cost = n(s.cost);

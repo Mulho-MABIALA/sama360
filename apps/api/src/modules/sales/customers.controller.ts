@@ -54,7 +54,7 @@ export class CustomersController {
     @Param('id', ParseUUIDPipe) id: string,
     @Body() body: unknown,
   ) {
-    return this.customers.adjust(t.businessId, user.id, id, parse(Adjustment, body));
+    return this.customers.adjust(t.businessId, user.id, id, parse(Adjustment, body), t.warehouseId);
   }
 
   @Post(':id/reminders')

@@ -15,6 +15,7 @@ import '../../core/providers.dart';
 import '../../core/theme.dart';
 import '../../core/widgets.dart';
 import '../sales/receipt_screen.dart' show receiptActionsProvider, whatsAppUri;
+import '../locations/locations_screen.dart' show SellingAtBanner;
 import 'statement_pdf.dart';
 
 /// « aujourd'hui », « hier », « il y a 5 j »
@@ -1175,7 +1176,9 @@ class _RepaySheetState extends ConsumerState<_RepaySheet> {
       children: [
         const Text('Remboursement', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
         Text('Dette actuelle : ${money(widget.balance)}', style: TextStyle(color: AppColors.muted)),
-        const SizedBox(height: 14),
+        const SizedBox(height: 8),
+        const SellingAtBanner(prefix: 'Encaissé à '),
+        const SizedBox(height: 6),
         TextField(
           key: const Key('repayAmount'),
           controller: _amount,

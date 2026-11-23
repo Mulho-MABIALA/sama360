@@ -3730,6 +3730,50 @@ describe('Socle Sama360 (e2e)', () => {
       expect(members.body.find((m: { fullName: string }) => m.fullName === 'Fatou Médina').locationId).toBe(medina);
     });
 
+    it('dépenses et crédits clients comptés dans leur point de vente', async () => {
+      const sum = async (h: Record<string, string>) => (await http.get('/v1/sales/summary').set(h).expect(200)).body;
+      const [m0, d0, all0] = [await sum(At(main)), await sum(At(medina)), await sum(A())];
+      const client = (await http.post('/v1/contacts').set(A()).send({ name: 'Coumba Médina' }).expect(201)).body.id;
+
+      // Vente à crédit à la Médina, puis remboursement d'une partie au principal
+      await http
+        .post('/v1/sales')
+        .set(At(medina))
+        .send({ items: [{ productId: product, quantity: 2 }], payments: [], customerId: client })
+        .expect(201);
+      await http
+        .post(`/v1/sales/customers/${client}/repayments`)
+        .set(At(main))
+        .send({ amount: 500, method: 'cash' })
+        .expect(201);
+      // Dépense de la Médina
+      await http.post('/v1/sales/expenses').set(At(medina)).send({ category: 'transport', amount: 700 }).expect(201);
+
+      const [m1, d1, all1] = [await sum(At(main)), await sum(At(medina)), await sum(A())];
+      expect(d1.receivables - d0.receivables).toBe(1500); // 2 000 F dus, 500 F déjà rendus
+      expect(m1.receivables).toBe(m0.receivables);
+      expect(all1.receivables - all0.receivables).toBe(1500);
+      expect(d1.expenses - d0.expenses).toBe(700);
+      expect(m1.expenses).toBe(m0.expenses);
+      expect(all1.expenses - all0.expenses).toBe(700);
+
+      const debtorsHere = (await http.get('/v1/sales/debtors').set(At(medina)).expect(200)).body;
+      expect(debtorsHere).toEqual(
+        expect.arrayContaining([expect.objectContaining({ customerId: client, balance: 1500 })]),
+      );
+      const debtorsMain = (await http.get('/v1/sales/debtors').set(At(main)).expect(200)).body;
+      expect(debtorsMain.map((x: { customerId: string }) => x.customerId)).not.toContain(client);
+      const exp = (await http.get('/v1/sales/expenses').set(At(main)).expect(200)).body;
+      expect(exp.some((e: { amount: number; category: string }) => e.amount === 700)).toBe(false);
+      // Solde réglé : plus rien à encaisser nulle part
+      await http
+        .post(`/v1/sales/customers/${client}/repayments`)
+        .set(At(medina))
+        .send({ amount: 1500, method: 'wave' })
+        .expect(201);
+      expect((await sum(At(medina))).receivables).toBe(d0.receivables);
+    });
+
     it('fermer un point de vente : pas le principal, et pas avec du stock dedans', async () => {
       await http.post(`/v1/locations/${main}/archive`).set(A()).expect(422);
       const full = await http.post(`/v1/locations/${medina}/archive`).set(A()).expect(409);

@@ -1266,7 +1266,9 @@ class _ExpenseSheetState extends ConsumerState<_ExpenseSheet> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         const Text('Nouvelle dépense', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
-        const SizedBox(height: 14),
+        const SizedBox(height: 8),
+        const SellingAtBanner(prefix: 'Dépense de '),
+        const SizedBox(height: 6),
         Wrap(
           spacing: 8,
           runSpacing: 8,

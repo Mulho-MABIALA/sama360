@@ -175,9 +175,12 @@ class _PickTile extends StatelessWidget {
   );
 }
 
-/// Bandeau de la caisse : où va la vente (quand il y a plusieurs points de vente).
+/// Bandeau : où va la vente, la dépense ou le remboursement (quand il y a plusieurs points de vente).
 class SellingAtBanner extends ConsumerWidget {
-  const SellingAtBanner({super.key});
+  const SellingAtBanner({super.key, this.prefix = 'Vente à '});
+
+  /// « Vente à », « Dépense de », « Encaissé à »…
+  final String prefix;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -193,7 +196,7 @@ class SellingAtBanner extends ConsumerWidget {
             child: Text.rich(
               key: const Key('selling_at'),
               TextSpan(
-                text: 'Vente à ',
+                text: prefix,
                 children: [
                   TextSpan(
                     text: s.nameOf(s.writeTo),

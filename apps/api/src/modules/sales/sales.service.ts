@@ -191,6 +191,7 @@ export class SalesService {
           note: number,
           occurredAt: soldAt,
           createdBy: cashierId,
+          warehouseId,
         });
       }
 
@@ -258,6 +259,7 @@ export class SalesService {
           note: `Annulation ${sale.number}`,
           occurredAt: new Date(),
           createdBy: actorId,
+          warehouseId: sale.warehouseId,
         });
       }
 
@@ -293,6 +295,7 @@ export class SalesService {
     actorId: string,
     customerId: string,
     input: { amount: number; method: PaymentMethod; note?: string | null },
+    warehouseId: string | null = null,
   ) {
     return this.dbs.withTenant(businessId, async (tx) => {
       await this.assertCustomer(tx, customerId, true);
@@ -313,6 +316,7 @@ export class SalesService {
         note: input.note ?? null,
         occurredAt: new Date(),
         createdBy: actorId,
+        warehouseId,
       });
       await this.outbox.record(tx, {
         type: 'customer.repayment_recorded',
@@ -329,6 +333,7 @@ export class SalesService {
     businessId: string,
     actorId: string,
     input: { category: string; amount: number; method?: string | null; note?: string | null; spentAt: string },
+    warehouseId: string | null = null,
   ) {
     return this.dbs.withTenant(businessId, async (tx) => {
       const id = newId();
@@ -341,6 +346,7 @@ export class SalesService {
           ...input,
           method: input.method ?? null,
           note: input.note ?? null,
+          warehouseId,
         })
         .returning();
       await this.outbox.record(tx, {
