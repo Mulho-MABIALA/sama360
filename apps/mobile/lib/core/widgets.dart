@@ -7,6 +7,7 @@ import 'package:material_ui/material_ui.dart';
 import 'api/api_client.dart' show ApiException;
 import 'countries.dart';
 import 'format.dart';
+import 'models.dart' show PayMethod;
 import 'providers.dart';
 import 'skeleton.dart';
 import 'theme.dart';
@@ -154,6 +155,35 @@ class StatTile extends StatelessWidget {
 /// Pastille de sélection (catégories, moyens de paiement, filtres).
 /// Agrandit la zone à toucher à [min]×[min] (48 par défaut, règle Android) sans changer le dessin.
 /// Le libellé d'accessibilité couvre toute la zone.
+/// Logo d'un moyen de paiement : vrais logos Wave et Orange Money, icône pour les autres.
+class PayLogo extends StatelessWidget {
+  const PayLogo(this.method, {super.key, this.size = 22, this.color});
+  final PayMethod? method; // null = crédit
+  final double size;
+  final Color? color;
+
+  static const _assets = {PayMethod.wave: 'assets/pay/wave.png', PayMethod.orangeMoney: 'assets/pay/orange_money.png'};
+
+  static IconData iconOf(PayMethod? m) => switch (m) {
+    null => Icons.menu_book_rounded,
+    PayMethod.cash => Icons.payments_rounded,
+    PayMethod.card => Icons.credit_card_rounded,
+    PayMethod.transfer => Icons.account_balance_rounded,
+    PayMethod.cheque => Icons.receipt_rounded,
+    _ => Icons.phone_android_rounded,
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    final asset = _assets[method];
+    if (asset == null) return Icon(iconOf(method), size: size, color: color);
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(method == PayMethod.orangeMoney ? size : size * 0.28),
+      child: Image.asset(asset, width: size, height: size, fit: BoxFit.cover, semanticLabel: method!.label),
+    );
+  }
+}
+
 /// Bouton corbeille : toujours rouge et bien visible (icône pleine sur fond rouge pâle).
 class TrashButton extends StatelessWidget {
   const TrashButton({super.key, required this.tooltip, required this.onPressed});

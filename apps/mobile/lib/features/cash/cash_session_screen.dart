@@ -137,7 +137,7 @@ class _CashSessionScreenState extends ConsumerState<CashSessionScreen> {
                   children: [
                     for (final (i, l) in s.lines!.indexed) ...[
                       ListTile(
-                        leading: Icon(CashMethodTile.iconOf(l.method), color: AppColors.green),
+                        leading: PayLogo(l.method, size: 26, color: AppColors.green),
                         title: Text(l.method.label, style: const TextStyle(fontWeight: FontWeight.w700)),
                         subtitle: Text(
                           'Attendu ${moneyShort(l.expected)} · compté ${moneyShort(l.counted)}',

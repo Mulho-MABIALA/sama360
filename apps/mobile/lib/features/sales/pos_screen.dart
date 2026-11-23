@@ -962,20 +962,11 @@ class _ModeButton extends StatelessWidget {
           borderRadius: BorderRadius.circular(16),
           onTap: onTap,
           child: SizedBox(
-            height: 54,
+            height: 60,
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(
-                  switch (mode) {
-                    PaymentMode.cash => Icons.payments_rounded,
-                    PaymentMode.wave => Icons.waves_rounded,
-                    PaymentMode.credit => Icons.menu_book_rounded,
-                    _ => Icons.phone_android_rounded,
-                  },
-                  size: 18,
-                  color: selected ? fg : _accent,
-                ),
+                PayLogo(mode.method, size: 22, color: selected ? fg : _accent),
                 const SizedBox(height: 2),
                 Text(
                   mode.label,

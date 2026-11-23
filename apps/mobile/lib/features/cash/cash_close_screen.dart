@@ -234,7 +234,7 @@ class _CountTile extends StatelessWidget {
         children: [
           Row(
             children: [
-              Icon(CashMethodTile.iconOf(line.method), color: AppColors.green),
+              PayLogo(line.method, size: 26, color: AppColors.green),
               const SizedBox(width: 10),
               Expanded(
                 child: Text(line.method.label, style: const TextStyle(fontWeight: FontWeight.w800)),

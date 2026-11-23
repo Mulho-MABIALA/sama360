@@ -291,14 +291,6 @@ class CashMethodTile extends StatelessWidget {
   const CashMethodTile({super.key, required this.line});
   final CashMethodLine line;
 
-  static IconData iconOf(PayMethod m) => switch (m) {
-    PayMethod.cash => Icons.payments_rounded,
-    PayMethod.card => Icons.credit_card_rounded,
-    PayMethod.transfer => Icons.account_balance_rounded,
-    PayMethod.cheque => Icons.receipt_rounded,
-    _ => Icons.phone_android_rounded,
-  };
-
   @override
   Widget build(BuildContext context) => Glass(
     radius: 18,
@@ -307,7 +299,7 @@ class CashMethodTile extends StatelessWidget {
       data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
       child: ExpansionTile(
         shape: const RoundedRectangleBorder(),
-        leading: Icon(iconOf(line.method), color: AppColors.green),
+        leading: PayLogo(line.method, size: 26, color: AppColors.green),
         title: Text(line.method.label, style: const TextStyle(fontWeight: FontWeight.w700)),
         trailing: Text(money(line.expected), style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
         childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 12),

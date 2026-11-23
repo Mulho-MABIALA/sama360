@@ -82,6 +82,7 @@ flutter:
     - assets/monuments/
     - assets/photos/
     - assets/icons3d/
+    - assets/pay/
 
   # To add assets to your application, add an assets section, like this:
   # assets:
