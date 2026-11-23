@@ -11,8 +11,10 @@ ARG FLUTTER_VERSION=3.50.0
 RUN apt-get update && apt-get install -y --no-install-recommends git curl unzip xz-utils ca-certificates \
  && rm -rf /var/lib/apt/lists/* \
  && git clone --depth 1 --branch ${FLUTTER_VERSION} https://github.com/flutter/flutter.git /flutter
+# TAR_OPTIONS : sur les serveurs de build (Render), tar ne peut pas rendre les fichiers à leur propriétaire d'origine
 ENV PATH="/flutter/bin:${PATH}" \
-    FLUTTER_SUPPRESS_ANALYTICS=true
+    FLUTTER_SUPPRESS_ANALYTICS=true \
+    TAR_OPTIONS=--no-same-owner
 RUN flutter config --no-analytics --enable-web && flutter precache --web
 WORKDIR /mobile
 COPY apps/mobile/pubspec.yaml apps/mobile/pubspec.lock ./
