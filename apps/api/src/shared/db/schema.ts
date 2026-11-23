@@ -37,7 +37,7 @@ export const core = pgSchema('core');
 
 export const users = core.table('users', {
   id: uuid('id').primaryKey(),
-  phone: varchar('phone', { length: 20 }).notNull().unique(),
+  phone: varchar('phone', { length: 64 }).notNull().unique(),
   fullName: varchar('full_name', { length: 120 }),
   email: varchar('email', { length: 160 }),
   pinHash: varchar('pin_hash', { length: 255 }),
@@ -46,6 +46,7 @@ export const users = core.table('users', {
   status: varchar('status', { length: 20 }).notNull().default('active'),
   createdAt: ts('created_at').notNull().defaultNow(),
   updatedAt: ts('updated_at').notNull().defaultNow(),
+  deletedAt: ts('deleted_at'),
 });
 
 export const otpCodes = core.table('otp_codes', {
@@ -92,6 +93,8 @@ export const businesses = core.table('businesses', {
   createdAt: ts('created_at').notNull().defaultNow(),
   updatedAt: ts('updated_at').notNull().defaultNow(),
   deletedAt: ts('deleted_at'),
+  deletedBy: uuid('deleted_by'),
+  deletedWithAccount: boolean('deleted_with_account').notNull().default(false),
 });
 
 export const roles = core.table('roles', {

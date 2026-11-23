@@ -527,6 +527,33 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       ),
                     ],
                   ),
+                  const SizedBox(height: 16),
+                  _Section(
+                    title: 'Supprimer',
+                    children: [
+                      if (link?.role == 'owner')
+                        _Row(
+                          key: const Key('delete_business_row'),
+                          icon: Icons.store_mall_directory_outlined,
+                          color: AppColors.danger,
+                          label: 'Boutique',
+                          value: 'Supprimer ${link!.name}',
+                          hint: '30 jours pour changer d’avis',
+                          trailing: Icon(Icons.chevron_right_rounded, color: AppColors.danger),
+                          onTap: () => context.push('/business/delete'),
+                        ),
+                      _Row(
+                        key: const Key('delete_account_row'),
+                        icon: Icons.person_remove_alt_1_rounded,
+                        color: AppColors.danger,
+                        label: 'Compte',
+                        value: 'Supprimer mon compte',
+                        hint: 'Et les boutiques dont vous êtes propriétaire',
+                        trailing: Icon(Icons.chevron_right_rounded, color: AppColors.danger),
+                        onTap: () => context.push('/account/delete'),
+                      ),
+                    ],
+                  ),
                   const SizedBox(height: 22),
                   OutlinedButton.icon(
                     style: OutlinedButton.styleFrom(

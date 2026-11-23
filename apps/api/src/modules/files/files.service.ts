@@ -71,6 +71,20 @@ export class FilesService {
     }
   }
 
+  /** Efface des objets du stockage (après suppression de leurs lignes), sans s'arrêter sur une erreur. */
+  async deleteObjects(keys: string[]): Promise<number> {
+    let done = 0;
+    for (const key of keys) {
+      try {
+        await this.storage.delete(key);
+        done++;
+      } catch (e) {
+        this.logger.warn(`Suppression ${key} : ${(e as Error).message}`);
+      }
+    }
+    return done;
+  }
+
   /**
    * Lecture publique par identifiant aléatoire (photos de produits, photos de profil).
    * Jamais les documents (contrats, registre…) : ils passent par [openPrivate], après contrôle des droits.

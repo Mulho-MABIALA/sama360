@@ -52,10 +52,12 @@ class AuthController extends AsyncNotifier<AuthState> {
   Future<OtpTarget> requestOtp(String phone, {OtpChannel? channel}) =>
       ref.read(repoProvider).requestOtp(phone, channel: channel);
 
-  Future<void> verifyOtp(String phone, String code) async {
+  /// Vrai si la connexion a rétabli un compte supprimé il y a moins de 30 jours.
+  Future<bool> verifyOtp(String phone, String code) async {
     final t = await ref.read(repoProvider).verifyOtp(phone, code);
     await _store.save(Session(accessToken: t.access, refreshToken: t.refresh));
     state = AsyncData(await _load());
+    return t.restored;
   }
 
   Future<void> saveName(String fullName) async {
@@ -112,6 +114,31 @@ class AuthController extends AsyncNotifier<AuthState> {
     await _store.saveBusinessId(id);
     _api.businessId = id;
     state = AsyncData(AuthState(me: state.value?.me, businessId: id));
+  }
+
+  /// Propriétaire : supprime la boutique courante, puis passe à une autre (ou à la création).
+  Future<void> deleteCurrentBusiness(String confirmName) async {
+    await ref.read(repoProvider).deleteBusiness(confirmName);
+    await ref.read(pendingSalesProvider.notifier).clear();
+    await ref.read(repoProvider).clearCache();
+    await _store.saveBusinessId(null);
+    state = AsyncData(await _load());
+  }
+
+  /// Rétablit une boutique supprimée et l'ouvre.
+  Future<void> restoreBusiness(String id) async {
+    await ref.read(repoProvider).restoreBusiness(id);
+    await ref.read(repoProvider).clearCache();
+    await _store.saveBusinessId(id);
+    state = AsyncData(await _load());
+  }
+
+  /// Supprime le compte : tout est effacé sur ce téléphone (30 jours pour revenir en se reconnectant).
+  Future<void> deleteAccount(String confirm) async {
+    await ref.read(repoProvider).deleteAccount(confirm);
+    await ref.read(pendingSalesProvider.notifier).clear();
+    await _clearLocal();
+    await ref.read(pinLockProvider.notifier).forget();
   }
 
   Future<void> reload() async {

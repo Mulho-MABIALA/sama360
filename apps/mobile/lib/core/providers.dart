@@ -113,6 +113,15 @@ final adminPaymentsProvider = FutureProvider.autoDispose.family<List<PaymentRequ
   (ref, status) => ref.watch(repoProvider).adminPaymentRequests(status: status),
 );
 
+/// Mes boutiques supprimées, encore restaurables (liste vide en cas d'erreur).
+final deletedBusinessesProvider = FutureProvider.autoDispose<List<DeletedBusiness>>((ref) async {
+  try {
+    return await ref.watch(repoProvider).deletedBusinesses();
+  } catch (_) {
+    return const [];
+  }
+});
+
 /// Moyens de recevoir le code de connexion (WhatsApp, SMS, appel), le premier par défaut.
 final otpChannelsProvider = FutureProvider<List<OtpChannel>>((ref) => ref.watch(repoProvider).otpChannels());
 

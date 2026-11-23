@@ -259,7 +259,8 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
     });
     try {
       // La redirection du routeur prend le relais une fois connecté.
-      await ref.read(authProvider.notifier).verifyOtp(widget.phone, _code.text);
+      final restored = await ref.read(authProvider.notifier).verifyOtp(widget.phone, _code.text);
+      if (restored && mounted) showInfo(context, 'Bon retour ! Votre compte et vos boutiques sont restaurés.');
     } on ApiException catch (e) {
       final left = e.detailInt('remainingAttempts');
       setState(() => _error = left != null ? '${e.message} — $left essai(s) restant(s)' : e.message);

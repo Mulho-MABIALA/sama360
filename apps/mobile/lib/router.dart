@@ -13,6 +13,7 @@ import 'features/auth/auth_controller.dart';
 import 'features/auth/login_screens.dart';
 import 'features/assistant/assistant_screen.dart';
 import 'features/auth/pin_screen.dart';
+import 'features/profile/closure_screens.dart';
 import 'features/booking/booking_screen.dart';
 import 'features/delivery/delivery_screen.dart';
 import 'features/catalog/product_photo.dart' show PickedPhoto;
@@ -63,7 +64,8 @@ String? authRedirect(AsyncValue<AuthState> auth, String location, {Uri? uri}) {
   final s = auth.value!;
   if (!s.signedIn) return publicRoutes.contains(location) ? null : '/login';
   if (s.needsProfile) return location == '/profile' ? null : '/profile';
-  if (s.businessId == null) return location == '/business' ? null : '/business';
+  // Sans entreprise : en créer une, en restaurer une, ou supprimer son compte
+  if (s.businessId == null) return location == '/business' || location == '/account/delete' ? null : '/business';
   if (location == '/splash') {
     final to = uri?.queryParameters['to'];
     return to != null && to.startsWith('/') && !to.startsWith('//') && !to.startsWith('/splash') ? to : '/';
@@ -102,6 +104,8 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(path: '/profile', builder: (_, _) => const ProfileSetupScreen()),
       GoRoute(path: '/business', builder: (_, _) => const BusinessScreen()),
+      GoRoute(path: '/business/delete', builder: (_, _) => const DeleteBusinessScreen()),
+      GoRoute(path: '/account/delete', builder: (_, _) => const DeleteAccountScreen()),
       GoRoute(path: '/cash', builder: (_, _) => const CashScreen()),
       GoRoute(path: '/notifications', builder: (_, _) => const NotificationsScreen()),
       GoRoute(path: '/reminders', builder: (_, _) => const RemindersScreen()),

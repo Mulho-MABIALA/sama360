@@ -35,6 +35,7 @@ import request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { ConsoleOtpSender } from '../src/modules/auth/otp-sender';
 import { DbService } from '../src/shared/db/db.service';
+import { ClosureService } from '../src/modules/core/closure.service';
 import { contacts } from '../src/shared/db/schema';
 import { migrate } from '../src/shared/db/migrate';
 import { EventWorkerService } from '../src/shared/events/event-worker.service';
@@ -3747,6 +3748,107 @@ describe('Socle Sama360 (e2e)', () => {
       expect(members.body.find((m: { fullName: string }) => m.fullName === 'Fatou Médina').locationId).toBeNull();
       // Une ancienne sélection sur le téléphone retombe sur « tous les points de vente »
       expect((await http.get('/v1/sales/summary').set(At(medina)).expect(200)).body.locationId).toBeNull();
+    });
+  });
+
+  describe('Supprimer une boutique ou son compte', () => {
+    it('boutique : propriétaire seul, nom retapé, restaurable 30 jours, puis effacée', async () => {
+      const { sql } = await import('drizzle-orm');
+      const closure = app.get(ClosureService);
+      const owner = await login('+221770030001');
+      const biz = (
+        await http.post('/v1/businesses').set(auth(owner.accessToken)).send({ name: 'Rokhaya Bazin' }).expect(201)
+      ).body.business.id;
+      const O = () => auth(owner.accessToken, biz);
+      await http.post('/v1/catalog/products').set(O()).send({ name: 'Bazin riche', price: 25000 }).expect(201);
+      const manager = await login('+221770030002');
+      await http.post('/v1/members').set(O()).send({ phone: '+221770030002', roleKey: 'manager' }).expect(201);
+      const M = () => auth(manager.accessToken, biz);
+
+      // Le gérant ne peut pas ; un nom mal tapé est refusé
+      await http.delete('/v1/business').set(M()).send({ confirmName: 'Rokhaya Bazin' }).expect(403);
+      await http.delete('/v1/business').set(O()).send({ confirmName: 'Rokhaya' }).expect(422);
+      const del = (await http.delete('/v1/business').set(O()).send({ confirmName: '  rokhaya  bazin ' }).expect(200))
+        .body;
+      expect(Math.round((Date.parse(del.purgeAt) - Date.now()) / 86_400_000)).toBe(30);
+
+      // Disparue pour tout le monde
+      await http.get('/v1/catalog/products').set(O()).expect(403);
+      await http.get('/v1/catalog/products').set(M()).expect(403);
+      expect((await http.get('/v1/me').set(auth(owner.accessToken)).expect(200)).body.businesses).toEqual([]);
+      const list = (await http.get('/v1/businesses/deleted').set(auth(owner.accessToken)).expect(200)).body;
+      expect(list).toEqual([expect.objectContaining({ id: biz, name: 'Rokhaya Bazin', daysLeft: 30 })]);
+      expect((await http.get('/v1/businesses/deleted').set(auth(manager.accessToken)).expect(200)).body).toEqual([]);
+      await http.post(`/v1/businesses/${biz}/restore`).set(auth(manager.accessToken)).expect(404);
+
+      // Restaurée avec ses données
+      await http.post(`/v1/businesses/${biz}/restore`).set(auth(owner.accessToken)).expect(200);
+      const products = (await http.get('/v1/catalog/products').set(M()).expect(200)).body;
+      expect(JSON.stringify(products)).toContain('Bazin riche');
+
+      // Supprimée à nouveau ; 31 jours plus tard : effacée pour de bon
+      await http.delete('/v1/business').set(O()).send({ confirmName: 'Rokhaya Bazin' }).expect(200);
+      await dbs.db.execute(sql`UPDATE core.businesses SET deleted_at = now() - interval '31 days' WHERE id = ${biz}`);
+      expect((await http.get('/v1/businesses/deleted').set(auth(owner.accessToken)).expect(200)).body).toEqual([]);
+      const purged = await closure.purgeExpired();
+      expect(purged.businesses).toBeGreaterThanOrEqual(1);
+      expect((await dbs.db.execute(sql`SELECT 1 FROM core.businesses WHERE id = ${biz}`)).rows).toHaveLength(0);
+      expect((await dbs.db.execute(sql`SELECT 1 FROM core.memberships WHERE business_id = ${biz}`)).rows).toHaveLength(
+        0,
+      );
+      await http.post(`/v1/businesses/${biz}/restore`).set(auth(owner.accessToken)).expect(404);
+    });
+
+    it('compte : SUPPRIMER pour confirmer, sessions fermées, annulé en se reconnectant, sinon anonymisé', async () => {
+      const { sql } = await import('drizzle-orm');
+      const closure = app.get(ClosureService);
+      const phone = '+221770030010';
+      let u = await login(phone);
+      await http.patch('/v1/me').set(auth(u.accessToken)).send({ fullName: 'Ndèye Fall' }).expect(200);
+      const biz = (await http.post('/v1/businesses').set(auth(u.accessToken)).send({ name: 'Ndèye Mode' }).expect(201))
+        .body.business.id;
+
+      await http.delete('/v1/me').set(auth(u.accessToken)).send({ confirm: 'oui' }).expect(422);
+      const del = (await http.delete('/v1/me').set(auth(u.accessToken)).send({ confirm: 'supprimer' }).expect(200))
+        .body;
+      expect(del).toMatchObject({ deleted: true, businesses: 1 });
+      await http.post('/v1/auth/refresh').send({ refreshToken: u.refreshToken }).expect(401);
+      await http.get('/v1/business').set(auth(u.accessToken, biz)).expect(403);
+
+      // Reconnexion dans les 30 jours : compte et boutique reviennent
+      await dbs.db.execute(
+        sql`UPDATE core.otp_codes SET created_at = now() - interval '2 minutes' WHERE phone = ${phone}`,
+      );
+      await http.post('/v1/auth/otp/request').send({ phone }).expect(200);
+      const back = (
+        await http
+          .post('/v1/auth/otp/verify')
+          .send({ phone, code: otp.sent.get(phone) })
+          .expect(200)
+      ).body;
+      expect(back).toMatchObject({ restored: true, isNewUser: false });
+      u = back;
+      expect((await http.get('/v1/me').set(auth(u.accessToken)).expect(200)).body.businesses).toEqual([
+        expect.objectContaining({ id: biz, name: 'Ndèye Mode' }),
+      ]);
+
+      // Supprimé pour de bon après 30 jours : numéro libéré, nouveau compte vide
+      await http.delete('/v1/me').set(auth(u.accessToken)).send({ confirm: 'SUPPRIMER' }).expect(200);
+      await dbs.db.execute(sql`UPDATE core.users SET deleted_at = now() - interval '31 days' WHERE phone = ${phone}`);
+      await dbs.db.execute(sql`UPDATE core.businesses SET deleted_at = now() - interval '31 days' WHERE id = ${biz}`);
+      const purged = await closure.purgeExpired();
+      expect(purged.users).toBe(1);
+      const anon = (
+        await dbs.db.execute(sql`SELECT phone, full_name, status FROM core.users WHERE id = ${back.user.id}`)
+      ).rows[0];
+      expect(anon).toMatchObject({ phone: `deleted:${back.user.id}`, full_name: null, status: 'deleted' });
+      await dbs.db.execute(
+        sql`UPDATE core.otp_codes SET created_at = now() - interval '2 minutes' WHERE phone = ${phone}`,
+      );
+      const fresh = await login(phone);
+      expect(fresh.isNewUser).toBe(true);
+      expect(fresh.user.id).not.toBe(back.user.id);
+      expect((await http.get('/v1/me').set(auth(fresh.accessToken)).expect(200)).body.businesses).toEqual([]);
     });
   });
 

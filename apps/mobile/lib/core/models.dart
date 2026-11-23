@@ -290,6 +290,22 @@ class ProStatus {
   }
 }
 
+/// Boutique supprimée, restaurable jusqu'à [purgeAt].
+class DeletedBusiness {
+  const DeletedBusiness({required this.id, required this.name, required this.purgeAt, required this.daysLeft});
+  final String id;
+  final String name;
+  final DateTime purgeAt;
+  final int daysLeft;
+
+  factory DeletedBusiness.fromJson(Map<String, dynamic> j) => DeletedBusiness(
+    id: j['id'] as String,
+    name: j['name'] as String,
+    purgeAt: DateTime.parse(j['purgeAt'] as String),
+    daysLeft: (j['daysLeft'] as num).toInt(),
+  );
+}
+
 /// Moyen de recevoir le code de connexion.
 enum OtpChannel {
   whatsapp('WhatsApp', 'par WhatsApp', 'Recevoir par WhatsApp'),

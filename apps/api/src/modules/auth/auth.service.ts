@@ -3,7 +3,7 @@ import { JwtService } from '@nestjs/jwt';
 import { and, desc, eq, gt, isNull } from 'drizzle-orm';
 import { env } from '../../shared/config/env';
 import { DbService, Tx } from '../../shared/db/db.service';
-import { memberships, otpCodes, refreshTokens, users } from '../../shared/db/schema';
+import { businesses, memberships, otpCodes, refreshTokens, users } from '../../shared/db/schema';
 import { AppError } from '../../shared/http/app-error';
 import { newId } from '../../shared/ids';
 import { normalizePhone } from '../../shared/phone';
@@ -147,6 +147,22 @@ export class AuthService {
       } else if (user.status === 'suspended') {
         throw AppError.forbidden('Compte suspendu');
       }
+      // Compte supprimé il y a moins de 30 jours : se reconnecter annule la suppression
+      let restored = false;
+      if (user.deletedAt) {
+        const now = new Date();
+        [user] = await tx
+          .update(users)
+          .set({ deletedAt: null, updatedAt: now })
+          .where(eq(users.id, user.id))
+          .returning();
+        await tx
+          .update(businesses)
+          .set({ deletedAt: null, deletedBy: null, deletedWithAccount: false, updatedAt: now })
+          .where(and(eq(businesses.ownerId, user.id), eq(businesses.deletedWithAccount, true)));
+        restored = true;
+        this.logger.log(`Compte ${user.id} restauré à la reconnexion`);
+      }
 
       await tx
         .update(memberships)
@@ -159,6 +175,7 @@ export class AuthService {
         session: {
           ...tokens,
           isNewUser: !user.fullName,
+          ...(restored ? { restored: true } : {}),
           user: { id: user.id, phone: user.phone, fullName: user.fullName },
         },
       };

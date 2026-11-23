@@ -75,14 +75,35 @@ class SamaRepository {
     );
   }
 
-  Future<({String access, String refresh})> verifyOtp(String phone, String code, {String? deviceId}) async {
+  /// [restored] : compte supprimé il y a moins de 30 jours, rétabli par cette connexion.
+  Future<({String access, String refresh, bool restored})> verifyOtp(
+    String phone,
+    String code, {
+    String? deviceId,
+  }) async {
     final r = await api.post<Map<String, dynamic>>(
       '/v1/auth/otp/verify',
       data: {'phone': phone, 'code': code, 'deviceId': ?deviceId},
       public: true,
     );
-    return (access: r['accessToken'] as String, refresh: r['refreshToken'] as String);
+    return (access: r['accessToken'] as String, refresh: r['refreshToken'] as String, restored: r['restored'] == true);
   }
+
+  // ---------- Suppression (30 jours pour changer d'avis) ----------
+
+  /// Propriétaire : supprime la boutique courante ; [confirmName] = son nom retapé.
+  Future<void> deleteBusiness(String confirmName) =>
+      api.delete<void>('/v1/business', data: {'confirmName': confirmName});
+
+  Future<List<DeletedBusiness>> deletedBusinesses() async => [
+    for (final b in await api.get<List<dynamic>>('/v1/businesses/deleted'))
+      DeletedBusiness.fromJson(b as Map<String, dynamic>),
+  ];
+
+  Future<void> restoreBusiness(String id) => api.post<void>('/v1/businesses/$id/restore');
+
+  /// Supprime le compte ([confirm] = « SUPPRIMER ») et ses boutiques.
+  Future<void> deleteAccount(String confirm) => api.delete<void>('/v1/me', data: {'confirm': confirm});
 
   Future<void> logout(String refreshToken) =>
       api.post<void>('/v1/auth/logout', data: {'refreshToken': refreshToken}, public: true);

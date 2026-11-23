@@ -9,6 +9,7 @@ import '../../core/providers.dart';
 import '../../core/theme.dart';
 import '../../core/widgets.dart';
 import '../auth/auth_controller.dart';
+import '../profile/closure_screens.dart' show DeletedBusinessesList;
 
 const _categories = {
   'boutique': 'Boutique',
@@ -122,6 +123,7 @@ class _BusinessScreenState extends ConsumerState<BusinessScreen> {
                 icon: const Icon(Icons.add),
                 label: const Text('Créer une entreprise'),
               ),
+              const DeletedBusinessesList(),
             ] else ...[
               Text(
                 'Créez votre espace : boutique, restaurant, salon… Vous pourrez inviter votre équipe ensuite.',
@@ -214,6 +216,16 @@ class _BusinessScreenState extends ConsumerState<BusinessScreen> {
               const SizedBox(height: 24),
               BusyButton(label: "Créer l'entreprise", busy: _busy, onPressed: _create),
               if (list.isNotEmpty) CancelButton(onPressed: () => setState(() => _creating = false)),
+              if (list.isEmpty) ...[
+                const DeletedBusinessesList(),
+                const SizedBox(height: 12),
+                TextButton(
+                  key: const Key('open_delete_account'),
+                  style: TextButton.styleFrom(foregroundColor: AppColors.danger),
+                  onPressed: () => context.push('/account/delete'),
+                  child: const Text('Supprimer mon compte'),
+                ),
+              ],
             ],
           ],
         ),

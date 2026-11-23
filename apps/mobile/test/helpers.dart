@@ -2289,6 +2289,53 @@ class FakeRepo extends SamaRepository {
   @override
   Future<void> logoutAll() async => loggedOutEverywhere = true;
 
+  // Suppression de boutique et de compte
+  final deletedNames = <String>[];
+  final accountDeletions = <String>[];
+  var deletedList = <DeletedBusiness>[];
+  final restored = <String>[];
+
+  Me _withBusinesses(List<BusinessLink> list) => Me(
+    id: profile.id,
+    phone: profile.phone,
+    fullName: profile.fullName,
+    email: profile.email,
+    avatarFileId: profile.avatarFileId,
+    businesses: list,
+  );
+
+  @override
+  Future<void> deleteBusiness(String confirmName) async {
+    deletedNames.add(confirmName);
+    final gone = profile.businesses.first;
+    profile = _withBusinesses(profile.businesses.skip(1).toList());
+    deletedList = [
+      DeletedBusiness(
+        id: gone.id,
+        name: gone.name,
+        purgeAt: DateTime.now().add(const Duration(days: 30)),
+        daysLeft: 30,
+      ),
+    ];
+  }
+
+  @override
+  Future<List<DeletedBusiness>> deletedBusinesses() async => deletedList;
+
+  @override
+  Future<void> restoreBusiness(String id) async {
+    restored.add(id);
+    final b = deletedList.firstWhere((d) => d.id == id);
+    deletedList = deletedList.where((d) => d.id != id).toList();
+    profile = _withBusinesses([
+      ...profile.businesses,
+      BusinessLink(id: b.id, name: b.name, role: 'owner', roleName: 'Propriétaire'),
+    ]);
+  }
+
+  @override
+  Future<void> deleteAccount(String confirm) async => accountDeletions.add(confirm);
+
   @override
   Future<SaleDetail> sale(String id) async => id == 'voided' || voidedSales.containsKey(id) ? demoVoidedSale : demoSale;
 

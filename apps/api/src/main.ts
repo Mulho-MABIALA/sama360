@@ -6,6 +6,7 @@ import { Logger } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import { AppModule } from './app.module';
+import { ClosureService } from './modules/core/closure.service';
 import { EventWorkerService } from './shared/events/event-worker.service';
 import { OutboxRelayService } from './shared/events/outbox-relay.service';
 import { env } from './shared/config/env';
@@ -34,6 +35,8 @@ async function bootstrap() {
     // Petit hébergement : le worker vit dans le même process (sinon : node dist/worker.js à part)
     app.get(OutboxRelayService).start();
     app.get(EventWorkerService).start();
+    // Boutiques et comptes supprimés depuis plus de 30 jours : effacement définitif
+    app.get(ClosureService).startPurge();
     Logger.log('Worker intégré démarré (RUN_WORKER=true)', 'Bootstrap');
   }
   Logger.log(`API Sama360 prête sur le port ${e.PORT} (${e.NODE_ENV})`, 'Bootstrap');
