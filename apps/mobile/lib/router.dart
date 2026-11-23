@@ -96,7 +96,9 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/login', builder: (_, _) => const PhoneScreen()),
       GoRoute(
         path: '/otp',
-        builder: (_, s) => OtpScreen(phone: s.extra as String? ?? ''),
+        builder: (_, s) => OtpScreen(
+          target: s.extra is OtpTarget ? s.extra! as OtpTarget : OtpTarget(s.extra as String? ?? ''),
+        ),
       ),
       GoRoute(path: '/profile', builder: (_, _) => const ProfileSetupScreen()),
       GoRoute(path: '/business', builder: (_, _) => const BusinessScreen()),

@@ -3,9 +3,15 @@ import { env } from '../../shared/config/env';
 
 export const OTP_SENDER = Symbol('OTP_SENDER');
 
+/** Moyens de recevoir le code : SMS, message WhatsApp ou appel vocal. */
+export const OTP_CHANNELS = ['whatsapp', 'sms', 'call'] as const;
+export type OtpChannel = (typeof OTP_CHANNELS)[number];
+
 /** Canal d'envoi des codes (SMS, WhatsApp…). Une implémentation par fournisseur. */
 export interface OtpSender {
-  send(phone: string, code: string): Promise<void>;
+  /** Moyens proposés par ce fournisseur, le premier étant celui par défaut. */
+  readonly channels: readonly OtpChannel[];
+  send(phone: string, code: string, channel?: OtpChannel): Promise<void>;
   /**
    * Fournisseur qui crée et vérifie lui-même le code (Twilio Verify) : le code saisi lui est soumis
    * au lieu d'être comparé à celui que le serveur a tiré. Absent pour les envois simples.
@@ -41,10 +47,14 @@ const digits = (phone: string) => phone.replace(/\D/g, '');
 export class ConsoleOtpSender implements OtpSender {
   private readonly logger = new Logger('OTP');
   readonly sent = new Map<string, string>();
+  readonly channelOf = new Map<string, OtpChannel>();
+  // Tous les moyens, pour essayer l'écran de choix sans fournisseur
+  readonly channels = OTP_CHANNELS;
 
-  async send(phone: string, code: string): Promise<void> {
+  async send(phone: string, code: string, channel: OtpChannel = 'sms'): Promise<void> {
     this.sent.set(phone, code);
-    this.logger.log(`Code de connexion pour ${phone} : ${code}`);
+    this.channelOf.set(phone, channel);
+    this.logger.log(`Code de connexion pour ${phone} (${channel}) : ${code}`);
   }
 }
 
@@ -56,6 +66,7 @@ type Fetch = typeof fetch;
  * Le jeton est gardé en mémoire jusqu'à peu avant son expiration.
  */
 export class OrangeSmsSender implements OtpSender {
+  readonly channels = ['sms'] as const;
   private token: { value: string; until: number } | null = null;
 
   constructor(
@@ -122,6 +133,7 @@ export class OrangeSmsSender implements OtpSender {
 
 /** Twilio : POST /2010-04-01/Accounts/<sid>/Messages.json (expéditeur ou service de messagerie). */
 export class TwilioSmsSender implements OtpSender {
+  readonly channels = ['sms'] as const;
   constructor(
     private readonly cfg: {
       accountSid: string;
@@ -162,10 +174,23 @@ export class TwilioSmsSender implements OtpSender {
  * limites (une demande par minute, nombre d'essais, expiration).
  */
 export class TwilioVerifySender implements OtpSender {
+  readonly channels: readonly OtpChannel[];
+
   constructor(
-    private readonly cfg: { accountSid: string; authToken: string; serviceSid: string; channel: 'sms' | 'whatsapp' },
+    private readonly cfg: {
+      accountSid: string;
+      authToken: string;
+      serviceSid: string;
+      /** Moyen par défaut */
+      channel: OtpChannel;
+      /** Moyens proposés (par défaut : celui par défaut, puis les autres) */
+      channels?: readonly OtpChannel[];
+    },
     private readonly http: Fetch = fetch,
-  ) {}
+  ) {
+    const offered = cfg.channels?.length ? cfg.channels : OTP_CHANNELS;
+    this.channels = [cfg.channel, ...offered.filter((c) => c !== cfg.channel)];
+  }
 
   private post(path: string, form: Record<string, string>) {
     const basic = Buffer.from(`${this.cfg.accountSid}:${this.cfg.authToken}`).toString('base64');
@@ -176,8 +201,12 @@ export class TwilioVerifySender implements OtpSender {
     });
   }
 
-  async send(phone: string): Promise<void> {
-    const res = await this.post('Verifications', { To: `+${digits(phone)}`, Channel: this.cfg.channel, Locale: 'fr' });
+  async send(phone: string, _code?: string, channel?: OtpChannel): Promise<void> {
+    const res = await this.post('Verifications', {
+      To: `+${digits(phone)}`,
+      Channel: channel ?? this.cfg.channel,
+      Locale: 'fr',
+    });
     if (!res.ok) throw new SmsDeliveryError('Twilio Verify', res.status, (await res.text()).slice(0, 200));
   }
 
@@ -220,6 +249,7 @@ export function createOtpSender(consoleSender: ConsoleOtpSender): OtpSender {
         authToken: e.TWILIO_AUTH_TOKEN!,
         serviceSid: e.TWILIO_VERIFY_SERVICE_SID!,
         channel: e.OTP_CHANNEL,
+        channels: e.OTP_CHANNELS,
       });
     default:
       if (e.NODE_ENV === 'production') {

@@ -36,8 +36,15 @@ const BaseSchema = z.object({
   TWILIO_MESSAGING_SERVICE_SID: z.string().min(1).optional(),
   // Twilio Verify : Twilio crée, envoie et vérifie le code (numéros et conformité gérés par pays)
   TWILIO_VERIFY_SERVICE_SID: z.string().min(1).optional(),
-  // Canal : sms (par défaut) ou whatsapp (expéditeur WhatsApp à configurer dans Twilio ; repli SMS automatique)
-  OTP_CHANNEL: z.enum(['sms', 'whatsapp']).default('sms'),
+  // Moyen proposé d'abord : whatsapp, sms ou call (appel vocal qui dicte le code)
+  OTP_CHANNEL: z.enum(['sms', 'whatsapp', 'call']).default('sms'),
+  // Moyens au choix du commerçant (Twilio Verify), séparés par des virgules.
+  // WhatsApp seulement une fois un expéditeur WhatsApp Business relié au service Verify.
+  OTP_CHANNELS: z
+    .string()
+    .default('sms,call')
+    .transform((v) => v.split(',').map((c) => c.trim()))
+    .pipe(z.array(z.enum(['sms', 'whatsapp', 'call'])).min(1)),
   OTP_TTL_SECONDS: z.coerce.number().int().positive().default(300),
   OTP_MAX_ATTEMPTS: z.coerce.number().int().positive().default(5),
   OUTBOX_POLL_MS: z.coerce.number().int().positive().default(1000),

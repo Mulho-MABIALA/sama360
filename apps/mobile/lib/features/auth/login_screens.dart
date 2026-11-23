@@ -9,6 +9,7 @@ import 'package:material_ui/material_ui.dart';
 import '../../core/api/api_client.dart';
 import '../../core/format.dart';
 import '../../core/glass.dart';
+import '../../core/models.dart';
 import '../../core/providers.dart';
 import '../../core/theme.dart';
 import '../../core/widgets.dart';
@@ -40,17 +41,21 @@ class _PhoneScreenState extends ConsumerState<PhoneScreen> {
       setState(() => _error = 'Numéro invalide : $n chiffres, ex. ${country.example}');
       return;
     }
+    final channels = ref.read(otpChannelsProvider).value ?? const [OtpChannel.sms];
+    final channel = _channel(channels);
     setState(() {
       _busy = true;
       _error = null;
     });
     try {
-      final normalized = await ref.read(authProvider.notifier).requestOtp(phone);
-      if (mounted) context.push('/otp', extra: normalized);
+      final sent = await ref.read(authProvider.notifier).requestOtp(phone, channel: channel);
+      if (mounted) {
+        context.push('/otp', extra: OtpTarget(sent.phone, channel: sent.channel, channels: channels));
+      }
     } on ApiException catch (e) {
       // Un code a déjà été envoyé il y a moins d'une minute : on passe quand même à la saisie.
       if (e.code == 'OTP_TOO_SOON' && mounted) {
-        context.push('/otp', extra: phone);
+        context.push('/otp', extra: OtpTarget(phone, channel: channel, channels: channels));
       } else {
         setState(() => _error = e.message);
       }
@@ -59,9 +64,26 @@ class _PhoneScreenState extends ConsumerState<PhoneScreen> {
     }
   }
 
+  /// Moyens proposés sur cet écran (l'appel vocal reste un recours, sur l'écran du code).
+  static List<OtpChannel> _offered(List<OtpChannel> all) {
+    final l = all.where((c) => c != OtpChannel.call).toList();
+    return l.isEmpty ? all : l;
+  }
+
+  /// Moyen choisi : celui retenu sur ce téléphone s'il est proposé, sinon celui du serveur.
+  OtpChannel _channel(List<OtpChannel> all) {
+    final offered = _offered(all);
+    final pref = ref.read(preferredOtpChannelProvider);
+    return pref != null && offered.contains(pref) ? pref : offered.first;
+  }
+
   @override
   Widget build(BuildContext context) {
     final top = MediaQuery.paddingOf(context).top;
+    final channels = ref.watch(otpChannelsProvider).value ?? const [OtpChannel.sms];
+    ref.watch(preferredOtpChannelProvider);
+    final offered = _offered(channels);
+    final channel = _channel(channels);
     return AuroraScaffold(
       body: ListView(
         padding: EdgeInsets.zero,
@@ -103,7 +125,29 @@ class _PhoneScreenState extends ConsumerState<PhoneScreen> {
                       style: TextStyle(fontSize: 21, fontWeight: FontWeight.w800),
                     ),
                     const SizedBox(height: 6),
-                    Text('Nous vous envoyons un code de connexion par SMS.', style: TextStyle(color: AppColors.muted)),
+                    Text(
+                      'Nous vous envoyons un code de connexion ${channel.by}.',
+                      key: const Key('otp_channel_text'),
+                      style: TextStyle(color: AppColors.muted),
+                    ),
+                    if (offered.length > 1) ...[
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          Text('Recevoir le code par', style: TextStyle(color: AppColors.muted, fontSize: 13)),
+                          const SizedBox(width: 10),
+                          for (final c in offered) ...[
+                            Pill(
+                              key: Key('otp_by_${c.name}'),
+                              label: c.label,
+                              selected: c == channel,
+                              onTap: () => ref.read(preferredOtpChannelProvider.notifier).set(c),
+                            ),
+                            const SizedBox(width: 6),
+                          ],
+                        ],
+                      ),
+                    ],
                     const SizedBox(height: 16),
                     CountryPills(
                       value: ref.watch(loginCountryProvider),
@@ -159,18 +203,27 @@ class _PhoneScreenState extends ConsumerState<PhoneScreen> {
 
 /// Étape 2 : code à 6 chiffres.
 class OtpScreen extends ConsumerStatefulWidget {
-  const OtpScreen({super.key, required this.phone});
-  final String phone;
+  const OtpScreen({super.key, required this.target});
+  final OtpTarget target;
+  String get phone => target.phone;
   @override
   ConsumerState<OtpScreen> createState() => _OtpScreenState();
 }
+
+/// Renvoi par le même moyen : 1 minute ; changer de moyen (WhatsApp → SMS…) : 15 secondes.
+const _resendAfter = 60;
+const _switchAfter = 15;
 
 class _OtpScreenState extends ConsumerState<OtpScreen> {
   final _code = TextEditingController();
   bool _busy = false;
   String? _error;
-  int _wait = 60;
+  int _elapsed = 0;
   Timer? _timer;
+  late OtpChannel _channel = widget.target.channel;
+  OtpChannel? _sending;
+
+  int get _wait => (_resendAfter - _elapsed).clamp(0, _resendAfter);
 
   @override
   void initState() {
@@ -180,11 +233,11 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
 
   void _startTimer() {
     _timer?.cancel();
-    setState(() => _wait = 60);
+    setState(() => _elapsed = 0);
     _timer = Timer.periodic(const Duration(seconds: 1), (t) {
       if (!mounted) return t.cancel();
-      setState(() => _wait = _wait > 0 ? _wait - 1 : 0);
-      if (_wait == 0) t.cancel();
+      setState(() => _elapsed++);
+      if (_elapsed >= _resendAfter) t.cancel();
     });
   }
 
@@ -216,15 +269,29 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
     }
   }
 
-  Future<void> _resend() async {
+  /// Renvoie le code, par le même moyen ou par un autre (« Pas reçu ? »).
+  Future<void> _resend([OtpChannel? channel]) async {
+    final c = channel ?? _channel;
+    setState(() => _sending = c);
     try {
-      await ref.read(authProvider.notifier).requestOtp(widget.phone);
+      final sent = await ref.read(authProvider.notifier).requestOtp(widget.phone, channel: c);
+      if (!mounted) return;
+      setState(() => _channel = sent.channel);
+      if (sent.channel != OtpChannel.call) await ref.read(preferredOtpChannelProvider.notifier).set(sent.channel);
       _startTimer();
-      if (mounted) showInfo(context, 'Nouveau code envoyé');
+      if (mounted) showInfo(context, 'Nouveau code envoyé ${sent.channel.by}');
     } catch (e) {
       if (mounted) showError(context, e);
+    } finally {
+      if (mounted) setState(() => _sending = null);
     }
   }
+
+  String get _tip => switch (_channel) {
+    OtpChannel.whatsapp => 'Ouvrez WhatsApp : le code arrive dans un message.',
+    OtpChannel.call => 'Décrochez : une voix vous dicte le code.',
+    OtpChannel.sms => 'Le code arrive par SMS dans quelques secondes.',
+  };
 
   @override
   Widget build(BuildContext context) {
@@ -236,7 +303,13 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
           children: [
             const Text('Code de connexion', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800)),
             const SizedBox(height: 6),
-            Text('Envoyé au ${intlPhone(widget.phone)}', style: TextStyle(color: AppColors.muted)),
+            Text(
+              'Envoyé ${_channel.by} au ${intlPhone(widget.phone)}',
+              key: const Key('otp_sent_to'),
+              style: TextStyle(color: AppColors.muted),
+            ),
+            const SizedBox(height: 2),
+            Text(_tip, style: TextStyle(color: AppColors.muted, fontSize: 13)),
             const SizedBox(height: 24),
             TextField(
               key: const Key('code'),
@@ -255,9 +328,38 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
             BusyButton(label: 'Valider', busy: _busy, onPressed: _verify),
             const SizedBox(height: 8),
             TextButton(
-              onPressed: _wait == 0 ? _resend : null,
+              key: const Key('otp_resend'),
+              onPressed: _wait == 0 && _sending == null ? () => _resend() : null,
               child: Text(_wait == 0 ? 'Renvoyer le code' : 'Renvoyer le code dans $_wait s'),
             ),
+            if (widget.target.channels.length > 1) ...[
+              const SizedBox(height: 14),
+              Text(
+                'Pas reçu ?',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontWeight: FontWeight.w800, color: AppColors.ink),
+              ),
+              const SizedBox(height: 8),
+              for (final c in widget.target.channels.where((c) => c != _channel))
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: OutlinedButton.icon(
+                    key: Key('otp_switch_${c.name}'),
+                    style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(48)),
+                    onPressed: _elapsed >= _switchAfter && _sending == null ? () => _resend(c) : null,
+                    icon: _sending == c
+                        ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                        : Icon(switch (c) {
+                            OtpChannel.whatsapp => Icons.chat_rounded,
+                            OtpChannel.sms => Icons.sms_rounded,
+                            OtpChannel.call => Icons.phone_in_talk_rounded,
+                          }),
+                    label: Text(
+                      _elapsed >= _switchAfter ? c.action : '${c.action} (${_switchAfter - _elapsed} s)',
+                    ),
+                  ),
+                ),
+            ],
           ],
         ),
       ),

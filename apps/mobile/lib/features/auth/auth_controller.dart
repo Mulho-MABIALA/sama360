@@ -49,7 +49,8 @@ class AuthController extends AsyncNotifier<AuthState> {
     return AuthState(me: me, businessId: businessId);
   }
 
-  Future<String> requestOtp(String phone) => ref.read(repoProvider).requestOtp(phone);
+  Future<OtpTarget> requestOtp(String phone, {OtpChannel? channel}) =>
+      ref.read(repoProvider).requestOtp(phone, channel: channel);
 
   Future<void> verifyOtp(String phone, String code) async {
     final t = await ref.read(repoProvider).verifyOtp(phone, code);

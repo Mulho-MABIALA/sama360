@@ -290,6 +290,34 @@ class ProStatus {
   }
 }
 
+/// Moyen de recevoir le code de connexion.
+enum OtpChannel {
+  whatsapp('WhatsApp', 'par WhatsApp', 'Recevoir par WhatsApp'),
+  sms('SMS', 'par SMS', 'Recevoir par SMS'),
+  call('Appel', 'par appel vocal', 'Recevoir un appel');
+
+  const OtpChannel(this.label, this.by, this.action);
+  final String label;
+
+  /// « par WhatsApp »
+  final String by;
+
+  /// Bouton « Pas reçu ? »
+  final String action;
+
+  static OtpChannel? fromApi(String? v) => values.where((c) => c.name == v).firstOrNull;
+}
+
+/// Code demandé : numéro normalisé et moyen utilisé.
+class OtpTarget {
+  const OtpTarget(this.phone, {this.channel = OtpChannel.sms, this.channels = const [OtpChannel.sms]});
+  final String phone;
+  final OtpChannel channel;
+
+  /// Moyens possibles (pour « Pas reçu ? »)
+  final List<OtpChannel> channels;
+}
+
 /// Paiement en ligne de Pro : page de paiement à ouvrir, puis suivi de son état.
 class OnlinePayment {
   const OnlinePayment({required this.id, this.checkoutUrl, this.status = 'pending'});

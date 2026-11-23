@@ -52,6 +52,7 @@ export const otpCodes = core.table('otp_codes', {
   id: uuid('id').primaryKey(),
   phone: varchar('phone', { length: 20 }).notNull(),
   codeHash: varchar('code_hash', { length: 128 }).notNull(),
+  channel: varchar('channel', { length: 10 }),
   attempts: integer('attempts').notNull().default(0),
   expiresAt: ts('expires_at').notNull(),
   consumedAt: ts('consumed_at'),

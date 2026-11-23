@@ -137,11 +137,44 @@ describe('Socle Sama360 (e2e)', () => {
     it('SMS non parti : erreur claire et nouvel essai possible tout de suite', async () => {
       const spy = jest.spyOn(otp, 'send').mockRejectedValueOnce(new Error('Orange : crédit épuisé'));
       const r = await http.post('/v1/auth/otp/request').send({ phone: '78 000 11 22' }).expect(503);
-      expect(r.body.error).toMatchObject({ code: 'SMS_FAILED', message: expect.stringContaining('réessayez') });
+      expect(r.body.error).toMatchObject({ code: 'SMS_FAILED', message: expect.stringContaining('autre moyen') });
       spy.mockRestore();
       // Pas de « patientez une minute » : le code non envoyé a été effacé
       await http.post('/v1/auth/otp/request').send({ phone: '78 000 11 22' }).expect(200);
       expect(otp.sent.get('+221780001122')).toMatch(/^\d{6}$/);
+    });
+
+    it('code par WhatsApp, SMS ou appel au choix ; changer de moyen plus vite qu’un renvoi', async () => {
+      const { sql } = await import('drizzle-orm');
+      expect((await http.get('/v1/auth/otp/channels').expect(200)).body).toEqual({
+        channels: ['whatsapp', 'sms', 'call'],
+        default: 'whatsapp',
+      });
+      const phone = '+221760001234';
+      expect((await http.post('/v1/auth/otp/request').send({ phone }).expect(200)).body.channel).toBe('whatsapp');
+      await http.post('/v1/auth/otp/request').send({ phone, channel: 'fax' }).expect(422);
+      // Pas reçu sur WhatsApp : SMS après 15 s (pas une minute)
+      const tooSoon = await http.post('/v1/auth/otp/request').send({ phone, channel: 'sms' }).expect(429);
+      expect(tooSoon.body.error.message).toContain('changer de moyen');
+      await dbs.db.execute(
+        sql`UPDATE core.otp_codes SET created_at = now() - interval '16 seconds' WHERE phone = ${phone}`,
+      );
+      expect((await http.post('/v1/auth/otp/request').send({ phone, channel: 'sms' }).expect(200)).body.channel).toBe(
+        'sms',
+      );
+      expect(otp.channelOf.get(phone)).toBe('sms');
+      // Même moyen : toujours une minute
+      await dbs.db.execute(
+        sql`UPDATE core.otp_codes SET created_at = now() - interval '16 seconds' WHERE phone = ${phone}`,
+      );
+      await http.post('/v1/auth/otp/request').send({ phone, channel: 'sms' }).expect(429);
+      await http.post('/v1/auth/otp/request').send({ phone, channel: 'call' }).expect(200);
+      expect(otp.channelOf.get(phone)).toBe('call');
+      // Le dernier code reçu connecte
+      await http
+        .post('/v1/auth/otp/verify')
+        .send({ phone, code: otp.sent.get(phone) })
+        .expect(200);
     });
 
     it('refuse un numéro invalide', async () => {
@@ -151,7 +184,7 @@ describe('Socle Sama360 (e2e)', () => {
 
     it('envoie un code, refuse un mauvais code puis connecte avec le bon', async () => {
       const r1 = await http.post('/v1/auth/otp/request').send({ phone: '77 123 45 67' }).expect(200);
-      expect(r1.body).toEqual({ phone: AWA, expiresIn: 300 });
+      expect(r1.body).toEqual({ phone: AWA, expiresIn: 300, channel: 'whatsapp' });
 
       const again = await http.post('/v1/auth/otp/request').send({ phone: AWA }).expect(429);
       expect(again.body.error.code).toBe('OTP_TOO_SOON');

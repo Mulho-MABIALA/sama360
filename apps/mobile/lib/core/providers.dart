@@ -113,6 +113,22 @@ final adminPaymentsProvider = FutureProvider.autoDispose.family<List<PaymentRequ
   (ref, status) => ref.watch(repoProvider).adminPaymentRequests(status: status),
 );
 
+/// Moyens de recevoir le code de connexion (WhatsApp, SMS, appel), le premier par défaut.
+final otpChannelsProvider = FutureProvider<List<OtpChannel>>((ref) => ref.watch(repoProvider).otpChannels());
+
+/// Moyen choisi par la personne sur cet appareil (retenu pour la prochaine fois).
+class PreferredOtpChannel extends Notifier<OtpChannel?> {
+  static const _key = 'login.otp_channel';
+  @override
+  OtpChannel? build() => OtpChannel.fromApi(ref.watch(keyValueStoreProvider).getString(_key));
+  Future<void> set(OtpChannel c) async {
+    state = c;
+    await ref.read(keyValueStoreProvider).setString(_key, c.name);
+  }
+}
+
+final preferredOtpChannelProvider = NotifierProvider<PreferredOtpChannel, OtpChannel?>(PreferredOtpChannel.new);
+
 /// Pays choisi à la connexion (avant d'avoir une entreprise).
 class LoginCountry extends Notifier<Country> {
   @override

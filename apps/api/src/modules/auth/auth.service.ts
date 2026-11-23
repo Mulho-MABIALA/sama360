@@ -8,9 +8,13 @@ import { AppError } from '../../shared/http/app-error';
 import { newId } from '../../shared/ids';
 import { normalizePhone } from '../../shared/phone';
 import { generateOtp, generateRefreshToken, hmac, safeEqualHex } from './crypto';
-import { OTP_SENDER, OtpSender } from './otp-sender';
+import { OTP_SENDER, OtpChannel, OtpSender } from './otp-sender';
 
 const RESEND_DELAY_MS = 60_000;
+/** Changer de moyen (WhatsApp → SMS…) : possible plus vite qu'un simple renvoi. */
+const SWITCH_DELAY_MS = 15_000;
+
+const CHANNEL_LABEL: Record<OtpChannel, string> = { sms: 'le SMS', whatsapp: 'le message WhatsApp', call: 'l’appel' };
 
 export interface TokenPair {
   accessToken: string;
@@ -34,20 +38,40 @@ export class AuthService {
     return phone;
   }
 
-  /** Envoie un code à 6 chiffres. Un seul envoi par minute et par numéro. */
-  async requestOtp(rawPhone: string): Promise<{ phone: string; expiresIn: number }> {
+  /** Moyens de recevoir le code proposés à l'écran de connexion, le premier par défaut. */
+  otpChannels(): { channels: OtpChannel[]; default: OtpChannel } {
+    const channels = [...this.sender.channels];
+    return { channels, default: channels[0] };
+  }
+
+  /**
+   * Envoie un code à 6 chiffres par le moyen choisi (WhatsApp, SMS, appel).
+   * Un renvoi par minute ; changer de moyen est possible après 15 secondes.
+   */
+  async requestOtp(
+    rawPhone: string,
+    wanted?: OtpChannel,
+  ): Promise<{ phone: string; expiresIn: number; channel: OtpChannel }> {
     const phone = this.requirePhone(rawPhone);
     const e = env();
     const db = this.dbs.db;
+    const channel = wanted && this.sender.channels.includes(wanted) ? wanted : this.sender.channels[0];
 
     const [last] = await db
-      .select({ createdAt: otpCodes.createdAt })
+      .select({ createdAt: otpCodes.createdAt, channel: otpCodes.channel })
       .from(otpCodes)
       .where(eq(otpCodes.phone, phone))
       .orderBy(desc(otpCodes.createdAt))
       .limit(1);
-    if (last && Date.now() - last.createdAt.getTime() < RESEND_DELAY_MS) {
-      throw new AppError('OTP_TOO_SOON', 'Patientez une minute avant de redemander un code', 429);
+    const wait = last && last.channel !== channel ? SWITCH_DELAY_MS : RESEND_DELAY_MS;
+    if (last && Date.now() - last.createdAt.getTime() < wait) {
+      throw new AppError(
+        'OTP_TOO_SOON',
+        wait === RESEND_DELAY_MS
+          ? 'Patientez une minute avant de redemander un code'
+          : 'Patientez quelques secondes avant de changer de moyen',
+        429,
+      );
     }
 
     const code = generateOtp();
@@ -56,17 +80,25 @@ export class AuthService {
       id: otpId,
       phone,
       codeHash: hmac(e.OTP_SECRET, `${phone}:${code}`),
+      channel,
       expiresAt: new Date(Date.now() + e.OTP_TTL_SECONDS * 1000),
     });
     try {
-      await this.sender.send(phone, code);
+      await this.sender.send(phone, code, channel);
     } catch (err) {
-      // Le SMS n'est pas parti : on efface le code pour pouvoir redemander tout de suite.
+      // Le code n'est pas parti : on l'efface pour pouvoir redemander tout de suite.
       await db.delete(otpCodes).where(eq(otpCodes.id, otpId));
-      this.logger.error(`Envoi du code impossible vers ${phone.slice(0, -4)}**** : ${(err as Error).message}`);
-      throw new AppError('SMS_FAILED', 'Le SMS n’a pas pu être envoyé. Vérifiez le numéro et réessayez.', 503);
+      this.logger.error(
+        `Envoi du code (${channel}) impossible vers ${phone.slice(0, -4)}**** : ${(err as Error).message}`,
+      );
+      const what = CHANNEL_LABEL[channel];
+      throw new AppError(
+        'SMS_FAILED',
+        `${what.charAt(0).toUpperCase()}${what.slice(1)} n’a pas pu partir. Vérifiez le numéro, ou choisissez un autre moyen.`,
+        503,
+      );
     }
-    return { phone, expiresIn: e.OTP_TTL_SECONDS };
+    return { phone, expiresIn: e.OTP_TTL_SECONDS, channel };
   }
 
   /** Vérifie le code ; crée le compte au premier passage ; active les invitations en attente. */

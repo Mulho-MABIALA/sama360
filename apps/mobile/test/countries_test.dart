@@ -15,12 +15,14 @@ import 'helpers.dart';
 
 class _SignedOut extends AuthController {
   final sent = <String>[];
+  final channels = <OtpChannel?>[];
   @override
   Future<AuthState> build() async => const AuthState();
   @override
-  Future<String> requestOtp(String phone) async {
+  Future<OtpTarget> requestOtp(String phone, {OtpChannel? channel}) async {
     sent.add(phone);
-    return phone;
+    channels.add(channel);
+    return OtpTarget(phone, channel: channel ?? OtpChannel.sms);
   }
 }
 
@@ -100,6 +102,49 @@ void main() {
     await tester.pumpAndSettle();
     expect(auth.sent, ['+2250707123456']);
     expect(c.read(loginCountryProvider), Country.ci);
+  });
+
+  testWidgets('code par WhatsApp ou SMS au choix ; « Pas reçu ? » : SMS ou appel', (tester) async {
+    phoneSize(tester);
+    await initializeDateFormatting('fr');
+    final auth = _SignedOut();
+    final c = ProviderContainer(
+      overrides: [
+        sessionStoreProvider.overrideWithValue(MemorySessionStore()),
+        authProvider.overrideWith(() => auth),
+        otpChannelsProvider.overrideWith((_) async => OtpChannel.values),
+      ],
+    );
+    addTearDown(c.dispose);
+    await tester.pumpWidget(UncontrolledProviderScope(container: c, child: const SamaApp(googleFonts: false)));
+    await tester.pumpAndSettle();
+
+    // WhatsApp proposé d'abord ; l'appel n'est qu'un recours
+    expect(find.text('Nous vous envoyons un code de connexion par WhatsApp.'), findsOneWidget);
+    expect(find.byKey(const Key('otp_by_call')), findsNothing);
+    // Pas de WhatsApp sur ce numéro : SMS
+    await tester.tap(find.byKey(const Key('otp_by_sms')));
+    await tester.pump();
+    expect(find.text('Nous vous envoyons un code de connexion par SMS.'), findsOneWidget);
+    await tester.enterText(find.byKey(const Key('phone')), '78 730 87 06');
+    await tester.tap(find.text('Recevoir le code'));
+    await tester.pumpAndSettle();
+    expect(auth.channels, [OtpChannel.sms]);
+    expect(find.textContaining('Envoyé par SMS au +221 78 730 87 06'), findsOneWidget);
+
+    // « Pas reçu ? » : WhatsApp ou appel, après 15 secondes
+    final callBtn = find.byKey(const Key('otp_switch_call'));
+    expect(tester.widget<ButtonStyleButton>(callBtn).onPressed, isNull);
+    await tester.pump(const Duration(seconds: 16));
+    await tester.ensureVisible(callBtn);
+    await tester.tap(callBtn);
+    await tester.pumpAndSettle();
+    expect(auth.channels, [OtpChannel.sms, OtpChannel.call]);
+    expect(find.textContaining('Envoyé par appel vocal'), findsOneWidget);
+    expect(find.text('Décrochez : une voix vous dicte le code.'), findsOneWidget);
+    // Le SMS reste retenu pour la prochaine fois (l'appel n'est qu'un recours)
+    expect(c.read(preferredOtpChannelProvider), OtpChannel.sms);
+    await tester.pump(const Duration(seconds: 61));
   });
 
   testWidgets('serveur de test : adresse vérifiée puis gardée', (tester) async {

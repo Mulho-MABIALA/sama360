@@ -56,8 +56,13 @@ services:
       # (avec OTP_CONSOLE_IN_PRODUCTION=true). Réglé à la main dans Render : un push ne l'écrase plus.
       - key: OTP_PROVIDER
         sync: false
+      # Moyen proposé d'abord (sms, whatsapp ou call) et moyens au choix du commerçant.
+      # Vides : SMS d'abord, puis appel vocal. WhatsApp une fois l'expéditeur WhatsApp Business relié à Verify :
+      # OTP_CHANNEL=whatsapp et OTP_CHANNELS=whatsapp,sms,call. Réglés à la main : un push ne les écrase pas.
       - key: OTP_CHANNEL
-        value: sms # whatsapp une fois l'expéditeur WhatsApp configuré dans Twilio
+        sync: false
+      - key: OTP_CHANNELS
+        sync: false
       - key: TWILIO_ACCOUNT_SID
         sync: false
       - key: TWILIO_AUTH_TOKEN

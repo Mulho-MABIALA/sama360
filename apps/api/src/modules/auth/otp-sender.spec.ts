@@ -113,6 +113,19 @@ describe('SMS de connexion', () => {
       expect(calls[0].init.body).toBe('To=%2B2250708091011&Channel=sms&Locale=fr');
     });
 
+    it('moyen choisi par le commerçant ; le moyen par défaut est proposé en premier', async () => {
+      const { http, calls } = fakeFetch([
+        { status: 201, body: {} },
+        { status: 201, body: {} },
+      ]);
+      const s = new TwilioVerifySender({ ...cfg, channel: 'whatsapp', channels: ['sms', 'whatsapp', 'call'] }, http);
+      expect(s.channels).toEqual(['whatsapp', 'sms', 'call']);
+      await s.send('+221781234567', '', 'call');
+      expect(calls[0].init.body).toContain('Channel=call');
+      await s.send('+221781234567');
+      expect(calls[1].init.body).toContain('Channel=whatsapp');
+    });
+
     it('WhatsApp si choisi (Twilio se replie sur le SMS)', async () => {
       const { http, calls } = fakeFetch([{ status: 201, body: {} }]);
       await new TwilioVerifySender({ ...cfg, channel: 'whatsapp' }, http).send('+242061234567');

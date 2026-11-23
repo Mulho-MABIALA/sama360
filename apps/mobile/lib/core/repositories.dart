@@ -52,9 +52,27 @@ class SamaRepository {
   Future<void> clearCache() => cache.removePrefix(cachePrefix);
 
   // ---------- Authentification ----------
-  Future<String> requestOtp(String phone) async {
-    final r = await api.post<Map<String, dynamic>>('/v1/auth/otp/request', data: {'phone': phone}, public: true);
-    return r['phone'] as String;
+  /// Moyens de recevoir le code (le premier par défaut). Serveur ancien ou injoignable : SMS.
+  Future<List<OtpChannel>> otpChannels() async {
+    try {
+      final r = await api.get<Map<String, dynamic>>('/v1/auth/otp/channels');
+      final list = [for (final c in (r['channels'] as List? ?? const [])) ?OtpChannel.fromApi(c as String)];
+      return list.isEmpty ? const [OtpChannel.sms] : list;
+    } catch (_) {
+      return const [OtpChannel.sms];
+    }
+  }
+
+  Future<OtpTarget> requestOtp(String phone, {OtpChannel? channel}) async {
+    final r = await api.post<Map<String, dynamic>>(
+      '/v1/auth/otp/request',
+      data: {'phone': phone, 'channel': ?channel?.name},
+      public: true,
+    );
+    return OtpTarget(
+      r['phone'] as String,
+      channel: OtpChannel.fromApi(r['channel'] as String?) ?? channel ?? OtpChannel.sms,
+    );
   }
 
   Future<({String access, String refresh})> verifyOtp(String phone, String code, {String? deviceId}) async {
