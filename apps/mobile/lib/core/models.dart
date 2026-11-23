@@ -246,6 +246,7 @@ class ProStatus {
     this.pending,
     this.history = const [],
     this.referralCode,
+    this.online = false,
   });
 
   final bool pro;
@@ -260,6 +261,9 @@ class ProStatus {
   final PaymentRequest? pending;
   final List<PaymentRequest> history;
   final String? referralCode;
+
+  /// Paiement en ligne possible (Chariow : Wave, Orange Money, MoMo, carte…).
+  final bool online;
 
   /// Dernière demande refusée (affichée tant qu'aucune autre n'a suivi).
   PaymentRequest? get lastRejected => history.isNotEmpty && history.first.status == 'rejected' ? history.first : null;
@@ -281,8 +285,20 @@ class ProStatus {
         for (final h in (j['history'] as List? ?? const [])) PaymentRequest.fromJson(h as Map<String, dynamic>),
       ],
       referralCode: j['referralCode'] as String?,
+      online: j['online'] == true,
     );
   }
+}
+
+/// Paiement en ligne de Pro : page de paiement à ouvrir, puis suivi de son état.
+class OnlinePayment {
+  const OnlinePayment({required this.id, this.checkoutUrl, this.status = 'pending'});
+  final String id;
+  final String? checkoutUrl;
+
+  /// pending, paid ou failed
+  final String status;
+  bool get paid => status == 'paid';
 }
 
 class Referral {

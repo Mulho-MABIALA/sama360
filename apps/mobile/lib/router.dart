@@ -51,16 +51,24 @@ import 'features/sales/sales_history_screen.dart';
 import 'features/shell/shell.dart';
 
 /// Où envoyer l'utilisateur selon l'état de sa session. Fonction pure, testée.
-String? authRedirect(AsyncValue<AuthState> auth, String location) {
+String? authRedirect(AsyncValue<AuthState> auth, String location, {Uri? uri}) {
   const publicRoutes = ['/login', '/otp'];
-  if (auth.isLoading && !auth.hasValue) return location == '/splash' ? null : '/splash';
-  if (auth.hasError && !auth.hasValue) return location == '/splash' ? null : '/splash';
+  // Pendant le chargement de la session, on garde l'écran demandé (ex. retour de la page de paiement)
+  String splash() => location == '/splash' || uri == null || uri.path == '/'
+      ? '/splash'
+      : '/splash?to=${Uri.encodeComponent(uri.toString())}';
+  if (auth.isLoading && !auth.hasValue) return location == '/splash' ? null : splash();
+  if (auth.hasError && !auth.hasValue) return location == '/splash' ? null : splash();
 
   final s = auth.value!;
   if (!s.signedIn) return publicRoutes.contains(location) ? null : '/login';
   if (s.needsProfile) return location == '/profile' ? null : '/profile';
   if (s.businessId == null) return location == '/business' ? null : '/business';
-  if (publicRoutes.contains(location) || location == '/profile' || location == '/splash') return '/';
+  if (location == '/splash') {
+    final to = uri?.queryParameters['to'];
+    return to != null && to.startsWith('/') && !to.startsWith('//') && !to.startsWith('/splash') ? to : '/';
+  }
+  if (publicRoutes.contains(location) || location == '/profile') return '/';
   return null;
 }
 
@@ -80,7 +88,7 @@ final routerProvider = Provider<GoRouter>((ref) {
     initialLocation: '/splash',
     refreshListenable: listenable,
     redirect: (_, state) =>
-        authRedirect(ref.read(authProvider), state.matchedLocation) ??
+        authRedirect(ref.read(authProvider), state.matchedLocation, uri: state.uri) ??
         accessRedirect(ref.read(currentBusinessProvider).value?.permissions, state.matchedLocation),
     routes: [
       GoRoute(path: '/splash', builder: (_, _) => const SplashScreen()),
@@ -115,7 +123,8 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/shop/products', builder: (_, _) => const ShopProductsScreen()),
       GoRoute(
         path: '/pro',
-        builder: (_, s) => ProScreen(feature: ProFeature.of(s.uri.queryParameters['feature'])),
+        builder: (_, s) =>
+            ProScreen(feature: ProFeature.of(s.uri.queryParameters['feature']), paidId: s.uri.queryParameters['paid']),
       ),
       GoRoute(path: '/referral', builder: (_, _) => const ReferralScreen()),
       GoRoute(path: '/admin/payments', builder: (_, _) => const AdminPaymentsScreen()),

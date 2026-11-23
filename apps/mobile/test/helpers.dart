@@ -269,7 +269,31 @@ class FakeRepo extends SamaRepository {
     payTo: 'Wave au 77 000 00 00 (Zolaa Tech)',
     methods: businessCountry.mobileMoney,
     referralCode: referralInfo.code,
+    online: proOnline,
   );
+
+  /// Paiement en ligne (Chariow) proposé
+  bool proOnline = false;
+  final onlineCheckouts = <Map<String, String>>[];
+  final onlineChecks = <String>[];
+
+  /// État renvoyé pour un paiement en ligne suivi
+  String onlineStatus = 'pending';
+
+  @override
+  Future<OnlinePayment> startProCheckout({required String cycle, required String email}) async {
+    onlineCheckouts.add({'cycle': cycle, 'email': email});
+    return OnlinePayment(
+      id: 'op${onlineCheckouts.length}',
+      checkoutUrl: 'https://pay.chariow.test/c/${onlineCheckouts.length}',
+    );
+  }
+
+  @override
+  Future<OnlinePayment> onlinePayment(String id) async {
+    onlineChecks.add(id);
+    return OnlinePayment(id: id, status: onlineStatus);
+  }
 
   @override
   Future<ProStatus> subscription() async => proStatus ?? _defaultPro;

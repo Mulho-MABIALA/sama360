@@ -149,6 +149,15 @@ void main() {
       expect(authRedirect(s(ready), '/login'), '/');
       expect(authRedirect(s(ready), '/splash'), '/');
       expect(authRedirect(s(ready), '/pos'), isNull);
+      // Adresse demandée gardée pendant le chargement (retour de la page de paiement)
+      expect(
+        authRedirect(const AsyncLoading(), '/pro', uri: Uri.parse('/pro?paid=op1')),
+        '/splash?to=%2Fpro%3Fpaid%3Dop1',
+      );
+      expect(authRedirect(const AsyncLoading(), '/', uri: Uri.parse('/')), '/splash');
+      expect(authRedirect(s(ready), '/splash', uri: Uri.parse('/splash?to=%2Fpro%3Fpaid%3Dop1')), '/pro?paid=op1');
+      expect(authRedirect(s(ready), '/splash', uri: Uri.parse('/splash?to=https%3A%2F%2Fevil.test')), '/');
+      expect(authRedirect(s(ready), '/splash', uri: Uri.parse('/splash?to=%2F%2Fevil.test')), '/');
       expect(authRedirect(s(ready), '/business'), isNull);
     });
   });

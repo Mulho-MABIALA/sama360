@@ -1,7 +1,7 @@
 import { HttpStatus, Injectable, Logger } from '@nestjs/common';
 import { sql } from 'drizzle-orm';
 import { env } from '../../shared/config/env';
-import { COUNTRIES, CountryCode, countryOf, MOBILE_MONEY, MobileMoney } from '../../shared/countries';
+import { COUNTRIES, CountryCode, countryOf, countryOfPhone, MOBILE_MONEY, MobileMoney } from '../../shared/countries';
 import { DbService, Tx } from '../../shared/db/db.service';
 import { AppError } from '../../shared/http/app-error';
 import { newId } from '../../shared/ids';
@@ -18,6 +18,7 @@ import {
   SubscriptionRow,
 } from '../../shared/plans';
 import { NotificationsService } from '../notifications/notifications.service';
+import { createCheckout, splitName, verifyPulseSignature, readPulse } from './chariow';
 
 type Row = Record<string, unknown>;
 
@@ -95,9 +96,12 @@ export class BillingService {
         features: PRO_FEATURES.map((key) => ({ key, label: PRO_FEATURE_LABELS[key] })),
         payTo: payTo(country.code),
         methods: country.mobileMoney,
-        pending: requests.find((r) => r.status === 'pending') ? view(requests.find((r) => r.status === 'pending')!) : null,
+        pending: requests.find((r) => r.status === 'pending')
+          ? view(requests.find((r) => r.status === 'pending')!)
+          : null,
         history: requests.map(view),
         referralCode: (b.referral_code as string) ?? null,
+        online: this.onlineEnabled(),
       };
     });
   }
@@ -161,9 +165,8 @@ export class BillingService {
   async isAdmin(userId: string): Promise<boolean> {
     const admins = adminPhones();
     if (!admins.length) return false;
-    const u = (
-      await this.dbs.transaction((tx) => tx.execute(sql`SELECT phone FROM core.users WHERE id = ${userId}`))
-    ).rows[0] as Row | undefined;
+    const u = (await this.dbs.transaction((tx) => tx.execute(sql`SELECT phone FROM core.users WHERE id = ${userId}`)))
+      .rows[0] as Row | undefined;
     return !!u && admins.includes(u.phone as string);
   }
 
@@ -203,34 +206,204 @@ export class BillingService {
         .rows[0] as Row | undefined;
       if (!r) throw AppError.notFound('Demande');
       if (r.status !== 'pending') throw AppError.conflict('Demande déjà traitée');
-      const businessId = r.business_id as string;
-      const cycle = r.cycle as Cycle;
-
       await tx.execute(sql`
         UPDATE core.subscription_requests SET status = 'approved', decided_by = ${adminId}, decided_at = ${now}
         WHERE id = ${id}`);
-      const end = await this.extend(tx, businessId, CYCLE_DAYS[cycle], now);
+      return this.grant(tx, r.business_id as string, r.cycle as Cycle, now);
+    });
+    await this.announce(done, id);
+    return { approved: true, endsAt: done.end.toISOString(), sponsorRewarded: !!done.sponsor };
+  }
 
-      // Parrainage
-      let sponsor: { id: string; end: Date } | null = null;
-      let refereeEnd = end;
-      const b = (
-        await tx.execute(sql`
-          SELECT referred_by FROM core.businesses WHERE id = ${businessId}
-            AND NOT EXISTS (SELECT 1 FROM core.referral_rewards WHERE referee_id = ${businessId})`)
-      ).rows[0] as Row | undefined;
-      if (b?.referred_by) {
-        const sponsorId = b.referred_by as string;
-        await tx.execute(sql`
-          INSERT INTO core.referral_rewards (referee_id, referrer_id, days)
-          VALUES (${businessId}, ${sponsorId}, ${REFERRAL_BONUS_DAYS}) ON CONFLICT DO NOTHING`);
-        refereeEnd = await this.extend(tx, businessId, REFERRAL_BONUS_DAYS, now);
-        sponsor = { id: sponsorId, end: await this.extend(tx, sponsorId, REFERRAL_BONUS_DAYS, now) };
-      }
-      return { businessId, cycle, end: refereeEnd, sponsor };
+  // ─────────────────────────────── paiement en ligne (Chariow)
+
+  /** Paiement en ligne possible ? (clé, secret et produits Chariow configurés) */
+  onlineEnabled(): boolean {
+    const e = env();
+    return !!(e.CHARIOW_API_KEY && e.CHARIOW_PULSE_SECRET && e.CHARIOW_PRODUCT_MONTHLY && e.CHARIOW_PRODUCT_YEARLY);
+  }
+
+  private productFor(cycle: Cycle): string {
+    const e = env();
+    return (cycle === 'monthly' ? e.CHARIOW_PRODUCT_MONTHLY : e.CHARIOW_PRODUCT_YEARLY) as string;
+  }
+
+  /** Ouvre une page de paiement Chariow pour un mois ou un an de Pro. */
+  async startCheckout(
+    businessId: string,
+    userId: string,
+    input: { cycle: Cycle; email: string },
+    ctx: { origin: string; ip?: string },
+    fetchImpl?: typeof fetch,
+  ) {
+    if (!this.onlineEnabled()) {
+      throw new AppError('PAYMENT_UNAVAILABLE', 'Paiement en ligne pas encore disponible', 503);
+    }
+    const e = env();
+    const productId = this.productFor(input.cycle);
+    const paymentId = newId();
+    const info = await this.dbs.transaction(async (tx) => {
+      const b = (await tx.execute(sql`SELECT name, country, phone FROM core.businesses WHERE id = ${businessId}`))
+        .rows[0] as Row;
+      const u = (await tx.execute(sql`SELECT full_name, phone, email FROM core.users WHERE id = ${userId}`))
+        .rows[0] as Row;
+      // L'adresse e-mail sert au reçu Chariow ; on la garde pour la prochaine fois
+      if (!u.email) await tx.execute(sql`UPDATE core.users SET email = ${input.email} WHERE id = ${userId}`);
+      await tx.execute(sql`
+        INSERT INTO core.online_payments (id, business_id, provider, cycle, product_id, created_by)
+        VALUES (${paymentId}, ${businessId}, 'chariow', ${input.cycle}, ${productId}, ${userId})`);
+      return { business: b, user: u };
     });
 
-    // Notifications (au mieux, après validation)
+    const phone = (info.user.phone as string) ?? (info.business.phone as string);
+    // Le pays du numéro décide des moyens de paiement proposés par Chariow
+    const country = countryOfPhone(phone) ?? countryOf(info.business.country as string);
+    const name = splitName(info.user.full_name as string, info.business.name as string);
+    const local = phone.replace(/\D/g, '').replace(new RegExp(`^${country.dial}`), '');
+    const base = (e.PUBLIC_URL ?? ctx.origin).replace(/\/$/, '');
+    let result;
+    try {
+      result = await createCheckout(
+        e.CHARIOW_API_URL,
+        e.CHARIOW_API_KEY as string,
+        {
+          productId,
+          email: input.email,
+          firstName: name.first,
+          lastName: name.last,
+          phone: { number: local, countryCode: country.code },
+          redirectUrl: `${base}/app/#/pro?paid=${paymentId}`,
+          customerIp: ctx.ip,
+          metadata: { payment_id: paymentId, business_id: businessId, cycle: input.cycle },
+        },
+        fetchImpl,
+      );
+    } catch (err) {
+      await this.dbs.transaction((tx) =>
+        tx.execute(sql`UPDATE core.online_payments SET status = 'failed' WHERE id = ${paymentId}`),
+      );
+      this.log.warn(`Chariow : paiement non ouvert (${businessId}) : ${(err as Error).message}`);
+      throw new AppError('PAYMENT_PROVIDER', 'La page de paiement n’a pas pu s’ouvrir. Réessayez.', 502);
+    }
+    await this.dbs.transaction((tx) =>
+      tx.execute(sql`
+        UPDATE core.online_payments SET sale_id = ${result.saleId}, checkout_url = ${result.checkoutUrl}
+        WHERE id = ${paymentId}`),
+    );
+    if (result.step !== 'payment' || !result.checkoutUrl) {
+      this.log.warn(`Chariow : étape inattendue « ${result.step} » (${businessId}) ${result.message ?? ''}`);
+      throw new AppError('PAYMENT_PROVIDER', 'La page de paiement n’a pas pu s’ouvrir. Réessayez.', 502);
+    }
+    return { paymentId, checkoutUrl: result.checkoutUrl };
+  }
+
+  /** Où en est un paiement en ligne (retour de la page de paiement). */
+  async onlinePayment(businessId: string, paymentId: string) {
+    const r = (
+      await this.dbs.transaction((tx) =>
+        tx.execute(sql`
+          SELECT id, cycle, status, paid_at FROM core.online_payments
+          WHERE id = ${paymentId} AND business_id = ${businessId}`),
+      )
+    ).rows[0] as Row | undefined;
+    if (!r) throw AppError.notFound('Paiement');
+    return {
+      id: r.id as string,
+      cycle: r.cycle as Cycle,
+      status: r.status as string,
+      paidAt: r.paid_at ? new Date(r.paid_at as string).toISOString() : null,
+    };
+  }
+
+  /**
+   * Pulse Chariow (webhook signé). « successful.sale » d'un paiement Sama360 : Pro prolongé.
+   * Rejoué sans risque : un paiement n'est crédité qu'une fois.
+   */
+  async handlePulse(
+    raw: Buffer | undefined,
+    signature: string | undefined,
+    deliveryId: string | undefined,
+    now = new Date(),
+  ) {
+    const secret = env().CHARIOW_PULSE_SECRET;
+    if (!secret || !raw || !verifyPulseSignature(raw, signature, secret)) {
+      throw new AppError('INVALID_SIGNATURE', 'Signature invalide', 401);
+    }
+    let payload: unknown;
+    try {
+      payload = JSON.parse(raw.toString('utf8'));
+    } catch {
+      throw new AppError('BAD_PAYLOAD', 'Contenu illisible', 400);
+    }
+    const p = readPulse(payload);
+    if (deliveryId) {
+      const fresh = (
+        await this.dbs.transaction((tx) =>
+          tx.execute(sql`
+            INSERT INTO core.payment_events (provider, delivery_id, event) VALUES ('chariow', ${deliveryId}, ${p.event})
+            ON CONFLICT DO NOTHING RETURNING delivery_id`),
+        )
+      ).rows[0];
+      if (!fresh) return { ok: true, duplicate: true };
+    }
+    if (p.event !== 'successful.sale') return { ok: true, ignored: p.event };
+    const paymentId = typeof p.metadata.payment_id === 'string' ? p.metadata.payment_id : null;
+    if (!paymentId || !/^[0-9a-f-]{36}$/i.test(paymentId)) {
+      // Vente Chariow qui ne vient pas de Sama360 (autre produit de la boutique)
+      return { ok: true, ignored: 'not_sama360' };
+    }
+
+    const done = await this.dbs.transaction(async (tx) => {
+      const r = (await tx.execute(sql`SELECT * FROM core.online_payments WHERE id = ${paymentId} FOR UPDATE`))
+        .rows[0] as Row | undefined;
+      if (!r) {
+        this.log.warn(`Chariow : paiement inconnu ${paymentId} (vente ${p.saleId})`);
+        return null;
+      }
+      if (r.status === 'paid') return null;
+      if (p.productId && p.productId !== r.product_id) {
+        this.log.warn(`Chariow : produit ${p.productId} au lieu de ${r.product_id as string} (paiement ${paymentId})`);
+        return null;
+      }
+      await tx.execute(sql`
+        UPDATE core.online_payments
+           SET status = 'paid', paid_at = ${now}, sale_id = COALESCE(sale_id, ${p.saleId}),
+               amount = ${p.amount}, currency = ${p.currency}
+         WHERE id = ${paymentId}`);
+      return this.grant(tx, r.business_id as string, r.cycle as Cycle, now);
+    });
+    if (!done) return { ok: true, credited: false };
+    this.log.log(`Chariow : Pro ${done.cycle} payé en ligne (${done.businessId}, vente ${p.saleId})`);
+    await this.announce(done, paymentId);
+    return { ok: true, credited: true };
+  }
+
+  /**
+   * Paiement reçu : Pro prolongé d'un mois ou d'un an. Premier paiement d'un filleul :
+   * un mois offert au filleul et à son parrain (une seule fois).
+   */
+  private async grant(tx: Tx, businessId: string, cycle: Cycle, now: Date) {
+    const end = await this.extend(tx, businessId, CYCLE_DAYS[cycle], now);
+    let sponsor: { id: string; end: Date } | null = null;
+    let refereeEnd = end;
+    const b = (
+      await tx.execute(sql`
+        SELECT referred_by FROM core.businesses WHERE id = ${businessId}
+          AND NOT EXISTS (SELECT 1 FROM core.referral_rewards WHERE referee_id = ${businessId})`)
+    ).rows[0] as Row | undefined;
+    if (b?.referred_by) {
+      const sponsorId = b.referred_by as string;
+      await tx.execute(sql`
+        INSERT INTO core.referral_rewards (referee_id, referrer_id, days)
+        VALUES (${businessId}, ${sponsorId}, ${REFERRAL_BONUS_DAYS}) ON CONFLICT DO NOTHING`);
+      refereeEnd = await this.extend(tx, businessId, REFERRAL_BONUS_DAYS, now);
+      sponsor = { id: sponsorId, end: await this.extend(tx, sponsorId, REFERRAL_BONUS_DAYS, now) };
+    }
+    return { businessId, cycle, end: refereeEnd, sponsor };
+  }
+
+  /** Notifications après paiement (au mieux). */
+  private async announce(done: Awaited<ReturnType<BillingService['grant']>>, key: string) {
     const day = (d: Date) => d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
     await this.notify(done.businessId, {
       kind: 'pro_active',
@@ -238,7 +411,7 @@ export class BillingService {
       body: `Merci ! Votre abonnement court jusqu’au ${day(done.end)}.`,
       link: '/pro',
       audience: 'business:update',
-      dedupeKey: `pro_active:${id}`,
+      dedupeKey: `pro_active:${key}`,
     });
     if (done.sponsor) {
       await this.notify(done.sponsor.id, {
@@ -250,7 +423,6 @@ export class BillingService {
         dedupeKey: `referral_reward:${done.businessId}`,
       });
     }
-    return { approved: true, endsAt: done.end.toISOString(), sponsorRewarded: !!done.sponsor };
   }
 
   async reject(id: string, adminId: string, note: string | null) {

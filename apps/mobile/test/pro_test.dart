@@ -86,6 +86,70 @@ void main() {
     expect(find.textContaining('réf. OM2611.1834.A12345'), findsOneWidget);
   });
 
+  testWidgets('paiement en ligne : e-mail, page Chariow ouverte, Pro activé dès la confirmation', (tester) async {
+    phoneSize(tester);
+    final opened = <Uri>[];
+    final repo = FakeRepo()
+      ..proUntil = DateTime(2026, 1, 1)
+      ..proOnline = true;
+    await pumpSama(
+      tester,
+      location: '/pro',
+      repo: repo,
+      overrides: [
+        checkoutLauncherProvider.overrideWithValue((uri) async {
+          opened.add(uri);
+          return true;
+        }),
+      ],
+    );
+    await tester.tap(find.byKey(const Key('cycle_yearly')));
+    await tester.pumpAndSettle();
+    final scroll = find.descendant(of: find.byType(ListView), matching: find.byType(Scrollable)).first;
+    await tester.scrollUntilVisible(find.byKey(const Key('pay_online')), 300, scrollable: scroll);
+    await tester.pumpAndSettle();
+    expect(find.text('Payer ${moneyShort(50000)}'), findsOneWidget);
+    // Le formulaire « J'ai payé » reste disponible, replié
+    expect(find.byKey(const Key('pay_manual')), findsOneWidget);
+    expect(find.byKey(const Key('pay_ref')), findsNothing);
+
+    await tester.enterText(find.byKey(const Key('pay_email')), 'pas-un-email');
+    await tester.tap(find.byKey(const Key('pay_online')));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('adresse e-mail valide'), findsOneWidget);
+    expect(repo.onlineCheckouts, isEmpty);
+
+    await tester.enterText(find.byKey(const Key('pay_email')), 'awa@exemple.sn');
+    await tester.tap(find.byKey(const Key('pay_online')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(repo.onlineCheckouts.single, {'cycle': 'yearly', 'email': 'awa@exemple.sn'});
+    expect(opened.single.toString(), 'https://pay.chariow.test/c/1');
+    expect(find.byKey(const Key('pay_online_waiting')), findsOneWidget);
+
+    // Chariow confirme : au tour suivant, Pro est activé
+    repo
+      ..onlineStatus = 'paid'
+      ..proUntil = DateTime.now().add(const Duration(days: 365));
+    await tester.pump(const Duration(seconds: 5));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('pay_online_done')), findsOneWidget);
+    expect(find.byKey(const Key('pay_online')), findsNothing);
+    await tester.scrollUntilVisible(find.byKey(const Key('pro_headline')), -300, scrollable: scroll);
+    expect(find.textContaining('Pro actif jusqu’au'), findsOneWidget);
+  });
+
+  testWidgets('retour de la page de paiement : le paiement est suivi', (tester) async {
+    phoneSize(tester);
+    final repo = FakeRepo()
+      ..proUntil = DateTime.now().add(const Duration(days: 365))
+      ..proOnline = true
+      ..onlineStatus = 'paid';
+    await pumpSama(tester, location: '/pro?paid=op42', repo: repo);
+    expect(repo.onlineChecks, contains('op42'));
+    expect(find.byKey(const Key('pay_online_done')), findsOneWidget);
+  });
+
   testWidgets('avec Pro (essai) : statut dans le profil, tuiles ouvertes', (tester) async {
     phoneSize(tester);
     final repo = FakeRepo()

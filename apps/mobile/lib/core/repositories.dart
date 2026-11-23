@@ -91,6 +91,17 @@ class SamaRepository {
     ),
   );
 
+  /// Paiement en ligne (Chariow) : adresse de la page de paiement.
+  Future<OnlinePayment> startProCheckout({required String cycle, required String email}) async {
+    final j = await api.post<Map<String, dynamic>>('/v1/subscription/checkout', data: {'cycle': cycle, 'email': email});
+    return OnlinePayment(id: j['paymentId'] as String, checkoutUrl: j['checkoutUrl'] as String?);
+  }
+
+  Future<OnlinePayment> onlinePayment(String id) async {
+    final j = await api.get<Map<String, dynamic>>('/v1/subscription/online/$id');
+    return OnlinePayment(id: j['id'] as String, status: j['status'] as String? ?? 'pending');
+  }
+
   Future<ReferralInfo> referrals() async => ReferralInfo.fromJson(await api.get<Map<String, dynamic>>('/v1/referrals'));
 
   /// Équipe Sama360 : validation des paiements Pro.

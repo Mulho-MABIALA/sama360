@@ -40,6 +40,10 @@ export type ErrorCode =
   | 'PAYMENT_EXCEEDS_DUE'
   | 'CREDIT_LIMIT_EXCEEDED'
   | 'CUSTOMER_HAS_BALANCE'
+  | 'PAYMENT_UNAVAILABLE'
+  | 'PAYMENT_PROVIDER'
+  | 'INVALID_SIGNATURE'
+  | 'BAD_PAYLOAD'
   | 'INTERNAL';
 
 export class AppError extends Error {

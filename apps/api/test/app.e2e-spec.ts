@@ -18,6 +18,12 @@ process.env.ASSISTANT_PROVIDER = 'fake'; // faux modèle : toute la chaîne test
 process.env.ASSISTANT_DAILY_LIMIT = '6';
 process.env.ADMIN_PHONES = '+221700000099'; // équipe Sama360 (validation des paiements Pro)
 process.env.PRO_PAY_TO_SN = 'Wave au 77 000 00 00 (Zolaa Tech)';
+// Paiement en ligne Chariow : l'API est simulée (fetch), les Pulses sont signés avec ce secret
+process.env.CHARIOW_API_KEY = 'sk_test_sama';
+process.env.CHARIOW_API_URL = 'https://chariow.test/v1';
+process.env.CHARIOW_PULSE_SECRET = 'whsec_test_sama';
+process.env.CHARIOW_PRODUCT_MONTHLY = 'prd_mois';
+process.env.CHARIOW_PRODUCT_YEARLY = 'prd_annee';
 process.env.STORAGE_DIR = require('node:path').join(require('node:os').tmpdir(), `sama-e2e-${process.pid}`);
 
 import { INestApplication } from '@nestjs/common';
@@ -108,7 +114,7 @@ describe('Socle Sama360 (e2e)', () => {
       .overrideProvider(ThrottlerStorage)
       .useValue({ increment: async () => ({ totalHits: 1, timeToExpire: 60, isBlocked: false, timeToBlockExpire: 0 }) })
       .compile();
-    app = moduleRef.createNestApplication();
+    app = moduleRef.createNestApplication({ rawBody: true });
     await app.init();
     http = request(app.getHttpServer());
     otp = app.get(ConsoleOtpSender);
@@ -3235,6 +3241,129 @@ describe('Socle Sama360 (e2e)', () => {
         .set(auth(x.accessToken))
         .send({ name: 'Sans parrain', referralCode: 'ZZZZZZ' })
         .expect(201);
+    });
+
+    it('Pro payé en ligne (Chariow) : page de paiement, Pulse signé, Pro prolongé une seule fois', async () => {
+      const { createHmac } = await import('node:crypto');
+      const { sql } = await import('drizzle-orm');
+      const awa = await login('+221770020001');
+      const biz = (
+        await http.post('/v1/businesses').set(auth(awa.accessToken)).send({ name: 'Awa Couture' }).expect(201)
+      ).body.business.id;
+      const A = () => auth(awa.accessToken, biz);
+      const before = (await http.get('/v1/subscription').set(A()).expect(200)).body;
+      expect(before.online).toBe(true);
+
+      // Chariow simulé
+      const calls: { url: string; body: any; auth: string }[] = [];
+      const realFetch = global.fetch;
+      const spy = jest.spyOn(global, 'fetch').mockImplementation(async (url: any, init?: any) => {
+        if (!String(url).startsWith('https://chariow.test/')) return realFetch(url, init);
+        calls.push({ url: String(url), body: JSON.parse(init.body), auth: init.headers.Authorization });
+        return new Response(
+          JSON.stringify({
+            message: 'success',
+            data: {
+              step: 'payment',
+              purchase: { id: 'sal_awa1' },
+              payment: { checkout_url: 'https://pay.chariow.test/c/abc', transaction_id: 'tx1', gateway: 'x' },
+            },
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        );
+      });
+      try {
+        await http
+          .post('/v1/subscription/checkout')
+          .set(A())
+          .send({ cycle: 'yearly', email: 'pas-un-email' })
+          .expect(422);
+        const co = (
+          await http
+            .post('/v1/subscription/checkout')
+            .set(A())
+            .send({ cycle: 'yearly', email: 'Awa@Exemple.sn' })
+            .expect(201)
+        ).body;
+        expect(co.checkoutUrl).toBe('https://pay.chariow.test/c/abc');
+        expect(calls).toHaveLength(1);
+        expect(calls[0].url).toBe('https://chariow.test/v1/checkout');
+        expect(calls[0].auth).toBe('Bearer sk_test_sama');
+        expect(calls[0].body).toMatchObject({
+          product_id: 'prd_annee',
+          email: 'awa@exemple.sn',
+          phone: { number: '770020001', country_code: 'SN' },
+          custom_metadata: { payment_id: co.paymentId, business_id: biz, cycle: 'yearly' },
+        });
+        expect(calls[0].body.redirect_url).toMatch(new RegExp(`/app/#/pro\\?paid=${co.paymentId}$`));
+        expect((await http.get(`/v1/subscription/online/${co.paymentId}`).set(A()).expect(200)).body).toMatchObject({
+          status: 'pending',
+        });
+
+        // Pulse : signature obligatoire
+        const pulse = (event: string, metadata: object, productId = 'prd_annee') =>
+          JSON.stringify({
+            event,
+            sale: {
+              id: 'sal_awa1',
+              status: 'completed',
+              custom_metadata: metadata,
+              payment: { amount: { value: 50000, currency: 'XOF' } },
+            },
+            product: { id: productId },
+            customer: { email: 'awa@exemple.sn' },
+          });
+        const send = (body: string, sig: string, delivery: string) =>
+          http
+            .post('/v1/webhooks/chariow')
+            .set('Content-Type', 'application/json')
+            .set('x-chariow-signature', sig)
+            .set('x-pulse-delivery-id', delivery)
+            .send(body);
+        const sign = (body: string) => 'sha256=' + createHmac('sha256', 'whsec_test_sama').update(body).digest('hex');
+        const good = pulse('successful.sale', { payment_id: co.paymentId, business_id: biz, cycle: 'yearly' });
+        await send(good, 'sha256=' + '0'.repeat(64), 'd-bad').expect(401);
+        // Autre produit : refusé sans créditer
+        const wrong = pulse('successful.sale', { payment_id: co.paymentId }, 'prd_mois');
+        expect((await send(wrong, sign(wrong), 'd-0').expect(200)).body).toMatchObject({ credited: false });
+        // Vente abandonnée, vente étrangère à Sama360 : ignorées
+        const ab = pulse('abandoned.sale', { payment_id: co.paymentId });
+        await send(ab, sign(ab), 'd-1').expect(200);
+        const other = pulse('successful.sale', { book: 'x' });
+        expect((await send(other, sign(other), 'd-2').expect(200)).body).toMatchObject({ ignored: 'not_sama360' });
+
+        const ok = (await send(good, sign(good), 'd-3').expect(200)).body;
+        expect(ok).toMatchObject({ credited: true });
+        const after = (await http.get('/v1/subscription').set(A()).expect(200)).body;
+        expect(after).toMatchObject({ pro: true, state: 'active' });
+        expect(Math.round((Date.parse(after.endsAt) - Date.parse(before.endsAt)) / 86_400_000)).toBe(365);
+        expect((await http.get(`/v1/subscription/online/${co.paymentId}`).set(A()).expect(200)).body).toMatchObject({
+          status: 'paid',
+        });
+        // Rejoué (même livraison, puis nouvelle livraison du même paiement) : pas de second crédit
+        expect((await send(good, sign(good), 'd-3').expect(200)).body).toMatchObject({ duplicate: true });
+        expect((await send(good, sign(good), 'd-4').expect(200)).body).toMatchObject({ credited: false });
+        const again = (await http.get('/v1/subscription').set(A()).expect(200)).body;
+        expect(again.endsAt).toBe(after.endsAt);
+        const row = (
+          await dbs.db.execute(
+            sql`SELECT amount, currency, sale_id FROM core.online_payments WHERE id = ${co.paymentId}`,
+          )
+        ).rows[0];
+        expect(row).toMatchObject({ amount: 50000, currency: 'XOF', sale_id: 'sal_awa1' });
+        // L'e-mail est gardé pour la prochaine fois
+        const u = (await dbs.db.execute(sql`SELECT email FROM core.users WHERE phone = '+221770020001'`)).rows[0];
+        expect(u).toMatchObject({ email: 'awa@exemple.sn' });
+        // Sans entreprise choisie : refusé
+        await http
+          .get(`/v1/subscription/online/${co.paymentId}`)
+          .set(auth(awa.accessToken))
+          .expect((r) => {
+            if (r.status < 400) throw new Error('sans entreprise : refusé');
+          });
+      } finally {
+        spy.mockRestore();
+      }
     });
   });
 

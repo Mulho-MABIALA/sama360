@@ -97,6 +97,23 @@ dans `render.yaml`).
 Si l'adresse donnée par Render n'est pas `https://sama360-api.onrender.com` (nom déjà pris), la mettre
 dans `apps/mobile/lib/core/config.dart` (`productionApiUrl`).
 
+## Paiement en ligne de Pro (Chariow)
+
+Sans ces réglages, les commerçants paient par transfert et l'équipe valide dans **Profil → Paiements Pro**.
+Avec, ils paient sur la page Chariow (Wave, Orange Money, MoMo, carte) et Pro s'active tout seul.
+
+1. Sur **app.chariow.com**, créer deux produits de type **Licence** (achetables plusieurs fois, donc
+   renouvelables) : « Sama360 Pro – 1 mois » à 5 000 F et « Sama360 Pro – 1 an » à 50 000 F. Les publier.
+   Copier leurs identifiants (`prd_…`).
+2. **Paramètres → Clés API → Créer une clé** : la copier (montrée une seule fois).
+3. **Automatisations → Pulses → Créer un Pulse** : adresse `https://sama360-api.onrender.com/v1/webhooks/chariow`,
+   événement **Vente réussie** (successful.sale), les deux produits. Copier le secret `whsec_…` (onglet Overview).
+4. Render → sama360-api → **Environment** : `CHARIOW_API_KEY`, `CHARIOW_PULSE_SECRET`,
+   `CHARIOW_PRODUCT_MONTHLY` (produit du mois), `CHARIOW_PRODUCT_YEARLY` (produit de l'année). Enregistrer.
+5. Dans l'app : **Profil → Sama360 Pro** affiche « Payer en ligne ». Faire un vrai paiement d'essai d'un mois.
+
+Le paiement manuel reste proposé (« Déjà payé par transfert ? »).
+
 ## Étape 4 : tester la connexion
 
 Sur n'importe quel téléphone, ouvrir **`https://sama360-api.onrender.com/app`** (adresse exacte : page du

@@ -84,6 +84,15 @@ services:
         sync: false
       - key: PRO_PAY_TO_CG
         sync: false
+      # Paiement en ligne de Pro par Chariow (voir DEPLOY.md, « Paiement en ligne ») : vide = paiement manuel seul
+      - key: CHARIOW_API_KEY
+        sync: false
+      - key: CHARIOW_PULSE_SECRET
+        sync: false
+      - key: CHARIOW_PRODUCT_MONTHLY
+        sync: false
+      - key: CHARIOW_PRODUCT_YEARLY
+        sync: false
       # Assistant IA et facture en photo : « anthropic » avec une clé, sinon « off »
       - key: ASSISTANT_PROVIDER
         value: "off"

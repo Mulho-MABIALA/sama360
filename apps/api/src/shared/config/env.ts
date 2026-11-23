@@ -80,6 +80,16 @@ const BaseSchema = z.object({
   PRO_PAY_TO_SN: z.string().optional(),
   PRO_PAY_TO_CI: z.string().optional(),
   PRO_PAY_TO_CG: z.string().optional(),
+  // Paiement en ligne de Pro par Chariow (Wave, Orange Money, MoMo, carte…). Sans clé : paiement manuel seulement.
+  CHARIOW_API_KEY: z.string().min(1).optional(),
+  CHARIOW_API_URL: z.string().url().default('https://api.chariow.com/v1'),
+  // Secret de signature du Pulse (whsec_…), dans Chariow : Automatisations → Pulses → le Pulse → Overview
+  CHARIOW_PULSE_SECRET: z.string().min(1).optional(),
+  // Produits Chariow (type Licence, achetable plusieurs fois) : prix du mois et de l'année
+  CHARIOW_PRODUCT_MONTHLY: z.string().min(1).optional(),
+  CHARIOW_PRODUCT_YEARLY: z.string().min(1).optional(),
+  // Adresse publique (retour après paiement) ; par défaut, celle de la requête
+  PUBLIC_URL: z.string().url().optional(),
 });
 
 /** Règles entre variables : chaque fournisseur choisi doit avoir ses identifiants. */
@@ -118,6 +128,9 @@ const EnvSchema = BaseSchema.superRefine((e, ctx) => {
     });
   }
   if (e.ASSISTANT_PROVIDER === 'anthropic') need(['ANTHROPIC_API_KEY'], 'ASSISTANT_PROVIDER=anthropic');
+  if (e.CHARIOW_API_KEY) {
+    need(['CHARIOW_PULSE_SECRET', 'CHARIOW_PRODUCT_MONTHLY', 'CHARIOW_PRODUCT_YEARLY'], 'CHARIOW_API_KEY');
+  }
   if (e.STORAGE_DRIVER === 's3') {
     need(['S3_BUCKET', 'S3_ACCESS_KEY_ID', 'S3_SECRET_ACCESS_KEY'], 'STORAGE_DRIVER=s3');
   }

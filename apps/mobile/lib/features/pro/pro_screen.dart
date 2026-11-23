@@ -1,15 +1,22 @@
+import 'dart:async';
+
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:material_ui/material_ui.dart';
 
+import '../../core/celebrate.dart';
 import '../../core/format.dart';
 import '../../core/glass.dart';
 import '../../core/models.dart';
 import '../../core/providers.dart';
 import '../../core/theme.dart';
 import '../../core/widgets.dart';
+import 'package:url_launcher/url_launcher.dart';
+
+import '../auth/auth_controller.dart' show authProvider;
 import '../sales/receipt_screen.dart' show receiptActionsProvider, whatsAppUri;
 
 final _day = DateFormat('d MMMM yyyy', 'fr');
@@ -36,33 +43,127 @@ String proHeadline(ProStatus s) => switch (s.state) {
   ProState.free => 'Vous êtes sur l’offre gratuite',
 };
 
+/// Ouvre la page de paiement. Sur le web, dans le même onglet : Chariow ramène ensuite dans l'app.
+final checkoutLauncherProvider = Provider<Future<bool> Function(Uri)>(
+  (ref) =>
+      (uri) => launchUrl(
+        uri,
+        mode: kIsWeb ? LaunchMode.platformDefault : LaunchMode.externalApplication,
+        webOnlyWindowName: kIsWeb ? '_self' : null,
+      ),
+);
+
+final _emailRe = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
+
 String _daysText(int d) => d <= 1 ? 'dernier jour' : '$d jours restants';
 
 // ───────────────────────────────────────────────────────────── Offre Pro
 
 class ProScreen extends ConsumerStatefulWidget {
-  const ProScreen({super.key, this.feature});
+  const ProScreen({super.key, this.feature, this.paidId});
 
   /// Fonction qui a amené ici (tuile verrouillée, erreur PRO_REQUIRED).
   final ProFeature? feature;
+
+  /// Retour de la page de paiement en ligne : paiement à suivre.
+  final String? paidId;
 
   @override
   ConsumerState<ProScreen> createState() => _ProScreenState();
 }
 
-class _ProScreenState extends ConsumerState<ProScreen> {
+class _ProScreenState extends ConsumerState<ProScreen> with WidgetsBindingObserver {
   String _cycle = 'monthly';
   PayMethod? _method;
   final _ref = TextEditingController();
   final _phone = TextEditingController();
+  final _email = TextEditingController();
   bool _busy = false;
+  bool _onlineBusy = false;
   String? _error;
+  String? _onlineError;
+
+  /// Paiement en ligne suivi (ouvert ici, ou retour de la page de paiement)
+  String? _waitingId;
+  bool _paid = false;
+  Timer? _poll;
+  int _tries = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _email.text = ref.read(authProvider).value?.me?.email ?? '';
+    if (widget.paidId != null) _watch(widget.paidId!);
+  }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _poll?.cancel();
     _ref.dispose();
     _phone.dispose();
+    _email.dispose();
     super.dispose();
+  }
+
+  /// Retour dans l'app après le paiement (téléphone) : on regarde tout de suite.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && _waitingId != null && !_paid) _check();
+  }
+
+  void _watch(String id) {
+    _poll?.cancel();
+    _tries = 0;
+    setState(() => _waitingId = id);
+    _check();
+    // Chariow prévient le serveur en quelques secondes ; on regarde pendant 3 minutes
+    _poll = Timer.periodic(const Duration(seconds: 4), (_) {
+      if (++_tries > 45) {
+        _poll?.cancel();
+      } else {
+        _check();
+      }
+    });
+  }
+
+  Future<void> _check() async {
+    final id = _waitingId;
+    if (id == null || _paid) return;
+    try {
+      final p = await ref.read(repoProvider).onlinePayment(id);
+      if (!mounted || !p.paid) return;
+      _poll?.cancel();
+      setState(() => _paid = true);
+      ref.invalidate(subscriptionProvider);
+      ref.invalidate(currentBusinessProvider);
+    } catch (_) {
+      // Réseau : on réessaie au prochain tour
+    }
+  }
+
+  Future<void> _payOnline() async {
+    final email = _email.text.trim();
+    if (!_emailRe.hasMatch(email)) {
+      setState(() => _onlineError = 'Entrez une adresse e-mail valide : Chariow y envoie votre reçu');
+      return;
+    }
+    setState(() {
+      _onlineBusy = true;
+      _onlineError = null;
+    });
+    try {
+      final p = await ref.read(repoProvider).startProCheckout(cycle: _cycle, email: email);
+      if (!mounted) return;
+      _watch(p.id);
+      final opened = await ref.read(checkoutLauncherProvider)(Uri.parse(p.checkoutUrl!));
+      if (!opened && mounted) setState(() => _onlineError = 'La page de paiement ne s’est pas ouverte. Réessayez.');
+    } catch (e) {
+      if (mounted) showError(context, e);
+    } finally {
+      if (mounted) setState(() => _onlineBusy = false);
+    }
   }
 
   Future<void> _submit(ProStatus s) async {
@@ -180,6 +281,8 @@ class _ProScreenState extends ConsumerState<ProScreen> {
                 ],
               ),
               const SizedBox(height: 14),
+              if (_paid) const _OnlineDone() else if (_waitingId != null) _OnlineWaiting(onCheck: _check),
+              if (_paid || _waitingId != null) const SizedBox(height: 14),
               if (s.pending != null)
                 _Pending(request: s.pending!)
               else if (!canPay)
@@ -191,7 +294,26 @@ class _ProScreenState extends ConsumerState<ProScreen> {
                     style: TextStyle(color: AppColors.muted),
                   ),
                 )
-              else
+              else if (s.online) ...[
+                if (!_paid) _onlineForm(s),
+                const SizedBox(height: 10),
+                Glass(
+                  radius: 22,
+                  padding: EdgeInsets.zero,
+                  child: Theme(
+                    data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+                    child: ExpansionTile(
+                      key: const Key('pay_manual'),
+                      shape: const RoundedRectangleBorder(),
+                      collapsedShape: const RoundedRectangleBorder(),
+                      title: const Text('Déjà payé par transfert ?', style: TextStyle(fontWeight: FontWeight.w700)),
+                      subtitle: const Text('Envoyez la référence de la transaction', style: TextStyle(fontSize: 12.5)),
+                      childrenPadding: EdgeInsets.zero,
+                      children: [_payForm(s, framed: false)],
+                    ),
+                  ),
+                ),
+              ] else
                 _payForm(s),
               const SizedBox(height: 14),
               Glass(
@@ -223,82 +345,133 @@ class _ProScreenState extends ConsumerState<ProScreen> {
     );
   }
 
-  Widget _payForm(ProStatus s) {
-    final method = _method ?? (s.methods.isEmpty ? PayMethod.wave : s.methods.first);
+  Widget _onlineForm(ProStatus s) {
     final amount = moneyShort(_cycle == 'yearly' ? s.yearly : s.monthly);
     return Glass(
+      key: const Key('pay_online_card'),
       radius: 22,
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Payer', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
-          if (s.lastRejected != null) ...[
-            const SizedBox(height: 8),
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(color: AppColors.warnBg, borderRadius: BorderRadius.circular(12)),
-              child: Text(
-                'Paiement « ${s.lastRejected!.reference} » non retrouvé'
-                '${s.lastRejected!.note == null ? '' : ' : ${s.lastRejected!.note}'}',
-                style: TextStyle(color: AppColors.warnText, fontSize: 13),
-              ),
-            ),
-          ],
-          const SizedBox(height: 10),
-          _Step(
-            n: 1,
-            text: s.payTo == null
-                ? 'Envoyez $amount par ${s.methods.map((m) => m.label).join(', ')}. '
-                      'Le numéro vous est donné par l’équipe Sama360.'
-                : 'Envoyez $amount à : ${s.payTo}',
-          ),
-          const _Step(n: 2, text: 'Gardez la référence de la transaction, reçue par SMS.'),
-          const _Step(n: 3, text: 'Remplissez ci-dessous : nous activons Pro dès que le paiement est vérifié.'),
-          const SizedBox(height: 10),
-          Wrap(
-            spacing: 6,
-            runSpacing: 6,
-            children: [
-              for (final m in s.methods)
-                Pill(label: m.label, selected: method == m, onTap: () => setState(() => _method = m)),
-            ],
+          const Text('Payer en ligne', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
+          const SizedBox(height: 4),
+          Text(
+            'Wave, Orange Money, MoMo ou carte bancaire. Pro s’active tout seul dès que le paiement passe.',
+            style: TextStyle(color: AppColors.muted, fontSize: 13.5),
           ),
           const SizedBox(height: 12),
           TextField(
-            key: const Key('pay_ref'),
-            controller: _ref,
-            textCapitalization: TextCapitalization.characters,
-            decoration: const InputDecoration(labelText: 'Référence de la transaction', hintText: 'ex. TX12AB34CD'),
+            key: const Key('pay_email'),
+            controller: _email,
+            keyboardType: TextInputType.emailAddress,
+            autocorrect: false,
+            decoration: const InputDecoration(labelText: 'E-mail pour le reçu', hintText: 'ex. awa@gmail.com'),
           ),
-          const SizedBox(height: 10),
-          TextField(
-            key: const Key('pay_phone'),
-            controller: _phone,
-            keyboardType: TextInputType.phone,
-            decoration: InputDecoration(
-              labelText: 'Numéro qui a payé (facultatif)',
-              prefixText: '+${ref.watch(countryProvider).dial} ',
-            ),
-          ),
-          if (_error != null) ...[
+          if (_onlineError != null) ...[
             const SizedBox(height: 8),
-            Text(_error!, style: TextStyle(color: AppColors.danger, fontSize: 13)),
+            Text(_onlineError!, style: TextStyle(color: AppColors.danger, fontSize: 13)),
           ],
           const SizedBox(height: 14),
           SizedBox(
             width: double.infinity,
             height: 52,
             child: BusyButton(
-              key: const Key('pay_submit'),
-              label: 'J’ai payé $amount',
-              busy: _busy,
-              onPressed: () => _submit(s),
+              key: const Key('pay_online'),
+              label: 'Payer $amount',
+              busy: _onlineBusy,
+              onPressed: _payOnline,
             ),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.lock_rounded, size: 14, color: AppColors.muted),
+              const SizedBox(width: 4),
+              Text('Paiement sécurisé par Chariow', style: TextStyle(color: AppColors.muted, fontSize: 12)),
+            ],
           ),
         ],
       ),
     );
+  }
+
+  Widget _payForm(ProStatus s, {bool framed = true}) {
+    final method = _method ?? (s.methods.isEmpty ? PayMethod.wave : s.methods.first);
+    final amount = moneyShort(_cycle == 'yearly' ? s.yearly : s.monthly);
+    final body = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text('Payer', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
+        if (s.lastRejected != null) ...[
+          const SizedBox(height: 8),
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(color: AppColors.warnBg, borderRadius: BorderRadius.circular(12)),
+            child: Text(
+              'Paiement « ${s.lastRejected!.reference} » non retrouvé'
+              '${s.lastRejected!.note == null ? '' : ' : ${s.lastRejected!.note}'}',
+              style: TextStyle(color: AppColors.warnText, fontSize: 13),
+            ),
+          ),
+        ],
+        const SizedBox(height: 10),
+        _Step(
+          n: 1,
+          text: s.payTo == null
+              ? 'Envoyez $amount par ${s.methods.map((m) => m.label).join(', ')}. '
+                    'Le numéro vous est donné par l’équipe Sama360.'
+              : 'Envoyez $amount à : ${s.payTo}',
+        ),
+        const _Step(n: 2, text: 'Gardez la référence de la transaction, reçue par SMS.'),
+        const _Step(n: 3, text: 'Remplissez ci-dessous : nous activons Pro dès que le paiement est vérifié.'),
+        const SizedBox(height: 10),
+        Wrap(
+          spacing: 6,
+          runSpacing: 6,
+          children: [
+            for (final m in s.methods)
+              Pill(label: m.label, selected: method == m, onTap: () => setState(() => _method = m)),
+          ],
+        ),
+        const SizedBox(height: 12),
+        TextField(
+          key: const Key('pay_ref'),
+          controller: _ref,
+          textCapitalization: TextCapitalization.characters,
+          decoration: const InputDecoration(labelText: 'Référence de la transaction', hintText: 'ex. TX12AB34CD'),
+        ),
+        const SizedBox(height: 10),
+        TextField(
+          key: const Key('pay_phone'),
+          controller: _phone,
+          keyboardType: TextInputType.phone,
+          decoration: InputDecoration(
+            labelText: 'Numéro qui a payé (facultatif)',
+            prefixText: '+${ref.watch(countryProvider).dial} ',
+          ),
+        ),
+        if (_error != null) ...[
+          const SizedBox(height: 8),
+          Text(_error!, style: TextStyle(color: AppColors.danger, fontSize: 13)),
+        ],
+        const SizedBox(height: 14),
+        SizedBox(
+          width: double.infinity,
+          height: 52,
+          child: BusyButton(
+            key: const Key('pay_submit'),
+            label: 'J’ai payé $amount',
+            busy: _busy,
+            onPressed: () => _submit(s),
+          ),
+        ),
+      ],
+    );
+    return framed
+        ? Glass(radius: 22, padding: const EdgeInsets.all(16), child: body)
+        : Padding(padding: const EdgeInsets.fromLTRB(16, 0, 16, 16), child: body);
   }
 }
 
@@ -433,6 +606,65 @@ class _Step extends StatelessWidget {
         ),
         const SizedBox(width: 10),
         Expanded(child: Text(text, style: const TextStyle(fontSize: 14))),
+      ],
+    ),
+  );
+}
+
+class _OnlineWaiting extends StatelessWidget {
+  const _OnlineWaiting({required this.onCheck});
+  final VoidCallback onCheck;
+
+  @override
+  Widget build(BuildContext context) => Glass(
+    key: const Key('pay_online_waiting'),
+    radius: 22,
+    padding: const EdgeInsets.all(16),
+    child: Row(
+      children: [
+        const SizedBox(width: 26, height: 26, child: CircularProgressIndicator(strokeWidth: 3)),
+        const SizedBox(width: 14),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Paiement en cours', style: TextStyle(fontWeight: FontWeight.w800)),
+              const SizedBox(height: 3),
+              Text(
+                'Terminez le paiement sur la page Chariow. Pro s’active ici dès qu’il est confirmé.',
+                style: TextStyle(color: AppColors.muted, fontSize: 13),
+              ),
+            ],
+          ),
+        ),
+        TextButton(onPressed: onCheck, child: const Text('Vérifier')),
+      ],
+    ),
+  );
+}
+
+class _OnlineDone extends StatelessWidget {
+  const _OnlineDone();
+
+  @override
+  Widget build(BuildContext context) => Glass(
+    key: const Key('pay_online_done'),
+    radius: 22,
+    padding: const EdgeInsets.all(16),
+    child: Row(
+      children: [
+        const SuccessCheck(size: 40),
+        const SizedBox(width: 14),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Paiement reçu, merci !', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
+              const SizedBox(height: 3),
+              Text('Sama360 Pro est activé.', style: TextStyle(color: AppColors.muted, fontSize: 13)),
+            ],
+          ),
+        ),
       ],
     ),
   );

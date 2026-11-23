@@ -21,6 +21,8 @@ async function bootstrap() {
   }
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
     bufferLogs: false,
+    // Corps brut gardé pour vérifier la signature des webhooks (Chariow)
+    rawBody: true,
   });
   // Derrière Render, Caddy… : l'IP réelle du client (limite de requêtes par personne, pas par proxy)
   if (e.TRUST_PROXY > 0) app.set('trust proxy', e.TRUST_PROXY);
