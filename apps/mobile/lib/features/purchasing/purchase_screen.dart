@@ -100,7 +100,7 @@ class _PurchaseScreenState extends ConsumerState<PurchaseScreen> {
   @override
   Widget build(BuildContext context) {
     final detail = ref.watch(purchaseProvider(widget.purchaseId));
-    final canWrite = ref.watch(canProvider('inventory:write'));
+    final canWrite = ref.watch(canProvider('purchasing:write'));
     final d = detail.value;
     return AuroraScaffold(
       appBar: AppBar(

@@ -2,6 +2,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 
+import 'core/permissions.dart' show accessRedirect;
+import 'core/providers.dart' show currentBusinessProvider;
+import 'core/widgets.dart' show AccessDeniedScreen;
 import 'features/notifications/notifications_screen.dart';
 import 'features/loyalty/loyalty_screen.dart';
 import 'features/reminders/reminders_screen.dart';
@@ -69,14 +72,19 @@ class _AuthListenable extends ChangeNotifier {
 final routerProvider = Provider<GoRouter>((ref) {
   final listenable = _AuthListenable();
   ref.listen(authProvider, (_, _) => listenable.notify());
+  // Droits connus (ou changés) : un écran interdit pour ce rôle se ferme
+  ref.listen(currentBusinessProvider, (_, _) => listenable.notify());
   ref.onDispose(listenable.dispose);
 
   return GoRouter(
     initialLocation: '/splash',
     refreshListenable: listenable,
-    redirect: (_, state) => authRedirect(ref.read(authProvider), state.matchedLocation),
+    redirect: (_, state) =>
+        authRedirect(ref.read(authProvider), state.matchedLocation) ??
+        accessRedirect(ref.read(currentBusinessProvider).value?.permissions, state.matchedLocation),
     routes: [
       GoRoute(path: '/splash', builder: (_, _) => const SplashScreen()),
+      GoRoute(path: '/denied', builder: (_, _) => const AccessDeniedScreen()),
       GoRoute(path: '/login', builder: (_, _) => const PhoneScreen()),
       GoRoute(
         path: '/otp',

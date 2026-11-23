@@ -1,3 +1,4 @@
+import { hasPermission } from '@sama360/contracts';
 import { CountryCode } from '../countries';
 import type { Request } from 'express';
 
@@ -42,4 +43,17 @@ export interface AccessTokenPayload {
  */
 export function locationFor(t: TenantContext, requested?: string | null): string {
   return t.locationLocked ? t.warehouseId : (requested ?? t.warehouseId);
+}
+
+/**
+ * Prix d'achat, marges et valeur du stock : réservés à qui voit les rapports ou gère le catalogue
+ * (propriétaire, gérant, comptable). Un vendeur ne les voit pas.
+ */
+export function seesCosts(t: Pick<TenantContext, 'permissions'>): boolean {
+  return hasPermission(t.permissions, 'reports:read') || hasPermission(t.permissions, 'catalog:write');
+}
+
+/** Retire le prix d'achat d'un produit pour qui ne doit pas le voir. */
+export function hideCost<T extends { cost?: unknown }>(t: Pick<TenantContext, 'permissions'>, p: T): T {
+  return seesCosts(t) ? p : { ...p, cost: null };
 }

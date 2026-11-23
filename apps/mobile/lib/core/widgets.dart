@@ -511,3 +511,34 @@ class CountryPills extends StatelessWidget {
     ],
   );
 }
+
+/// Écran ouvert sans le droit nécessaire (lien direct, notification…).
+class AccessDeniedScreen extends StatelessWidget {
+  const AccessDeniedScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    appBar: AppBar(),
+    body: Center(
+      child: Padding(
+        padding: const EdgeInsets.all(28),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.lock_rounded, size: 56, color: AppColors.muted),
+            const SizedBox(height: 14),
+            const Text('Accès réservé', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 19)),
+            const SizedBox(height: 8),
+            Text(
+              'Votre rôle ne donne pas accès à cet écran. Demandez au propriétaire de la boutique si vous en avez besoin.',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: AppColors.muted, height: 1.35),
+            ),
+            const SizedBox(height: 20),
+            FilledButton(onPressed: () => context.go('/'), child: const Text('Retour à l’accueil')),
+          ],
+        ),
+      ),
+    ),
+  );
+}

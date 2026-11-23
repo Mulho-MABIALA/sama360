@@ -103,7 +103,7 @@ export class PurchasingController {
    */
   @Post('purchases/scan')
   @HttpCode(200)
-  @RequirePermission('inventory:write')
+  @RequirePermission('purchasing:write')
   @RequirePro('invoice_scan')
   @Throttle({ default: { limit: 6, ttl: 60_000 } })
   @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 20 * 1024 * 1024, files: 1 } }))
@@ -114,14 +114,14 @@ export class PurchasingController {
   }
 
   @Get('purchases')
-  @RequirePermission('inventory:read')
+  @RequirePermission('purchasing:read')
   list(@CurrentTenant() t: TenantContext, @Query() query: unknown) {
     return this.purchasing.list(t.businessId, parse(ListPurchases, query));
   }
 
   /** 201 si créé, 200 si l'id existait déjà (renvoi depuis le téléphone). */
   @Post('purchases')
-  @RequirePermission('inventory:write')
+  @RequirePermission('purchasing:write')
   async create(
     @CurrentTenant() t: TenantContext,
     @CurrentUser() user: AuthUser,
@@ -138,34 +138,34 @@ export class PurchasingController {
   }
 
   @Get('purchases/:id')
-  @RequirePermission('inventory:read')
+  @RequirePermission('purchasing:read')
   get(@CurrentTenant() t: TenantContext, @Param('id', ParseUUIDPipe) id: string) {
     return this.purchasing.get(t.businessId, id);
   }
 
   @Patch('purchases/:id')
-  @RequirePermission('inventory:write')
+  @RequirePermission('purchasing:write')
   update(@CurrentTenant() t: TenantContext, @Param('id', ParseUUIDPipe) id: string, @Body() body: unknown) {
     return this.purchasing.update(t.businessId, id, parse(UpdatePurchase, body));
   }
 
   @Post('purchases/:id/confirm')
   @HttpCode(200)
-  @RequirePermission('inventory:write')
+  @RequirePermission('purchasing:write')
   confirm(@CurrentTenant() t: TenantContext, @Param('id', ParseUUIDPipe) id: string) {
     return this.purchasing.confirm(t.businessId, id);
   }
 
   @Post('purchases/:id/cancel')
   @HttpCode(200)
-  @RequirePermission('inventory:write')
+  @RequirePermission('purchasing:write')
   cancel(@CurrentTenant() t: TenantContext, @Param('id', ParseUUIDPipe) id: string) {
     return this.purchasing.cancel(t.businessId, id);
   }
 
   /** Réception : la marchandise entre en stock et le coût moyen d'achat est recalculé. */
   @Post('purchases/:id/receive')
-  @RequirePermission('inventory:write')
+  @RequirePermission('purchasing:write')
   receive(
     @CurrentTenant() t: TenantContext,
     @CurrentUser() user: AuthUser,
@@ -176,7 +176,7 @@ export class PurchasingController {
   }
 
   @Post('purchases/:id/payments')
-  @RequirePermission('inventory:write')
+  @RequirePermission('purchasing:write')
   pay(
     @CurrentTenant() t: TenantContext,
     @CurrentUser() user: AuthUser,
@@ -187,20 +187,20 @@ export class PurchasingController {
   }
 
   @Get('suppliers')
-  @RequirePermission('inventory:read')
+  @RequirePermission('purchasing:read')
   suppliers(@CurrentTenant() t: TenantContext, @Query() query: unknown) {
     return this.purchasing.suppliers(t.businessId, parse(ListSuppliers, query));
   }
 
   @Get('suppliers/:id')
-  @RequirePermission('inventory:read')
+  @RequirePermission('purchasing:read')
   supplier(@CurrentTenant() t: TenantContext, @Param('id', ParseUUIDPipe) id: string) {
     return this.purchasing.supplier(t.businessId, id);
   }
 
   /** Paiement global : réparti sur les bons impayés, du plus ancien au plus récent. */
   @Post('suppliers/:id/payments')
-  @RequirePermission('inventory:write')
+  @RequirePermission('purchasing:write')
   paySupplier(
     @CurrentTenant() t: TenantContext,
     @CurrentUser() user: AuthUser,

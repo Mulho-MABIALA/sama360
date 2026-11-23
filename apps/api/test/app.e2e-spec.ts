@@ -653,6 +653,32 @@ describe('Socle Sama360 (e2e)', () => {
       await http.post(`/v1/sales/${cashSaleId}/void`).set(C).send({ reason: 'erreur de saisie' }).expect(403);
     });
 
+    it('le caissier ne voit que ses ventes, sans prix d’achat ni achats fournisseurs', async () => {
+      const C = auth(cashier.accessToken, awaBiz);
+      const list = (await http.get('/v1/sales').set(C).expect(200)).body.data as { id: string; cashierId: string }[];
+      expect(list.length).toBeGreaterThan(0);
+      expect(new Set(list.map((s) => s.cashierId)).size).toBe(1);
+      expect(list.map((s) => s.id)).not.toContain(cashSaleId);
+      await http.get(`/v1/sales/${cashSaleId}`).set(C).expect(404);
+
+      const stock = (await http.get('/v1/inventory/stock').set(C).expect(200)).body;
+      expect(stock.totals.stockValue).toBeNull();
+      expect(stock.items.every((i: { cost: unknown; value: unknown }) => i.cost === null && i.value === null)).toBe(
+        true,
+      );
+      const products = (await http.get('/v1/catalog/products').set(C).expect(200)).body.data;
+      expect(products.every((p: { cost: unknown }) => p.cost === null)).toBe(true);
+
+      await http.get('/v1/purchases').set(C).expect(403);
+      await http.get('/v1/suppliers').set(C).expect(403);
+
+      // Le propriétaire, lui, voit tout
+      expect((await http.get('/v1/inventory/stock').set(A()).expect(200)).body.totals.stockValue).not.toBeNull();
+      expect((await http.get('/v1/sales').set(A()).expect(200)).body.data.map((s: { id: string }) => s.id)).toContain(
+        cashSaleId,
+      );
+    });
+
     it('annule une vente : stock remis et dette annulée', async () => {
       const res = await http
         .post(`/v1/sales/${creditSaleId}/void`)
@@ -1374,7 +1400,7 @@ describe('Socle Sama360 (e2e)', () => {
         .expect(201);
     });
 
-    it('bon de commande : brouillon, modification, confirmation ; caissier en lecture seule', async () => {
+    it('bon de commande : brouillon, modification, confirmation ; caissier sans accès', async () => {
       await http
         .post('/v1/purchases')
         .set(auth(cashier, awaBiz))
@@ -1413,13 +1439,13 @@ describe('Socle Sama360 (e2e)', () => {
 
       const confirmed = await http.post(`/v1/purchases/${order}/confirm`).set(A()).expect(200);
       expect(confirmed.body.status).toBe('ordered');
-      expect(
-        (await http.get('/v1/purchases?filter=open').set(auth(cashier, awaBiz)).expect(200)).body.totals,
-      ).toMatchObject({
+      expect((await http.get('/v1/purchases?filter=open').set(A()).expect(200)).body.totals).toMatchObject({
         openOrders: 1,
         toReceive: 44500,
         totalDue: 0,
       });
+      // Le caissier n'a pas accès aux achats (prix d'achat, dettes fournisseurs)
+      await http.get('/v1/purchases?filter=open').set(auth(cashier, awaBiz)).expect(403);
     });
 
     it('réception partielle puis complète : stock, coût moyen, statut, paiement à la livraison', async () => {

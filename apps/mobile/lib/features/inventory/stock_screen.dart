@@ -6,6 +6,7 @@ import 'package:material_ui/material_ui.dart';
 import '../../core/format.dart';
 import '../../core/glass.dart';
 import '../../core/models.dart';
+import '../../core/permissions.dart';
 import '../../core/providers.dart';
 import '../../core/theme.dart';
 import '../../core/widgets.dart';
@@ -42,6 +43,7 @@ class _StockScreenState extends ConsumerState<StockScreen> {
     final stock = ref.watch(stockProvider);
     final canWrite = ref.can('inventory:write');
     final canCatalog = ref.can('catalog:write');
+    final costs = seesCosts(ref.watch(currentBusinessProvider).value?.permissions ?? const []);
 
     return AuroraScaffold(
       appBar: AppBar(
@@ -54,7 +56,7 @@ class _StockScreenState extends ConsumerState<StockScreen> {
               onPressed: () => context.push('/stock/transfer'),
               icon: const Icon(Icons.swap_horiz_rounded),
             ),
-          if (ref.can('inventory:read'))
+          if (ref.can('purchasing:read'))
             IconButton(
               tooltip: 'Achats et fournisseurs',
               onPressed: () => context.push('/purchases'),
@@ -91,10 +93,13 @@ class _StockScreenState extends ConsumerState<StockScreen> {
               children: [
                 Row(
                   children: [
-                    Expanded(
-                      child: StatTile(label: 'Valeur du stock', value: moneyShort(s.stockValue)),
-                    ),
-                    const SizedBox(width: 8),
+                    // Valeur du stock (prix d'achat) : pas pour le vendeur
+                    if (costs) ...[
+                      Expanded(
+                        child: StatTile(label: 'Valeur du stock', value: moneyShort(s.stockValue)),
+                      ),
+                      const SizedBox(width: 8),
+                    ],
                     Expanded(
                       child: StatTile(label: 'Produits', value: '${s.items.length}'),
                     ),
@@ -211,10 +216,11 @@ class _StockRow extends ConsumerWidget {
               if ((item.byLocation[l.id] ?? 0) != 0) '${l.name} ${qty(item.byLocation[l.id]!)}',
           ].join(' · ')
         : '';
-    return _card(context, breakdown);
+    final costs = seesCosts(ref.watch(currentBusinessProvider).value?.permissions ?? const []);
+    return _card(context, breakdown, costs);
   }
 
-  Widget _card(BuildContext context, String breakdown) => Card(
+  Widget _card(BuildContext context, String breakdown, bool costs) => Card(
     child: InkWell(
       borderRadius: BorderRadius.circular(16),
       onTap: onTap,
@@ -236,7 +242,7 @@ class _StockRow extends ConsumerWidget {
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    '${moneyShort(item.price)} · marge ${item.margin} %',
+                    costs ? '${moneyShort(item.price)} · marge ${item.margin} %' : moneyShort(item.price),
                     style: TextStyle(fontSize: 12, color: AppColors.muted),
                   ),
                   if (breakdown.isNotEmpty)

@@ -1,7 +1,7 @@
 import { Body, Controller, Get, Param, ParseUUIDPipe, Post, Query } from '@nestjs/common';
 import { and, asc, desc, eq, lt, sql, SQL } from 'drizzle-orm';
 import { z } from 'zod';
-import { AuthUser, TenantContext } from '../../shared/auth/auth.types';
+import { AuthUser, TenantContext, seesCosts } from '../../shared/auth/auth.types';
 import { CurrentTenant, CurrentUser, RequireModule, RequirePermission } from '../../shared/auth/decorators';
 import { DbService } from '../../shared/db/db.service';
 import { stockMovements, warehouses } from '../../shared/db/schema';
@@ -92,6 +92,7 @@ export class InventoryController {
         on_hand: string;
         by_location: Record<string, string | number>;
       };
+      const costs = seesCosts(t);
       const items = (res.rows as Row[])
         .map((r) => {
           const qty = Number(r.on_hand);
@@ -102,11 +103,11 @@ export class InventoryController {
             sku: r.sku,
             imageFileId: r.image_file_id,
             price: Number(r.price),
-            cost,
+            cost: costs ? cost : null,
             threshold: r.low_stock_threshold,
             onHand: qty,
             low: qty <= r.low_stock_threshold,
-            value: Math.round(qty * cost),
+            value: costs ? Math.round(qty * cost) : null,
             byLocation: Object.fromEntries(Object.entries(r.by_location).map(([k, v]) => [k, Number(v)])),
           };
         })
@@ -117,7 +118,7 @@ export class InventoryController {
         totals: {
           products: items.length,
           lowStock: items.filter((i) => i.low).length,
-          stockValue: items.reduce((s, i) => s + Math.max(0, i.value), 0),
+          stockValue: costs ? items.reduce((s, i) => s + Math.max(0, i.value ?? 0), 0) : null,
         },
       };
     });
@@ -141,7 +142,7 @@ export class InventoryController {
         .orderBy(desc(stockMovements.id))
         .limit(q.limit + 1);
       const hasMore = rows.length > q.limit;
-      const data = rows.slice(0, q.limit);
+      const data = rows.slice(0, q.limit).map((m) => (seesCosts(t) ? m : { ...m, unitCost: null }));
       return { data, nextCursor: hasMore ? data[data.length - 1].id : null };
     });
   }

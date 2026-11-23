@@ -302,16 +302,35 @@ void main() {
       expect(routerOf(c).state.uri.toString(), '/purchases/new?supplierId=s1');
     });
 
-    testWidgets('caissier : consulte les achats sans commander ni payer', (tester) async {
+    testWidgets('caissier : pas d’accès aux achats (prix d’achat, dettes fournisseurs)', (tester) async {
       phoneSize(tester);
       await pumpSama(
         tester,
         location: '/purchases/po2',
         overrides: [currentBusinessProvider.overrideWith((ref) async => cashierBusiness)],
       );
-      expect(find.text('BC-2026-0005'), findsWidgets);
-      expect(find.text('Réceptionner'), findsNothing);
-      expect(find.text('Payer'), findsNothing);
+      expect(find.text('Accès réservé'), findsOneWidget);
+      expect(find.text('BC-2026-0005'), findsNothing);
+    });
+
+    testWidgets('caissier : accueil sans Achats ni Rapports, stock sans prix d’achat', (tester) async {
+      phoneSize(tester);
+      await pumpSama(tester, overrides: [currentBusinessProvider.overrideWith((ref) async => cashierBusiness)]);
+      expect(find.text('Ventes'), findsWidgets);
+      expect(find.text('Achats'), findsNothing);
+      expect(find.text('Rapports'), findsNothing);
+      await tester.tap(find.text('Plus'));
+      await tester.pumpAndSettle();
+      expect(find.text('Achats'), findsNothing);
+      expect(find.text('Équipe'), findsNothing);
+      expect(find.text('Documents'), findsNothing);
+      await tester.tapAt(const Offset(10, 10));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Stock').last);
+      await tester.pumpAndSettle();
+      expect(find.text('Valeur du stock'), findsNothing);
+      expect(find.textContaining('marge'), findsNothing);
     });
 
     testWidgets('nouveau fournisseur : pas de plafond de crédit', (tester) async {

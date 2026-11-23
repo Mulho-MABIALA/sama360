@@ -32,6 +32,8 @@ export const PERMISSIONS = [
   'sales:void',
   'inventory:read',
   'inventory:write',
+  'purchasing:read',
+  'purchasing:write',
   'invoicing:read',
   'invoicing:write',
   'payments:read',

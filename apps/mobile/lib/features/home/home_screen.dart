@@ -42,14 +42,29 @@ class _Service {
 }
 
 // ---------- Catalogue des services ----------
-const _sales = _Service('Ventes', Icons.point_of_sale_rounded, Color(0xFF0A8453), route: '/pos', art: 'ventes');
-const _cash = _Service('Caisse', Icons.point_of_sale_rounded, Color(0xFF13241C), route: '/cash', art: 'caisse');
+const _sales = _Service(
+  'Ventes',
+  Icons.point_of_sale_rounded,
+  Color(0xFF0A8453),
+  route: '/pos',
+  art: 'ventes',
+  perm: 'sales:create',
+);
+const _cash = _Service(
+  'Caisse',
+  Icons.point_of_sale_rounded,
+  Color(0xFF13241C),
+  route: '/cash',
+  art: 'caisse',
+  perm: 'sales:create',
+);
 const _invoices = _Service(
   'Factures',
   Icons.receipt_long_rounded,
   Color(0xFF7A5AF8),
   route: '/invoices',
   art: 'factures',
+  perm: 'invoicing:read',
 );
 const _payments = _Service('Paiements', Icons.qr_code_2_rounded, Color(0xFF1D7AF0), soon: true, art: 'paiements');
 const _customers = _Service(
@@ -58,6 +73,7 @@ const _customers = _Service(
   Color(0xFF2F6FDB),
   route: '/customers',
   art: 'clients',
+  perm: 'contacts:read',
 );
 const _reminders = _Service(
   'Relances',
@@ -65,8 +81,16 @@ const _reminders = _Service(
   Color(0xFFE5484D),
   route: '/reminders',
   art: 'relances',
+  perm: 'contacts:read',
 );
-const _loyalty = _Service('Fidélité', Icons.stars_rounded, Color(0xFFE0A100), route: '/loyalty', art: 'fidelite');
+const _loyalty = _Service(
+  'Fidélité',
+  Icons.stars_rounded,
+  Color(0xFFE0A100),
+  route: '/loyalty',
+  art: 'fidelite',
+  perm: 'contacts:read',
+);
 const _stock = _Service(
   'Stock',
   Icons.inventory_2_rounded,
@@ -81,7 +105,7 @@ const _purchases = _Service(
   Color(0xFF8A5A2B),
   route: '/purchases',
   art: 'achats',
-  perm: 'inventory:read',
+  perm: 'purchasing:read',
 );
 const _delivery = _Service(
   'Livraison',
@@ -90,6 +114,7 @@ const _delivery = _Service(
   route: '/deliveries',
   art: 'livraison',
   pro: ProFeature.delivery,
+  perm: 'sales:read',
 );
 const _shop = _Service(
   'Boutique',
@@ -98,6 +123,7 @@ const _shop = _Service(
   route: '/shop',
   art: 'boutique',
   pro: ProFeature.shop,
+  perm: 'sales:read',
 );
 const _booking = _Service(
   'Réservation',
@@ -105,6 +131,7 @@ const _booking = _Service(
   Color(0xFF2F6FDB),
   route: '/booking',
   art: 'reservation',
+  perm: 'sales:read',
 );
 const _expenses = _Service(
   'Dépenses',
@@ -112,6 +139,7 @@ const _expenses = _Service(
   Color(0xFFE0533D),
   route: 'expense',
   art: 'depenses',
+  perm: 'sales:create',
 );
 const _reports = _Service(
   'Rapports',
@@ -137,6 +165,7 @@ const _documents = _Service(
   route: '/documents',
   art: 'documents',
   pro: ProFeature.documents,
+  perm: 'documents:read',
 );
 const _assistant = _Service(
   'Assistant IA',

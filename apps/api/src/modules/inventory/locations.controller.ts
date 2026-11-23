@@ -1,7 +1,7 @@
 import { Body, Controller, Get, HttpCode, Param, ParseUUIDPipe, Patch, Post, Query, Res } from '@nestjs/common';
 import type { Response } from 'express';
 import { z } from 'zod';
-import { AuthUser, TenantContext } from '../../shared/auth/auth.types';
+import { AuthUser, TenantContext, seesCosts } from '../../shared/auth/auth.types';
 import {
   CurrentTenant,
   CurrentUser,
@@ -40,8 +40,9 @@ export class LocationsController {
   @Get('locations')
   @TenantScoped()
   async list(@CurrentTenant() t: TenantContext) {
+    const costs = seesCosts(t);
     return {
-      data: await this.locations.list(t.businessId),
+      data: (await this.locations.list(t.businessId)).map((l) => (costs ? l : { ...l, stockValue: null })),
       current: { id: t.locationFilter, writeTo: t.warehouseId, locked: t.locationLocked },
     };
   }

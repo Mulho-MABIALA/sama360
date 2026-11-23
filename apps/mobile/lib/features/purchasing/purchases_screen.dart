@@ -117,7 +117,7 @@ class _PurchasesScreenState extends ConsumerState<PurchasesScreen> {
   @override
   Widget build(BuildContext context) {
     final list = ref.watch(purchasesProvider((filter: _filter, supplierId: null)));
-    final canWrite = ref.watch(canProvider('inventory:write'));
+    final canWrite = ref.watch(canProvider('purchasing:write'));
     final canContacts = ref.watch(canProvider('contacts:write'));
     return AuroraScaffold(
       appBar: AppBar(
@@ -373,7 +373,7 @@ class SupplierScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final overview = ref.watch(supplierProvider(supplierId));
-    final canWrite = ref.watch(canProvider('inventory:write'));
+    final canWrite = ref.watch(canProvider('purchasing:write'));
     final canContacts = ref.watch(canProvider('contacts:write'));
     final actions = ref.read(receiptActionsProvider);
     return AuroraScaffold(

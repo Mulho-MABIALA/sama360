@@ -617,13 +617,22 @@ class MyDay {
 
 /// Rôles proposés à l'invitation (le propriétaire ne s'invite pas).
 enum TeamRole {
-  manager('manager', 'Gérant', 'Gère tout sauf l’abonnement : ventes, stock, clients, rapports, invitations.'),
+  manager(
+    'manager',
+    'Gérant',
+    'Gère tout sauf l’abonnement : ventes, stock, achats, clients, rapports, invitations.',
+  ),
   cashier(
     'cashier',
     'Vendeur / caissier',
-    'Vend et encaisse, voit le stock et les clients. Ne voit pas les bénéfices.',
+    'Vend, encaisse et tient sa caisse. Voit le stock (sans prix d’achat), les clients et ses propres ventes. '
+        'Pas de bénéfices, d’achats ni de rapports.',
   ),
-  accountant('accountant', 'Comptable', 'Consulte les ventes, les rapports et les factures. Ne vend pas.');
+  accountant(
+    'accountant',
+    'Comptable',
+    'Consulte les ventes, les rapports, les factures et les achats. Ne vend pas.',
+  );
 
   const TeamRole(this.api, this.label, this.description);
   final String api;

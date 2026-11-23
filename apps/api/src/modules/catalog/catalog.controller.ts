@@ -15,7 +15,7 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express';
 import { and, asc, desc, eq, ilike, isNull, lt, or, SQL, sql } from 'drizzle-orm';
 import { z } from 'zod';
-import { AuthUser, TenantContext } from '../../shared/auth/auth.types';
+import { AuthUser, TenantContext, hideCost } from '../../shared/auth/auth.types';
 import { CurrentTenant, CurrentUser, RequirePermission } from '../../shared/auth/decorators';
 import { DbService } from '../../shared/db/db.service';
 import { categories, products } from '../../shared/db/schema';
@@ -181,7 +181,7 @@ export class CatalogController {
         .limit(q.limit + 1);
       const hasMore = rows.length > q.limit;
       const data = rows.slice(0, q.limit);
-      return { data, nextCursor: hasMore ? data[data.length - 1].id : null };
+      return { data: data.map((p) => hideCost(t, p)), nextCursor: hasMore ? data[data.length - 1].id : null };
     });
   }
 
@@ -221,7 +221,7 @@ export class CatalogController {
         .orderBy(sql`${products.barcode} = ${c} DESC`)
         .limit(1);
       if (!product) throw new AppError('NOT_FOUND', `Aucun produit avec le code ${c}`, 404, { code: c });
-      return product;
+      return hideCost(t, product);
     });
   }
 
@@ -235,7 +235,7 @@ export class CatalogController {
         .where(and(eq(products.id, id), isNull(products.deletedAt)))
         .limit(1);
       if (!product) throw AppError.notFound('Produit');
-      return product;
+      return hideCost(t, product);
     });
   }
 

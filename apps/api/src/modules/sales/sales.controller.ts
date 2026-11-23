@@ -1,6 +1,7 @@
 import { Body, Controller, Get, HttpCode, Param, ParseUUIDPipe, Post, Query, Res } from '@nestjs/common';
 import { and, desc, eq, gte, lt, SQL, sql } from 'drizzle-orm';
 import type { Response } from 'express';
+import { hasPermission } from '@sama360/contracts';
 import { z } from 'zod';
 import { AuthUser, TenantContext, locationFor } from '../../shared/auth/auth.types';
 import { CurrentTenant, CurrentUser, RequireModule, RequirePermission } from '../../shared/auth/decorators';
@@ -107,6 +108,8 @@ export class SalesController {
       if (q.status) where.push(eq(sales.status, q.status));
       if (q.cursor) where.push(lt(sales.id, q.cursor));
       if (t.locationFilter) where.push(eq(sales.warehouseId, t.locationFilter));
+      // Sans accès aux rapports (vendeur), on ne voit que ses propres ventes
+      if (!hasPermission(t.permissions, 'reports:read')) where.push(eq(sales.cashierId, user.id));
       const rows = await tx
         .select({
           id: sales.id,
@@ -369,10 +372,12 @@ export class SalesController {
 
   @Get(':id')
   @RequirePermission('sales:read')
-  get(@CurrentTenant() t: TenantContext, @Param('id', ParseUUIDPipe) id: string) {
+  get(@CurrentTenant() t: TenantContext, @CurrentUser() user: AuthUser, @Param('id', ParseUUIDPipe) id: string) {
     return this.dbs.withTenant(t.businessId, async (tx) => {
       const sale = await this.salesService.findFull(tx, id);
       if (!sale) throw AppError.notFound('Vente');
+      // Un vendeur ne consulte que ses ventes (le reçu d'une vente d'un collègue reste privé)
+      if (!hasPermission(t.permissions, 'reports:read') && sale.cashierId !== user.id) throw AppError.notFound('Vente');
       return sale;
     });
   }
