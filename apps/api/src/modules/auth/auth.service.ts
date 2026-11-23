@@ -89,9 +89,16 @@ export class AuthService {
       if (otp.attempts >= e.OTP_MAX_ATTEMPTS) {
         throw new AppError('OTP_TOO_MANY_ATTEMPTS', 'Trop de tentatives, demandez un nouveau code', 429);
       }
-      if (!safeEqualHex(otp.codeHash, hmac(e.OTP_SECRET, `${phone}:${code}`))) {
+      // Code vérifié chez le fournisseur (Twilio Verify) ou comparé à celui tiré par le serveur
+      const valid = this.sender.check
+        ? await this.sender.check(phone, code)
+        : safeEqualHex(otp.codeHash, hmac(e.OTP_SECRET, `${phone}:${code}`));
+      if (!valid) {
         // La tentative est comptée puis la transaction est validée ; l'erreur est levée après.
-        await tx.update(otpCodes).set({ attempts: otp.attempts + 1 }).where(eq(otpCodes.id, otp.id));
+        await tx
+          .update(otpCodes)
+          .set({ attempts: otp.attempts + 1 })
+          .where(eq(otpCodes.id, otp.id));
         return { ok: false as const, remainingAttempts: Math.max(0, e.OTP_MAX_ATTEMPTS - otp.attempts - 1) };
       }
       await tx.update(otpCodes).set({ consumedAt: new Date() }).where(eq(otpCodes.id, otp.id));

@@ -1,4 +1,4 @@
-import { OrangeSmsSender, otpMessage, SmsDeliveryError, TwilioSmsSender } from './otp-sender';
+import { OrangeSmsSender, otpMessage, SmsDeliveryError, TwilioSmsSender, TwilioVerifySender } from './otp-sender';
 
 type Call = { url: string; init: RequestInit };
 
@@ -98,6 +98,44 @@ describe('SMS de connexion', () => {
       await s.send('+221771234567', '1');
       expect(new URLSearchParams(calls[0].init.body as string).get('MessagingServiceSid')).toBe('MG1');
       await expect(s.send('+221771234567', '2')).rejects.toThrow('Twilio');
+    });
+  });
+
+  describe('Twilio Verify (international : Sénégal, Côte d’Ivoire, Congo…)', () => {
+    const cfg = { accountSid: 'AC1', authToken: 'tok', serviceSid: 'VA1', channel: 'sms' as const };
+    const auth = `Basic ${Buffer.from('AC1:tok').toString('base64')}`;
+
+    it('demande l’envoi : Twilio tire le code, en français', async () => {
+      const { http, calls } = fakeFetch([{ status: 201, body: { status: 'pending' } }]);
+      await new TwilioVerifySender(cfg, http).send('+225 07 08 09 10 11');
+      expect(calls[0].url).toBe('https://verify.twilio.com/v2/Services/VA1/Verifications');
+      expect((calls[0].init.headers as Record<string, string>).Authorization).toBe(auth);
+      expect(calls[0].init.body).toBe('To=%2B2250708091011&Channel=sms&Locale=fr');
+    });
+
+    it('WhatsApp si choisi (Twilio se replie sur le SMS)', async () => {
+      const { http, calls } = fakeFetch([{ status: 201, body: {} }]);
+      await new TwilioVerifySender({ ...cfg, channel: 'whatsapp' }, http).send('+242061234567');
+      expect(calls[0].init.body).toContain('Channel=whatsapp');
+    });
+
+    it('vérifie le code chez Twilio', async () => {
+      const { http, calls } = fakeFetch([
+        { status: 200, body: { status: 'approved' } },
+        { status: 200, body: { status: 'pending' } },
+        { status: 404, body: { message: 'not found' } },
+      ]);
+      const s = new TwilioVerifySender(cfg, http);
+      expect(await s.check('+221771234567', '123456')).toBe(true);
+      expect(calls[0].url).toBe('https://verify.twilio.com/v2/Services/VA1/VerificationCheck');
+      expect(calls[0].init.body).toBe('To=%2B221771234567&Code=123456');
+      expect(await s.check('+221771234567', '000000')).toBe(false); // mauvais code
+      expect(await s.check('+221771234567', '123456')).toBe(false); // expiré ou déjà utilisé
+    });
+
+    it('envoi refusé : erreur claire pour réessayer', async () => {
+      const { http } = fakeFetch([{ status: 400, body: { message: 'Invalid parameter To' } }]);
+      await expect(new TwilioVerifySender(cfg, http).send('+221771234567')).rejects.toBeInstanceOf(SmsDeliveryError);
     });
   });
 });

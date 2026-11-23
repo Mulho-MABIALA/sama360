@@ -6,6 +6,11 @@ export const OTP_SENDER = Symbol('OTP_SENDER');
 /** Canal d'envoi des codes (SMS, WhatsApp…). Une implémentation par fournisseur. */
 export interface OtpSender {
   send(phone: string, code: string): Promise<void>;
+  /**
+   * Fournisseur qui crée et vérifie lui-même le code (Twilio Verify) : le code saisi lui est soumis
+   * au lieu d'être comparé à celui que le serveur a tiré. Absent pour les envois simples.
+   */
+  check?(phone: string, code: string): Promise<boolean>;
 }
 
 /** Envoi impossible chez le fournisseur : l'utilisateur doit pouvoir réessayer tout de suite. */
@@ -151,6 +156,40 @@ export class TwilioSmsSender implements OtpSender {
   }
 }
 
+/**
+ * Twilio Verify (SMS ou WhatsApp, repli SMS automatique) : Twilio tire le code, l'envoie avec ses numéros
+ * conformes à chaque pays (Sénégal, Côte d'Ivoire, Congo…) et le vérifie. Le serveur garde ses propres
+ * limites (une demande par minute, nombre d'essais, expiration).
+ */
+export class TwilioVerifySender implements OtpSender {
+  constructor(
+    private readonly cfg: { accountSid: string; authToken: string; serviceSid: string; channel: 'sms' | 'whatsapp' },
+    private readonly http: Fetch = fetch,
+  ) {}
+
+  private post(path: string, form: Record<string, string>) {
+    const basic = Buffer.from(`${this.cfg.accountSid}:${this.cfg.authToken}`).toString('base64');
+    return this.http(`https://verify.twilio.com/v2/Services/${encodeURIComponent(this.cfg.serviceSid)}/${path}`, {
+      method: 'POST',
+      headers: { Authorization: `Basic ${basic}`, 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams(form).toString(),
+    });
+  }
+
+  async send(phone: string): Promise<void> {
+    const res = await this.post('Verifications', { To: `+${digits(phone)}`, Channel: this.cfg.channel, Locale: 'fr' });
+    if (!res.ok) throw new SmsDeliveryError('Twilio Verify', res.status, (await res.text()).slice(0, 200));
+  }
+
+  async check(phone: string, code: string): Promise<boolean> {
+    const res = await this.post('VerificationCheck', { To: `+${digits(phone)}`, Code: code });
+    // 404 : plus de vérification en cours chez Twilio (expirée ou déjà validée) → code refusé
+    if (res.status === 404) return false;
+    if (!res.ok) throw new SmsDeliveryError('Twilio Verify', res.status, (await res.text()).slice(0, 200));
+    return ((await res.json()) as { status?: string }).status === 'approved';
+  }
+}
+
 /** Choisit le fournisseur selon OTP_PROVIDER (la configuration est validée au démarrage). */
 export function createOtpSender(consoleSender: ConsoleOtpSender): OtpSender {
   const e = env();
@@ -175,6 +214,13 @@ export function createOtpSender(consoleSender: ConsoleOtpSender): OtpSender {
         },
         e.OTP_TTL_SECONDS,
       );
+    case 'twilio_verify':
+      return new TwilioVerifySender({
+        accountSid: e.TWILIO_ACCOUNT_SID!,
+        authToken: e.TWILIO_AUTH_TOKEN!,
+        serviceSid: e.TWILIO_VERIFY_SERVICE_SID!,
+        channel: e.OTP_CHANNEL,
+      });
     default:
       if (e.NODE_ENV === 'production') {
         new Logger('OTP').warn(

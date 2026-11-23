@@ -11,7 +11,7 @@ uniquement dans Render (ou dans le `.env` du serveur).
 | File d'événements (Redis) | Render Key Value | gratuit |
 | Base de données | Neon (déjà en place) | gratuit au départ |
 | Fichiers (logos, photos) | Cloudflare R2 | gratuit jusqu'à 10 Go |
-| SMS de connexion | Orange SMS API (Sénégal) | forfaits SMS payés en crédit Orange ou Orange Money |
+| Codes de connexion (SMS ou WhatsApp) | Twilio Verify (tous pays) | paiement à l'usage : ≈ 0,05 $ par connexion + prix du SMS |
 | Assistant IA, facture en photo (facultatif) | API Anthropic (console.anthropic.com) | paiement à l'usage |
 
 Vérifier les prix du moment sur les sites de chaque service.
@@ -28,20 +28,31 @@ git push
 Render déploie depuis GitHub : chaque `git push` sur `main` redéploie l'API automatiquement,
 migrations comprises.
 
-## Étape 1 : SMS Orange
+## Étape 1 : codes de connexion (Twilio Verify)
 
-1. Créer un compte sur **developer.orange.com**, puis **My Apps → Add an app** (nom : Sama360).
-2. Dans l'app, **Add API → SMS Senegal**.
-3. Acheter un forfait SMS (page *Pricing* de l'API), payé en crédit Orange ou Orange Money.
-4. Onglet **Credentials** : noter le **Client ID** et le **Client Secret**.
-5. Numéro expéditeur : celui indiqué par Orange pour le Sénégal (souvent `+2210000`).
-   Un nom d'expéditeur (« Sama360 ») peut être demandé à Orange ; une fois accepté, le mettre dans
-   `ORANGE_SMS_SENDER_NAME`.
+Sama360 vise plusieurs pays : les codes passent par **Twilio Verify**, qui fonctionne au Sénégal, en
+Côte d'Ivoire, au Congo et ailleurs. Twilio tire le code, l'envoie avec ses propres expéditeurs gérés
+pays par pays, et le vérifie. Au Sénégal, Orange et Expresso n'acceptent que des expéditeurs enregistrés :
+au premier essai, vérifier que le code arrive bien sur une puce Orange et une puce Expresso (sinon, ouvrir
+un ticket au support Twilio, ou passer par WhatsApp ci-dessous).
+Coût indicatif : 0,05 $ par connexion réussie + le prix du SMS du pays (voir twilio.com/verify/pricing).
 
-Valeurs à garder pour l'étape 3 : `ORANGE_SMS_CLIENT_ID`, `ORANGE_SMS_CLIENT_SECRET`, `ORANGE_SMS_SENDER`.
+1. Créer un compte sur **twilio.com** (essai gratuit, puis ajouter du crédit par carte).
+2. Page d'accueil de la console : noter l'**Account SID** et l'**Auth Token**.
+3. **Explore Products → Verify → Services → Create new** : nom `Sama360`, canal **SMS** coché.
+   Noter le **Service SID** (commence par `VA`).
+4. Pays autorisés : **Verify → Settings → Geo permissions**, cocher Sénégal, Côte d'Ivoire et Congo
+   (et les autres pays visés).
 
-> Twilio reste possible (`OTP_PROVIDER=twilio`, `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_FROM`).
-> Pour Orange et Expresso au Sénégal, Twilio exige un nom d'expéditeur enregistré.
+Valeurs à garder pour l'étape 3 : `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_VERIFY_SERVICE_SID`.
+
+> **WhatsApp** (souvent mieux reçu que le SMS) : configurer un expéditeur WhatsApp pour le service Verify
+> dans Twilio, puis passer `OTP_CHANNEL` à `whatsapp` dans Render. Si WhatsApp ne passe pas, Twilio renvoie
+> le code par SMS automatiquement.
+>
+> Autres choix : `OTP_PROVIDER=twilio` (SMS simple, expéditeur à faire enregistrer soi-même pour le Sénégal)
+> ou `OTP_PROVIDER=orange` (Orange SMS API, Sénégal seulement : `ORANGE_SMS_CLIENT_ID`,
+> `ORANGE_SMS_CLIENT_SECRET`, `ORANGE_SMS_SENDER`).
 
 ## Étape 2 : stockage des fichiers (Cloudflare R2)
 
@@ -63,7 +74,7 @@ Valeurs : `S3_BUCKET=sama360-fichiers`, `S3_ENDPOINT`, `S3_ACCESS_KEY_ID`, `S3_S
 3. Render demande les valeurs marquées `sync: false`. Les coller :
    - `DATABASE_URL` et `DATABASE_URL_DIRECT` : **les mêmes que dans `apps/api/.env` sur le PC**
      (`sama_app` pour l'API, `neondb_owner` pour les migrations) ;
-   - les trois valeurs Orange de l'étape 1 ;
+   - les trois valeurs Twilio de l'étape 1 ;
    - les quatre valeurs R2 de l'étape 2 ;
    - `ADMIN_PHONES` : ton numéro au format international (ex. `+221781234567`), pour valider les
      paiements Sama360 Pro dans l'app ; plusieurs numéros séparés par des virgules ;
@@ -93,7 +104,8 @@ service). Sur iPhone : Safari → Partager → **Sur l'écran d'accueil** pour l
 Se connecter avec son numéro : le code doit arriver **par SMS**.
 
 En cas d'échec, l'app affiche « Le SMS n'a pas pu être envoyé » et on peut redemander tout de suite.
-Le détail est dans **Render → sama360-api → Logs** (par exemple « Not enough credit » : forfait épuisé).
+Le détail est dans **Render → sama360-api → Logs** (par exemple crédit Twilio épuisé, ou pays non coché
+dans les *Geo permissions* de Verify).
 
 ## Étape 5 : l'app Android
 
@@ -141,7 +153,7 @@ Les fichiers restent sur le disque du serveur (volume `files`) ; penser à le sa
 ## Sécurité
 
 - Les secrets ne vivent que dans Render (ou le `.env` du serveur), jamais dans GitHub ni dans l'app.
-- En cas de fuite d'une clé : la régénérer chez le fournisseur (Neon, Orange, Cloudflare) puis la remplacer
+- En cas de fuite d'une clé : la régénérer chez le fournisseur (Neon, Twilio, Cloudflare) puis la remplacer
   dans Render. Changer `JWT_*_SECRET` déconnecte tout le monde ; changer `OTP_SECRET` invalide les codes en cours.
 - L'API refuse de démarrer en production si les SMS ne sont pas configurés
   (sauf `OTP_CONSOLE_IN_PRODUCTION=true`, réservé à un test).

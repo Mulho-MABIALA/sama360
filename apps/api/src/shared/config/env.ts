@@ -18,7 +18,7 @@ const BaseSchema = z.object({
   REFRESH_TTL_DAYS: z.coerce.number().int().positive().default(30),
   OTP_SECRET: secret,
   // Envoi des codes : console (logs, développement), orange (Orange SMS API) ou twilio
-  OTP_PROVIDER: z.enum(['console', 'orange', 'twilio']).default('console'),
+  OTP_PROVIDER: z.enum(['console', 'orange', 'twilio', 'twilio_verify']).default('console'),
   OTP_CONSOLE_IN_PRODUCTION: z
     .enum(['true', 'false'])
     .default('false')
@@ -34,6 +34,10 @@ const BaseSchema = z.object({
   TWILIO_AUTH_TOKEN: z.string().min(1).optional(),
   TWILIO_FROM: z.string().min(1).optional(),
   TWILIO_MESSAGING_SERVICE_SID: z.string().min(1).optional(),
+  // Twilio Verify : Twilio crée, envoie et vérifie le code (numéros et conformité gérés par pays)
+  TWILIO_VERIFY_SERVICE_SID: z.string().min(1).optional(),
+  // Canal : sms (par défaut) ou whatsapp (expéditeur WhatsApp à configurer dans Twilio ; repli SMS automatique)
+  OTP_CHANNEL: z.enum(['sms', 'whatsapp']).default('sms'),
   OTP_TTL_SECONDS: z.coerce.number().int().positive().default(300),
   OTP_MAX_ATTEMPTS: z.coerce.number().int().positive().default(5),
   OUTBOX_POLL_MS: z.coerce.number().int().positive().default(1000),
@@ -102,12 +106,15 @@ const EnvSchema = BaseSchema.superRefine((e, ctx) => {
       });
     }
   }
+  if (e.OTP_PROVIDER === 'twilio_verify') {
+    need(['TWILIO_ACCOUNT_SID', 'TWILIO_AUTH_TOKEN', 'TWILIO_VERIFY_SERVICE_SID'], 'OTP_PROVIDER=twilio_verify');
+  }
   if (e.NODE_ENV === 'production' && e.OTP_PROVIDER === 'console' && !e.OTP_CONSOLE_IN_PRODUCTION) {
     ctx.addIssue({
       code: 'custom',
       path: ['OTP_PROVIDER'],
       message:
-        'console interdit en production (choisir orange ou twilio, ou OTP_CONSOLE_IN_PRODUCTION=true pour un test)',
+        'console interdit en production (choisir twilio_verify, twilio ou orange, ou OTP_CONSOLE_IN_PRODUCTION=true pour un test)',
     });
   }
   if (e.ASSISTANT_PROVIDER === 'anthropic') need(['ANTHROPIC_API_KEY'], 'ASSISTANT_PROVIDER=anthropic');

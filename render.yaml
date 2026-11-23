@@ -50,14 +50,17 @@ services:
         generateValue: true
       - key: OTP_SECRET
         generateValue: true
-      # SMS : orange (recommandé au Sénégal) ou twilio
+      # Codes de connexion : Twilio Verify, valable dans tous les pays (Sénégal, Côte d'Ivoire, Congo…).
+      # Autres choix possibles : twilio (SMS simple) ou orange (Sénégal seulement), voir DEPLOY.md.
       - key: OTP_PROVIDER
-        value: orange
-      - key: ORANGE_SMS_CLIENT_ID
+        value: twilio_verify
+      - key: OTP_CHANNEL
+        value: sms # whatsapp une fois l'expéditeur WhatsApp configuré dans Twilio
+      - key: TWILIO_ACCOUNT_SID
         sync: false
-      - key: ORANGE_SMS_CLIENT_SECRET
+      - key: TWILIO_AUTH_TOKEN
         sync: false
-      - key: ORANGE_SMS_SENDER
+      - key: TWILIO_VERIFY_SERVICE_SID
         sync: false
       # Fichiers (logos, photos) : Cloudflare R2 ou tout service compatible S3
       - key: STORAGE_DRIVER
