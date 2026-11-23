@@ -8,6 +8,7 @@ import { hourLabel } from '../booking/booking';
 import { EXPIRY_WARNING_DAYS } from '../documents/documents';
 import { effectivePlan, SubscriptionRow } from '../../shared/plans';
 import { fcfa, weekOf } from '../sales/insights';
+import { enqueuePush } from './push-queue';
 
 /** Permissions qui ouvrent l'accès à une notification (colonne `audience`). */
 export const AUDIENCES = [
@@ -67,15 +68,19 @@ export class NotificationsService {
 
   /** Ajoute une notification (dans la transaction de l'appelant). Renvoie false si la clé existait déjà. */
   async push(tx: Tx, businessId: string, n: NewNotification): Promise<boolean> {
+    const id = newId();
     const res = await tx.execute(sql`
       INSERT INTO core.notifications
         (id, business_id, kind, title, body, link, audience, user_id, actor_id, dedupe_key, created_at)
-      VALUES (${newId()}, ${businessId}, ${n.kind}, ${n.title.slice(0, 160)}, ${(n.body ?? '').slice(0, 400)},
+      VALUES (${id}, ${businessId}, ${n.kind}, ${n.title.slice(0, 160)}, ${(n.body ?? '').slice(0, 400)},
               ${n.link ?? null}, ${n.audience}, ${n.userId ?? null}, ${n.actorId ?? null}, ${n.dedupeKey ?? null},
               ${(n.createdAt ?? new Date()).toISOString()})
       ON CONFLICT (business_id, dedupe_key) WHERE dedupe_key IS NOT NULL DO NOTHING
       RETURNING id`);
-    return res.rows.length > 0;
+    if (res.rows.length === 0) return false;
+    // Aussi sur le téléphone (commande en ligne, stock bas, Pro…), après la validation de la transaction
+    await enqueuePush(tx, businessId, id, n.kind);
+    return true;
   }
 
   /**

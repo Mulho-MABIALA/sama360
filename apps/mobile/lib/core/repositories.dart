@@ -5,6 +5,7 @@ import 'package:dio/dio.dart' show Options, ResponseType;
 import 'package:intl/intl.dart' show DateFormat;
 
 import 'api/api_client.dart';
+import 'push.dart' show PushWebConfig;
 import 'models.dart';
 import 'offline/kv_store.dart';
 
@@ -88,6 +89,19 @@ class SamaRepository {
     );
     return (access: r['accessToken'] as String, refresh: r['refreshToken'] as String, restored: r['restored'] == true);
   }
+
+  // ---------- Notifications push ----------
+
+  /// Configuration de la version web (null : notifications web pas encore configurées).
+  Future<PushWebConfig?> pushWebConfig() async {
+    final r = await api.get<Map<String, dynamic>>('/v1/push/config');
+    return PushWebConfig.fromJson(r['web'] as Map<String, dynamic>?);
+  }
+
+  Future<void> registerPushToken(String token, String platform) =>
+      api.post<void>('/v1/me/push-tokens', data: {'token': token, 'platform': platform});
+
+  Future<void> unregisterPushToken(String token) => api.delete<void>('/v1/me/push-tokens', data: {'token': token});
 
   // ---------- Suppression (30 jours pour changer d'avis) ----------
 

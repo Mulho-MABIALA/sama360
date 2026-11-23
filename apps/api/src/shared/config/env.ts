@@ -97,6 +97,13 @@ const BaseSchema = z.object({
   CHARIOW_PRODUCT_YEARLY: z.string().min(1).optional(),
   // Adresse publique (retour après paiement) ; par défaut, celle de la requête
   PUBLIC_URL: z.string().url().optional(),
+  // Notifications push (Firebase Cloud Messaging). Clé du compte de service : le JSON
+  // téléchargé dans Firebase (Paramètres → Comptes de service), tel quel ou en base64.
+  FCM_SERVICE_ACCOUNT: z.string().min(1).optional(),
+  // Version web (navigateur, iPhone ajouté à l'écran d'accueil) : appli Web Firebase + clé VAPID
+  FIREBASE_WEB_API_KEY: z.string().min(1).optional(),
+  FIREBASE_WEB_APP_ID: z.string().min(1).optional(),
+  FIREBASE_VAPID_KEY: z.string().min(1).optional(),
 });
 
 /** Règles entre variables : chaque fournisseur choisi doit avoir ses identifiants. */

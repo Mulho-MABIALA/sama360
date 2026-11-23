@@ -5,6 +5,7 @@ import '../../core/api/session_store.dart';
 import '../../core/models.dart';
 import '../../core/offline/pending_sales.dart';
 import '../../core/pin_lock.dart';
+import '../../core/push.dart';
 import '../../core/providers.dart';
 
 class AuthState {
@@ -84,6 +85,7 @@ class AuthController extends AsyncNotifier<AuthState> {
   Future<void> signOutEverywhere() async {
     await ref.read(repoProvider).logoutAll();
     await ref.read(pendingSalesProvider.notifier).clear();
+    await ref.read(pushProvider.notifier).stop();
     await _clearLocal();
     await ref.read(pinLockProvider.notifier).forget();
   }
@@ -137,6 +139,7 @@ class AuthController extends AsyncNotifier<AuthState> {
   Future<void> deleteAccount(String confirm) async {
     await ref.read(repoProvider).deleteAccount(confirm);
     await ref.read(pendingSalesProvider.notifier).clear();
+    await ref.read(pushProvider.notifier).stop();
     await _clearLocal();
     await ref.read(pinLockProvider.notifier).forget();
   }
@@ -149,6 +152,8 @@ class AuthController extends AsyncNotifier<AuthState> {
   Future<void> signOut() async {
     // Les ventes pas encore envoyées sont abandonnées (l'écran prévient avant).
     await ref.read(pendingSalesProvider.notifier).clear();
+    // Ce téléphone ne reçoit plus les notifications de ce compte
+    await ref.read(pushProvider.notifier).stop();
     final session = await _store.read();
     if (session != null) {
       try {

@@ -4,6 +4,12 @@ plugins {
     id("dev.flutter.flutter-gradle-plugin")
 }
 
+// Notifications push : la configuration Firebase (google-services.json, téléchargé depuis la console
+// Firebase) reste hors du dépôt. Sans elle, l'app se construit quand même, sans notifications push.
+if (file("google-services.json").exists()) {
+    apply(plugin = "com.google.gms.google-services")
+}
+
 android {
     namespace = "tech.zolaa.sama360"
     compileSdk = flutter.compileSdkVersion

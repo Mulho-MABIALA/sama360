@@ -17,6 +17,7 @@ import 'package:sama360/core/models.dart';
 import 'package:sama360/core/offline/kv_store.dart';
 import 'package:sama360/core/offline/pending_sales.dart' show keyValueStoreProvider;
 import 'package:sama360/core/theme.dart';
+import 'package:sama360/core/push.dart';
 import 'package:sama360/core/providers.dart';
 import 'package:sama360/core/repositories.dart';
 import 'package:sama360/features/auth/auth_controller.dart';
@@ -2336,6 +2337,13 @@ class FakeRepo extends SamaRepository {
   @override
   Future<void> deleteAccount(String confirm) async => accountDeletions.add(confirm);
 
+  // Notifications push
+  final pushTokens = <String, String>{};
+  @override
+  Future<void> registerPushToken(String token, String platform) async => pushTokens[token] = platform;
+  @override
+  Future<void> unregisterPushToken(String token) async => pushTokens.remove(token);
+
   @override
   Future<SaleDetail> sale(String id) async => id == 'voided' || voidedSales.containsKey(id) ? demoVoidedSale : demoSale;
 
@@ -2436,6 +2444,7 @@ Future<(ProviderContainer, FakeRepo)> pumpSama(
   List<Override> overrides = const [],
   FakeRepo? repo,
   bool dark = false,
+  PushPlatform push = const NoPush(),
   PinStore? pinStore,
   Biometrics? biometrics,
 }) async {
@@ -2452,6 +2461,8 @@ Future<(ProviderContainer, FakeRepo)> pumpSama(
       biometricsProvider.overrideWithValue(biometrics ?? FakeBiometrics()),
       repoProvider.overrideWithValue(repo),
       authProvider.overrideWith(FakeAuth.new),
+      // Notifications push : pas de Firebase dans les tests
+      pushPlatformProvider.overrideWithValue(push),
       if (dark) keyValueStoreProvider.overrideWithValue(MemoryStore()..data['display.settings'] = '{"mode":"dark"}'),
       ...overrides,
     ],

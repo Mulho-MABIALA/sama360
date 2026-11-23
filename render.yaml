@@ -100,6 +100,19 @@ services:
         sync: false
       - key: CHARIOW_PRODUCT_YEARLY
         sync: false
+      # Notifications push (Firebase) : clé du compte de service (JSON, ou en base64) ; vide = pas de push
+      - key: FCM_SERVICE_ACCOUNT
+        sync: false
+      # Version web : appli Web Firebase (clé API, identifiant) et clé VAPID (Cloud Messaging)
+      - key: FIREBASE_WEB_API_KEY
+        sync: false
+      - key: FIREBASE_WEB_APP_ID
+        sync: false
+      - key: FIREBASE_VAPID_KEY
+        sync: false
+      # Adresse publique : liens des notifications et retour après paiement
+      - key: PUBLIC_URL
+        sync: false
       # Assistant IA et facture en photo : « anthropic » avec une clé, sinon « off »
       - key: ASSISTANT_PROVIDER
         value: "off"

@@ -124,6 +124,8 @@ export class ClosureService implements OnApplicationShutdown {
       await tx.execute(sql`UPDATE core.users SET deleted_at = ${now}, updated_at = ${now} WHERE id = ${userId}`);
       await tx.execute(sql`
         UPDATE core.refresh_tokens SET revoked_at = ${now} WHERE user_id = ${userId} AND revoked_at IS NULL`);
+      // Plus de notifications sur ses téléphones
+      await tx.execute(sql`DELETE FROM core.push_tokens WHERE user_id = ${userId}`);
       this.log.log(`Compte ${userId} supprimé (${owned} boutique(s)) ; effacement le ${purgeAt(now).toISOString()}`);
       return { deleted: true, businesses: owned, purgeAt: purgeAt(now).toISOString() };
     });

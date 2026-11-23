@@ -6,6 +6,7 @@ import '../../core/format.dart';
 import '../../core/glass.dart';
 import '../../core/models.dart';
 import '../../core/providers.dart';
+import '../../core/push.dart';
 import '../../core/theme.dart';
 import '../../core/widgets.dart';
 
@@ -127,9 +128,17 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
         value: page,
         onRetry: () => ref.invalidate(notificationsProvider),
         data: (p) {
-          if (p.items.isEmpty) return const _Empty();
+          final banner = const PushBanner();
+          if (p.items.isEmpty) {
+            return Column(
+              children: [
+                const Padding(padding: EdgeInsets.fromLTRB(16, 0, 16, 0), child: PushBanner()),
+                const Expanded(child: _Empty()),
+              ],
+            );
+          }
           final now = DateTime.now();
-          final rows = <Widget>[];
+          final rows = <Widget>[banner];
           String? group;
           for (final n in p.items) {
             final g = notificationGroup(n.createdAt, now);
@@ -137,7 +146,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
               group = g;
               rows.add(
                 Padding(
-                  padding: EdgeInsets.fromLTRB(4, rows.isEmpty ? 4 : 18, 4, 8),
+                  padding: EdgeInsets.fromLTRB(4, rows.length <= 1 ? 4 : 18, 4, 8),
                   child: Text(g, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
                 ),
               );
@@ -159,6 +168,83 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
             child: ListView(padding: const EdgeInsets.fromLTRB(16, 0, 16, 24), children: rows),
           );
         },
+      ),
+    );
+  }
+}
+
+/// « Recevoir les notifications sur ce téléphone » : visible tant que l'appareil n'est pas abonné.
+class PushBanner extends ConsumerStatefulWidget {
+  const PushBanner({super.key});
+  @override
+  ConsumerState<PushBanner> createState() => _PushBannerState();
+}
+
+class _PushBannerState extends ConsumerState<PushBanner> {
+  bool _busy = false;
+
+  Future<void> _enable() async {
+    setState(() => _busy = true);
+    try {
+      final ok = await ref.read(pushProvider.notifier).enable();
+      if (mounted && ok) showInfo(context, 'Notifications activées sur cet appareil');
+    } catch (e) {
+      if (mounted) showError(context, e);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final push = ref.watch(pushProvider);
+    if (!push.available || push.active) return const SizedBox.shrink();
+    final denied = push.permission == PushPermission.denied;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Glass(
+        key: const Key('push_banner'),
+        radius: 20,
+        padding: const EdgeInsets.fromLTRB(14, 12, 12, 12),
+        child: Row(
+          children: [
+            Icon(
+              denied ? Icons.notifications_off_rounded : Icons.notifications_active_rounded,
+              color: denied ? AppColors.muted : AppColors.green,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    denied ? 'Notifications bloquées' : 'Être prévenu sur ce téléphone',
+                    style: const TextStyle(fontWeight: FontWeight.w800),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    denied
+                        ? 'Autorisez-les pour Sama360 dans les réglages du téléphone ou du navigateur.'
+                        : 'Commandes en ligne, stock bas, crédits en retard… même app fermée.',
+                    style: TextStyle(color: AppColors.muted, fontSize: 13),
+                  ),
+                ],
+              ),
+            ),
+            if (!denied) ...[
+              const SizedBox(width: 8),
+              FilledButton(
+                key: const Key('push_enable'),
+                // Les boutons de l'app prennent toute la largeur : ici, à côté du texte
+                style: FilledButton.styleFrom(minimumSize: const Size(88, 44)),
+                onPressed: _busy ? null : _enable,
+                child: _busy
+                    ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                    : const Text('Activer'),
+              ),
+            ],
+          ],
+        ),
       ),
     );
   }

@@ -9,7 +9,9 @@ import 'core/display.dart';
 import 'core/offline/kv_store.dart';
 import 'core/offline/pending_sales.dart';
 import 'core/providers.dart';
+import 'core/push.dart';
 import 'core/theme.dart';
+import 'features/auth/auth_controller.dart';
 import 'features/auth/pin_screen.dart';
 import 'router.dart';
 
@@ -34,6 +36,15 @@ Future<void> main() async {
   );
 }
 
+/// Notifications push : abonne l'appareil dès la connexion ; une notification touchée ouvre son écran.
+final pushBootstrapProvider = Provider<void>((ref) {
+  final push = ref.read(pushProvider.notifier);
+  push.onOpenLink = (link) => ref.read(routerProvider).push(link);
+  ref.listen(authProvider, (_, next) {
+    if (next.value?.signedIn ?? false) push.start();
+  }, fireImmediately: true);
+});
+
 class SamaApp extends ConsumerWidget {
   const SamaApp({super.key, this.googleFonts = true});
   final bool googleFonts;
@@ -42,6 +53,7 @@ class SamaApp extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final display = ref.watch(displaySettingsProvider);
     final brand = ref.watch(brandColorProvider);
+    ref.watch(pushBootstrapProvider);
     return MaterialApp.router(
       title: 'Sama360',
       debugShowCheckedModeBanner: false,

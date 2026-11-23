@@ -24,6 +24,14 @@ process.env.CHARIOW_API_URL = 'https://chariow.test/v1';
 process.env.CHARIOW_PULSE_SECRET = 'whsec_test_sama';
 process.env.CHARIOW_PRODUCT_MONTHLY = 'prd_mois';
 process.env.CHARIOW_PRODUCT_YEARLY = 'prd_annee';
+// Notifications push : clé factice (l'envoi est remplacé dans le test), appli Web Firebase
+process.env.FCM_SERVICE_ACCOUNT = Buffer.from(
+  JSON.stringify({ project_id: 'sama-test', client_email: 'push@sama-test.iam', private_key: 'x' }),
+).toString('base64');
+process.env.FIREBASE_WEB_API_KEY = 'AIzaTest';
+process.env.FIREBASE_WEB_APP_ID = '1:4242:web:abc';
+process.env.FIREBASE_VAPID_KEY = 'BTestVapid';
+process.env.PUBLIC_URL = 'https://sama.test';
 process.env.STORAGE_DIR = require('node:path').join(require('node:os').tmpdir(), `sama-e2e-${process.pid}`);
 
 import { INestApplication } from '@nestjs/common';
@@ -36,6 +44,8 @@ import { AppModule } from '../src/app.module';
 import { ConsoleOtpSender } from '../src/modules/auth/otp-sender';
 import { DbService } from '../src/shared/db/db.service';
 import { ClosureService } from '../src/modules/core/closure.service';
+import { NotificationsService } from '../src/modules/notifications/notifications.service';
+import { PushService } from '../src/modules/notifications/push.service';
 import { contacts } from '../src/shared/db/schema';
 import { migrate } from '../src/shared/db/migrate';
 import { EventWorkerService } from '../src/shared/events/event-worker.service';
@@ -3792,6 +3802,127 @@ describe('Socle Sama360 (e2e)', () => {
       expect(members.body.find((m: { fullName: string }) => m.fullName === 'Fatou Médina').locationId).toBeNull();
       // Une ancienne sélection sur le téléphone retombe sur « tous les points de vente »
       expect((await http.get('/v1/sales/summary').set(At(medina)).expect(200)).body.locationId).toBeNull();
+    });
+  });
+
+  describe('Notifications push', () => {
+    it('appareils abonnés, bons destinataires, jetons périmés oubliés, configuration web', async () => {
+      const push = app.get(PushService);
+      const notifs = app.get(NotificationsService);
+      const sent: { token: string; title: string; link?: string | null; webBase?: string | null }[] = [];
+      push.useSender({
+        send: async (token, msg) => {
+          if (token.startsWith('perime')) return 'unregistered';
+          sent.push({ token, ...msg });
+          return 'sent';
+        },
+      });
+      try {
+        // Configuration publique de la version web et service worker à la racine
+        expect((await http.get('/v1/push/config').expect(200)).body).toEqual({
+          enabled: true,
+          web: {
+            apiKey: 'AIzaTest',
+            appId: '1:4242:web:abc',
+            projectId: 'sama-test',
+            messagingSenderId: '4242',
+            vapidKey: 'BTestVapid',
+          },
+        });
+        const sw = await http.get('/firebase-messaging-sw.js').expect(200);
+        expect(sw.headers['content-type']).toContain('javascript');
+        expect(sw.text).toContain('"projectId":"sama-test"');
+
+        const owner = await login('+221770040001');
+        const biz = (
+          await http.post('/v1/businesses').set(auth(owner.accessToken)).send({ name: 'Push Boutique' }).expect(201)
+        ).body.business.id;
+        const cashier = await login('+221770040002');
+        await http
+          .post('/v1/members')
+          .set(auth(owner.accessToken, biz))
+          .send({ phone: '+221770040002', roleKey: 'cashier' })
+          .expect(201);
+        const tok = (p: string) => `${p}-${'x'.repeat(30)}`;
+        await http
+          .post('/v1/me/push-tokens')
+          .set(auth(owner.accessToken))
+          .send({ token: tok('tel-patron'), platform: 'android' })
+          .expect(200);
+        await http
+          .post('/v1/me/push-tokens')
+          .set(auth(owner.accessToken))
+          .send({ token: tok('perime'), platform: 'web' })
+          .expect(200);
+        await http
+          .post('/v1/me/push-tokens')
+          .set(auth(cashier.accessToken))
+          .send({ token: tok('tel-caissier'), platform: 'android' })
+          .expect(200);
+        await http
+          .post('/v1/me/push-tokens')
+          .set(auth(owner.accessToken))
+          .send({ token: 'court', platform: 'android' })
+          .expect(422);
+        await http
+          .post('/v1/me/push-tokens')
+          .send({ token: tok('anonyme'), platform: 'android' })
+          .expect(401);
+
+        // Commande en ligne (vente) : patron et caissier ; astuce « logo » : jamais sur le téléphone
+        await dbs.withTenant(biz, async (tx) => {
+          await notifs.push(tx, biz, {
+            kind: 'shop_order',
+            title: 'Nouvelle commande',
+            link: '/shop/orders/1',
+            audience: 'sales:read',
+          });
+          await notifs.push(tx, biz, { kind: 'logo', title: 'Ajoutez votre logo', audience: 'business:update' });
+          // Pro : patron seulement ; action du patron lui-même : pas pour lui
+          await notifs.push(tx, biz, { kind: 'pro_active', title: 'Pro activé', audience: 'business:update' });
+          await notifs.push(tx, biz, {
+            kind: 'sale_voided',
+            title: 'Vente annulée',
+            audience: 'sales:read',
+            actorId: owner.user.id,
+          });
+        });
+        expect(await push.dispatch()).toBe(4);
+        const got = (t: string) => sent.filter((x) => x.token === tok(t)).map((x) => x.title);
+        expect(got('tel-patron').sort()).toEqual(['Nouvelle commande', 'Pro activé']);
+        expect(got('tel-caissier').sort()).toEqual(['Nouvelle commande', 'Vente annulée']);
+        expect(sent.find((x) => x.title === 'Nouvelle commande')).toMatchObject({
+          link: '/shop/orders/1',
+          webBase: 'https://sama.test',
+        });
+        // Jeton périmé effacé ; file vide
+        const { sql } = await import('drizzle-orm');
+        expect(
+          (await dbs.db.execute(sql`SELECT 1 FROM core.push_tokens WHERE token = ${tok('perime')}`)).rows,
+        ).toHaveLength(0);
+        expect(await push.dispatch()).toBe(0);
+
+        // Désabonner ce téléphone (déconnexion)
+        await http
+          .delete('/v1/me/push-tokens')
+          .set(auth(cashier.accessToken))
+          .send({ token: tok('tel-caissier') })
+          .expect(200);
+        await dbs.withTenant(biz, (tx) =>
+          notifs.push(tx, biz, { kind: 'stock_low', title: 'Stock bas', audience: 'inventory:read' }),
+        );
+        sent.length = 0;
+        await push.dispatch();
+        expect(sent.map((x) => x.token)).toEqual([tok('tel-patron')]);
+
+        // Rappels du jour sans ouvrir l'app (crédits, factures, fin de Pro…) : une seule fois
+        expect(await push.dailyReminders()).toBeGreaterThan(0);
+        const before = (await dbs.db.execute(sql`SELECT count(*)::int AS n FROM core.push_queue`)).rows[0];
+        await push.dailyReminders();
+        expect((await dbs.db.execute(sql`SELECT count(*)::int AS n FROM core.push_queue`)).rows[0]).toEqual(before);
+      } finally {
+        push.useSender(undefined as unknown as null);
+      }
     });
   });
 
