@@ -4,10 +4,10 @@
     <uses-permission android:name="android.permission.CAMERA"/>
     <uses-permission android:name="android.permission.USE_BIOMETRIC"/>
     <uses-feature android:name="android.hardware.camera" android:required="false"/>
-    <!-- Phase de test : HTTP autorisé pour joindre l'API sur le PC (Wi-Fi local).
-         À retirer avant la publication sur le Play Store (API en HTTPS). -->
+    <!-- HTTP non chiffré : permis pour les versions de test (API sur le PC), refusé pour la
+         version de production (SAMA_STORE=true, voir android/app/build.gradle.kts). -->
     <application
-        android:usesCleartextTraffic="true"
+        android:usesCleartextTraffic="${cleartext}"
         android:label="Sama360"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">

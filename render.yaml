@@ -1,5 +1,6 @@
 # Déploiement Sama360 sur Render (Blueprint). Guide : DEPLOY.md
-# Un service web (API + worker intégré) et un Redis (Key Value). La base reste sur Neon.
+# Un service web (API + worker intégré + version web de l'app sur /app) et un Redis (Key Value).
+# La base reste sur Neon.
 # Région ohio : la même que la base Neon (us-east-2). Si la base change de région, changer ici aussi.
 # Les valeurs « sync: false » sont demandées par Render à la création : on les colle soi-même.
 services:
@@ -9,13 +10,19 @@ services:
     dockerfilePath: ./Dockerfile
     dockerContext: .
     region: ohio
-    plan: starter # « free » possible pour tester (le service s'endort après 15 min sans requête)
+    # Gratuit pour commencer : le service s'endort après 15 min sans visite (≈1 min au réveil) et les
+    # tâches de fond (relances, rappels) attendent le réveil. Passer à « starter » (7 $/mois) pour les vrais commerçants.
+    plan: free
     healthCheckPath: /health
     autoDeploy: true
     buildFilter:
       paths:
         - apps/api/**
         - packages/contracts/**
+        - apps/mobile/lib/**
+        - apps/mobile/web/**
+        - apps/mobile/assets/**
+        - apps/mobile/pubspec.*
         - Dockerfile
         - pnpm-lock.yaml
     envVars:
@@ -63,6 +70,24 @@ services:
         sync: false
       - key: S3_SECRET_ACCESS_KEY
         sync: false
+
+      # Sama360 Pro : numéros des administrateurs (validation des paiements) et numéros qui reçoivent
+      # les paiements d'abonnement par pays (ex. ADMIN_PHONES=+221781234567)
+      - key: ADMIN_PHONES
+        sync: false
+      - key: PRO_PAY_TO_SN
+        sync: false
+      - key: PRO_PAY_TO_CI
+        sync: false
+      - key: PRO_PAY_TO_CG
+        sync: false
+      # Assistant IA et facture en photo : « anthropic » avec une clé, sinon « off »
+      - key: ASSISTANT_PROVIDER
+        value: "off"
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: SCAN_DAILY_LIMIT
+        value: "20"
 
   - type: keyvalue
     name: sama360-redis

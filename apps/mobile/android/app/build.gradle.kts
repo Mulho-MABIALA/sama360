@@ -27,6 +27,9 @@ android {
         // flag during build.
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+        // Version de production (SAMA_STORE=true) : HTTPS seulement. Versions de test : HTTP permis
+        // pour joindre l'API sur le PC en Wi-Fi local.
+        manifestPlaceholders["cleartext"] = if (System.getenv("SAMA_STORE") == "true") "false" else "true"
     }
 
     buildTypes {

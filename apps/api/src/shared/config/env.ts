@@ -123,7 +123,9 @@ let cached: Env | undefined;
 /** Lit et valide les variables d'environnement une seule fois ; échoue au démarrage si invalide. */
 export function env(): Env {
   if (cached) return cached;
-  const parsed = EnvSchema.safeParse(process.env);
+  // Une variable laissée vide (champ non rempli sur l'hébergeur) compte comme absente
+  const raw = Object.fromEntries(Object.entries(process.env).filter(([, v]) => v !== undefined && v.trim() !== ''));
+  const parsed = EnvSchema.safeParse(raw);
   if (!parsed.success) {
     const details = parsed.error.issues.map((i) => `  - ${i.path.join('.')}: ${i.message}`).join('\n');
     throw new Error(`Configuration invalide :\n${details}`);

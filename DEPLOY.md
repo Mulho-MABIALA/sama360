@@ -1,16 +1,18 @@
 # Mettre Sama360 en ligne
 
-Ce guide met l'API en ligne pour que l'app fonctionne partout, pas seulement sur le Wi-Fi du PC.
+Ce guide met Sama360 en ligne pour que l'app fonctionne partout, pas seulement sur le Wi-Fi du PC :
+l'API et la version web de l'app (`https://<adresse>/app`, utilisable sur iPhone comme sur Android).
 Compter environ une heure la première fois. **Aucun mot de passe ni clé ne va dans GitHub** : ils se collent
 uniquement dans Render (ou dans le `.env` du serveur).
 
 | Brique | Service | Coût de départ |
 |---|---|---|
-| API + traitement des événements | Render, service web Docker (`render.yaml`) | offre gratuite pour tester ; offre payante « Starter » pour de vrais clients |
+| API + traitement des événements + version web | Render, service web Docker (`render.yaml`) | offre gratuite pour tester (réglée dans `render.yaml`) ; « Starter » (7 $/mois) pour de vrais clients |
 | File d'événements (Redis) | Render Key Value | gratuit |
 | Base de données | Neon (déjà en place) | gratuit au départ |
 | Fichiers (logos, photos) | Cloudflare R2 | gratuit jusqu'à 10 Go |
 | SMS de connexion | Orange SMS API (Sénégal) | forfaits SMS payés en crédit Orange ou Orange Money |
+| Assistant IA, facture en photo (facultatif) | API Anthropic (console.anthropic.com) | paiement à l'usage |
 
 Vérifier les prix du moment sur les sites de chaque service.
 
@@ -62,35 +64,52 @@ Valeurs : `S3_BUCKET=sama360-fichiers`, `S3_ENDPOINT`, `S3_ACCESS_KEY_ID`, `S3_S
    - `DATABASE_URL` et `DATABASE_URL_DIRECT` : **les mêmes que dans `apps/api/.env` sur le PC**
      (`sama_app` pour l'API, `neondb_owner` pour les migrations) ;
    - les trois valeurs Orange de l'étape 1 ;
-   - les quatre valeurs R2 de l'étape 2.
+   - les quatre valeurs R2 de l'étape 2 ;
+   - `ADMIN_PHONES` : ton numéro au format international (ex. `+221781234567`), pour valider les
+     paiements Sama360 Pro dans l'app ; plusieurs numéros séparés par des virgules ;
+   - `PRO_PAY_TO_SN`, `PRO_PAY_TO_CI`, `PRO_PAY_TO_CG` : le numéro Wave / Orange Money / MTN qui reçoit
+     les abonnements dans chaque pays (laisser vide un pays pas encore ouvert) ;
+   - `ANTHROPIC_API_KEY` : facultatif. Pour activer l'assistant et la facture en photo, coller la clé
+     puis passer `ASSISTANT_PROVIDER` à `anthropic` (onglet **Environment** du service).
+   Un champ laissé vide est simplement ignoré.
    Les secrets `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET` et `OTP_SECRET` sont générés par Render.
-4. **Apply**. La première construction prend quelques minutes. Au démarrage, l'API applique les migrations.
+4. **Apply**. La première construction prend 10 à 15 minutes (elle construit aussi la version web de l'app
+   avec Flutter) ; les suivantes réutilisent le cache. Au démarrage, l'API applique les migrations.
 5. Vérifier : ouvrir `https://sama360-api.onrender.com/health` (l'adresse exacte est en haut de la page
    du service). Réponse attendue : `{"status":"ok","db":"ok"}`.
 
-Pour tester sans payer : passer `plan` à `free` dans `render.yaml` (le service s'endort après 15 minutes
-sans requête et met environ une minute à se réveiller). Pour de vrais commerçants, garder `starter`.
+`render.yaml` démarre sur l'offre **gratuite** : le service s'endort après 15 minutes sans visite et met
+environ une minute à se réveiller ; les tâches de fond (relances, rappels de fin d'essai) attendent le réveil.
+Avant les vrais commerçants : Render → sama360-api → **Settings → Instance Type → Starter** (ou `plan: starter`
+dans `render.yaml`).
 
 Si l'adresse donnée par Render n'est pas `https://sama360-api.onrender.com` (nom déjà pris), la mettre
 dans `apps/mobile/lib/core/config.dart` (`productionApiUrl`).
 
 ## Étape 4 : tester la connexion
 
-Dans l'app (version publiée, ou `flutter run --dart-define=API_URL=https://sama360-api.onrender.com`),
-se connecter avec son numéro : le code doit arriver **par SMS**.
+Sur n'importe quel téléphone, ouvrir **`https://sama360-api.onrender.com/app`** (adresse exacte : page du
+service). Sur iPhone : Safari → Partager → **Sur l'écran d'accueil** pour l'avoir comme une app.
+Se connecter avec son numéro : le code doit arriver **par SMS**.
 
 En cas d'échec, l'app affiche « Le SMS n'a pas pu être envoyé » et on peut redemander tout de suite.
 Le détail est dans **Render → sama360-api → Logs** (par exemple « Not enough credit » : forfait épuisé).
 
 ## Étape 5 : l'app Android
 
+Version de production (API en ligne, HTTPS obligatoire, sans le réglage « Serveur » des tests) :
+
 ```bash
 cd apps/mobile
-flutter build apk --release
+set SAMA_STORE=true
+flutter build apk --release --split-per-abi --dart-define=STORE=true
 ```
 
-Une version publiée utilise automatiquement l'API en ligne. Pour une autre adresse :
-`--dart-define=API_URL=https://...`.
+(PowerShell : `$env:SAMA_STORE="true"` au lieu de `set`.) Une version publiée utilise automatiquement l'API en
+ligne. Pour une autre adresse : `--dart-define=API_URL=https://...`.
+
+Pour Google Play, il faudra en plus une clé de signature à soi (pas la clé de débogage) : étape à faire au
+moment de la publication.
 
 ---
 
