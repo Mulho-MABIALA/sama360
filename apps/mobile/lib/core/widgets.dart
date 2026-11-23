@@ -162,7 +162,13 @@ class PayLogo extends StatelessWidget {
   final double size;
   final Color? color;
 
-  static const _assets = {PayMethod.wave: 'assets/pay/wave.png', PayMethod.orangeMoney: 'assets/pay/orange_money.png'};
+  static const _assets = {
+    PayMethod.wave: 'assets/pay/wave.png',
+    PayMethod.orangeMoney: 'assets/pay/orange_money.png',
+    PayMethod.mtnMomo: 'assets/pay/mtn_momo.png',
+    PayMethod.moovMoney: 'assets/pay/moov_money.png',
+    PayMethod.airtelMoney: 'assets/pay/airtel_money.png',
+  };
 
   static IconData iconOf(PayMethod? m) => switch (m) {
     null => Icons.menu_book_rounded,
