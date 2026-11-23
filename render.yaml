@@ -52,8 +52,10 @@ services:
         generateValue: true
       # Codes de connexion : Twilio Verify, valable dans tous les pays (Sénégal, Côte d'Ivoire, Congo…).
       # Autres choix possibles : twilio (SMS simple) ou orange (Sénégal seulement), voir DEPLOY.md.
+      # Envoi des codes : twilio_verify en production ; console seulement pour un premier test
+      # (avec OTP_CONSOLE_IN_PRODUCTION=true). Réglé à la main dans Render : un push ne l'écrase plus.
       - key: OTP_PROVIDER
-        value: twilio_verify
+        sync: false
       - key: OTP_CHANNEL
         value: sms # whatsapp une fois l'expéditeur WhatsApp configuré dans Twilio
       - key: TWILIO_ACCOUNT_SID
