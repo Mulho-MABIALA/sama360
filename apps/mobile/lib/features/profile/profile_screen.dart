@@ -14,6 +14,7 @@ import '../../core/models.dart';
 import '../../core/providers.dart';
 import '../../core/theme.dart';
 import '../../core/widgets.dart';
+import '../home/monument.dart' show MonumentBackdrop;
 import '../auth/auth_controller.dart';
 import '../business/business_logo.dart';
 import '../catalog/product_photo.dart';
@@ -562,113 +563,146 @@ class _Header extends ConsumerWidget {
       borderRadius: const BorderRadius.vertical(bottom: Radius.circular(36)),
       child: AuroraBackground(
         tone: AuroraTone.deep,
-        child: Padding(
-          padding: EdgeInsets.fromLTRB(8, top + 4, 8, 52),
-          child: Column(
-            children: [
-              Row(
+        child: Stack(
+          children: [
+            // Même photo que l'accueil : le monument du jour, qui change chaque jour
+            const Positioned.fill(child: MonumentBackdrop()),
+            // Voile plus sombre derrière le nom et le numéro, pour qu'ils restent lisibles
+            const Positioned.fill(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    stops: [0, 0.45, 1],
+                    colors: [Color(0x33000000), Color(0x40000000), Color(0x99000000)],
+                  ),
+                ),
+              ),
+            ),
+            Padding(
+              padding: EdgeInsets.fromLTRB(8, top + 4, 8, 52),
+              child: Column(
                 children: [
-                  if (canPop)
-                    IconButton(
-                      tooltip: 'Retour',
-                      onPressed: () => context.pop(),
-                      icon: const Icon(Icons.arrow_back_rounded, color: Colors.white),
-                    )
-                  else
-                    const SizedBox(width: 48),
-                  const Expanded(
-                    child: Text(
-                      'Mon profil',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w800),
-                    ),
-                  ),
-                  const SizedBox(width: 48),
-                ],
-              ),
-              const SizedBox(height: 14),
-              Semantics(
-                button: true,
-                label: me.avatarFileId == null ? 'Ajouter une photo de profil' : 'Changer la photo de profil',
-                excludeSemantics: true,
-                child: GestureDetector(
-                  key: const Key('profilePhoto'),
-                  onTap: busy ? null : onPhoto,
-                  child: SizedBox(
-                    width: 124,
-                    height: 124,
-                    child: Stack(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(4),
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            gradient: const SweepGradient(
-                              colors: [AppColors.glow, Color(0xFFFFC08A), Color(0xFF8E7CF6), AppColors.glow],
-                            ),
-                            boxShadow: [BoxShadow(color: AppColors.glow.withValues(alpha: 0.35), blurRadius: 28)],
-                          ),
-                          child: Container(
-                            padding: const EdgeInsets.all(3),
-                            decoration: const BoxDecoration(color: AppColors.deep, shape: BoxShape.circle),
-                            child: busy
-                                ? const SizedBox(
-                                    width: 110,
-                                    height: 110,
-                                    child: Center(child: CircularProgressIndicator(color: AppColors.glow)),
-                                  )
-                                : const MeAvatar(size: 110),
-                          ),
-                        ),
-                        Positioned(
-                          right: 2,
-                          bottom: 2,
-                          child: GlossyOrb(icon: Icons.photo_camera_rounded, color: AppColors.green, size: 38),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 14),
-              Text(
-                me.fullName ?? '',
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 23,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: -0.3,
-                ),
-              ),
-              const SizedBox(height: 2),
-              Text(intlPhone(me.phone), style: const TextStyle(color: Color(0xFFCDE9DD), fontSize: 14)),
-              if (roleLabel != null) ...[
-                const SizedBox(height: 12),
-                Glass(
-                  tone: GlassTone.dark,
-                  radius: 20,
-                  blur: 10,
-                  shadow: false,
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
+                  Row(
                     children: [
-                      const Icon(Icons.verified_rounded, size: 16, color: AppColors.glow),
-                      const SizedBox(width: 6),
-                      Flexible(
+                      if (canPop)
+                        IconButton(
+                          tooltip: 'Retour',
+                          onPressed: () => context.pop(),
+                          icon: const Icon(Icons.arrow_back_rounded, color: Colors.white),
+                        )
+                      else
+                        const SizedBox(width: 48),
+                      const Expanded(
                         child: Text(
-                          roleLabel!,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 13),
+                          'Mon profil',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 18,
+                            fontWeight: FontWeight.w800,
+                            shadows: [Shadow(color: Color(0x99000000), blurRadius: 8)],
+                          ),
                         ),
                       ),
+                      const SizedBox(width: 48),
                     ],
                   ),
-                ),
-              ],
-            ],
-          ),
+                  const SizedBox(height: 14),
+                  Semantics(
+                    button: true,
+                    label: me.avatarFileId == null ? 'Ajouter une photo de profil' : 'Changer la photo de profil',
+                    excludeSemantics: true,
+                    child: GestureDetector(
+                      key: const Key('profilePhoto'),
+                      onTap: busy ? null : onPhoto,
+                      child: SizedBox(
+                        width: 124,
+                        height: 124,
+                        child: Stack(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(4),
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                gradient: const SweepGradient(
+                                  colors: [AppColors.glow, Color(0xFFFFC08A), Color(0xFF8E7CF6), AppColors.glow],
+                                ),
+                                boxShadow: [BoxShadow(color: AppColors.glow.withValues(alpha: 0.35), blurRadius: 28)],
+                              ),
+                              child: Container(
+                                padding: const EdgeInsets.all(3),
+                                decoration: const BoxDecoration(color: AppColors.deep, shape: BoxShape.circle),
+                                child: busy
+                                    ? const SizedBox(
+                                        width: 110,
+                                        height: 110,
+                                        child: Center(child: CircularProgressIndicator(color: AppColors.glow)),
+                                      )
+                                    : const MeAvatar(size: 110),
+                              ),
+                            ),
+                            Positioned(
+                              right: 2,
+                              bottom: 2,
+                              child: GlossyOrb(icon: Icons.photo_camera_rounded, color: AppColors.green, size: 38),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  Text(
+                    me.fullName ?? '',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 23,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: -0.3,
+                      shadows: [Shadow(color: Color(0x99000000), blurRadius: 8)],
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    intlPhone(me.phone),
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                      shadows: [Shadow(color: Color(0x99000000), blurRadius: 8)],
+                    ),
+                  ),
+                  if (roleLabel != null) ...[
+                    const SizedBox(height: 12),
+                    Glass(
+                      tone: GlassTone.dark,
+                      radius: 20,
+                      blur: 10,
+                      shadow: false,
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.verified_rounded, size: 16, color: AppColors.glow),
+                          const SizedBox(width: 6),
+                          Flexible(
+                            child: Text(
+                              roleLabel!,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 13),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
         ),
       ),
     );
