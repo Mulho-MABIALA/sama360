@@ -52,8 +52,18 @@ void main() {
     expect(find.text('1 sur 6 · quelques minutes pour bien démarrer'), findsOneWidget);
     expect(find.text('Activer l’empreinte digitale'), findsOneWidget);
 
+    // Le numéro de la boutique est celui du compte : seule l'étape du logo reste, et elle ouvre le choix du logo
+    expect(find.text('Ajouter votre logo'), findsOneWidget);
+    expect(find.textContaining('numéro'), findsNothing);
     await tester.drag(find.byType(ListView).first, const Offset(0, -250));
     await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('step_logo_phone')));
+    await tester.pumpAndSettle();
+    expect(find.text('Logo de l’entreprise'), findsOneWidget);
+    expect(routerOf(c).state.uri.path, '/');
+    await tester.tapAt(const Offset(20, 20)); // ferme la feuille
+    await tester.pumpAndSettle();
+
     await tester.tap(find.byKey(const Key('step_shop_online')));
     await tester.pumpAndSettle();
     expect(routerOf(c).state.uri.path, '/shop');

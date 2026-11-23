@@ -9,6 +9,7 @@ import '../../core/pin_lock.dart';
 import '../../core/providers.dart';
 import '../../core/theme.dart';
 import '../../core/widgets.dart';
+import '../business/business_logo.dart' show changeBusinessLogo;
 import '../business/business_screen.dart' show focusLabels;
 
 /// Une étape du guide : texte, conseil, icône, écran où la faire.
@@ -46,8 +47,8 @@ StepInfo stepInfo(String key, {BiometricKind? bio}) => switch (key) {
     '/booking/new',
   ),
   'logo_phone' => const StepInfo(
-    'Ajouter votre logo et votre numéro',
-    'Ils apparaissent sur vos reçus et factures',
+    'Ajouter votre logo',
+    'Il apparaît sur vos reçus et factures',
     Icons.storefront_rounded,
     '/account',
   ),
@@ -124,13 +125,24 @@ class OnboardingCard extends ConsumerWidget {
                     ],
                   ),
                 ),
-                TextButton(
+                TextButton.icon(
                   key: const Key('onboarding_dismiss'),
+                  style: TextButton.styleFrom(
+                    foregroundColor: AppColors.danger,
+                    backgroundColor: AppColors.danger.withValues(alpha: 0.1),
+                    minimumSize: const Size(48, 40),
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
                   onPressed: () async {
                     await ref.read(repoProvider).dismissOnboarding();
                     ref.invalidate(onboardingProvider);
                   },
-                  child: Text(allDone ? 'Fermer' : 'Masquer', style: TextStyle(color: AppColors.muted)),
+                  icon: const Icon(Icons.close_rounded, size: 18),
+                  label: Text(
+                    allDone ? 'Fermer' : 'Masquer',
+                    style: const TextStyle(fontWeight: FontWeight.w800),
+                  ),
                 ),
               ],
             ),
@@ -176,6 +188,13 @@ class _StepRow extends ConsumerWidget {
       onTap: done
           ? null
           : () async {
+              // Logo : le choix de l'image s'ouvre tout de suite
+              final business = ref.read(currentBusinessProvider).value;
+              if (step.key == 'logo_phone' && business != null) {
+                await changeBusinessLogo(context, ref, business);
+                ref.invalidate(onboardingProvider);
+                return;
+              }
               await context.push(info.route);
               // De retour : les étapes se recochent d'après les données
               ref.invalidate(onboardingProvider);

@@ -191,6 +191,8 @@ describe('Socle Sama360 (e2e)', () => {
         .expect(201);
       awaBiz = res.body.business.id;
       expect(res.body.business.slug).toBe('awa-beaute');
+      // Numéro de la boutique (reçus) : celui du compte, sans le ressaisir
+      expect(res.body.business.phone).toBe(AWA);
       expect(res.body.modules).toEqual(expect.arrayContaining(['sales', 'inventory', 'invoicing', 'shop']));
       expect(res.body.subscription).toMatchObject({ plan: 'pro', status: 'trialing' }); // 30 jours d'essai Pro
     });

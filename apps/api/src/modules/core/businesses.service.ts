@@ -3,7 +3,7 @@ import { Injectable } from '@nestjs/common';
 import { DEFAULT_MODULES } from '@sama360/contracts';
 import { eq, like, or, sql } from 'drizzle-orm';
 import { DbService } from '../../shared/db/db.service';
-import { businesses, memberships, moduleActivations, roles, subscriptions } from '../../shared/db/schema';
+import { businesses, memberships, moduleActivations, roles, subscriptions, users } from '../../shared/db/schema';
 import { OutboxService } from '../../shared/events/outbox.service';
 import { AppError } from '../../shared/http/app-error';
 import { newId } from '../../shared/ids';
@@ -59,6 +59,12 @@ export class BusinessesService {
         )[0]
       : undefined;
 
+    // Numéro de la boutique (reçus, factures) : par défaut, celui du compte qui la crée
+    const phone =
+      input.phone ??
+      (await this.dbs.db.select({ phone: users.phone }).from(users).where(eq(users.id, ownerId)).limit(1))[0]?.phone ??
+      null;
+
     return this.dbs.withTenant(id, async (tx) => {
       const [business] = await tx
         .insert(businesses)
@@ -68,7 +74,7 @@ export class BusinessesService {
           name: input.name,
           slug,
           category: input.category ?? null,
-          phone: input.phone ?? null,
+          phone,
           city: input.city ?? null,
           address: input.address ?? null,
           ninea: input.ninea ?? null,
