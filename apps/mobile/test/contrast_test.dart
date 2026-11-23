@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:sama360/core/display.dart';
 import 'package:sama360/core/theme.dart';
+import 'package:sama360/features/pro/pro_screen.dart' show proBadgeText, proGold;
 
 /// Audit WCAG AA : tout texte doit atteindre 4,5:1 sur son fond, en clair comme en sombre,
 /// et quelle que soit la couleur de boutique choisie.
@@ -32,6 +33,11 @@ void main() {
         check('$mode erreur sur fond', p.danger, p.ground);
       }
     }
+    // En-tête Sama360 Pro : texte blanc sur les deux teintes du dégradé, badge « PRO » sur blanc
+    for (final c in proGold) {
+      check('en-tête Pro', Colors.white, c);
+    }
+    check('badge PRO', proBadgeText, Colors.white);
     expect(failures, isEmpty, reason: failures.join('\n'));
   });
 

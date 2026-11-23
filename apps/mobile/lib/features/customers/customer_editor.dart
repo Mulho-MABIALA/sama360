@@ -283,7 +283,7 @@ class _CustomerEditorScreenState extends ConsumerState<CustomerEditorScreen> {
                                 inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                                 decoration: InputDecoration(
                                   labelText: 'Dette maximum autorisée',
-                                  suffixText: 'FCFA',
+                                  suffixText: 'F',
                                   errorText: _errors['limit'],
                                 ),
                               ),

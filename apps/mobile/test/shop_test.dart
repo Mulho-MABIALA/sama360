@@ -165,7 +165,7 @@ void main() {
       );
       expect(find.text('Livraison : Ouakam, près de la mosquée'), findsOneWidget);
       expect(textMatching(r'^3 × 5 000 F$'), findsOneWidget);
-      expect(textMatching(r'^23 000 FCFA$'), findsOneWidget);
+      expect(textMatching(r'^23 000 F$'), findsOneWidget);
       await tester.tap(find.text('WhatsApp'));
       await tester.pumpAndSettle();
       expect(actions.whatsApp!.path, '/221765554433');
@@ -186,7 +186,7 @@ void main() {
       await tester.pumpAndSettle();
       await tester.enterText(find.byKey(const Key('collectAmount')), '5000');
       await tester.pumpAndSettle();
-      expect(textMatching(r'^Le reste \(2 000 FCFA\) va au carnet de crédit de Aïssatou$'), findsOneWidget);
+      expect(textMatching(r'^Le reste \(2 000 F\) va au carnet de crédit de Aïssatou$'), findsOneWidget);
       await tester.tap(find.text('Wave'));
       await tester.tap(find.text('Enregistrer la vente'));
       await tester.pumpAndSettle();

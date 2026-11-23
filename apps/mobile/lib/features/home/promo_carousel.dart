@@ -265,7 +265,7 @@ class _Slide extends StatelessWidget {
                 ),
                 Positioned(left: 18, top: 16, child: _Dots(color: slide.ink.withValues(alpha: 0.35))),
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(18, 30, 116, 14),
+                  padding: const EdgeInsets.fromLTRB(18, 28, 116, 14),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -273,7 +273,7 @@ class _Slide extends StatelessWidget {
                         slide.tag,
                         style: TextStyle(
                           color: slide.ink,
-                          fontSize: 10.5,
+                          fontSize: 11,
                           fontWeight: FontWeight.w800,
                           letterSpacing: 1.2,
                         ),

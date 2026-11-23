@@ -57,6 +57,28 @@ void main() {
     expect(find.text('Encaisser'), findsOneWidget); // panier vidé
   });
 
+  testWidgets('caisse sur ordinateur : panier à droite, + / − sur chaque ligne', (tester) async {
+    tester.view.physicalSize = const Size(1440, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final (_, repo) = await pumpSama(tester, location: '/pos');
+    expect(find.byKey(const Key('pos_side_panel')), findsOneWidget);
+    expect(find.text('Touchez un produit pour l’ajouter'), findsOneWidget);
+
+    await tester.tap(find.text('Beurre de karité 250 g').first);
+    await tester.tap(find.text('Beurre de karité 250 g').first);
+    await tester.pump();
+    final line = find.byKey(const Key('cart_line_p1'));
+    expect(find.descendant(of: line, matching: find.textContaining(RegExp(r'^2 × 3.500 F$'))), findsOneWidget);
+    await tester.tap(find.descendant(of: line, matching: find.byTooltip('Retirer un')));
+    await tester.pump();
+    expect(find.descendant(of: line, matching: find.textContaining(RegExp(r'^1 × 3.500 F$'))), findsOneWidget);
+    await tester.tap(find.textContaining('Encaisser 3'));
+    await tester.pumpAndSettle();
+    expect(find.text('Vente enregistrée'), findsOneWidget);
+    expect(repo.sales, hasLength(1));
+  });
+
   testWidgets('caisse : le crédit exige un client', (tester) async {
     phoneSize(tester);
     final (_, repo) = await pumpSama(tester, location: '/pos');

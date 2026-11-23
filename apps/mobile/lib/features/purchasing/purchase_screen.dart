@@ -588,7 +588,7 @@ class _ReceiveSheetState extends ConsumerState<_ReceiveSheet> {
                                 inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                                 decoration: const InputDecoration(
                                   labelText: 'Prix unitaire',
-                                  suffixText: 'FCFA',
+                                  suffixText: 'F',
                                   isDense: true,
                                 ),
                                 onChanged: (_) => setState(() {}),
@@ -610,7 +610,7 @@ class _ReceiveSheetState extends ConsumerState<_ReceiveSheet> {
                   controller: _paid,
                   keyboardType: TextInputType.number,
                   inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                  decoration: const InputDecoration(labelText: 'Payé au livreur (facultatif)', suffixText: 'FCFA'),
+                  decoration: const InputDecoration(labelText: 'Payé au livreur (facultatif)', suffixText: 'F'),
                 ),
                 const SizedBox(height: 10),
                 Wrap(

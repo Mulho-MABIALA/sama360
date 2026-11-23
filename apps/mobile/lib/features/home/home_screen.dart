@@ -1184,12 +1184,13 @@ class _ServiceTile extends ConsumerWidget {
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
                       decoration: BoxDecoration(
-                        gradient: const LinearGradient(colors: [Color(0xFFFFB020), Color(0xFFFF7A00)]),
+                        // Même ambre foncé que l'en-tête Pro : texte blanc lisible
+                        gradient: const LinearGradient(colors: [Color(0xFFB45309), Color(0xFF9A3412)]),
                         borderRadius: BorderRadius.circular(6),
                       ),
                       child: const Text(
                         'PRO',
-                        style: TextStyle(color: Colors.white, fontSize: 8.5, fontWeight: FontWeight.w800),
+                        style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w800),
                       ),
                     ),
                   ),
@@ -1202,7 +1203,7 @@ class _ServiceTile extends ConsumerWidget {
                       decoration: BoxDecoration(color: AppColors.ink, borderRadius: BorderRadius.circular(6)),
                       child: Text(
                         'Bientôt',
-                        style: TextStyle(color: AppColors.ground, fontSize: 8.5, fontWeight: FontWeight.w700),
+                        style: TextStyle(color: AppColors.ground, fontSize: 11, fontWeight: FontWeight.w700),
                       ),
                     ),
                   ),
@@ -1283,7 +1284,7 @@ class _ExpenseSheetState extends ConsumerState<_ExpenseSheet> {
           autofocus: true,
           keyboardType: TextInputType.number,
           inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-          decoration: const InputDecoration(labelText: 'Montant', suffixText: 'FCFA'),
+          decoration: const InputDecoration(labelText: 'Montant', suffixText: 'F'),
         ),
         const SizedBox(height: 16),
         BusyButton(label: 'Enregistrer', busy: _busy, onPressed: _save),

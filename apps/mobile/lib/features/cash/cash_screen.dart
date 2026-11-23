@@ -105,7 +105,7 @@ class _OpenFormState extends ConsumerState<_OpenForm> {
               controller: _float,
               keyboardType: TextInputType.number,
               inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-              decoration: const InputDecoration(labelText: 'Fond de caisse (espèces)', suffixText: 'FCFA'),
+              decoration: const InputDecoration(labelText: 'Fond de caisse (espèces)', suffixText: 'F'),
               onChanged: (_) => setState(() {}),
             ),
             const SizedBox(height: 10),
@@ -431,7 +431,7 @@ class _MovementSheetState extends ConsumerState<_MovementSheet> {
           autofocus: true,
           keyboardType: TextInputType.number,
           inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-          decoration: const InputDecoration(labelText: 'Montant', suffixText: 'FCFA'),
+          decoration: const InputDecoration(labelText: 'Montant', suffixText: 'F'),
         ),
         const SizedBox(height: 10),
         TextField(

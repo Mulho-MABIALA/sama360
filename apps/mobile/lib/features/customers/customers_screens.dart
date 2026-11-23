@@ -1115,7 +1115,7 @@ class _AdjustSheetState extends ConsumerState<_AdjustSheet> {
           autofocus: true,
           keyboardType: TextInputType.number,
           inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-          decoration: const InputDecoration(labelText: 'Montant', suffixText: 'FCFA'),
+          decoration: const InputDecoration(labelText: 'Montant', suffixText: 'F'),
         ),
         const SizedBox(height: 10),
         TextField(
@@ -1185,7 +1185,7 @@ class _RepaySheetState extends ConsumerState<_RepaySheet> {
           autofocus: true,
           keyboardType: TextInputType.number,
           inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-          decoration: const InputDecoration(labelText: 'Montant reçu', suffixText: 'FCFA'),
+          decoration: const InputDecoration(labelText: 'Montant reçu', suffixText: 'F'),
         ),
         const SizedBox(height: 12),
         Wrap(

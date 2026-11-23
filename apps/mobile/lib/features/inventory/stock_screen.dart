@@ -273,7 +273,7 @@ class _StockRow extends ConsumerWidget {
                     decoration: BoxDecoration(color: AppColors.warnBg, borderRadius: BorderRadius.circular(6)),
                     child: Text(
                       'Seuil ${item.threshold}',
-                      style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: AppColors.warnText),
+                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.warnText),
                     ),
                   ),
               ],
@@ -390,7 +390,7 @@ class _StockEntrySheetState extends ConsumerState<_StockEntrySheet> {
           controller: _cost,
           keyboardType: TextInputType.number,
           inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-          decoration: const InputDecoration(labelText: "Coût d'achat unitaire", suffixText: 'FCFA'),
+          decoration: const InputDecoration(labelText: "Coût d'achat unitaire", suffixText: 'F'),
         ),
         const SizedBox(height: 16),
         BusyButton(label: 'Ajouter au stock', busy: _busy, onPressed: _save),

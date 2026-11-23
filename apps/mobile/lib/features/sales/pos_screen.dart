@@ -237,112 +237,239 @@ class _PosScreenState extends ConsumerState<PosScreen> {
           const SizedBox(width: 14),
         ],
       ),
-      body: Column(
-        children: [
-          const SyncBanner(padding: EdgeInsets.fromLTRB(16, 0, 16, 10)),
-          const _CashClosedBanner(),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
-            child: Glass(
-              radius: 18,
-              blur: 12,
-              padding: const EdgeInsets.only(left: 6, right: 6),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      decoration: InputDecoration(
-                        hintText: count == null || count == 0
-                            ? 'Rechercher un produit'
-                            : 'Rechercher parmi $count produits',
-                        prefixIcon: const Icon(Icons.search_rounded),
-                        filled: false,
-                        border: InputBorder.none,
-                        enabledBorder: InputBorder.none,
-                        focusedBorder: InputBorder.none,
-                        isDense: true,
+      // Téléphone : catalogue puis panier en bas. Tablette et ordinateur : panier à droite.
+      body: LayoutBuilder(
+        builder: (context, box) {
+          final catalog = <Widget>[
+            const SyncBanner(padding: EdgeInsets.fromLTRB(16, 0, 16, 10)),
+            const _CashClosedBanner(),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+              child: Glass(
+                radius: 18,
+                blur: 12,
+                padding: const EdgeInsets.only(left: 6, right: 6),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        decoration: InputDecoration(
+                          hintText: count == null || count == 0
+                              ? 'Rechercher un produit'
+                              : 'Rechercher parmi $count produits',
+                          prefixIcon: const Icon(Icons.search_rounded),
+                          filled: false,
+                          border: InputBorder.none,
+                          enabledBorder: InputBorder.none,
+                          focusedBorder: InputBorder.none,
+                          isDense: true,
+                        ),
+                        onChanged: (v) => setState(() => _search = v.trim().toLowerCase()),
                       ),
-                      onChanged: (v) => setState(() => _search = v.trim().toLowerCase()),
                     ),
-                  ),
-                  Tooltip(
-                    message: 'Scanner un code-barres',
-                    child: Material(
-                      color: AppColors.green,
-                      borderRadius: BorderRadius.circular(13),
-                      child: InkWell(
+                    Tooltip(
+                      message: 'Scanner un code-barres',
+                      child: Material(
+                        color: AppColors.green,
                         borderRadius: BorderRadius.circular(13),
-                        onTap: _scan,
-                        child: SizedBox(
-                          width: 48,
-                          height: 48,
-                          child: Icon(Icons.qr_code_scanner_rounded, color: AppColors.onGreen, size: 22),
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(13),
+                          onTap: _scan,
+                          child: SizedBox(
+                            width: 48,
+                            height: 48,
+                            child: Icon(Icons.qr_code_scanner_rounded, color: AppColors.onGreen, size: 22),
+                          ),
                         ),
                       ),
                     ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          if (categories.isNotEmpty)
-            SizedBox(
-              height: 48,
-              child: ListView(
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                children: [
-                  Pill(label: 'Tout', selected: _categoryId == null, onTap: () => setState(() => _categoryId = null)),
-                  for (final c in categories) ...[
-                    const SizedBox(width: 8),
-                    Pill(label: c.name, selected: _categoryId == c.id, onTap: () => setState(() => _categoryId = c.id)),
                   ],
-                ],
+                ),
               ),
             ),
-          const SizedBox(height: 10),
-          Expanded(
-            child: AsyncView<List<Product>>(
-              value: products,
-              onRetry: () => ref.invalidate(productsProvider),
-              data: (list) {
-                final shown = list
-                    .where((p) => _categoryId == null || p.categoryId == _categoryId)
-                    .where((p) => _search.isEmpty || p.name.toLowerCase().contains(_search))
-                    .toList();
-                if (list.isEmpty) {
-                  return _EmptyCatalog(onScan: _scan);
-                }
-                if (shown.isEmpty) {
-                  return Center(
-                    child: Text('Aucun produit ne correspond', style: TextStyle(color: AppColors.muted)),
+            if (categories.isNotEmpty)
+              SizedBox(
+                height: 48,
+                child: ListView(
+                  scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  children: [
+                    Pill(label: 'Tout', selected: _categoryId == null, onTap: () => setState(() => _categoryId = null)),
+                    for (final c in categories) ...[
+                      const SizedBox(width: 8),
+                      Pill(
+                        label: c.name,
+                        selected: _categoryId == c.id,
+                        onTap: () => setState(() => _categoryId = c.id),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            const SizedBox(height: 10),
+            Expanded(
+              child: AsyncView<List<Product>>(
+                value: products,
+                onRetry: () => ref.invalidate(productsProvider),
+                data: (list) {
+                  final shown = list
+                      .where((p) => _categoryId == null || p.categoryId == _categoryId)
+                      .where((p) => _search.isEmpty || p.name.toLowerCase().contains(_search))
+                      .toList();
+                  if (list.isEmpty) {
+                    return _EmptyCatalog(onScan: _scan);
+                  }
+                  if (shown.isEmpty) {
+                    return Center(
+                      child: Text('Aucun produit ne correspond', style: TextStyle(color: AppColors.muted)),
+                    );
+                  }
+                  return GridView.builder(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                    gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                      maxCrossAxisExtent: 200,
+                      mainAxisExtent: 204,
+                      crossAxisSpacing: 12,
+                      mainAxisSpacing: 12,
+                    ),
+                    itemCount: shown.length,
+                    itemBuilder: (_, i) => _ProductCard(
+                      product: shown[i],
+                      stock: onHand[shown[i].id],
+                      quantity: cart.quantityOf(shown[i].id),
+                      onAdd: () {
+                        HapticFeedback.selectionClick();
+                        ref.read(cartProvider.notifier).add(shown[i]);
+                      },
+                      onRemove: () => ref.read(cartProvider.notifier).remove(shown[i].id),
+                    ),
                   );
-                }
-                return GridView.builder(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                  gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-                    maxCrossAxisExtent: 200,
-                    mainAxisExtent: 204,
-                    crossAxisSpacing: 12,
-                    mainAxisSpacing: 12,
-                  ),
-                  itemCount: shown.length,
-                  itemBuilder: (_, i) => _ProductCard(
-                    product: shown[i],
-                    stock: onHand[shown[i].id],
-                    quantity: cart.quantityOf(shown[i].id),
-                    onAdd: () {
-                      HapticFeedback.selectionClick();
-                      ref.read(cartProvider.notifier).add(shown[i]);
-                    },
-                    onRemove: () => ref.read(cartProvider.notifier).remove(shown[i].id),
-                  ),
-                );
-              },
+                },
+              ),
             ),
-          ),
-          _CheckoutPanel(busy: _busy, onCheckout: _checkout),
-        ],
+          ];
+          if (box.maxWidth < wideCheckoutWidth) {
+            return Column(
+              children: [
+                ...catalog,
+                _CheckoutPanel(busy: _busy, onCheckout: _checkout),
+              ],
+            );
+          }
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(child: Column(children: catalog)),
+              SizedBox(
+                key: const Key('pos_side_panel'),
+                width: box.maxWidth >= 1200 ? 420 : 380,
+                child: Column(
+                  children: [
+                    const Expanded(child: _CartLines()),
+                    _CheckoutPanel(busy: _busy, onCheckout: _checkout),
+                  ],
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
+/// Largeur à partir de laquelle le panier passe à droite du catalogue (tablette, ordinateur).
+const wideCheckoutWidth = 900.0;
+
+/// Grand écran : les lignes du panier, avec + / − pour ajuster les quantités.
+class _CartLines extends ConsumerWidget {
+  const _CartLines();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final cart = ref.watch(cartProvider);
+    final ctrl = ref.read(cartProvider.notifier);
+    final lines = cart.lines.values.toList();
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(10, 0, 10, 0),
+      child: Glass(
+        key: const Key('cart_lines'),
+        radius: 24,
+        padding: const EdgeInsets.fromLTRB(14, 12, 8, 8),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Text('Panier', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 17)),
+            const SizedBox(height: 6),
+            Expanded(
+              child: lines.isEmpty
+                  ? Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.shopping_basket_outlined, size: 40, color: AppColors.muted),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Touchez un produit pour l’ajouter',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(color: AppColors.muted),
+                          ),
+                        ],
+                      ),
+                    )
+                  : ListView.separated(
+                      itemCount: lines.length,
+                      separatorBuilder: (_, _) => Divider(height: 1, color: AppColors.glassLine),
+                      itemBuilder: (_, i) {
+                        final l = lines[i];
+                        return Padding(
+                          key: Key('cart_line_${l.product.id}'),
+                          padding: const EdgeInsets.symmetric(vertical: 6),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      l.product.name,
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(fontWeight: FontWeight.w700),
+                                    ),
+                                    Text(
+                                      '${qty(l.quantity)} × ${moneyShort(l.unitPrice)}',
+                                      style: TextStyle(color: AppColors.muted, fontSize: 12.5),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              IconButton(
+                                tooltip: 'Retirer un',
+                                onPressed: () => ctrl.remove(l.product.id),
+                                icon: const Icon(Icons.remove_circle_outline_rounded),
+                              ),
+                              IconButton(
+                                tooltip: 'Ajouter un',
+                                onPressed: () => ctrl.add(l.product),
+                                icon: Icon(Icons.add_circle_rounded, color: AppColors.green),
+                              ),
+                              SizedBox(
+                                width: 78,
+                                child: Text(
+                                  moneyShort(l.total),
+                                  textAlign: TextAlign.right,
+                                  style: const TextStyle(fontWeight: FontWeight.w800),
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -704,7 +831,7 @@ class _CheckoutPanel extends ConsumerWidget {
                 inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                 decoration: const InputDecoration(
                   labelText: 'Acompte payé en espèces (facultatif)',
-                  suffixText: 'FCFA',
+                  suffixText: 'F',
                   isDense: true,
                 ),
                 onChanged: (v) => ctrl.setDeposit(int.tryParse(v) ?? 0),

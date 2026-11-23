@@ -21,7 +21,12 @@ import '../sales/receipt_screen.dart' show receiptActionsProvider, whatsAppUri;
 
 final _day = DateFormat('d MMMM yyyy', 'fr');
 
-const _gold = [Color(0xFFFFB020), Color(0xFFFF7A00)];
+/// Dégradé de l'en-tête Pro : ambre foncé, pour un texte blanc lisible (contraste ≥ 4,5:1).
+const proGold = [Color(0xFFB45309), Color(0xFF9A3412)];
+const _gold = proGold;
+
+/// Texte du badge « PRO » sur fond blanc.
+const proBadgeText = Color(0xFF9A3412);
 
 /// Ce qui reste gratuit, pour rassurer.
 const freeFeatures = 'Ventes, caisse, stock, clients et crédits, dépenses, factures, rapports simples';
@@ -487,7 +492,7 @@ class _Hero extends StatelessWidget {
       gradient: const LinearGradient(colors: _gold, begin: Alignment.topLeft, end: Alignment.bottomRight),
       borderRadius: BorderRadius.circular(24),
       boxShadow: [
-        BoxShadow(color: const Color(0xFFFF7A00).withValues(alpha: 0.25), blurRadius: 24, offset: const Offset(0, 10)),
+        BoxShadow(color: proGold.last.withValues(alpha: 0.25), blurRadius: 24, offset: const Offset(0, 10)),
       ],
     ),
     child: Column(
@@ -500,7 +505,7 @@ class _Hero extends StatelessWidget {
               decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(8)),
               child: const Text(
                 'PRO',
-                style: TextStyle(color: Color(0xFFFF7A00), fontWeight: FontWeight.w900, fontSize: 12),
+                style: TextStyle(color: proBadgeText, fontWeight: FontWeight.w900, fontSize: 12),
               ),
             ),
             const SizedBox(width: 8),

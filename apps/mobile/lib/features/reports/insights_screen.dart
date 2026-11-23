@@ -275,7 +275,7 @@ class _Bars extends StatelessWidget {
                         overflow: TextOverflow.visible,
                         softWrap: false,
                         style: TextStyle(
-                          fontSize: 10.5,
+                          fontSize: 11.5,
                           color: highlight[k] ? AppColors.green : AppColors.muted,
                           fontWeight: highlight[k] ? FontWeight.w800 : FontWeight.w500,
                         ),

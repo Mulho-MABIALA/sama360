@@ -113,7 +113,7 @@ void main() {
     testWidgets('totaux, filtre « doivent », plafond dépassé, recherche', (tester) async {
       phoneSize(tester);
       final (_, repo) = await pumpSama(tester, location: '/customers');
-      expect(textMatching(r'^36 000 FCFA$'), findsOneWidget);
+      expect(textMatching(r'^36 000 F$'), findsOneWidget);
       expect(find.text('Ousmane Fall'), findsOneWidget);
       expect(find.text('Plafond dépassé'), findsWidgets); // pastille + chiffre d'en-tête
 
@@ -205,7 +205,7 @@ void main() {
       final (_, repo) = await pumpSama(tester, location: '/customers/k1/edit');
       await tester.tap(find.byIcon(Icons.delete_rounded));
       await tester.pumpAndSettle();
-      expect(textMatching(r'doit encore 17 500 FCFA'), findsOneWidget);
+      expect(textMatching(r'doit encore 17 500 F'), findsOneWidget);
       expect(repo.deletedCustomers, isEmpty);
     });
 
@@ -225,14 +225,14 @@ void main() {
     testWidgets('solde, ancienneté, plafond, statistiques, factures, notes et achats', (tester) async {
       phoneSize(tester);
       final (c, _) = await pumpSama(tester, location: '/customers/k1');
-      expect(textMatching(r'^17 500 FCFA$'), findsOneWidget);
+      expect(textMatching(r'^17 500 F$'), findsOneWidget);
       expect(textMatching(r'^Doit depuis 14 jours'), findsOneWidget);
       expect(textMatching(r'^Plafond 25 000 F · encore 7 500 F possible$'), findsOneWidget);
       expect(find.text('Dernier rappel il y a 3 j'), findsOneWidget);
-      expect(textMatching(r'^64 500 FCFA$'), findsOneWidget);
+      expect(textMatching(r'^64 500 F$'), findsOneWidget);
       expect(find.text('Client depuis juin 2026'), findsOneWidget);
       await tester.scrollUntilVisible(find.text('Paie en fin de mois'), 200, scrollable: find.byType(Scrollable).first);
-      expect(textMatching(r'^1 facture à encaisser : 30 000 FCFA$'), findsOneWidget);
+      expect(textMatching(r'^1 facture à encaisser : 30 000 F$'), findsOneWidget);
 
       // Carnet avec le solde après chaque mouvement
       await tester.scrollUntilVisible(

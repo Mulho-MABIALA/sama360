@@ -151,7 +151,7 @@ void main() {
 
     await tester.enterText(find.byKey(const Key('docDiscount')), '1000');
     await tester.pump();
-    expect(find.textContaining(RegExp(r'^8.000 FCFA$')), findsOneWidget);
+    expect(find.textContaining(RegExp(r'^8.000 F$')), findsOneWidget);
 
     await tester.tap(find.text('Créer le devis'));
     await tester.pumpAndSettle();

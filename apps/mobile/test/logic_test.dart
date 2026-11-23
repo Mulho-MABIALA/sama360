@@ -16,8 +16,8 @@ void main() {
   setUpAll(() => initializeDateFormatting('fr'));
 
   group('format', () {
-    test('montants en FCFA avec séparateur de milliers', () {
-      expect(money(86500).replaceAll(' ', ' ').replaceAll(' ', ' '), '86 500 FCFA');
+    test('montants en francs (F) avec séparateur de milliers', () {
+      expect(money(86500).replaceAll(' ', ' ').replaceAll(' ', ' '), '86 500 F');
       expect(moneyShort(1240000).replaceAll(' ', ' ').replaceAll(' ', ' '), '1 240 000 F');
     });
     test('quantités', () {

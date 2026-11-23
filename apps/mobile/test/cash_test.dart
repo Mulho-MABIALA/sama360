@@ -85,15 +85,15 @@ void main() {
       await tester.pumpAndSettle();
       expect(repo.cashOpenings.single.$1, 10000);
       expect(find.text('Caisse ouverte : bonnes ventes !'), findsOneWidget);
-      expect(textMatching(r'^43 500 FCFA$'), findsWidgets); // vue de la caisse ouverte
+      expect(textMatching(r'^43 500 F$'), findsWidgets); // vue de la caisse ouverte
     });
 
     testWidgets('caisse ouverte : attendu par moyen, détail, sortie d’argent', (tester) async {
       phoneSize(tester);
       final (_, repo) = await pumpSama(tester, location: '/cash');
       expect(find.text('Ouverte à 08:12 · Z-2026-0007'), findsOneWidget);
-      expect(textMatching(r'^43 500 FCFA$'), findsWidgets);
-      expect(textMatching(r'^21 000 FCFA$'), findsOneWidget);
+      expect(textMatching(r'^43 500 F$'), findsWidgets);
+      expect(textMatching(r'^21 000 F$'), findsOneWidget);
       await tester.tap(find.text('Espèces'));
       await tester.pumpAndSettle();
       expect(find.text('Fond de caisse'), findsOneWidget);
@@ -105,7 +105,7 @@ void main() {
       await tester.tap(find.text('Remis au gérant'));
       await tester.tap(find.text('Enregistrer'));
       await tester.pumpAndSettle();
-      expect(textMatching(r'^Il n’y a que 43 500 FCFA en espèces dans la caisse$'), findsOneWidget);
+      expect(textMatching(r'^Il n’y a que 43 500 F en espèces dans la caisse$'), findsOneWidget);
       await tester.enterText(find.byKey(const Key('movementAmount')), '10000');
       await tester.tap(find.text('Enregistrer'));
       await tester.pumpAndSettle();
@@ -130,7 +130,7 @@ void main() {
       await tester.tap(tip('Un billet de 2 000 F de plus'));
       await tester.pumpAndSettle();
       expect(tester.widget<TextField>(find.byKey(const Key('count_cash'))).controller!.text, '42000');
-      expect(textMatching(r'^Manque 1 500 FCFA$'), findsWidgets);
+      expect(textMatching(r'^Manque 1 500 F$'), findsWidgets);
 
       await tester.enterText(find.byKey(const Key('count_cash')), '43500');
       await tester.pumpAndSettle();
@@ -139,7 +139,7 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text('Clôturer la caisse'));
       await tester.pumpAndSettle();
-      expect(textMatching(r'^Il manque 500 FCFA'), findsOneWidget);
+      expect(textMatching(r'^Il manque 500 F'), findsOneWidget);
       await tester.tap(find.widgetWithText(ConfirmButton, 'Clôturer'));
       await tester.pumpAndSettle();
       final (session, counted, _) = repo.cashClosings.single;
@@ -158,7 +158,7 @@ void main() {
         overrides: [receiptActionsProvider.overrideWithValue(actions)],
       );
       expect(find.text('Moussa Sow'), findsOneWidget);
-      expect(textMatching(r'^Manque 500 FCFA$'), findsOneWidget);
+      expect(textMatching(r'^Manque 500 F$'), findsOneWidget);
       expect(textMatching(r'^Attendu 34 000 F · compté 33 500 F$'), findsOneWidget);
       await tester.scrollUntilVisible(
         find.text('Note : Billet de 500 F déchiré'),
@@ -175,7 +175,7 @@ void main() {
       phoneSize(tester);
       final (c, _) = await pumpSama(tester, location: '/cash/history');
       expect(find.text('Ouverte'), findsOneWidget);
-      expect(textMatching(r'^Manque 500 FCFA$'), findsOneWidget);
+      expect(textMatching(r'^Manque 500 F$'), findsOneWidget);
       await tester.tap(textMatching(r'^Moussa Sow'));
       await tester.pumpAndSettle();
       expect(routerOf(c).state.matchedLocation, '/cash/sessions/cs0');

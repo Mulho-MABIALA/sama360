@@ -100,7 +100,7 @@ void main() {
     testWidgets('achats : totaux, retard, filtres, onglet fournisseurs', (tester) async {
       phoneSize(tester);
       final (c, repo) = await pumpSama(tester, location: '/purchases');
-      expect(textMatching(r'^42 500 FCFA$'), findsOneWidget);
+      expect(textMatching(r'^42 500 F$'), findsOneWidget);
       expect(find.text('BC-2026-0007'), findsOneWidget);
       expect(find.text('En retard'), findsOneWidget);
       expect(find.text('BC-2026-0003'), findsNothing); // reçu : pas dans « En cours »
@@ -144,7 +144,7 @@ void main() {
       await tester.enterText(find.byKey(const Key('plCost')), '750');
       await tester.tap(find.text('Valider'));
       await tester.pumpAndSettle();
-      expect(textMatching(r'^45 000 FCFA$'), findsOneWidget);
+      expect(textMatching(r'^45 000 F$'), findsOneWidget);
 
       await tester.tap(find.text('Sous 7 jours'));
       await tester.pumpAndSettle();
@@ -249,7 +249,7 @@ void main() {
       final (_, repo) = await pumpSama(tester, location: '/purchases/po2');
       await tester.tap(find.text('Payer'));
       await tester.pumpAndSettle();
-      expect(textMatching(r'^Reste à payer sur BC-2026-0005 : 20 000 FCFA$'), findsOneWidget);
+      expect(textMatching(r'^Reste à payer sur BC-2026-0005 : 20 000 F$'), findsOneWidget);
       await tester.enterText(find.byKey(const Key('payAmount')), '25000');
       await tester.tap(find.text('Enregistrer le paiement'));
       await tester.pumpAndSettle();
@@ -288,7 +288,7 @@ void main() {
     testWidgets('fournisseur : dette, paiement global, commander', (tester) async {
       phoneSize(tester);
       final (c, repo) = await pumpSama(tester, location: '/suppliers/s1');
-      expect(textMatching(r'^22 500 FCFA$'), findsOneWidget);
+      expect(textMatching(r'^22 500 F$'), findsOneWidget);
       expect(find.text('Livre le mardi et le vendredi'), findsOneWidget);
       await tester.tap(find.text('Payer'));
       await tester.pumpAndSettle();

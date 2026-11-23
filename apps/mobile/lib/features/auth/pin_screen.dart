@@ -336,14 +336,15 @@ class _PinScreenState extends ConsumerState<PinScreen> with SingleTickerProvider
       fit: StackFit.expand,
       children: [
         const MonumentBackdrop(),
-        // Voile plus marqué en bas : le pavé reste lisible sur toutes les photos
+        // Voile sur toute la hauteur (plus marqué en bas) : titre, points et pavé lisibles
+        // même sur une photo très claire (ciel blanc, sable, façade)
         const DecoratedBox(
           decoration: BoxDecoration(
             gradient: LinearGradient(
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
               stops: [0, 0.45, 1],
-              colors: [Color(0x26000000), Color(0x40052A1F), Color(0xA6052A1F)],
+              colors: [Color(0x80000000), Color(0x73052A1F), Color(0xB8052A1F)],
             ),
           ),
         ),

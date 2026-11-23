@@ -393,7 +393,7 @@ class _CollectSheetState extends State<_CollectSheet> {
             controller: _amount,
             keyboardType: TextInputType.number,
             inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-            decoration: const InputDecoration(labelText: 'Montant reçu', suffixText: 'FCFA'),
+            decoration: const InputDecoration(labelText: 'Montant reçu', suffixText: 'F'),
             onChanged: (_) => setState(() {}),
           ),
           if (rest > 0 && _value >= 0)

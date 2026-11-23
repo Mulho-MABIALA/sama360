@@ -541,7 +541,7 @@ class _PaymentSheetState extends ConsumerState<_PaymentSheet> {
           controller: _amount,
           keyboardType: TextInputType.number,
           inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-          decoration: InputDecoration(labelText: 'Montant reçu', suffixText: 'FCFA', errorText: _error),
+          decoration: InputDecoration(labelText: 'Montant reçu', suffixText: 'F', errorText: _error),
         ),
         const SizedBox(height: 12),
         Wrap(

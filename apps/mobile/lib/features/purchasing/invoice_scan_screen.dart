@@ -81,7 +81,7 @@ class _ProBadge extends StatelessWidget {
     decoration: BoxDecoration(color: AppColors.ink, borderRadius: BorderRadius.circular(6)),
     child: Text(
       'PRO',
-      style: TextStyle(color: AppColors.ground, fontSize: 10.5, fontWeight: FontWeight.w900, letterSpacing: 0.5),
+      style: TextStyle(color: AppColors.ground, fontSize: 11, fontWeight: FontWeight.w900, letterSpacing: 0.5),
     ),
   );
 }

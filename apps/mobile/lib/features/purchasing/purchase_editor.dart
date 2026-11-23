@@ -360,7 +360,7 @@ class _PurchaseEditorScreenState extends ConsumerState<PurchaseEditorScreen> {
                                   inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                                   decoration: InputDecoration(
                                     labelText: 'Montant payé maintenant',
-                                    suffixText: 'FCFA',
+                                    suffixText: 'F',
                                     helperText: _total > 0 ? 'Laissez vide si vous payez plus tard' : null,
                                     suffixIcon: TextButton(
                                       onPressed: () => setState(() => _paid.text = '$_total'),
@@ -591,7 +591,7 @@ class _LineSheetState extends State<_LineSheet> {
                 controller: _cost,
                 keyboardType: TextInputType.number,
                 inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                decoration: const InputDecoration(labelText: 'Prix d’achat unitaire', suffixText: 'FCFA'),
+                decoration: const InputDecoration(labelText: 'Prix d’achat unitaire', suffixText: 'F'),
               ),
             ),
           ],

@@ -4,8 +4,8 @@ import 'countries.dart';
 
 final _group = NumberFormat('#,##0', 'fr');
 
-/// 86500 → « 86 500 FCFA »
-String money(num amount) => '${_group.format(amount.round())} FCFA';
+/// 86500 → « 86 500 F » : la même écriture partout dans l'app (« FCFA » reste sur les factures imprimées).
+String money(num amount) => '${_group.format(amount.round())} F';
 
 /// 86500 → « 86 500 F » (version courte pour les cartes)
 String moneyShort(num amount) => '${_group.format(amount.round())} F';

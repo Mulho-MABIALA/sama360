@@ -212,7 +212,7 @@ class _ShopSettingsScreenState extends ConsumerState<ShopSettingsScreen> {
                                     inputFormatters: digits,
                                     decoration: const InputDecoration(
                                       labelText: 'Frais de livraison',
-                                      suffixText: 'FCFA',
+                                      suffixText: 'F',
                                       helperText: 'Vide : offerte',
                                     ),
                                   ),
@@ -236,7 +236,7 @@ class _ShopSettingsScreenState extends ConsumerState<ShopSettingsScreen> {
                             inputFormatters: digits,
                             decoration: const InputDecoration(
                               labelText: 'Commande minimum (facultatif)',
-                              suffixText: 'FCFA',
+                              suffixText: 'F',
                             ),
                           ),
                         ],

@@ -679,7 +679,7 @@ class _PaySheetState extends ConsumerState<PaySheet> {
           autofocus: true,
           keyboardType: TextInputType.number,
           inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-          decoration: const InputDecoration(labelText: 'Montant payé', suffixText: 'FCFA'),
+          decoration: const InputDecoration(labelText: 'Montant payé', suffixText: 'F'),
         ),
         const SizedBox(height: 12),
         Wrap(
