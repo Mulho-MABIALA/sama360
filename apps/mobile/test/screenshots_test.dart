@@ -714,6 +714,18 @@ void main() {
     await _shot(tester, '31_facture_verification');
   });
 
+  testWidgets('services de l’accueil', (tester) async {
+    phoneSize(tester);
+    await pumpSama(tester);
+    await tester.scrollUntilVisible(find.text('Vos services'), 300, scrollable: find.byType(Scrollable).first);
+    await tester.drag(find.byType(Scrollable).first, const Offset(0, -200));
+    await tester.pumpAndSettle();
+    await _shot(tester, '35_services_accueil');
+    await tester.tap(find.text('Plus'));
+    await tester.pumpAndSettle();
+    await _shot(tester, '36_tous_les_services');
+  });
+
   testWidgets('points de vente', (tester) async {
     phoneSize(tester);
     const two = [

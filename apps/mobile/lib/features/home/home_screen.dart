@@ -24,7 +24,7 @@ import 'monument.dart';
 import 'promo_carousel.dart';
 
 class _Service {
-  const _Service(this.name, this.icon, this.color, {this.route, this.soon = false, this.art, this.pro});
+  const _Service(this.name, this.icon, this.color, {this.route, this.soon = false, this.art, this.pro, this.perm});
   final String name;
   final IconData icon;
   final Color color;
@@ -36,33 +36,62 @@ class _Service {
 
   /// Fonction Sama360 Pro : sans Pro, la tuile mène à l'offre.
   final ProFeature? pro;
+
+  /// Droit nécessaire pour voir la tuile sur l'accueil (sinon une autre prend sa place).
+  final String? perm;
 }
 
-/// Tuiles principales de l'accueil (7 + « Plus »).
-const _mainServices = [
-  _Service('Ventes', Icons.point_of_sale_rounded, Color(0xFF0A8453), route: '/pos', art: 'ventes'),
-  _Service('Stock', Icons.inventory_2_rounded, Color(0xFFD9822B), route: '/stock', art: 'stock'),
-  _Service('Clients', Icons.people_alt_rounded, Color(0xFF2F6FDB), route: '/customers', art: 'clients'),
-  _Service('Dépenses', Icons.account_balance_wallet_rounded, Color(0xFFE0533D), route: 'expense', art: 'depenses'),
-  _Service('Factures', Icons.receipt_long_rounded, Color(0xFF7A5AF8), route: '/invoices', art: 'factures'),
-];
-
-/// 6e tuile : les rapports pour qui peut les voir, sinon la boutique (bientôt).
-const _reportsService = _Service(
-  'Rapports',
-  Icons.insights_rounded,
-  Color(0xFF0E9384),
-  route: '/reports',
-  art: 'rapports',
+// ---------- Catalogue des services ----------
+const _sales = _Service('Ventes', Icons.point_of_sale_rounded, Color(0xFF0A8453), route: '/pos', art: 'ventes');
+const _cash = _Service('Caisse', Icons.point_of_sale_rounded, Color(0xFF13241C), route: '/cash', art: 'caisse');
+const _invoices = _Service(
+  'Factures',
+  Icons.receipt_long_rounded,
+  Color(0xFF7A5AF8),
+  route: '/invoices',
+  art: 'factures',
 );
-const _bookingService = _Service(
-  'Réservation',
-  Icons.event_available_rounded,
+const _payments = _Service('Paiements', Icons.qr_code_2_rounded, Color(0xFF1D7AF0), soon: true, art: 'paiements');
+const _customers = _Service(
+  'Clients',
+  Icons.people_alt_rounded,
   Color(0xFF2F6FDB),
-  route: '/booking',
-  art: 'reservation',
+  route: '/customers',
+  art: 'clients',
 );
-const _shopService = _Service(
+const _reminders = _Service(
+  'Relances',
+  Icons.campaign_rounded,
+  Color(0xFFE5484D),
+  route: '/reminders',
+  art: 'relances',
+);
+const _loyalty = _Service('Fidélité', Icons.stars_rounded, Color(0xFFE0A100), route: '/loyalty', art: 'fidelite');
+const _stock = _Service(
+  'Stock',
+  Icons.inventory_2_rounded,
+  Color(0xFFD9822B),
+  route: '/stock',
+  art: 'stock',
+  perm: 'inventory:read',
+);
+const _purchases = _Service(
+  'Achats',
+  Icons.local_shipping_rounded,
+  Color(0xFF8A5A2B),
+  route: '/purchases',
+  art: 'achats',
+  perm: 'inventory:read',
+);
+const _delivery = _Service(
+  'Livraison',
+  Icons.local_shipping_rounded,
+  Color(0xFFD9822B),
+  route: '/deliveries',
+  art: 'livraison',
+  pro: ProFeature.delivery,
+);
+const _shop = _Service(
   'Boutique',
   Icons.storefront_rounded,
   Color(0xFF0E9384),
@@ -70,65 +99,77 @@ const _shopService = _Service(
   art: 'boutique',
   pro: ProFeature.shop,
 );
-
-/// 7e tuile : l'équipe pour qui peut la voir, sinon les paiements (bientôt).
-const _teamService = _Service(
+const _booking = _Service(
+  'Réservation',
+  Icons.event_available_rounded,
+  Color(0xFF2F6FDB),
+  route: '/booking',
+  art: 'reservation',
+);
+const _expenses = _Service(
+  'Dépenses',
+  Icons.account_balance_wallet_rounded,
+  Color(0xFFE0533D),
+  route: 'expense',
+  art: 'depenses',
+);
+const _reports = _Service(
+  'Rapports',
+  Icons.insights_rounded,
+  Color(0xFF0E9384),
+  route: '/reports',
+  art: 'rapports',
+  perm: 'reports:read',
+);
+const _team = _Service(
   'Équipe',
   Icons.groups_rounded,
   Color(0xFFDB2777),
   route: '/team',
   art: 'equipe',
   pro: ProFeature.team,
+  perm: 'members:read',
 );
-const _purchasesService = _Service(
-  'Achats',
-  Icons.local_shipping_rounded,
-  Color(0xFF8A5A2B),
-  route: '/purchases',
-  art: 'achats',
+const _documents = _Service(
+  'Documents',
+  Icons.folder_rounded,
+  Color(0xFF6B7280),
+  route: '/documents',
+  art: 'documents',
+  pro: ProFeature.documents,
 );
-const _paymentsService = _Service(
-  'Paiements',
-  Icons.qr_code_2_rounded,
-  Color(0xFF1D7AF0),
-  soon: true,
-  art: 'paiements',
+const _assistant = _Service(
+  'Assistant IA',
+  Icons.auto_awesome_rounded,
+  Color(0xFF7A5AF8),
+  route: '/assistant',
+  art: 'assistant',
+  pro: ProFeature.assistant,
 );
 
-/// Services des vagues 2 et 3, listés derrière « Plus ».
-const _cashService = _Service('Caisse', Icons.point_of_sale_rounded, Color(0xFF13241C), route: '/cash', art: 'caisse');
-const _moreServices = [
-  _cashService,
-  _Service('Relances', Icons.campaign_rounded, Color(0xFFE5484D), route: '/reminders', art: 'relances'),
-  _Service('Fidélité', Icons.stars_rounded, Color(0xFFE0A100), route: '/loyalty', art: 'fidelite'),
-  _purchasesService,
-  _paymentsService,
-  _shopService,
-  _Service(
-    'Documents',
-    Icons.folder_rounded,
-    Color(0xFF6B7280),
-    route: '/documents',
-    art: 'documents',
-    pro: ProFeature.documents,
-  ),
-  _Service(
-    'Livraison',
-    Icons.local_shipping_rounded,
-    Color(0xFFD9822B),
-    route: '/deliveries',
-    art: 'livraison',
-    pro: ProFeature.delivery,
-  ),
-  _Service('Réservation', Icons.event_available_rounded, Color(0xFF2F6FDB), route: '/booking', art: 'reservation'),
-  _Service(
-    'Assistant IA',
-    Icons.auto_awesome_rounded,
-    Color(0xFF7A5AF8),
-    route: '/assistant',
-    art: 'assistant',
-    pro: ProFeature.assistant,
-  ),
+/// Accueil : 7 tuiles dans l'ordre du travail (vendre, puis gérer) + « Plus ».
+/// Ligne 1 : Ventes · Caisse · Clients · Factures — ligne 2 : Stock · Achats · Rapports.
+/// Une tuile sans le droit nécessaire laisse sa place aux suivantes.
+const _homeOrder = [
+  _sales,
+  _cash,
+  _customers,
+  _invoices,
+  _stock,
+  _purchases,
+  _reports,
+  _expenses,
+  _reminders,
+  _loyalty,
+];
+
+/// « Plus » : tous les services, par famille.
+const _groups = <(String, List<_Service>)>[
+  ('Vendre', [_sales, _cash, _invoices, _payments]),
+  ('Clients', [_customers, _reminders, _loyalty]),
+  ('Stock et achats', [_stock, _purchases, _delivery]),
+  ('En ligne', [_shop, _booking]),
+  ('Gestion', [_expenses, _reports, _team, _documents, _assistant]),
 ];
 
 class HomeScreen extends ConsumerWidget {
@@ -146,15 +187,9 @@ class HomeScreen extends ConsumerWidget {
     // Activité « services » : les rendez-vous passent devant le stock sur l'accueil
     final services = ref.watch(currentBusinessProvider).value?.focus == 'services';
     final shown = [
-      for (final s in _mainServices) services && s.route == '/stock' ? _bookingService : s,
-      if (canReports) _reportsService else _shopService,
-      if (ref.can('members:read'))
-        _teamService
-      else if (ref.can('inventory:read'))
-        _purchasesService
-      else
-        _paymentsService,
-    ];
+      for (final s in _homeOrder)
+        if (s.perm == null || ref.can(s.perm!)) services && s == _stock ? _booking : s,
+    ].take(7).toList();
 
     void open(_Service s) {
       if (s.soon) {
@@ -214,7 +249,7 @@ class HomeScreen extends ConsumerWidget {
                         for (final s in shown) _ServiceTile(service: s, onTap: () => open(s)),
                         _ServiceTile(
                           service: const _Service('Plus', Icons.apps_rounded, Color(0xFF5E6E66)),
-                          onTap: () => _showMore(context, open, shown),
+                          onTap: () => _showMore(context, ref, open),
                         ),
                       ],
                     ),
@@ -234,7 +269,7 @@ class HomeScreen extends ConsumerWidget {
     );
   }
 
-  Future<void> _showMore(BuildContext context, void Function(_Service) open, List<_Service> shown) =>
+  Future<void> _showMore(BuildContext context, WidgetRef ref, void Function(_Service) open) =>
       showModalBottomSheet<void>(
         useRootNavigator: true,
         context: context,
@@ -249,26 +284,39 @@ class HomeScreen extends ConsumerWidget {
               const Text('Tous les services', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
               const SizedBox(height: 4),
               Text('De nouveaux services arrivent régulièrement.', style: TextStyle(color: AppColors.muted)),
-              const SizedBox(height: 14),
-              GridView.count(
-                crossAxisCount: 4,
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                mainAxisSpacing: 10,
-                crossAxisSpacing: 4,
-                childAspectRatio: 0.95,
-                children: [
-                  // Sans répéter les tuiles déjà sur l'accueil
-                  for (final s in _moreServices.where((m) => !shown.any((x) => x.name == m.name)))
-                    _ServiceTile(
-                      service: s,
-                      onTap: () {
-                        Navigator.pop(ctx);
-                        open(s);
-                      },
-                    ),
-                ],
-              ),
+              for (final (title, list) in _groups) ...[
+                const SizedBox(height: 16),
+                Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.muted,
+                    letterSpacing: 0.2,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                GridView.count(
+                  crossAxisCount: 4,
+                  shrinkWrap: true,
+                  padding: EdgeInsets.zero,
+                  physics: const NeverScrollableScrollPhysics(),
+                  mainAxisSpacing: 6,
+                  crossAxisSpacing: 4,
+                  childAspectRatio: 0.95,
+                  children: [
+                    for (final s in list)
+                      if (s.perm == null || ref.can(s.perm!))
+                        _ServiceTile(
+                          service: s,
+                          onTap: () {
+                            Navigator.pop(ctx);
+                            open(s);
+                          },
+                        ),
+                  ],
+                ),
+              ],
             ],
           ),
         ),
