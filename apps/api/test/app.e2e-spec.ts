@@ -1263,7 +1263,7 @@ describe('Socle Sama360 (e2e)', () => {
         .set(auth(cashier, awaBiz))
         .send({ name: 'Binta Sow', creditLimit: 50000 })
         .expect(403);
-      expect(denied.body.error.message).toContain('plafond');
+      expect(denied.body.error.message).toContain('crédit maximum');
 
       binta = (
         await http
@@ -1279,7 +1279,9 @@ describe('Socle Sama360 (e2e)', () => {
         code: 'CREDIT_LIMIT_EXCEEDED',
         details: { limit: 25000, balance: 20000, available: 5000, requested: 10000 },
       });
-      expect(over.body.error.message).toBe('Crédit possible pour Binta Sow : 5 000 F au plus (crédit maximum 25 000 F)');
+      expect(over.body.error.message).toBe(
+        'Crédit possible pour Binta Sow : 5 000 F au plus (crédit maximum 25 000 F)',
+      );
       // Payer une partie ramène la dette sous le plafond
       await sell(binta, 10000, 5000).expect(201);
       // Vente faite hors ligne : déjà conclue en boutique, enregistrée même au-delà du plafond
@@ -4065,6 +4067,59 @@ describe('Socle Sama360 (e2e)', () => {
       const again = (await http.get('/v1/business').set(O()).expect(200)).body.business;
       expect(again.settings.payAccounts.wave.number).toBe('771234567');
       expect(again.settings.focus).toBe('products');
+    });
+  });
+
+  describe('Pages légales et suppression du compte depuis le web', () => {
+    it('CGU, confidentialité, page de suppression ; suppression par code sans créer de compte', async () => {
+      const cgu = await http.get('/cgu').expect(200);
+      expect(cgu.headers['content-type']).toContain('text/html');
+      expect(cgu.text).toContain('Conditions d’utilisation');
+      expect(cgu.text).toContain('5 000 F CFA par mois');
+      const privacy = await http.get('/confidentialite').expect(200);
+      for (const w of ['loi n° 2008-12', 'loi n° 2013-450', 'loi n° 29-2019', 'Twilio', 'Chariow']) {
+        expect(privacy.text).toContain(w);
+      }
+      expect((await http.get('/suppression-compte').expect(200)).text).toContain('/v1/public/account-deletion');
+
+      // Un numéro sans compte : rien n'est créé
+      await http.post('/v1/auth/otp/request').send({ phone: '+221770070009' }).expect(200);
+      const ghost = await http
+        .post('/v1/public/account-deletion')
+        .send({ phone: '+221770070009', code: otp.sent.get('+221770070009'), confirm: 'SUPPRIMER' })
+        .expect(404);
+      expect(ghost.body.error.code).toBe('NOT_FOUND');
+      const { sql } = await import('drizzle-orm');
+      const users = await dbs.db.execute(sql`SELECT 1 FROM core.users WHERE phone = '+221770070009'`);
+      expect(users.rows).toHaveLength(0);
+
+      // Un vrai compte avec sa boutique
+      const owner = await login('+221770070001');
+      const biz = (
+        await http.post('/v1/businesses').set(auth(owner.accessToken)).send({ name: 'Quincaillerie Web' }).expect(201)
+      ).body.business.id;
+      // Nouveau code (le renvoi est limité à un par minute : on vieillit le précédent)
+      await dbs.db.execute(
+        sql`UPDATE core.otp_codes SET created_at = now() - interval '2 minutes' WHERE phone = '+221770070001'`,
+      );
+      await http.post('/v1/auth/otp/request').send({ phone: '+221770070001' }).expect(200);
+      const code = otp.sent.get('+221770070001')!;
+      await http
+        .post('/v1/public/account-deletion')
+        .send({ phone: '+221770070001', code: code === '000000' ? '111111' : '000000', confirm: 'SUPPRIMER' })
+        .expect(400);
+      await http.post('/v1/public/account-deletion').send({ phone: '+221770070001', code, confirm: 'oui' }).expect(422);
+      const done = (
+        await http
+          .post('/v1/public/account-deletion')
+          .send({ phone: '+221770070001', code, confirm: 'SUPPRIMER' })
+          .expect(200)
+      ).body;
+      expect(done).toEqual(expect.objectContaining({ deleted: true, businesses: 1 }));
+      // Session coupée, boutique fermée
+      await http.post('/v1/auth/refresh').send({ refreshToken: owner.refreshToken }).expect(401);
+      const gone = await dbs.db.execute(sql`SELECT deleted_at FROM core.businesses WHERE id = ${biz}`);
+      expect((gone.rows[0] as { deleted_at: unknown }).deleted_at).not.toBeNull();
     });
   });
 

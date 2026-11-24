@@ -111,6 +111,9 @@ services:
       - key: FIREBASE_VAPID_KEY
         sync: false
       # Adresse publique : liens des notifications et retour après paiement
+      # Adresse de contact affichée sur /cgu, /confidentialite, /suppression-compte
+      - key: LEGAL_EMAIL
+        sync: false
       - key: PUBLIC_URL
         sync: false
       # Assistant IA et facture en photo : « anthropic » avec une clé, sinon « off »

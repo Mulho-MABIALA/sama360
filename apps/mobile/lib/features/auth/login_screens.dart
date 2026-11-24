@@ -14,6 +14,7 @@ import '../../core/providers.dart';
 import '../../core/theme.dart';
 import '../../core/widgets.dart';
 import '../home/monument.dart' show MonumentBackdrop;
+import '../team/team_screen.dart' show openUrlProvider;
 import 'auth_controller.dart';
 
 /// Étape 1 : numéro de téléphone.
@@ -181,6 +182,11 @@ class _PhoneScreenState extends ConsumerState<PhoneScreen> {
                     ),
                     const SizedBox(height: 18),
                     BusyButton(label: 'Recevoir le code', busy: _busy, onPressed: _submit, accent: true),
+                    const SizedBox(height: 12),
+                    LegalNotice(
+                      baseUrl: ref.watch(apiBaseUrlProvider),
+                      open: (u) => ref.read(openUrlProvider)(u),
+                    ),
                     if (showServerSetting) ...[
                       const SizedBox(height: 6),
                       TextButton.icon(

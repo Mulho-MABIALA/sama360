@@ -580,3 +580,36 @@ class AccessDeniedScreen extends StatelessWidget {
     ),
   );
 }
+
+/// « En continuant, vous acceptez les conditions… » avec des liens vers les pages publiques
+/// du serveur (/cgu, /confidentialite). [open] ouvre le lien dans le navigateur.
+class LegalNotice extends StatelessWidget {
+  const LegalNotice({super.key, required this.baseUrl, required this.open});
+  final String baseUrl;
+  final void Function(Uri) open;
+
+  @override
+  Widget build(BuildContext context) {
+    final base = baseUrl.replaceAll(RegExp(r'/+$'), '');
+    final link = TextStyle(color: AppColors.green, fontWeight: FontWeight.w700, decoration: TextDecoration.underline);
+    return Wrap(
+      alignment: WrapAlignment.center,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        Text('En continuant, vous acceptez les ', style: TextStyle(color: AppColors.muted, fontSize: 12.5)),
+        InkWell(
+          key: const Key('legal_terms'),
+          onTap: () => open(Uri.parse('$base/cgu')),
+          child: Text('conditions d’utilisation', style: link.copyWith(fontSize: 12.5)),
+        ),
+        Text(' et la ', style: TextStyle(color: AppColors.muted, fontSize: 12.5)),
+        InkWell(
+          key: const Key('legal_privacy'),
+          onTap: () => open(Uri.parse('$base/confidentialite')),
+          child: Text('politique de confidentialité', style: link.copyWith(fontSize: 12.5)),
+        ),
+        Text('.', style: TextStyle(color: AppColors.muted, fontSize: 12.5)),
+      ],
+    );
+  }
+}

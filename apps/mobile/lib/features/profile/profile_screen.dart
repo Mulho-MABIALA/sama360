@@ -14,6 +14,7 @@ import '../../core/providers.dart';
 import '../../core/theme.dart';
 import '../../core/widgets.dart';
 import '../home/monument.dart' show MonumentBackdrop;
+import '../team/team_screen.dart' show openUrlProvider;
 import '../auth/auth_controller.dart';
 import '../catalog/product_photo.dart';
 import '../offline/offline_ui.dart';
@@ -106,6 +107,39 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     } finally {
       if (mounted) setState(() => _photoBusy = false);
     }
+  }
+
+  /// Conditions d'utilisation et politique de confidentialité (pages publiques du serveur).
+  Future<void> _openLegal(BuildContext context) async {
+    final base = ref.read(apiBaseUrlProvider).replaceAll(RegExp(r'/+$'), '');
+    final open = ref.read(openUrlProvider);
+    await showModalBottomSheet<void>(
+      context: context,
+      useRootNavigator: true,
+      showDragHandle: true,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            for (final (icon, label, path) in [
+              (Icons.description_rounded, 'Conditions d’utilisation', '/cgu'),
+              (Icons.privacy_tip_rounded, 'Politique de confidentialité', '/confidentialite'),
+              (Icons.person_remove_rounded, 'Supprimer mon compte (page web)', '/suppression-compte'),
+            ])
+              ListTile(
+                leading: Icon(icon),
+                title: Text(label, style: const TextStyle(fontWeight: FontWeight.w700)),
+                trailing: const Icon(Icons.open_in_new_rounded, size: 18),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  open(Uri.parse('$base$path'));
+                },
+              ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
   }
 
   Future<void> _editInfo(Me me) async {
@@ -354,6 +388,15 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                         label: 'Langue',
                         value: 'Français',
                         hint: 'Wolof et anglais bientôt',
+                      ),
+                      SettingsRow(
+                        key: const Key('legal_row'),
+                        icon: Icons.gavel_rounded,
+                        color: const Color(0xFF475467),
+                        label: 'Conditions et confidentialité',
+                        value: 'Vos droits et vos données',
+                        hint: 'Conditions d’utilisation, politique de confidentialité',
+                        onTap: () => _openLegal(context),
                       ),
                       SettingsRow(
                         icon: Icons.info_outline_rounded,

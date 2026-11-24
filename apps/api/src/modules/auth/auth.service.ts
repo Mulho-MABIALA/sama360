@@ -107,33 +107,8 @@ export class AuthService {
     const e = env();
 
     const result = await this.dbs.transaction(async (tx) => {
-      const [otp] = await tx
-        .select()
-        .from(otpCodes)
-        .where(and(eq(otpCodes.phone, phone), isNull(otpCodes.consumedAt)))
-        .orderBy(desc(otpCodes.createdAt))
-        .limit(1)
-        .for('update');
-
-      if (!otp || otp.expiresAt.getTime() < Date.now()) {
-        throw new AppError('OTP_EXPIRED', 'Code expiré, demandez-en un nouveau', 400);
-      }
-      if (otp.attempts >= e.OTP_MAX_ATTEMPTS) {
-        throw new AppError('OTP_TOO_MANY_ATTEMPTS', 'Trop de tentatives, demandez un nouveau code', 429);
-      }
-      // Code vérifié chez le fournisseur (Twilio Verify) ou comparé à celui tiré par le serveur
-      const valid = this.sender.check
-        ? await this.sender.check(phone, code)
-        : safeEqualHex(otp.codeHash, hmac(e.OTP_SECRET, `${phone}:${code}`));
-      if (!valid) {
-        // La tentative est comptée puis la transaction est validée ; l'erreur est levée après.
-        await tx
-          .update(otpCodes)
-          .set({ attempts: otp.attempts + 1 })
-          .where(eq(otpCodes.id, otp.id));
-        return { ok: false as const, remainingAttempts: Math.max(0, e.OTP_MAX_ATTEMPTS - otp.attempts - 1) };
-      }
-      await tx.update(otpCodes).set({ consumedAt: new Date() }).where(eq(otpCodes.id, otp.id));
+      const check = await this.consumeCode(tx, phone, code);
+      if (!check.ok) return check;
 
       let [user] = await tx.select().from(users).where(eq(users.phone, phone)).limit(1);
       if (!user) {
@@ -185,6 +160,60 @@ export class AuthService {
       throw new AppError('OTP_INVALID', 'Code incorrect', 400, { remainingAttempts: result.remainingAttempts });
     }
     return result.session;
+  }
+
+  /**
+   * Vérifie le dernier code envoyé à ce numéro et le consomme. Un mauvais code compte une tentative
+   * (la transaction est validée, l'appelant lève l'erreur ensuite).
+   */
+  private async consumeCode(tx: Tx, phone: string, code: string) {
+    const e = env();
+    const [otp] = await tx
+      .select()
+      .from(otpCodes)
+      .where(and(eq(otpCodes.phone, phone), isNull(otpCodes.consumedAt)))
+      .orderBy(desc(otpCodes.createdAt))
+      .limit(1)
+      .for('update');
+
+    if (!otp || otp.expiresAt.getTime() < Date.now()) {
+      throw new AppError('OTP_EXPIRED', 'Code expiré, demandez-en un nouveau', 400);
+    }
+    if (otp.attempts >= e.OTP_MAX_ATTEMPTS) {
+      throw new AppError('OTP_TOO_MANY_ATTEMPTS', 'Trop de tentatives, demandez un nouveau code', 429);
+    }
+    // Code vérifié chez le fournisseur (Twilio Verify) ou comparé à celui tiré par le serveur
+    const valid = this.sender.check
+      ? await this.sender.check(phone, code)
+      : safeEqualHex(otp.codeHash, hmac(e.OTP_SECRET, `${phone}:${code}`));
+    if (!valid) {
+      await tx
+        .update(otpCodes)
+        .set({ attempts: otp.attempts + 1 })
+        .where(eq(otpCodes.id, otp.id));
+      return { ok: false as const, remainingAttempts: Math.max(0, e.OTP_MAX_ATTEMPTS - otp.attempts - 1) };
+    }
+    await tx.update(otpCodes).set({ consumedAt: new Date() }).where(eq(otpCodes.id, otp.id));
+    return { ok: true as const };
+  }
+
+  /**
+   * Page web « Supprimer mon compte » (exigée par Google Play) : le code reçu prouve que la personne
+   * détient le numéro. Ne crée pas de compte et ne restaure pas un compte déjà supprimé.
+   */
+  async verifyForDeletion(rawPhone: string, code: string): Promise<string> {
+    const phone = this.requirePhone(rawPhone);
+    const result = await this.dbs.transaction(async (tx) => {
+      const check = await this.consumeCode(tx, phone, code);
+      if (!check.ok) return check;
+      const [user] = await tx.select().from(users).where(eq(users.phone, phone)).limit(1);
+      return { ok: true as const, userId: user && !user.deletedAt ? user.id : null };
+    });
+    if (!result.ok) {
+      throw new AppError('OTP_INVALID', 'Code incorrect', 400, { remainingAttempts: result.remainingAttempts });
+    }
+    if (!result.userId) throw AppError.notFound('Compte Sama360 pour ce numéro');
+    return result.userId;
   }
 
   /** Rotation : l'ancien jeton est révoqué. Réutiliser un jeton révoqué révoque toute la session. */
