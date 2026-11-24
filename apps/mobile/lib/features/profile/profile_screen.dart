@@ -418,6 +418,18 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                         ),
                       if (business != null && ref.can('business:update'))
                         _Row(
+                          key: const Key('pay_accounts_row'),
+                          icon: Icons.qr_code_2_rounded,
+                          color: const Color(0xFF1D7AF0),
+                          label: 'Paiement mobile',
+                          value: business.payAccounts.isEmpty
+                              ? 'À configurer'
+                              : business.payAccounts.keys.map((m) => m.label).join(', '),
+                          hint: 'Votre QR et votre numéro, montrés au client à la caisse',
+                          onTap: () => context.push('/business/pay-accounts'),
+                        ),
+                      if (business != null && ref.can('business:update'))
+                        _Row(
                           key: const Key('require_cash_row'),
                           icon: Icons.point_of_sale_rounded,
                           color: const Color(0xFFD9822B),

@@ -30,6 +30,7 @@ export interface UpdateBusinessInput extends Partial<Omit<CreateBusinessInput, '
   onboardingDismissed?: boolean;
   brandColor?: string | null;
   requireOpenCash?: boolean;
+  payAccounts?: Partial<Record<string, { number?: string | null; link?: string | null }>>;
 }
 
 @Injectable()
@@ -156,11 +157,21 @@ export class BusinessesService {
   }
 
   async update(businessId: string, input: UpdateBusinessInput) {
-    const { focus, onboardingDismissed, ...columns } = input;
+    const { focus, onboardingDismissed, payAccounts, ...columns } = input;
     // Réglages libres (activité, guide masqué) : fusionnés dans le JSON, sans écraser le reste
     const patch: Record<string, unknown> = {};
     if (focus !== undefined) patch.focus = focus;
     if (onboardingDismissed !== undefined) patch.onboardingDismissed = onboardingDismissed;
+    if (payAccounts !== undefined) {
+      // Remplace tous les comptes ; ceux laissés vides sont retirés
+      const clean: Record<string, { number?: string; link?: string }> = {};
+      for (const [k, v] of Object.entries(payAccounts)) {
+        const number = v?.number?.replace(/\s+/g, '') || undefined;
+        const link = v?.link || undefined;
+        if (number || link) clean[k] = { ...(number ? { number } : {}), ...(link ? { link } : {}) };
+      }
+      patch.payAccounts = clean;
+    }
     const [business] = await this.dbs.db
       .update(businesses)
       .set({

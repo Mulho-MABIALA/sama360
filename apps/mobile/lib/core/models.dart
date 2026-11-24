@@ -65,6 +65,26 @@ class BusinessLink {
 }
 
 /// Entreprise courante (GET /v1/business) avec mes droits.
+/// Compte de paiement mobile du commerçant : son numéro et/ou son lien de paiement (Wave Business…).
+class PayAccount {
+  const PayAccount({this.number, this.link});
+  final String? number;
+  final String? link;
+
+  bool get isEmpty => (number ?? '').isEmpty && (link ?? '').isEmpty;
+
+  Map<String, dynamic> toJson() => {'number': number, 'link': link};
+
+  static Map<PayMethod, PayAccount> parseAll(Object? raw) {
+    if (raw is! Map) return const {};
+    return {
+      for (final e in raw.entries)
+        if (PayMethod.fromApi(e.key as String?) case final m? when e.value is Map)
+          m: PayAccount(number: (e.value as Map)['number'] as String?, link: (e.value as Map)['link'] as String?),
+    };
+  }
+}
+
 class CurrentBusiness {
   const CurrentBusiness({
     required this.id,
@@ -77,6 +97,7 @@ class CurrentBusiness {
     this.logoFileId,
     this.brandColor,
     this.requireOpenCash = false,
+    this.payAccounts = const {},
     this.focus,
     this.country = Country.sn,
     this.proUntil,
@@ -99,6 +120,9 @@ class CurrentBusiness {
 
   /// Option du patron : la caisse doit être ouverte pour vendre.
   final bool requireOpenCash;
+
+  /// Numéros et liens de paiement mobile du commerçant, montrés au client à la caisse.
+  final Map<PayMethod, PayAccount> payAccounts;
 
   /// Activité : « products », « services », « both » (null : pas encore choisie).
   final String? focus;
@@ -135,6 +159,7 @@ class CurrentBusiness {
       logoFileId: b['logoFileId'] as String?,
       brandColor: b['brandColor'] as String?,
       requireOpenCash: b['requireOpenCash'] == true,
+      payAccounts: PayAccount.parseAll((b['settings'] as Map?)?['payAccounts']),
       focus: (b['settings'] as Map?)?['focus'] as String?,
       country: Country.fromCode(b['country'] as String?),
       proUntil: _proUntil(j['subscription'] as Map?),

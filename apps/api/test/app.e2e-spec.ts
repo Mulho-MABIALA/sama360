@@ -4029,6 +4029,45 @@ describe('Socle Sama360 (e2e)', () => {
     });
   });
 
+  describe('Comptes de paiement mobile (QR à la caisse)', () => {
+    it('le patron enregistre ses numéros et liens, vides retirés, liens vérifiés', async () => {
+      const owner = await login('+221770060001');
+      const biz = (
+        await http.post('/v1/businesses').set(auth(owner.accessToken)).send({ name: 'Diallo Tissus' }).expect(201)
+      ).body.business.id;
+      const O = () => auth(owner.accessToken, biz);
+      await http
+        .patch('/v1/business')
+        .set(O())
+        .send({ payAccounts: { wave: { link: 'http://pay.wave.com/m/x' } } })
+        .expect(422);
+      await http
+        .patch('/v1/business')
+        .set(O())
+        .send({ payAccounts: { paypal: { number: '771234567' } } })
+        .expect(422);
+      await http
+        .patch('/v1/business')
+        .set(O())
+        .send({
+          payAccounts: {
+            wave: { number: '77 123 45 67', link: 'https://pay.wave.com/m/M_sn_abc/c/sn/' },
+            orange_money: { number: '', link: null },
+          },
+        })
+        .expect(200);
+      const b = (await http.get('/v1/business').set(O()).expect(200)).body.business;
+      expect(b.settings.payAccounts).toEqual({
+        wave: { number: '771234567', link: 'https://pay.wave.com/m/M_sn_abc/c/sn/' },
+      });
+      // Les autres réglages ne bougent pas
+      await http.patch('/v1/business').set(O()).send({ focus: 'products' }).expect(200);
+      const again = (await http.get('/v1/business').set(O()).expect(200)).body.business;
+      expect(again.settings.payAccounts.wave.number).toBe('771234567');
+      expect(again.settings.focus).toBe('products');
+    });
+  });
+
   describe('Back office Sama360', () => {
     it('tableau de bord, commerçants, gestes de l’équipe, réservé aux admins', async () => {
       const A = () => auth(adminToken!);

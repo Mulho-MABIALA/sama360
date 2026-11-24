@@ -6,6 +6,7 @@ import 'core/permissions.dart' show accessRedirect;
 import 'core/providers.dart' show currentBusinessProvider;
 import 'core/widgets.dart' show AccessDeniedScreen;
 import 'features/admin/admin_dashboard.dart';
+import 'features/business/pay_accounts_screen.dart';
 import 'features/admin/admin_merchant.dart';
 import 'features/admin/admin_merchants.dart';
 import 'features/admin/admin_payments.dart';
@@ -109,6 +110,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/profile', builder: (_, _) => const ProfileSetupScreen()),
       GoRoute(path: '/business', builder: (_, _) => const BusinessScreen()),
       GoRoute(path: '/business/delete', builder: (_, _) => const DeleteBusinessScreen()),
+      GoRoute(path: '/business/pay-accounts', builder: (_, _) => const PayAccountsScreen()),
       GoRoute(path: '/account/delete', builder: (_, _) => const DeleteAccountScreen()),
       GoRoute(path: '/cash', builder: (_, _) => const CashScreen()),
       GoRoute(path: '/notifications', builder: (_, _) => const NotificationsScreen()),

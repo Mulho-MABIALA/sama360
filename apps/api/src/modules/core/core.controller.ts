@@ -1,4 +1,4 @@
-import { COUNTRY_CODES } from '../../shared/countries';
+import { COUNTRY_CODES, MOBILE_MONEY } from '../../shared/countries';
 import { FOCUSES } from './onboarding';
 import {
   Body,
@@ -23,6 +23,10 @@ import { normalizeHex } from '../../shared/color';
 import { normalizePhone } from '../../shared/phone';
 import { BusinessesService } from './businesses.service';
 import { MembersService } from './members.service';
+
+/** Champ facultatif : une saisie vide vaut « rien ». */
+const emptyAsNull = <T extends z.ZodTypeAny>(schema: T) =>
+  z.preprocess((v) => (typeof v === 'string' && v.trim() === '' ? null : v), schema.nullish());
 
 const text = (max: number) => z.string().trim().min(1).max(max);
 
@@ -54,6 +58,28 @@ const UpdateBusiness = CreateBusiness.omit({ referralCode: true })
       .nullish(),
     // Obliger à ouvrir la caisse avant de vendre
     requireOpenCash: z.boolean().optional(),
+    // Comptes de paiement mobile du commerçant, montrés au client à la caisse (numéro, lien de paiement)
+    payAccounts: z
+      .record(
+        z.enum(MOBILE_MONEY),
+        z.object({
+          number: emptyAsNull(
+            z
+              .string()
+              .trim()
+              .regex(/^\+?[\d ]{6,20}$/, 'numéro invalide'),
+          ),
+          link: emptyAsNull(
+            z
+              .string()
+              .trim()
+              .max(300)
+              .url('lien invalide')
+              .refine((v) => v.startsWith('https://'), 'le lien doit commencer par https://'),
+          ),
+        }),
+      )
+      .optional(),
   });
 
 const InviteMember = z.object({

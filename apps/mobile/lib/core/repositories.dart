@@ -220,6 +220,14 @@ class SamaRepository {
 
   Future<void> updateCountry(String code) => api.patch<void>('/v1/business', data: {'country': code});
 
+  /// Numéros et liens de paiement mobile (remplace l'ensemble ; vides = retirés).
+  Future<void> updatePayAccounts(Map<PayMethod, PayAccount> accounts) => api.patch<void>(
+    '/v1/business',
+    data: {
+      'payAccounts': {for (final e in accounts.entries) e.key.api: e.value.toJson()},
+    },
+  );
+
   Future<void> updateBrandColor(String? hex) => api.patch<void>('/v1/business', data: {'brandColor': hex});
 
   Future<void> updateName(String fullName) => api.patch<void>('/v1/me', data: {'fullName': fullName});

@@ -158,6 +158,13 @@ class FakeRepo extends SamaRepository {
   String? brandColor;
   final brandColorUpdates = <String?>[];
 
+  /// Comptes de paiement mobile (QR à la caisse).
+  Map<PayMethod, PayAccount> payAccounts = {};
+
+  @override
+  Future<void> updatePayAccounts(Map<PayMethod, PayAccount> accounts) async =>
+      payAccounts = {for (final e in accounts.entries) if (!e.value.isEmpty) e.key: e.value};
+
   @override
   Future<void> updateBrandColor(String? hex) async {
     brandColorUpdates.add(hex);
@@ -235,6 +242,7 @@ class FakeRepo extends SamaRepository {
     logoFileId: logoFileId,
     brandColor: brandColor,
     requireOpenCash: requireOpenCash,
+    payAccounts: payAccounts,
     focus: businessFocus,
     country: businessCountry,
     proUntil: proUntil,

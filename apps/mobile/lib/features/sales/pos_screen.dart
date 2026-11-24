@@ -22,6 +22,7 @@ import '../customers/customer_picker.dart';
 import '../offline/offline_ui.dart';
 import '../catalog/barcode_scanner.dart';
 import 'cart.dart';
+import 'pay_qr_sheet.dart';
 
 /// Caisse : produits à gauche/en haut, panier et encaissement en bas (maquette « Nouvelle vente »).
 class PosScreen extends ConsumerStatefulWidget {
@@ -847,6 +848,7 @@ class _CheckoutPanel extends ConsumerWidget {
               if (cart.customer?.creditLimit != null)
                 _CreditLimitHint(customer: cart.customer!, due: cart.total - cart.deposit),
             ],
+            if (!credit && !cart.isEmpty && !mustOpen) _PayQrButton(onCheckout: onCheckout),
             const SizedBox(height: 12),
             SizedBox(
               height: 52,
@@ -872,6 +874,57 @@ class _CheckoutPanel extends ConsumerWidget {
         ),
       ),
     );
+  }
+}
+
+/// Paiement mobile : montrer au client le QR (ou le numéro) du commerçant avec le montant.
+class _PayQrButton extends ConsumerWidget {
+  const _PayQrButton({required this.onCheckout});
+  final VoidCallback onCheckout;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final cart = ref.watch(cartProvider);
+    final b = ref.watch(currentBusinessProvider).value;
+    final m = cart.mode.method;
+    final account = payAccountFor(b, m);
+    if (account != null) {
+      return Padding(
+        padding: const EdgeInsets.only(top: 10),
+        child: OutlinedButton.icon(
+          key: const Key('show_pay_qr'),
+          style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(46)),
+          onPressed: () async {
+            final paid = await showPayQr(
+              context,
+              businessName: b!.name,
+              country: b.country,
+              method: m!,
+              account: account,
+              amount: cart.total,
+            );
+            if (paid) onCheckout();
+          },
+          icon: const Icon(Icons.qr_code_2_rounded),
+          label: Text(
+            (account.link ?? '').isNotEmpty ? 'Montrer le QR au client' : 'Montrer mon numéro au client',
+          ),
+        ),
+      );
+    }
+    if (canSetupPayAccount(b, m) && ref.can('business:update')) {
+      return Padding(
+        padding: const EdgeInsets.only(top: 6),
+        child: TextButton.icon(
+          key: const Key('setup_pay_qr'),
+          style: TextButton.styleFrom(minimumSize: const Size(0, 40)),
+          onPressed: () => context.push(payAccountsRoute),
+          icon: const Icon(Icons.qr_code_2_rounded, size: 18),
+          label: Text('Ajoutez votre ${m!.label} pour le montrer au client'),
+        ),
+      );
+    }
+    return const SizedBox.shrink();
   }
 }
 
