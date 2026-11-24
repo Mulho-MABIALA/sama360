@@ -40,6 +40,7 @@ import 'features/home/home_screen.dart';
 import 'features/inventory/stock_screen.dart';
 import 'core/models.dart';
 import 'features/catalog/categories_screen.dart';
+import 'features/catalog/variants_screen.dart';
 import 'features/catalog/product_editor.dart';
 import 'features/invoicing/document_editor.dart';
 import 'features/invoicing/document_screen.dart';
@@ -100,9 +101,8 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/login', builder: (_, _) => const PhoneScreen()),
       GoRoute(
         path: '/otp',
-        builder: (_, s) => OtpScreen(
-          target: s.extra is OtpTarget ? s.extra! as OtpTarget : OtpTarget(s.extra as String? ?? ''),
-        ),
+        builder: (_, s) =>
+            OtpScreen(target: s.extra is OtpTarget ? s.extra! as OtpTarget : OtpTarget(s.extra as String? ?? '')),
       ),
       GoRoute(path: '/profile', builder: (_, _) => const ProfileSetupScreen()),
       GoRoute(path: '/business', builder: (_, _) => const BusinessScreen()),
@@ -210,6 +210,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/products/:id',
         builder: (_, s) => ProductEditorScreen(productId: s.pathParameters['id']),
+      ),
+      GoRoute(
+        path: '/products/:id/variants',
+        builder: (_, s) => VariantsScreen(productId: s.pathParameters['id']!),
       ),
       GoRoute(path: '/reports', builder: (_, _) => const ReportsScreen()),
       GoRoute(path: '/deliveries', builder: (_, _) => const DeliveriesScreen()),

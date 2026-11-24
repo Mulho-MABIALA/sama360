@@ -54,6 +54,9 @@ class _ProductEditorScreenState extends ConsumerState<ProductEditorScreen> {
   String? _imageFileId;
   bool _loaded = false;
   bool _busy = false;
+
+  /// Fiche chargée (modification) : variante ou modèle à variantes.
+  Product? _product;
   final _errors = <String, String>{};
 
   bool get _editing => widget.productId != null;
@@ -72,6 +75,7 @@ class _ProductEditorScreenState extends ConsumerState<ProductEditorScreen> {
       final cats = await ref.read(categoriesProvider.future);
       if (!mounted) return;
       setState(() {
+        _product = p;
         _name.text = p.name;
         _price.text = '${p.price}';
         _cost.text = p.cost == 0 ? '' : '${p.cost}';
@@ -110,7 +114,7 @@ class _ProductEditorScreenState extends ConsumerState<ProductEditorScreen> {
     if (code != null) setState(() => _barcode.text = code);
   }
 
-  Future<void> _save() async {
+  Future<void> _save({bool thenVariants = false}) async {
     final price = _int(_price);
     final cost = _int(_cost) ?? 0;
     final wPrice = _int(_wPrice);
@@ -155,7 +159,7 @@ class _ProductEditorScreenState extends ConsumerState<ProductEditorScreen> {
     final repo = ref.read(repoProvider);
     try {
       final saved = await repo.saveProduct(draft, id: widget.productId);
-      if (initialQty > 0) {
+      if (initialQty > 0 && !thenVariants) {
         try {
           await repo.addStock(saved.id, initialQty, unitCost: cost > 0 ? cost : null);
         } catch (_) {
@@ -173,6 +177,11 @@ class _ProductEditorScreenState extends ConsumerState<ProductEditorScreen> {
       ref.invalidate(categoriesProvider);
       if (_editing) ref.invalidate(productProvider(widget.productId!));
       if (!mounted) return;
+      if (thenVariants) {
+        // Nouveau produit : on enchaîne sur ses tailles, couleurs…
+        context.pushReplacement('/products/${saved.id}/variants');
+        return;
+      }
       showInfo(context, _editing ? 'Fiche enregistrée' : 'Produit ajouté');
       _leave(saved);
     } on ApiException catch (e) {
@@ -274,9 +283,21 @@ class _ProductEditorScreenState extends ConsumerState<ProductEditorScreen> {
                           else
                             PhotoField(photo: _photo, onChanged: (p) => setState(() => _photo = p)),
                           const SizedBox(height: 12),
+                          if (_product?.isVariant ?? false)
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 10),
+                              child: OutlinedButton.icon(
+                                key: const Key('open_parent'),
+                                onPressed: () => context.push('/products/${_product!.parentId}/variants'),
+                                icon: const Icon(Icons.style_rounded),
+                                label: Text('Variante « ${_product!.variantLabel} » : voir toutes les variantes'),
+                              ),
+                            ),
                           TextField(
                             key: const Key('pName'),
                             controller: _name,
+                            // Le nom d'une variante suit celui de son modèle
+                            enabled: !(_product?.isVariant ?? false),
                             textCapitalization: TextCapitalization.sentences,
                             decoration: InputDecoration(labelText: 'Nom', errorText: _errors['name']),
                           ),
@@ -316,6 +337,20 @@ class _ProductEditorScreenState extends ConsumerState<ProductEditorScreen> {
                           ),
                         ],
                       ),
+                      if (!_isService && !(_product?.isVariant ?? false)) ...[
+                        const SizedBox(height: 12),
+                        _VariantsCard(
+                          product: _product,
+                          onTap: _editing
+                              ? () async {
+                                  await context.push('/products/${widget.productId}/variants');
+                                  if (!mounted) return;
+                                  final p = await ref.refresh(productProvider(widget.productId!).future);
+                                  if (mounted) setState(() => _product = p);
+                                }
+                              : () => _save(thenVariants: true),
+                        ),
+                      ],
                       const SizedBox(height: 12),
                       // Le reste est replié à la création : un débutant n'a besoin que du nom et du prix.
                       Glass(
@@ -612,4 +647,63 @@ class _Section extends StatelessWidget {
       ],
     ),
   );
+}
+
+/// « Tailles, couleurs… » : ouvre les variantes du produit (à la création, enregistre d'abord).
+class _VariantsCard extends StatelessWidget {
+  const _VariantsCard({required this.product, required this.onTap});
+  final Product? product;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final axes = product?.variantAxes ?? const <VariantAxis>[];
+    final count = axes.fold(1, (n, a) => n * a.values.length);
+    return Glass(
+      radius: 22,
+      padding: EdgeInsets.zero,
+      child: InkWell(
+        key: const Key('pVariants'),
+        borderRadius: BorderRadius.circular(22),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(14, 12, 10, 12),
+          child: Row(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: AppColors.softOf(const Color(0xFFF3E8FF), const Color(0xFF7C3AED)),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(Icons.style_rounded, color: Color(0xFF7C3AED)),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      axes.isEmpty ? 'Tailles, couleurs…' : 'Variantes · $count',
+                      style: const TextStyle(fontWeight: FontWeight.w800),
+                    ),
+                    Text(
+                      axes.isEmpty
+                          ? 'Le même article en plusieurs versions, chacune avec son stock'
+                          : axes.map((a) => '${a.name} : ${a.values.join(', ')}').join(' · '),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(color: AppColors.muted, fontSize: 12.5),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(Icons.chevron_right_rounded, color: AppColors.muted),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }

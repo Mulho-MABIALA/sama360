@@ -3,6 +3,7 @@ import { HttpStatus } from '@nestjs/common';
 /** Codes d'erreur stables, exposés aux clients (mobile, back-office). */
 export type ErrorCode =
   | 'VALIDATION_FAILED'
+  | 'VARIANT_REQUIRED'
   | 'UNAUTHENTICATED'
   | 'TOKEN_INVALID'
   | 'OTP_INVALID'
@@ -68,4 +69,9 @@ export class AppError extends Error {
   static conflict(message: string): AppError {
     return new AppError('CONFLICT', message, HttpStatus.CONFLICT);
   }
+}
+
+/** Modèle à variantes : on vend, achète ou compte une variante (taille, couleur…), pas le modèle. */
+export function variantRequired(name: string) {
+  return new AppError('VARIANT_REQUIRED', `Choisissez la variante de « ${name} » (taille, couleur…)`, 422);
 }

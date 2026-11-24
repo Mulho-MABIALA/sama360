@@ -212,6 +212,9 @@ export const categories = catalogSchema.table('categories', {
   createdAt: ts('created_at').notNull().defaultNow(),
 });
 
+/** Option d'un produit à variantes : « Taille » : S, M, L. */
+export type VariantAxis = { name: string; values: string[] };
+
 export const products = catalogSchema.table('products', {
   id: uuid('id').primaryKey(),
   businessId: uuid('business_id').notNull(),
@@ -231,6 +234,10 @@ export const products = catalogSchema.table('products', {
   // Prestations : durée d'un rendez-vous (réservation en ligne)
   durationMinutes: integer('duration_minutes'),
   imageFileIds: uuid('image_file_ids').array().notNull().default([]),
+  // Variantes : le modèle décrit ses options ; chaque combinaison est un produit rattaché (parent_id)
+  parentId: uuid('parent_id'),
+  options: jsonb('options').$type<Record<string, string>>(),
+  variantAxes: jsonb('variant_axes').$type<VariantAxis[]>(),
   version: integer('version').notNull().default(1),
   createdAt: ts('created_at').notNull().defaultNow(),
   updatedAt: ts('updated_at').notNull().defaultNow(),

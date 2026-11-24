@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { sql } from 'drizzle-orm';
 import { DbService, Tx } from '../../shared/db/db.service';
 import { OutboxService } from '../../shared/events/outbox.service';
-import { AppError } from '../../shared/http/app-error';
+import { AppError, variantRequired } from '../../shared/http/app-error';
 import { newId } from '../../shared/ids';
 import { InventoryService } from '../inventory/inventory.service';
 import { fcfa } from '../sales/sales.service';
@@ -581,16 +581,17 @@ export class PurchasingService {
     }
     const found = (
       await tx.execute(sql`
-        SELECT id, name, cost FROM catalog.products
+        SELECT id, name, cost, variant_axes IS NOT NULL AS has_variants FROM catalog.products
         WHERE id IN (${sql.join(
           ids.map((i) => sql`${i}`),
           sql`, `,
         )}) AND deleted_at IS NULL`)
-    ).rows as { id: string; name: string; cost: string }[];
+    ).rows as { id: string; name: string; cost: string; has_variants: boolean }[];
     const byId = new Map(found.map((p) => [p.id, p]));
     return input.map((l, i) => {
       const p = byId.get(l.productId);
       if (!p) throw new AppError('NOT_FOUND', `Produit introuvable (ligne ${i + 1})`, 404);
+      if (p.has_variants) throw variantRequired(p.name);
       const unitCost = l.unitCost ?? Number(p.cost);
       return {
         productId: p.id,

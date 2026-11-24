@@ -14,7 +14,7 @@ import {
   users,
 } from '../../shared/db/schema';
 import { OutboxService } from '../../shared/events/outbox.service';
-import { AppError } from '../../shared/http/app-error';
+import { AppError, variantRequired } from '../../shared/http/app-error';
 import { newId } from '../../shared/ids';
 import { InventoryService } from '../inventory/inventory.service';
 import { LineInput, priceSale, PricingError, catalogUnitPrice } from './pricing';
@@ -68,6 +68,7 @@ export class SalesService {
               wholesaleMinQty: products.wholesaleMinQty,
               cost: products.cost,
               trackStock: products.trackStock,
+              variantAxes: products.variantAxes,
             })
             .from(products)
             .where(and(inArray(products.id, ids), isNull(products.deletedAt)))
@@ -78,6 +79,7 @@ export class SalesService {
         if (it.productId) {
           const p = byId.get(it.productId);
           if (!p) throw new AppError('NOT_FOUND', `Produit introuvable (ligne ${i + 1})`, HttpStatus.NOT_FOUND);
+          if (p.variantAxes?.length) throw variantRequired(p.name);
           return {
             productId: p.id,
             name: p.name,

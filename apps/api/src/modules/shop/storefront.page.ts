@@ -153,6 +153,14 @@ input:focus,textarea:focus{border-color:var(--green)}
 .zoom button{position:absolute;top:16px;right:16px;width:42px;height:42px;border-radius:50%;border:0;background:rgba(255,255,255,.15);color:#fff;font-size:18px}
 .pd .img img{cursor:zoom-in}
 /* ---- Fiche produit ---- */
+.ax{margin-top:16px}
+.axn{font-size:14px;color:var(--muted);margin-bottom:8px}
+.axn b{color:var(--ink)}
+.vals{display:flex;flex-wrap:wrap;gap:8px}
+.val{min-width:48px;padding:10px 14px;border-radius:12px;border:1.5px solid var(--line);background:#fff;font-weight:700;font-size:14px;color:var(--ink)}
+.val.on{background:var(--deep);border-color:var(--deep);color:#fff}
+.val.off{color:#A9B0AC;text-decoration:line-through}
+.val.off.on{color:#fff}
 .pd{padding:0;overflow:hidden}
 .pd .img{aspect-ratio:1;background:linear-gradient(160deg,var(--soft),color-mix(in srgb,var(--green) 18%,#fff));display:grid;place-items:center;color:var(--green);font-family:var(--serif);font-size:64px;position:relative}
 .pd .img img{width:100%;height:100%;object-fit:cover}
@@ -198,17 +206,32 @@ input:focus,textarea:focus{border-color:var(--green)}
       .then(function(r){ return r.json().catch(function(){return {};}).then(function(j){ if(!r.ok) throw new Error((j.error && j.error.message) || 'Erreur, réessayez'); return j; }); });
   }
   function unitPrice(p, q){ return (p.wholesalePrice != null && p.wholesaleMinQty != null && q >= p.wholesaleMinQty) ? p.wholesalePrice : p.price; }
+  // Produit vendable par identifiant : un produit simple ou une variante (Noir · M) d'un modèle
+  function item(id){
+    var d = state.data; if (!d) return null;
+    for (var i = 0; i < d.products.length; i++) {
+      var p = d.products[i];
+      if (p.id === id && !p.variants) return p;
+      if (p.variants) for (var j = 0; j < p.variants.length; j++) if (p.variants[j].id === id) return p.variants[j];
+    }
+    return null;
+  }
+  // Quantité au panier d'un produit ou de toutes les variantes d'un modèle
+  function inCart(p){
+    if (!p.variants) return state.cart[p.id] || 0;
+    return p.variants.reduce(function(s, v){ return s + (state.cart[v.id] || 0); }, 0);
+  }
   function lines(){
     var d = state.data; if(!d) return [];
     return Object.keys(state.cart).map(function(id){
-      var p = d.products.find(function(x){return x.id===id;}); var q = state.cart[id];
+      var p = item(id); var q = state.cart[id];
       return p && q > 0 ? { p: p, q: q, unit: unitPrice(p,q), total: unitPrice(p,q)*q } : null;
     }).filter(Boolean);
   }
   function subtotal(){ return lines().reduce(function(s,l){return s+l.total;},0); }
   function count(){ return lines().reduce(function(s,l){return s+l.q;},0); }
   function setQty(id, q){
-    var p = state.data.products.find(function(x){return x.id===id;});
+    var p = item(id);
     q = Math.max(0, Math.min(q, p ? p.maxQuantity : 99));
     if (q === 0) delete state.cart[id]; else state.cart[id] = q;
     store('cart:' + SLUG, state.cart); renderGrid(); renderBar();
@@ -282,14 +305,16 @@ input:focus,textarea:focus{border-color:var(--green)}
     if (HOT.length) items = items.slice().sort(function(a,b){ return (HOT.indexOf(a.id) < 0 ? 99 : HOT.indexOf(a.id)) - (HOT.indexOf(b.id) < 0 ? 99 : HOT.indexOf(b.id)); });
     if (!items.length){ grid.innerHTML = '<div class="empty" style="grid-column:1/-1">Aucun produit ne correspond.</div>'; return; }
     grid.innerHTML = items.map(function(p){
-      var q2 = state.cart[p.id] || 0;
+      var q2 = inCart(p);
       var unit = p.unit && p.unit !== 'pièce' ? ' / ' + esc(p.unit) : '';
       var action = !p.available ? '<button class="add" disabled>Épuisé</button>' :
+        p.variants ? '<button class="add" data-open="' + p.id + '">' + (q2 ? q2 + ' au panier · Choisir' : 'Choisir') + '</button>' :
         q2 ? '<div class="step"><button data-dec="' + p.id + '" aria-label="Un de moins">−</button><b>' + q2 + '</b><button data-inc="' + p.id + '" aria-label="Un de plus">+</button></div>' :
         '<button class="add" data-inc="' + p.id + '">Ajouter</button>';
       var hot = HOT.indexOf(p.id) >= 0;
       return '<article class="card' + (hot ? ' hot' : '') + '"><div class="ph" data-open="' + p.id + '">' + (p.imageFileId ? '<img loading="lazy" alt="" src="/v1/files/' + esc(p.imageFileId) + '">' : initials(p.name)) + (hot ? '<span class="tag">En vedette</span>' : '') + '</div>' +
-        '<div class="body"><div class="name">' + esc(p.name) + '</div><div class="price">' + money(p.price) + '<span class="hint">' + unit + '</span></div>' +
+        '<div class="body"><div class="name">' + esc(p.name) + '</div><div class="price">' + (p.priceFrom ? '<span class="hint">dès </span>' : '') + money(p.price) + '<span class="hint">' + unit + '</span></div>' +
+        (p.variants ? '<div class="hint">' + p.variantAxes.map(function(a){ return a.values.length + ' ' + esc(a.name.toLowerCase()) + (a.values.length > 1 ? 's' : ''); }).join(' · ') + '</div>' : '') +
         (p.wholesalePrice != null ? '<div class="hint">' + money(p.wholesalePrice) + ' dès ' + p.wholesaleMinQty + '</div>' : '') +
         (!p.available ? '<div class="out">Rupture de stock</div>' : '') + action + '</div></article>';
     }).join('');
@@ -306,31 +331,67 @@ input:focus,textarea:focus{border-color:var(--green)}
     document.body.appendChild(z);
   }
 
-  // Fiche d'un produit : grande photo, prix, quantité, « Ajouter au panier »
+  // Fiche d'un produit : grande photo, prix, quantité, « Ajouter au panier ».
+  // Modèle à variantes : on choisit d'abord la couleur, la taille…
   function showProduct(id){
     var p = state.data.products.find(function(x){ return x.id === id; }); if (!p) return;
-    var q = Math.max(1, state.cart[id] || 1);
+    var sel = {};
+    if (p.variants) p.variantAxes.forEach(function(a){ if (a.values.length === 1) sel[a.name] = a.values[0]; });
+    var q = p.variants ? 1 : Math.max(1, state.cart[id] || 1);
     var sheet = document.createElement('div'); sheet.className = 'sheet';
     sheet.addEventListener('click', function(e){ if (e.target === sheet) sheet.remove(); });
+    function chosen(){
+      if (!p.variants) return p;
+      if (!p.variantAxes.every(function(a){ return sel[a.name]; })) return null;
+      return p.variants.find(function(v){ return p.variantAxes.every(function(a){ return v.options[a.name] === sel[a.name]; }); }) || null;
+    }
+    // Une valeur est barrée quand aucune variante disponible ne la propose avec les choix déjà faits
+    function possible(axis, value){
+      return p.variants.some(function(v){
+        return v.available && v.options[axis.name] === value && p.variantAxes.every(function(a){ return a.name === axis.name || !sel[a.name] || v.options[a.name] === sel[a.name]; });
+      });
+    }
     function draw(){
+      var v = chosen();
+      var shown = v || p;
       var unit = p.unit && p.unit !== 'pièce' ? ' / ' + esc(p.unit) : '';
+      var missing = p.variants ? p.variantAxes.filter(function(a){ return !sel[a.name]; }).map(function(a){ return a.name.toLowerCase(); }) : [];
+      var img = shown.imageFileId || p.imageFileId;
+      var opts = p.variants ? p.variantAxes.map(function(a){
+        return '<div class="ax"><div class="axn">' + esc(a.name) + (sel[a.name] ? ' : <b>' + esc(sel[a.name]) + '</b>' : '') + '</div><div class="vals">' +
+          a.values.map(function(val){
+            return '<button class="val' + (sel[a.name] === val ? ' on' : '') + (possible(a, val) ? '' : ' off') + '" data-ax="' + esc(a.name) + '" data-val="' + esc(val) + '">' + esc(val) + '</button>';
+          }).join('') + '</div></div>';
+      }).join('') : '';
+      var canAdd = v ? v.available : (!p.variants && p.available);
       sheet.innerHTML = '<div class="panel pd" role="dialog" aria-label="' + esc(p.name) + '"><div class="img">' +
-        (p.imageFileId ? '<img alt="" src="/v1/files/' + esc(p.imageFileId) + '">' : initials(p.name)) +
+        (img ? '<img alt="" src="/v1/files/' + esc(img) + '">' : initials(p.name)) +
         '<button class="x" id="px" aria-label="Fermer">✕</button></div><div class="in">' +
         (HOT.indexOf(p.id) >= 0 ? '<span class="badge">En vedette</span><div style="height:8px"></div>' : '') +
-        '<h3>' + esc(p.name) + '</h3><div class="pp">' + money(p.price) + '<span class="hint">' + unit + '</span></div>' +
-        (p.wholesalePrice != null ? '<div class="hint">' + money(p.wholesalePrice) + ' dès ' + p.wholesaleMinQty + '</div>' : '') +
-        (!p.available ? '<div class="out" style="margin-top:10px">Rupture de stock</div>' :
-          '<div class="qty"><button id="pm" aria-label="Un de moins">−</button><b>' + q + '</b><button id="pl" aria-label="Un de plus">+</button></div>' +
-          '<button class="cta" id="padd">Ajouter au panier · ' + money(unitPrice(p, q) * q) + '</button>') +
+        '<h3>' + esc(p.name) + '</h3><div class="pp">' + (p.variants && !v && p.priceFrom ? '<span class="hint">dès </span>' : '') + money(shown.price) + '<span class="hint">' + unit + '</span></div>' +
+        (shown.wholesalePrice != null ? '<div class="hint">' + money(shown.wholesalePrice) + ' dès ' + shown.wholesaleMinQty + '</div>' : '') +
+        opts +
+        (v && !v.available ? '<div class="out" style="margin-top:10px">Cette version est épuisée</div>' : '') +
+        (!p.variants && !p.available ? '<div class="out" style="margin-top:10px">Rupture de stock</div>' : '') +
+        (p.available ? '<div class="qty"><button id="pm" aria-label="Un de moins">−</button><b>' + q + '</b><button id="pl" aria-label="Un de plus">+</button></div>' +
+          '<button class="cta" id="padd"' + (canAdd ? '' : ' disabled') + '>' +
+          (missing.length ? 'Choisissez ' + missing.join(' et ') : 'Ajouter au panier · ' + money(unitPrice(shown, q) * q)) + '</button>' : '') +
         '<button class="ghost" id="pall">Voir toute la boutique</button></div></div>';
       sheet.querySelector('#px').addEventListener('click', function(){ sheet.remove(); });
       var im = sheet.querySelector('.img img'); if (im) im.addEventListener('click', function(){ zoom(im.src); });
       sheet.querySelector('#pall').addEventListener('click', function(){ sheet.remove(); openShop(); });
+      Array.prototype.forEach.call(sheet.querySelectorAll('[data-ax]'), function(b){
+        b.addEventListener('click', function(){ sel[b.getAttribute('data-ax')] = b.getAttribute('data-val'); draw(); });
+      });
       if (p.available) {
+        var max = (v || p).maxQuantity || 99;
         sheet.querySelector('#pm').addEventListener('click', function(){ q = Math.max(1, q - 1); draw(); });
-        sheet.querySelector('#pl').addEventListener('click', function(){ q = Math.min(p.maxQuantity || 99, q + 1); draw(); });
-        sheet.querySelector('#padd').addEventListener('click', function(){ setQty(p.id, q); sheet.remove(); });
+        sheet.querySelector('#pl').addEventListener('click', function(){ q = Math.min(p.variants && !v ? 99 : max, q + 1); draw(); });
+        sheet.querySelector('#padd').addEventListener('click', function(){
+          if (!canAdd) return;
+          if (v) setQty(v.id, (state.cart[v.id] || 0) + q); else setQty(p.id, q);
+          sheet.remove();
+        });
       }
     }
     draw(); document.body.appendChild(sheet);

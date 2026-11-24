@@ -4,7 +4,7 @@ import { sql } from 'drizzle-orm';
 import { DbService, Tx } from '../../shared/db/db.service';
 import { FilesService } from '../files/files.service';
 import { OutboxService } from '../../shared/events/outbox.service';
-import { AppError } from '../../shared/http/app-error';
+import { AppError, variantRequired } from '../../shared/http/app-error';
 import { newId } from '../../shared/ids';
 import { COUNTRIES, CountryCode, countryOf, payHint, tenantCountry } from '../../shared/countries';
 import { normalizePhone } from '../../shared/phone';
@@ -135,7 +135,8 @@ export class ShopService {
       const products = (
         await tx.execute(sql`
           SELECT p.id, p.name, p.price, p.unit, p.category_id, p.image_file_ids[1] AS image_file_id, p.track_stock,
-                 p.wholesale_price, p.wholesale_min_qty, coalesce(sum(sl.on_hand), 0) AS on_hand
+                 p.wholesale_price, p.wholesale_min_qty, coalesce(sum(sl.on_hand), 0) AS on_hand,
+                 p.parent_id, p.options, p.variant_axes
           FROM catalog.products p
           LEFT JOIN inventory.stock_levels sl ON sl.product_id = p.id
           WHERE p.published AND p.deleted_at IS NULL
@@ -171,23 +172,56 @@ export class ShopService {
           payHint: payHint(COUNTRIES[b.country]),
         },
         categories: categories.filter((c) => usedCategories.has(c.id)).map((c) => ({ id: c.id, name: c.name })),
-        products: products.map((p) => {
-          const tracked = p.track_stock as boolean;
-          const onHand = Number(p.on_hand);
-          return {
-            id: p.id,
-            name: p.name,
-            price: Number(p.price),
-            unit: p.unit,
-            categoryId: p.category_id ?? null,
-            imageFileId: p.image_file_id ?? null,
-            wholesalePrice: p.wholesale_price === null ? null : Number(p.wholesale_price),
-            wholesaleMinQty: p.wholesale_min_qty === null ? null : Number(p.wholesale_min_qty),
-            available: !tracked || onHand > 0,
-            // Quantité maximale commandable (le stock exact n'est pas affiché au public)
-            maxQuantity: tracked ? Math.max(0, Math.min(MAX_SHOWN_STOCK, Math.floor(onHand))) : MAX_SHOWN_STOCK,
+        products: (() => {
+          const view = (p: Row) => {
+            const tracked = p.track_stock as boolean;
+            const onHand = Number(p.on_hand);
+            return {
+              id: p.id as string,
+              name: p.name as string,
+              price: Number(p.price),
+              unit: p.unit,
+              categoryId: p.category_id ?? null,
+              imageFileId: (p.image_file_id as string | null) ?? null,
+              wholesalePrice: p.wholesale_price === null ? null : Number(p.wholesale_price),
+              wholesaleMinQty: p.wholesale_min_qty === null ? null : Number(p.wholesale_min_qty),
+              available: !tracked || onHand > 0,
+              // Quantité maximale commandable (le stock exact n'est pas affiché au public)
+              maxQuantity: tracked ? Math.max(0, Math.min(MAX_SHOWN_STOCK, Math.floor(onHand))) : MAX_SHOWN_STOCK,
+            };
           };
-        }),
+          // Variantes rangées sous leur modèle : le client choisit la taille ou la couleur sur la fiche
+          const children = new Map<string, Row[]>();
+          for (const p of products) {
+            if (p.parent_id) children.set(p.parent_id as string, [...(children.get(p.parent_id as string) ?? []), p]);
+          }
+          return products
+            .filter((p) => !p.parent_id)
+            .flatMap((p) => {
+              if (!p.variant_axes) return [view(p)];
+              const vs = (children.get(p.id as string) ?? []).map((c) => {
+                const v = view(c);
+                return {
+                  ...v,
+                  imageFileId: v.imageFileId ?? (p.image_file_id as string | null) ?? null,
+                  options: c.options,
+                };
+              });
+              if (!vs.length) return [];
+              const base = view(p);
+              return [
+                {
+                  ...base,
+                  price: Math.min(...vs.map((v) => v.price)),
+                  priceFrom: new Set(vs.map((v) => v.price)).size > 1,
+                  available: vs.some((v) => v.available),
+                  maxQuantity: 0,
+                  variantAxes: p.variant_axes,
+                  variants: vs,
+                },
+              ];
+            });
+        })(),
       };
     });
   }
@@ -224,6 +258,7 @@ export class ShopService {
       const found = (
         await tx.execute(sql`
           SELECT p.id, p.name, p.price, p.wholesale_price, p.wholesale_min_qty, p.track_stock,
+                 p.variant_axes IS NOT NULL AS has_variants,
                  coalesce((SELECT sum(on_hand) FROM inventory.stock_levels sl WHERE sl.product_id = p.id), 0) AS on_hand
           FROM catalog.products p
           WHERE p.id IN (${sql.join(
@@ -235,6 +270,7 @@ export class ShopService {
       const lines = input.items.map((it) => {
         const p = byId.get(it.productId);
         if (!p) throw new AppError('NOT_FOUND', 'Un produit n’est plus disponible : actualisez la page', 404);
+        if (p.has_variants) throw variantRequired(p.name as string);
         if (p.track_stock && Number(p.on_hand) < it.quantity) {
           const left = Math.max(0, Math.floor(Number(p.on_hand)));
           throw new AppError(
@@ -327,7 +363,7 @@ export class ShopService {
       const [p] = (
         await tx.execute(sql`
           SELECT count(*) FILTER (WHERE published)::int AS published, count(*)::int AS total
-          FROM catalog.products WHERE deleted_at IS NULL`)
+          FROM catalog.products WHERE deleted_at IS NULL AND parent_id IS NULL`)
       ).rows as Row[];
       return {
         slug: b.slug,
@@ -411,14 +447,18 @@ export class ShopService {
         WHERE deleted_at IS NULL AND published <> ${input.published}
           ${
             ids
-              ? sql`AND id IN (${sql.join(
+              ? sql`AND (id IN (${sql.join(
                   ids.map((i) => sql`${i}`),
                   sql`, `,
-                )})`
+                )}) OR parent_id IN (${sql.join(
+                  ids.map((i) => sql`${i}`),
+                  sql`, `,
+                )}))`
               : sql``
           }
-        RETURNING id`);
-      return { updated: res.rows.length };
+        RETURNING id, parent_id`);
+      // Les variantes suivent leur modèle : on compte les produits, pas chaque taille
+      return { updated: (res.rows as Row[]).filter((r) => !r.parent_id).length };
     });
   }
 

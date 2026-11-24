@@ -431,12 +431,28 @@ class Product {
     this.wholesalePrice,
     this.wholesaleMinQty,
     this.published = false,
+    this.parentId,
+    this.options = const {},
+    this.variantAxes = const [],
   });
   final String id;
   final String name;
   final int price;
   final int cost;
   final String? categoryId;
+
+  /// Variante (ex. « Noir · M ») : rattachée à son modèle.
+  final String? parentId;
+  final Map<String, String> options;
+
+  /// Modèle à variantes : ses options (Taille : S, M, L…). Il ne se vend pas directement.
+  final List<VariantAxis> variantAxes;
+
+  bool get hasVariants => variantAxes.isNotEmpty;
+  bool get isVariant => parentId != null;
+
+  /// « Noir · M » pour une variante.
+  String get variantLabel => options.values.join(' · ');
 
   /// Visible dans la boutique en ligne.
   final bool published;
@@ -480,7 +496,38 @@ class Product {
     wholesalePrice: j['wholesalePrice'] == null ? null : _int(j['wholesalePrice']),
     wholesaleMinQty: j['wholesaleMinQty'] == null ? null : _num(j['wholesaleMinQty']),
     published: j['published'] as bool? ?? false,
+    parentId: j['parentId'] as String?,
+    options: {for (final e in ((j['options'] as Map?) ?? const {}).entries) '${e.key}': '${e.value}'},
+    variantAxes: [
+      for (final a in (j['variantAxes'] as List?) ?? const []) VariantAxis.fromJson(a as Map<String, dynamic>),
+    ],
   );
+}
+
+/// Option d'un produit à variantes : « Taille » avec ses valeurs S, M, L…
+class VariantAxis {
+  const VariantAxis(this.name, this.values);
+  final String name;
+  final List<String> values;
+
+  factory VariantAxis.fromJson(Map<String, dynamic> j) =>
+      VariantAxis(j['name'] as String, ((j['values'] as List?) ?? const []).map((e) => '$e').toList());
+
+  Map<String, dynamic> toJson() => {'name': name, 'values': values};
+}
+
+/// Variante voulue, envoyée avec PUT /v1/catalog/products/:id/variants.
+class VariantDraft {
+  const VariantDraft({required this.options, this.price, this.barcode});
+  final Map<String, String> options;
+  final int? price;
+  final String? barcode;
+
+  Map<String, dynamic> toJson() => {
+    'options': options,
+    if (price != null) 'price': price,
+    if (barcode != null) 'barcode': barcode!.isEmpty ? null : barcode,
+  };
 }
 
 /// Fiche produit en cours de saisie (création ou modification).

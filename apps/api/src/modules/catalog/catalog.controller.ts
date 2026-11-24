@@ -8,17 +8,18 @@ import {
   ParseUUIDPipe,
   Patch,
   Post,
+  Put,
   Query,
   UploadedFile,
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { and, asc, desc, eq, ilike, isNull, lt, or, SQL, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, ilike, inArray, isNull, lt, or, SQL, sql } from 'drizzle-orm';
 import { z } from 'zod';
 import { AuthUser, TenantContext, hideCost } from '../../shared/auth/auth.types';
 import { CurrentTenant, CurrentUser, RequirePermission } from '../../shared/auth/decorators';
 import { DbService } from '../../shared/db/db.service';
-import { categories, products } from '../../shared/db/schema';
+import { categories, products, VariantAxis } from '../../shared/db/schema';
 import { OutboxService } from '../../shared/events/outbox.service';
 import { AppError } from '../../shared/http/app-error';
 import { PageQuery, parse } from '../../shared/http/zod';
@@ -65,6 +66,44 @@ const ListQuery = PageQuery.extend({
   search: z.string().trim().max(80).optional(),
   categoryId: z.string().uuid().optional(),
 });
+const optionText = z.string().trim().min(1).max(30);
+/** Variantes d'un produit : jusqu'à 3 options (taille, couleur…) et leurs combinaisons. */
+const VariantsInput = z.object({
+  axes: z
+    .array(z.object({ name: optionText, values: z.array(optionText).min(1).max(40) }))
+    .max(3)
+    .refine((a) => new Set(a.map((x) => x.name.toLowerCase())).size === a.length, 'Deux options portent le même nom')
+    .refine(
+      (a) => a.every((x) => new Set(x.values.map((v) => v.toLowerCase())).size === x.values.length),
+      'Une valeur est en double',
+    ),
+  // Sans liste : toutes les combinaisons, au prix du modèle
+  variants: z
+    .array(
+      z.object({
+        options: z.record(z.string(), optionText),
+        price: amount.optional(),
+        sku: z.string().trim().max(60).nullish(),
+        barcode: z.string().trim().max(60).nullish(),
+      }),
+    )
+    .max(200)
+    .optional(),
+});
+
+/** Nom affiché d'une variante : « T-shirt col V · Noir · M ». */
+export function variantName(base: string, axes: VariantAxis[], options: Record<string, string>) {
+  return [base, ...axes.map((a) => options[a.name])].join(' · ').slice(0, 160);
+}
+
+/** Toutes les combinaisons des options (dans l'ordre des options). */
+function combinations(axes: VariantAxis[]): Record<string, string>[] {
+  return axes.reduce<Record<string, string>[]>(
+    (acc, a) => acc.flatMap((o) => a.values.map((v) => ({ ...o, [a.name]: v }))),
+    [{}],
+  );
+}
+
 const CategoryInput = z.object({
   name: z.string().trim().min(1).max(80),
   position: z.number().int().min(0).default(0),
@@ -110,7 +149,7 @@ export class CatalogController {
           createdAt: categories.createdAt,
           // Nom qualifié explicite : dans une sous-requête, la colonne seule serait ambiguë
           productCount: sql<number>`(SELECT count(*)::int FROM catalog.products p
-            WHERE p.category_id = "catalog"."categories"."id" AND p.deleted_at IS NULL)`,
+            WHERE p.category_id = "catalog"."categories"."id" AND p.deleted_at IS NULL AND p.parent_id IS NULL)`,
         })
         .from(categories)
         .orderBy(asc(categories.position), asc(categories.name)),
@@ -166,11 +205,7 @@ export class CatalogController {
       if (q.cursor) where.push(lt(products.id, q.cursor));
       if (q.search) {
         where.push(
-          or(
-            ilike(products.name, `%${q.search}%`),
-            eq(products.sku, q.search),
-            eq(products.barcode, q.search),
-          )!,
+          or(ilike(products.name, `%${q.search}%`), eq(products.sku, q.search), eq(products.barcode, q.search))!,
         );
       }
       const rows = await tx
@@ -239,6 +274,141 @@ export class CatalogController {
     });
   }
 
+  /**
+   * Variantes d'un produit (taille, couleur…) : crée, met à jour ou retire les combinaisons.
+   * Chaque variante est un produit rattaché au modèle, avec son stock, son prix et son code-barres.
+   * Sans option : le produit redevient simple (ses variantes sont retirées).
+   */
+  @Put('products/:id/variants')
+  @RequirePermission('catalog:write')
+  setVariants(
+    @CurrentTenant() t: TenantContext,
+    @CurrentUser() user: AuthUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() body: unknown,
+  ) {
+    const input = parse(VariantsInput, body);
+    return this.dbs.withTenant(t.businessId, async (tx) => {
+      const [parent] = await tx
+        .select()
+        .from(products)
+        .where(and(eq(products.id, id), isNull(products.deletedAt)))
+        .limit(1);
+      if (!parent) throw AppError.notFound('Produit');
+      if (parent.parentId) {
+        throw new AppError('VALIDATION_FAILED', 'Une variante ne peut pas avoir elle-même des variantes', 422);
+      }
+      const axes: VariantAxis[] = input.axes.map((a) => ({ name: a.name, values: a.values }));
+      type Wanted = { options: Record<string, string>; price?: number; sku?: string | null; barcode?: string | null };
+      const asked: Wanted[] = input.variants ?? combinations(axes).map((options) => ({ options }));
+      const wanted = asked.map((v): Wanted => {
+        const options: Record<string, string> = {};
+        for (const a of axes) {
+          const value = Object.entries(v.options).find(([k]) => k.toLowerCase() === a.name.toLowerCase())?.[1];
+          const match = a.values.find((x) => x.toLowerCase() === value?.toLowerCase());
+          if (!match) throw new AppError('VALIDATION_FAILED', `Choisissez « ${a.name} » pour chaque variante`, 422);
+          options[a.name] = match;
+        }
+        return { ...v, options };
+      });
+      const keyOf = (o: Record<string, string> | null) => axes.map((a) => (o?.[a.name] ?? '').toLowerCase()).join('|');
+      if (new Set(wanted.map((w) => keyOf(w.options))).size !== wanted.length) {
+        throw new AppError('VALIDATION_FAILED', 'Une même combinaison apparaît deux fois', 422);
+      }
+      if (axes.length && !wanted.length) throw new AppError('VALIDATION_FAILED', 'Gardez au moins une variante', 422);
+
+      // Le stock se compte sur les variantes : le modèle ne doit plus en avoir
+      if (axes.length && !parent.variantAxes) {
+        const [st] = (
+          await tx.execute(sql`SELECT coalesce(sum(on_hand), 0)::float AS q FROM inventory.stock_levels
+                               WHERE product_id = ${id}`)
+        ).rows as { q: number }[];
+        if (Number(st.q) !== 0) {
+          throw new AppError(
+            'VALIDATION_FAILED',
+            `« ${parent.name} » a encore ${Number(st.q)} en stock : remettez-le à zéro, puis indiquez le stock de chaque variante`,
+            422,
+            { onHand: Number(st.q) },
+          );
+        }
+      }
+
+      const existing = await tx
+        .select()
+        .from(products)
+        .where(and(eq(products.parentId, id), isNull(products.deletedAt)));
+      const byKey = new Map(existing.map((c) => [keyOf(c.options), c]));
+      const kept = new Set<string>();
+      const now = new Date();
+      for (const w of wanted) {
+        const current = byKey.get(keyOf(w.options));
+        await this.assertCodesFree(tx, w.sku, w.barcode, current?.id);
+        const shared = {
+          name: variantName(parent.name, axes, w.options),
+          options: w.options,
+          type: parent.type,
+          categoryId: parent.categoryId,
+          unit: parent.unit,
+          trackStock: parent.trackStock,
+          lowStockThreshold: parent.lowStockThreshold,
+          published: parent.published,
+          updatedAt: now,
+        };
+        if (current) {
+          kept.add(current.id);
+          await tx
+            .update(products)
+            .set({
+              ...shared,
+              ...(w.price !== undefined ? { price: w.price } : {}),
+              ...(w.sku !== undefined ? { sku: w.sku } : {}),
+              ...(w.barcode !== undefined ? { barcode: w.barcode } : {}),
+              version: current.version + 1,
+            })
+            .where(eq(products.id, current.id));
+        } else {
+          await tx.insert(products).values({
+            ...shared,
+            id: newId(),
+            businessId: t.businessId,
+            parentId: id,
+            price: w.price ?? parent.price,
+            cost: parent.cost,
+            wholesalePrice: parent.wholesalePrice,
+            wholesaleMinQty: parent.wholesaleMinQty,
+            sku: w.sku ?? null,
+            barcode: w.barcode ?? null,
+          });
+        }
+      }
+      const removed = existing.filter((c) => !kept.has(c.id)).map((c) => c.id);
+      if (removed.length) {
+        await tx
+          .update(products)
+          .set({ deletedAt: now, updatedAt: now, published: false })
+          .where(inArray(products.id, removed));
+      }
+      const [updated] = await tx
+        .update(products)
+        .set({ variantAxes: axes.length ? axes : null, version: parent.version + 1, updatedAt: now })
+        .where(eq(products.id, id))
+        .returning();
+      await this.outbox.record(tx, {
+        type: 'product.updated',
+        businessId: t.businessId,
+        aggregateId: id,
+        actorId: user.id,
+        payload: { productId: id, price: updated.price, cost: updated.cost, published: updated.published },
+      });
+      const variants = await tx
+        .select()
+        .from(products)
+        .where(and(eq(products.parentId, id), isNull(products.deletedAt)))
+        .orderBy(asc(products.name));
+      return { product: hideCost(t, updated), variants: variants.map((v) => hideCost(t, v)) };
+    });
+  }
+
   @Patch('products/:id')
   @RequirePermission('catalog:write')
   updateProduct(
@@ -268,6 +438,35 @@ export class CatalogController {
         .set({ ...input, version: current.version + 1, updatedAt: new Date() })
         .where(eq(products.id, id))
         .returning();
+
+      // Modèle à variantes : nom, catégorie, unité, mise en ligne… suivent sur chaque variante ;
+      // le prix et le coût aussi, pour les variantes restées au prix du modèle.
+      if (product.variantAxes?.length) {
+        const children = await tx
+          .select()
+          .from(products)
+          .where(and(eq(products.parentId, id), isNull(products.deletedAt)));
+        for (const c of children) {
+          await tx
+            .update(products)
+            .set({
+              name: variantName(product.name, product.variantAxes, c.options ?? {}),
+              type: product.type,
+              categoryId: product.categoryId,
+              unit: product.unit,
+              trackStock: product.trackStock,
+              lowStockThreshold: product.lowStockThreshold,
+              published: product.published,
+              wholesalePrice: product.wholesalePrice,
+              wholesaleMinQty: product.wholesaleMinQty,
+              ...(c.price === current.price ? { price: product.price } : {}),
+              ...(c.cost === current.cost ? { cost: product.cost } : {}),
+              version: c.version + 1,
+              updatedAt: new Date(),
+            })
+            .where(eq(products.id, c.id));
+        }
+      }
 
       const changed =
         product.price !== current.price || product.cost !== current.cost || product.published !== current.published;
@@ -357,6 +556,11 @@ export class CatalogController {
         .where(and(eq(products.id, id), isNull(products.deletedAt)))
         .returning({ id: products.id });
       if (res.length === 0) throw AppError.notFound('Produit');
+      // Ses variantes partent avec lui
+      await tx
+        .update(products)
+        .set({ deletedAt: new Date(), updatedAt: new Date(), published: false })
+        .where(and(eq(products.parentId, id), isNull(products.deletedAt)));
     });
   }
 

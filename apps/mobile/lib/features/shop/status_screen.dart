@@ -151,7 +151,7 @@ class _StatusScreenState extends ConsumerState<StatusScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final products = ref.watch(productsProvider);
+    final products = ref.watch(catalogProductsProvider);
     final business = ref.watch(currentBusinessProvider);
     final shop = ref.watch(shopProvider);
     return AuroraScaffold(

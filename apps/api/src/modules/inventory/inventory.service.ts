@@ -3,7 +3,7 @@ import { and, eq, isNull, sql } from 'drizzle-orm';
 import type { Tx } from '../../shared/db/db.service';
 import { MovementType, products, warehouses } from '../../shared/db/schema';
 import { OutboxService } from '../../shared/events/outbox.service';
-import { AppError } from '../../shared/http/app-error';
+import { AppError, variantRequired } from '../../shared/http/app-error';
 import { newId } from '../../shared/ids';
 
 export interface MovementInput {
@@ -71,11 +71,13 @@ export class InventoryService {
         trackStock: products.trackStock,
         threshold: products.lowStockThreshold,
         cost: products.cost,
+        variantAxes: products.variantAxes,
       })
       .from(products)
       .where(and(eq(products.id, productId), isNull(products.deletedAt)))
       .limit(1);
     if (!p) throw AppError.notFound('Produit');
+    if (p.variantAxes?.length) throw variantRequired(p.name);
     if (!p.trackStock) throw new AppError('PRODUCT_NOT_TRACKED', `« ${p.name} » n'est pas suivi en stock`, 422);
     return p;
   }

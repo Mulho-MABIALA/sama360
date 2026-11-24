@@ -4097,6 +4097,203 @@ describe('Socle Sama360 (e2e)', () => {
     });
   });
 
+  describe('Variantes de produit (taille, couleur)', () => {
+    it('modèle à variantes : combinaisons, stock, vente, boutique en ligne et garde-fous', async () => {
+      // Nouvelle boutique du même commerçant : pas de connexion de plus (limite d'envoi de codes)
+      const owner = awa;
+      const biz = (
+        await http.post('/v1/businesses').set(auth(owner.accessToken)).send({ name: 'Ndiaye Mode' }).expect(201)
+      ).body.business.id;
+      const O = () => auth(owner.accessToken, biz);
+      const tshirt = (
+        await http
+          .post('/v1/catalog/products')
+          .set(O())
+          .send({ name: 'T-shirt col V', price: 5000, cost: 2500 })
+          .expect(201)
+      ).body.id;
+
+      // Toutes les combinaisons, au prix du modèle
+      const v1 = (
+        await http
+          .put(`/v1/catalog/products/${tshirt}/variants`)
+          .set(O())
+          .send({
+            axes: [
+              { name: 'Couleur', values: ['Noir', 'Blanc'] },
+              { name: 'Taille', values: ['M', 'L'] },
+            ],
+          })
+          .expect(200)
+      ).body;
+      expect(v1.product.variantAxes).toHaveLength(2);
+      expect(v1.variants.map((v: { name: string }) => v.name).sort()).toEqual([
+        'T-shirt col V · Blanc · L',
+        'T-shirt col V · Blanc · M',
+        'T-shirt col V · Noir · L',
+        'T-shirt col V · Noir · M',
+      ]);
+      expect(
+        v1.variants.every(
+          (v: { price: number; cost: number; parentId: string }) =>
+            v.price === 5000 && v.cost === 2500 && v.parentId === tshirt,
+        ),
+      ).toBe(true);
+      const id = (name: string) => v1.variants.find((v: { name: string }) => v.name.endsWith(name)).id as string;
+      const noirM = id('Noir · M');
+      const blancL = id('Blanc · L');
+
+      // Prix et code-barres par variante ; les autres gardent les leurs
+      const v2 = (
+        await http
+          .put(`/v1/catalog/products/${tshirt}/variants`)
+          .set(O())
+          .send({
+            axes: [
+              { name: 'Couleur', values: ['Noir', 'Blanc'] },
+              { name: 'Taille', values: ['M', 'L', 'XL'] },
+            ],
+            variants: [
+              { options: { Couleur: 'Noir', Taille: 'M' }, barcode: '600111' },
+              { options: { couleur: 'blanc', taille: 'l' } },
+              { options: { Couleur: 'Noir', Taille: 'XL' }, price: 6000 },
+            ],
+          })
+          .expect(200)
+      ).body;
+      expect(v2.variants).toHaveLength(3); // Noir L et Blanc M retirés
+      expect(v2.variants.find((v: { id: string }) => v.id === noirM)).toMatchObject({ barcode: '600111', price: 5000 });
+      expect(v2.variants.find((v: { id: string }) => v.id === blancL)).toBeTruthy();
+      expect(v2.variants.find((v: { name: string }) => v.name.endsWith('Noir · XL'))).toMatchObject({ price: 6000 });
+      const scanned = (await http.get('/v1/catalog/products/by-code/600111').set(O()).expect(200)).body;
+      expect(scanned.id).toBe(noirM);
+      const bad = await http
+        .put(`/v1/catalog/products/${tshirt}/variants`)
+        .set(O())
+        .send({ axes: [{ name: 'Taille', values: ['M'] }], variants: [{ options: { Couleur: 'Noir' } }] })
+        .expect(422);
+      expect(bad.body.error.message).toContain('Taille');
+      await http
+        .put(`/v1/catalog/products/${noirM}/variants`)
+        .set(O())
+        .send({ axes: [{ name: 'Taille', values: ['M'] }] })
+        .expect(422);
+
+      // Le modèle ne se vend pas, ne se stocke pas : la variante, oui
+      const sellParent = await http
+        .post('/v1/sales')
+        .set(O())
+        .send({
+          id: '01930000-0000-7000-8000-0000000ae001',
+          items: [{ productId: tshirt, quantity: 1 }],
+          payments: [{ method: 'cash', amount: 5000 }],
+        })
+        .expect(422);
+      expect(sellParent.body.error).toMatchObject({ code: 'VARIANT_REQUIRED' });
+      await http
+        .post('/v1/inventory/movements')
+        .set(O())
+        .send({ productId: tshirt, type: 'purchase', quantity: 3 })
+        .expect(422);
+      await http
+        .post('/v1/inventory/movements')
+        .set(O())
+        .send({ productId: noirM, type: 'purchase', quantity: 4 })
+        .expect(201);
+      const sold = await http
+        .post('/v1/sales')
+        .set(O())
+        .send({
+          id: '01930000-0000-7000-8000-0000000ae002',
+          items: [{ productId: noirM, quantity: 1 }],
+          payments: [{ method: 'cash', amount: 5000 }],
+        })
+        .expect(201);
+      expect(sold.body.items[0]).toMatchObject({ name: 'T-shirt col V · Noir · M', unitPrice: 5000 });
+      // Le stock baisse quand l'événement de la vente est traité
+      await relay.relayOnce();
+      await waitFor(
+        async () =>
+          (
+            (await http.get('/v1/inventory/stock').set(O()).expect(200)).body.items as {
+              productId: string;
+              onHand: number;
+            }[]
+          ).find((x) => x.productId === noirM)?.onHand,
+        (q) => q === 3,
+      );
+      const stock = (await http.get('/v1/inventory/stock').set(O()).expect(200)).body.items as {
+        productId: string;
+        onHand: number;
+      }[];
+      expect(stock.find((x) => x.productId === tshirt)).toBeUndefined();
+      expect(stock.find((x) => x.productId === noirM)?.onHand).toBe(3);
+
+      // Le nom et le prix du modèle suivent sur les variantes restées à son prix
+      await http
+        .patch(`/v1/catalog/products/${tshirt}`)
+        .set(O())
+        .send({ name: 'Tee-shirt col V', price: 5500 })
+        .expect(200);
+      const all = (await http.get('/v1/catalog/products?limit=100').set(O()).expect(200)).body.data as {
+        id: string;
+        name: string;
+        price: number;
+        parentId: string | null;
+      }[];
+      expect(all.find((p) => p.id === noirM)).toMatchObject({ name: 'Tee-shirt col V · Noir · M', price: 5500 });
+      expect(all.find((p) => p.name.endsWith('Noir · XL'))?.price).toBe(6000);
+
+      // Boutique en ligne : le modèle publié emmène ses variantes, rangées dessous
+      await http.put('/v1/shop/settings').set(O()).send({ enabled: true }).expect(200);
+      const pub = await http
+        .post('/v1/shop/publish')
+        .set(O())
+        .send({ productIds: [tshirt], published: true })
+        .expect(200);
+      expect(pub.body.updated).toBe(1);
+      const slug = (await http.get('/v1/shop').set(O()).expect(200)).body.slug;
+      const shop = (await http.get(`/v1/public/shops/${slug}`).expect(200)).body;
+      expect(shop.products).toHaveLength(1);
+      expect(shop.products[0]).toMatchObject({ id: tshirt, price: 5500, priceFrom: true, available: true });
+      expect(shop.products[0].variants).toHaveLength(3);
+      expect(shop.products[0].variants.find((v: { id: string }) => v.id === noirM)).toMatchObject({
+        options: { Couleur: 'Noir', Taille: 'M' },
+        available: true,
+        maxQuantity: 3,
+      });
+      expect(shop.products[0].variants.find((v: { id: string }) => v.id === blancL).available).toBe(false);
+      const base = { customerName: 'Awa Ba', customerPhone: '77 444 55 66', mode: 'pickup' };
+      const parentOrder = await http
+        .post(`/v1/public/shops/${slug}/orders`)
+        .send({ ...base, id: '01938000-0000-7000-8000-0000000ae101', items: [{ productId: tshirt, quantity: 1 }] })
+        .expect(422);
+      expect(parentOrder.body.error.code).toBe('VARIANT_REQUIRED');
+      await http
+        .post(`/v1/public/shops/${slug}/orders`)
+        .send({ ...base, id: '01938000-0000-7000-8000-0000000ae102', items: [{ productId: noirM, quantity: 2 }] })
+        .expect(201);
+
+      // Le modèle supprimé emporte ses variantes ; un produit déjà en stock refuse les variantes
+      const casquette = (
+        await http.post('/v1/catalog/products').set(O()).send({ name: 'Casquette', price: 3000 }).expect(201)
+      ).body.id;
+      await http
+        .post('/v1/inventory/movements')
+        .set(O())
+        .send({ productId: casquette, type: 'purchase', quantity: 2 })
+        .expect(201);
+      const stocked = await http
+        .put(`/v1/catalog/products/${casquette}/variants`)
+        .set(O())
+        .send({ axes: [{ name: 'Couleur', values: ['Rouge'] }] })
+        .expect(422);
+      expect(stocked.body.error.message).toContain('remettez-le à zéro');
+      await http.delete(`/v1/catalog/products/${tshirt}`).set(O()).expect(204);
+      await http.get(`/v1/catalog/products/${noirM}`).set(O()).expect(404);
+    });
+  });
+
   describe('Pages légales et suppression du compte depuis le web', () => {
     it('CGU, confidentialité, page de suppression ; suppression par code sans créer de compte', async () => {
       const cgu = await http.get('/cgu').expect(200);

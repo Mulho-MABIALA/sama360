@@ -17,6 +17,7 @@ import '../../core/providers.dart';
 import '../../core/theme.dart';
 import '../../core/widgets.dart';
 import '../locations/locations_screen.dart' show SellingAtBanner;
+import '../catalog/variant_picker.dart';
 import '../catalog/product_photo.dart';
 import '../customers/customer_picker.dart';
 import '../offline/offline_ui.dart';
@@ -258,7 +259,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
     final onHand = {for (final s in stock?.items ?? const <StockItem>[]) s.productId: s};
     final cart = ref.watch(cartProvider);
 
-    final count = products.value?.length;
+    final count = products.value?.where((p) => !p.isVariant).length;
     return AuroraScaffold(
       appBar: AppBar(
         toolbarHeight: 64,
@@ -363,10 +364,17 @@ class _PosScreenState extends ConsumerState<PosScreen> {
               child: AsyncView<List<Product>>(
                 value: products,
                 onRetry: () => ref.invalidate(productsProvider),
-                data: (list) {
+                data: (all) {
+                  // Les variantes (Noir · M…) se choisissent depuis leur modèle
+                  final list = all.where((p) => !p.isVariant).toList();
                   final shown = list
                       .where((p) => _categoryId == null || p.categoryId == _categoryId)
-                      .where((p) => _search.isEmpty || p.name.toLowerCase().contains(_search))
+                      .where(
+                        (p) =>
+                            _search.isEmpty ||
+                            p.name.toLowerCase().contains(_search) ||
+                            (p.hasVariants && variantsOf(p, all).any((v) => v.name.toLowerCase().contains(_search))),
+                      )
                       .toList();
                   if (list.isEmpty) {
                     return _EmptyCatalog(onScan: _scan);
@@ -385,16 +393,58 @@ class _PosScreenState extends ConsumerState<PosScreen> {
                       mainAxisSpacing: 12,
                     ),
                     itemCount: shown.length,
-                    itemBuilder: (_, i) => _ProductCard(
-                      product: shown[i],
-                      stock: onHand[shown[i].id],
-                      quantity: cart.quantityOf(shown[i].id),
-                      onAdd: () {
+                    itemBuilder: (_, i) {
+                      final p = shown[i];
+                      if (!p.hasVariants) {
+                        return _ProductCard(
+                          product: p,
+                          stock: onHand[p.id],
+                          quantity: cart.quantityOf(p.id),
+                          onAdd: () {
+                            HapticFeedback.selectionClick();
+                            ref.read(cartProvider.notifier).add(p);
+                          },
+                          onRemove: () => ref.read(cartProvider.notifier).remove(p.id),
+                        );
+                      }
+                      // Modèle : stock et quantité additionnés sur ses variantes ; le toucher ouvre le choix
+                      final vs = variantsOf(p, all);
+                      final items = [for (final v in vs) ?onHand[v.id]];
+                      final total = items.fold<double>(0, (s, x) => s + x.onHand);
+                      Future<void> choose() async {
+                        final v = await pickVariant(
+                          context,
+                          parent: p,
+                          variants: vs,
+                          onHand: stock == null ? null : {for (final x in items) x.productId: x.onHand},
+                        );
+                        if (v == null) return;
                         HapticFeedback.selectionClick();
-                        ref.read(cartProvider.notifier).add(shown[i]);
-                      },
-                      onRemove: () => ref.read(cartProvider.notifier).remove(shown[i].id),
-                    ),
+                        ref.read(cartProvider.notifier).add(v);
+                      }
+
+                      return _ProductCard(
+                        product: p,
+                        fromPrice: vs.map((v) => v.price).toSet().length > 1
+                            ? vs.map((v) => v.price).reduce((a, b) => a < b ? a : b)
+                            : null,
+                        options: vs.length,
+                        stock: items.isEmpty
+                            ? null
+                            : StockItem(
+                                productId: p.id,
+                                name: p.name,
+                                price: p.price,
+                                cost: p.cost,
+                                threshold: p.lowStockThreshold,
+                                onHand: total,
+                                low: total <= p.lowStockThreshold,
+                              ),
+                        quantity: vs.fold(0.0, (s, v) => s + cart.quantityOf(v.id)),
+                        onAdd: choose,
+                        onRemove: choose,
+                      );
+                    },
                   );
                 },
               ),
@@ -616,8 +666,14 @@ class _ProductCard extends StatelessWidget {
     required this.quantity,
     required this.onAdd,
     required this.onRemove,
+    this.fromPrice,
+    this.options = 0,
   });
   final Product product;
+
+  /// Modèle à variantes : prix « dès », nombre de choix.
+  final int? fromPrice;
+  final int options;
   final StockItem? stock;
   final double quantity;
   final VoidCallback onAdd;
@@ -722,7 +778,20 @@ class _ProductCard extends StatelessWidget {
                             Text.rich(
                               TextSpan(
                                 children: [
-                                  TextSpan(text: moneyShort(product.unitPriceFor(quantity))),
+                                  TextSpan(
+                                    text: fromPrice != null
+                                        ? 'dès ${moneyShort(fromPrice!)}'
+                                        : moneyShort(product.unitPriceFor(quantity)),
+                                  ),
+                                  if (options > 0)
+                                    TextSpan(
+                                      text: '  $options choix',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        color: AppColors.muted,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
                                   if (wholesale)
                                     TextSpan(
                                       text: '  gros',

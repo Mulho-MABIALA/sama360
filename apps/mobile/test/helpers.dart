@@ -125,7 +125,7 @@ class FakeRepo extends SamaRepository {
   }
 
   @override
-  Future<Product> product(String id) async => demoProducts.firstWhere((p) => p.id == id);
+  Future<Product> product(String id) async => [...demoProducts, ...extraProducts].firstWhere((p) => p.id == id);
 
   @override
   Future<Product?> productByCode(String code) async => demoProducts.where((p) => p.barcode == code).firstOrNull;
@@ -161,6 +161,18 @@ class FakeRepo extends SamaRepository {
 
   /// Comptes de paiement mobile (QR à la caisse).
   Map<PayMethod, PayAccount> payAccounts = {};
+
+  /// Variantes envoyées (produit, options, variantes).
+  final variantCalls = <(String, List<VariantAxis>, List<VariantDraft>)>[];
+
+  @override
+  Future<List<Product>> setVariants(String productId, List<VariantAxis> axes, List<VariantDraft> variants) async {
+    variantCalls.add((productId, axes, variants));
+    return [
+      for (final (i, v) in variants.indexed)
+        Product(id: '$productId-v$i', name: 'x', price: v.price ?? 0, cost: 0, parentId: productId, options: v.options),
+    ];
+  }
 
   /// Entrées de stock (produit, quantité, coût unitaire).
   final stockAdds = <(String, double, int?)>[];
@@ -442,6 +454,9 @@ class FakeRepo extends SamaRepository {
 
   /// Produits ajoutés par un test (ex. prestations pour la réservation).
   List<Product> extraProducts = const [];
+
+  /// Stock des produits ajoutés au catalogue de démonstration.
+  List<StockItem> extraStock = const [];
   @override
   Future<StockOverview> stock({bool lowOnly = false}) async {
     final items = [
@@ -451,6 +466,7 @@ class FakeRepo extends SamaRepository {
       _stock(demoProducts[3], 12),
       _stock(demoProducts[4], 18),
       _stock(demoProducts[1], 40),
+      ...extraStock,
     ];
     return StockOverview(items: items, lowStock: 2, stockValue: 1240000);
   }

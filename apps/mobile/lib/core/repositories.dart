@@ -279,6 +279,18 @@ class SamaRepository {
   Future<CurrentBusiness> currentBusiness() async =>
       CurrentBusiness.fromJson(await _cachedGet<Map<String, dynamic>>('/v1/business'));
 
+  /// Variantes d'un produit (taille, couleur…) : renvoie les variantes à jour.
+  Future<List<Product>> setVariants(String productId, List<VariantAxis> axes, List<VariantDraft> variants) async {
+    final r = await api.put<Map<String, dynamic>>(
+      '/v1/catalog/products/$productId/variants',
+      data: {
+        'axes': [for (final a in axes) a.toJson()],
+        'variants': [for (final v in variants) v.toJson()],
+      },
+    );
+    return [for (final v in (r['variants'] as List)) Product.fromJson(v as Map<String, dynamic>)];
+  }
+
   /// Logo de l'entreprise (factures, devis, reçus).
   Future<void> uploadBusinessLogo(List<int> bytes, {String filename = 'logo.png'}) =>
       api.upload<void>('/v1/business/logo', bytes, filename: filename);

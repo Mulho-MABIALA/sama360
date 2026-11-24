@@ -456,7 +456,7 @@ class _ShopProductsScreenState extends ConsumerState<ShopProductsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final products = ref.watch(productsProvider);
+    final products = ref.watch(catalogProductsProvider);
     final canWrite = ref.watch(canProvider('catalog:write'));
     return AuroraScaffold(
       appBar: AppBar(

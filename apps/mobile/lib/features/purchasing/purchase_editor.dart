@@ -634,7 +634,7 @@ class ProductPickerState extends ConsumerState<ProductPicker> {
 
   @override
   Widget build(BuildContext context) {
-    final products = ref.watch(productsProvider);
+    final products = ref.watch(sellableProductsProvider);
     return SizedBox(
       height: MediaQuery.sizeOf(context).height * 0.75,
       child: Padding(

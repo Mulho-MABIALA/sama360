@@ -77,7 +77,7 @@ export class InventoryController {
         FROM catalog.products p
         LEFT JOIN inventory.stock_levels sl ON sl.product_id = p.id
           AND sl.warehouse_id IN (SELECT id FROM inventory.warehouses WHERE archived_at IS NULL)
-        WHERE p.deleted_at IS NULL AND p.track_stock
+        WHERE p.deleted_at IS NULL AND p.track_stock AND p.variant_axes IS NULL
           AND (${search}::text IS NULL OR p.name ILIKE ${search})
         GROUP BY p.id
         ORDER BY p.name`);

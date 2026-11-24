@@ -193,8 +193,8 @@ export class BusinessesService {
       const r = (
         await tx.execute(sql`
           SELECT b.settings, b.logo_file_id IS NOT NULL AS has_logo, coalesce(b.phone, '') <> '' AS has_phone,
-            (SELECT count(*) FROM catalog.products WHERE deleted_at IS NULL AND type = 'product')::int AS products,
-            (SELECT count(*) FROM catalog.products WHERE deleted_at IS NULL AND type = 'service')::int AS services,
+            (SELECT count(*) FROM catalog.products WHERE deleted_at IS NULL AND parent_id IS NULL AND type = 'product')::int AS products,
+            (SELECT count(*) FROM catalog.products WHERE deleted_at IS NULL AND parent_id IS NULL AND type = 'service')::int AS services,
             (SELECT count(*) FROM sales.sales)::int AS sales,
             (SELECT count(*) FROM sales.appointments)::int AS appointments,
             coalesce((SELECT enabled FROM shop.settings LIMIT 1), false) AS shop_online,

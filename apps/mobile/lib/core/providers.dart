@@ -204,6 +204,31 @@ final productsProvider = FutureProvider<List<Product>>((ref) {
   return ref.watch(repoProvider).products();
 });
 
+/// Catalogue affiché : les produits simples et les modèles (leurs variantes sont rangées dessous).
+final catalogProductsProvider = FutureProvider<List<Product>>(
+  (ref) async => (await ref.watch(productsProvider.future)).where((p) => !p.isVariant).toList(),
+);
+
+/// Ce qui se vend, s'achète et se compte : produits simples et variantes (pas les modèles).
+final sellableProductsProvider = FutureProvider<List<Product>>(
+  (ref) async => (await ref.watch(productsProvider.future)).where((p) => !p.hasVariants).toList(),
+);
+
+/// Variantes d'un modèle, dans l'ordre de ses options.
+List<Product> variantsOf(Product parent, List<Product> all) {
+  final vs = all.where((p) => p.parentId == parent.id).toList();
+  int rank(Product v) {
+    var r = 0;
+    for (final a in parent.variantAxes) {
+      r = r * 100 + a.values.indexOf(v.options[a.name] ?? '').clamp(0, 99);
+    }
+    return r;
+  }
+
+  vs.sort((a, b) => rank(a).compareTo(rank(b)));
+  return vs;
+}
+
 final debtorsProvider = FutureProvider<List<Debtor>>((ref) {
   ref.watch(scopeProvider);
   return ref.watch(repoProvider).debtors();
