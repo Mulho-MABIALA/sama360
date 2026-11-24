@@ -43,7 +43,8 @@ String referralLink(String apiBase, String code) =>
 
 String proHeadline(ProStatus s) => switch (s.state) {
   ProState.trial => 'Essai Pro offert · ${_daysText(s.daysLeft)}',
-  ProState.active => 'Pro actif jusqu’au ${_day.format(s.endsAt!.toLocal())}',
+  ProState.active =>
+    proEndLabel(s.endsAt!) == 'à vie' ? 'Pro actif à vie' : 'Pro actif jusqu’au ${_day.format(s.endsAt!.toLocal())}',
   ProState.expired => 'Votre Sama360 Pro est terminé',
   ProState.free => 'Vous êtes sur l’offre gratuite',
 };

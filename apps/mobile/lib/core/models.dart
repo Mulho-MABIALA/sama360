@@ -1251,6 +1251,8 @@ class SaleSummary {
     required this.status,
     this.customerName,
     this.cashierName,
+    this.firstItem,
+    this.itemCount = 0,
     required this.total,
     required this.due,
     required this.soldAt,
@@ -1260,6 +1262,19 @@ class SaleSummary {
   final String status;
   final String? customerName;
   final String? cashierName;
+  final String? firstItem;
+  final int itemCount;
+
+  /// Titre lisible : le client, sinon ce qui a été vendu (« Savon noir + 2 autres »), sinon le numéro.
+  String get title {
+    if ((customerName ?? '').isNotEmpty) return customerName!;
+    if ((firstItem ?? '').isNotEmpty) {
+      final more = itemCount - 1;
+      return more <= 0 ? firstItem! : '$firstItem + $more autre${more > 1 ? 's' : ''}';
+    }
+    return number;
+  }
+
   final int total;
   final int due;
   final DateTime soldAt;
@@ -1270,6 +1285,8 @@ class SaleSummary {
     status: j['status'] as String? ?? 'completed',
     customerName: j['customerName'] as String?,
     cashierName: j['cashierName'] as String?,
+    firstItem: j['firstItem'] as String?,
+    itemCount: _int(j['itemCount']),
     total: _int(j['total']),
     // La liste renvoie « paid » ; le détail renvoie aussi « due ».
     due: j['due'] != null ? _int(j['due']) : _int(j['total']) - _int(j['paid']),

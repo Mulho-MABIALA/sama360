@@ -87,7 +87,7 @@ void main() {
     expect(find.text('Stock'), findsOneWidget);
   });
 
-  testWidgets('création d’entreprise : l’activité suit le type, modifiable, envoyée au serveur', (tester) async {
+  testWidgets('création d’entreprise : l’activité suit le type, ville au choix, envoyée au serveur', (tester) async {
     phoneSize(tester);
     final (_, repo) = await pumpSama(tester, location: '/business');
     await tester.tap(find.text('Créer une entreprise'));
@@ -95,17 +95,19 @@ void main() {
     await tester.enterText(find.byKey(const Key('businessName')), 'Salon Ndeye');
     await tester.tap(find.text('Salon / beauté'));
     await tester.pump();
-    expect(find.text('Vous vendez surtout…'), findsOneWidget);
-    await tester.ensureVisible(find.byKey(const Key('focus_both')));
-    await tester.tap(find.byKey(const Key('focus_both')));
+    // L'activité découle du type : on ne la redemande pas
+    expect(find.text('Vous vendez surtout…'), findsNothing);
+    await tester.ensureVisible(find.byKey(const Key('other_city')));
+    await tester.tap(find.byKey(const Key('other_city')));
     await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const Key('businessCity')), 'Thiès');
     await tapCentered(tester, find.text("Créer l'entreprise"));
     await tester.pumpAndSettle();
     expect(repo.createdBusinesses.single, {
       'name': 'Salon Ndeye',
       'category': 'salon',
-      'city': 'Dakar',
-      'focus': 'both',
+      'city': 'Thiès',
+      'focus': 'services',
       'country': 'SN',
     });
   });

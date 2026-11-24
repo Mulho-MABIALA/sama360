@@ -123,6 +123,11 @@ export class SalesController {
           paid: sales.paid,
           soldAt: sales.soldAt,
           locationId: sales.warehouseId,
+          // Pour titrer la vente dans la liste : « Savon noir + 2 autres »
+          firstItem: sql<
+            string | null
+          >`(SELECT si.name FROM sales.sale_items si WHERE si.sale_id = ${sales.id} ORDER BY si.id LIMIT 1)`,
+          itemCount: sql<number>`(SELECT count(*)::int FROM sales.sale_items si WHERE si.sale_id = ${sales.id})`,
         })
         .from(sales)
         .leftJoin(contacts, eq(contacts.id, sales.customerId))

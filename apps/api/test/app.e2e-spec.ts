@@ -793,7 +793,7 @@ describe('Socle Sama360 (e2e)', () => {
 
       const list = (await http.get('/v1/sales?mine=true').set(C).expect(200)).body.data;
       expect(list).toHaveLength(1);
-      expect(list[0]).toMatchObject({ total: 100, cashierName: CAISSIER });
+      expect(list[0]).toMatchObject({ total: 100, cashierName: CAISSIER, firstItem: expect.any(String), itemCount: 1 });
       const all = (await http.get('/v1/sales').set(A()).expect(200)).body.data as { cashierName: string }[];
       expect(new Set(all.map((x) => x.cashierName))).toEqual(new Set(['Awa Diallo', CAISSIER]));
     });

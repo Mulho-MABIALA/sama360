@@ -2461,6 +2461,8 @@ class FakeRepo extends SamaRepository {
       id: 's1',
       number: 'VEN-2026-0040',
       status: 'completed',
+      firstItem: 'Beurre de karité 250 g',
+      itemCount: 3,
       total: 11600,
       due: 0,
       soldAt: DateTime(2026, 11, 16, 9, 42),

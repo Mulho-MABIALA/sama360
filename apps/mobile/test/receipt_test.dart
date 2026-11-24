@@ -153,10 +153,14 @@ void main() {
 
   testWidgets('historique : ouvre le reçu', (tester) async {
     await pumpSama(tester, location: '/sales');
-    expect(find.text('VEN-2026-0042'), findsOneWidget);
+    // Titrée par le client, sinon par ce qui a été vendu ; le numéro en petit dessous
+    expect(find.text('Aminata Ba'), findsOneWidget);
+    expect(find.text('Beurre de karité 250 g + 2 autres'), findsOneWidget);
+    expect(find.text('VEN-2026-0041'), findsOneWidget); // sans articles connus : le numéro
+    expect(find.textContaining('VEN-2026-0042'), findsOneWidget);
     expect(find.textContaining('Crédit 4'), findsOneWidget);
     expect(find.text('2'), findsOneWidget); // ventes non annulées
-    await tester.tap(find.text('VEN-2026-0042'));
+    await tester.tap(find.text('Aminata Ba'));
     await tester.pumpAndSettle();
     expect(find.text('REÇU VEN-2026-0042'), findsOneWidget);
   });

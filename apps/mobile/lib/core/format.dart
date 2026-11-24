@@ -47,6 +47,17 @@ String shortDate(DateTime d) => _day.format(d.toLocal());
 String dateTime(DateTime d) => _dayTime.format(d.toLocal());
 String longDate(DateTime d) => _longDay.format(d.toLocal());
 
+final _fullDay = DateFormat('d MMMM y', 'fr');
+
+/// Fin d'un abonnement, lisible : « 3 jours restants », « jusqu’au 12 mars 2027 », « à vie ».
+String proEndLabel(DateTime until) {
+  final days = (until.difference(DateTime.now()).inHours / 24).ceil();
+  if (days > 3650) return 'à vie';
+  if (days <= 1) return 'dernier jour';
+  if (days <= 31) return '$days jours restants';
+  return 'jusqu’au ${_fullDay.format(until.toLocal())}';
+}
+
 /// Numéro saisi → E.164, d'après le pays de la boutique. Accepte aussi un numéro
 /// international (« +221 77… », « 00225… ») ; les numéros de nos pays sont vérifiés.
 /// Renvoie null s'il est invalide.

@@ -81,11 +81,18 @@ class SalesHistoryScreen extends ConsumerWidget {
                             color: s.status == 'voided' ? AppColors.danger : AppColors.green,
                           ),
                         ),
-                        title: Text(s.number, style: const TextStyle(fontWeight: FontWeight.w800)),
+                        title: Text(
+                          s.title,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontWeight: FontWeight.w800),
+                        ),
                         subtitle: Text(
                           [
                             DateFormat('HH:mm', 'fr').format(s.soldAt.toLocal()),
-                            if (s.customerName != null) s.customerName!,
+                            // Le numéro reste visible, en petit
+                            if (s.title != s.number) s.number,
+                            if (s.customerName != null && s.firstItem != null) s.firstItem!,
                             if (showSeller && s.cashierName != null) 'par ${firstName(s.cashierName!)}',
                             if (s.status == 'voided') 'Annulée',
                           ].join(' · '),

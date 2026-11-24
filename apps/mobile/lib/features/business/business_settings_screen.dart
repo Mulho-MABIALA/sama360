@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 
+import '../../core/format.dart';
 import '../../core/glass.dart';
 import '../../core/models.dart';
 import '../../core/providers.dart';
@@ -255,8 +256,8 @@ class _BusinessSettingsScreenState extends ConsumerState<BusinessSettingsScreen>
                     value: !b.isPro
                         ? 'Offre gratuite'
                         : b.trial
-                        ? 'Essai · ${b.proDaysLeft} j'
-                        : 'Actif · ${b.proDaysLeft} j',
+                        ? 'Essai · ${proEndLabel(b.proUntil!)}'
+                        : 'Actif · ${proEndLabel(b.proUntil!)}',
                     hint: b.isPro
                         ? 'Boutique en ligne, vendeurs, livraisons, assistant…'
                         : 'Passez à Pro pour la boutique en ligne, les vendeurs, les livraisons…',

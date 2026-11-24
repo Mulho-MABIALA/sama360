@@ -157,7 +157,7 @@ void main() {
       ..proTrial = true;
     await pumpSama(tester, location: '/business/settings', repo: repo);
     await tester.scrollUntilVisible(find.byKey(const Key('pro_row')), 200, scrollable: find.byType(Scrollable).first);
-    expect(find.text('Essai · 24 j'), findsOneWidget);
+    expect(find.text('Essai · 24 jours restants'), findsOneWidget);
     await tester.tap(find.byKey(const Key('pro_row')));
     await tester.pumpAndSettle();
     expect(find.textContaining('Essai Pro offert'), findsOneWidget);
@@ -217,7 +217,9 @@ void main() {
     await tester.tap(find.text('Créer une entreprise'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byKey(const Key('businessName')), 'Ibou Quincaillerie');
-    await tester.ensureVisible(find.byKey(const Key('referralCode')));
+    await tester.ensureVisible(find.byKey(const Key('show_referral')));
+    await tester.tap(find.byKey(const Key('show_referral')));
+    await tester.pumpAndSettle();
     await tester.enterText(find.byKey(const Key('referralCode')), 'awa7k2 ');
     await tester.pumpAndSettle();
     await tapCentered(tester, find.text("Créer l'entreprise"));

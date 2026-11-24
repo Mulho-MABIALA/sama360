@@ -46,6 +46,8 @@ class _BusinessScreenState extends ConsumerState<BusinessScreen> {
   final _referral = TextEditingController(text: kIsWeb ? (Uri.base.queryParameters['ref'] ?? '') : '');
   String _category = 'boutique';
   String _focus = 'products';
+  late bool _showReferral = _referral.text.isNotEmpty;
+  bool _otherCity = false;
   bool _creating = false;
   bool _busy = false;
 
@@ -155,27 +157,6 @@ class _BusinessScreenState extends ConsumerState<BusinessScreen> {
                 ],
               ),
               const SizedBox(height: 16),
-              const Text('Vous vendez surtout…', style: TextStyle(fontWeight: FontWeight.w700)),
-              const SizedBox(height: 4),
-              Text(
-                'Produits : stock et boutique en ligne. Services : rendez-vous et prestations.',
-                style: TextStyle(color: AppColors.muted, fontSize: 12.5),
-              ),
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  for (final e in focusLabels.entries)
-                    Pill(
-                      key: Key('focus_${e.key}'),
-                      label: e.value,
-                      selected: _focus == e.key,
-                      onTap: () => setState(() => _focus = e.key),
-                    ),
-                ],
-              ),
-              const SizedBox(height: 16),
               Text('Pays', style: TextStyle(color: AppColors.muted, fontSize: 12.5)),
               const SizedBox(height: 8),
               CountryPills(
@@ -184,38 +165,84 @@ class _BusinessScreenState extends ConsumerState<BusinessScreen> {
                   // Ville par défaut du pays précédent : on prend celle du nouveau
                   if (_city.text.trim().isEmpty || Country.values.any((o) => o.cities.contains(_city.text.trim()))) {
                     _city.text = c.cities.first;
+                    _otherCity = false;
                   }
                   _country = c;
                 }),
               ),
               const SizedBox(height: 16),
-              TextField(
-                controller: _city,
-                decoration: const InputDecoration(labelText: 'Ville'),
-              ),
+              Text('Ville', style: TextStyle(color: AppColors.muted, fontSize: 12.5)),
               const SizedBox(height: 8),
               Wrap(
                 spacing: 6,
                 runSpacing: 6,
                 children: [
                   for (final city in _country.cities.take(5))
-                    Pill(label: city, selected: _city.text == city, onTap: () => setState(() => _city.text = city)),
+                    Pill(
+                      label: city,
+                      selected: !_otherCity && _city.text == city,
+                      onTap: () => setState(() {
+                        _otherCity = false;
+                        _city.text = city;
+                      }),
+                    ),
+                  Pill(
+                    key: const Key('other_city'),
+                    label: 'Autre…',
+                    selected: _otherCity,
+                    onTap: () => setState(() {
+                      _otherCity = true;
+                      _city.clear();
+                    }),
+                  ),
                 ],
               ),
-              const SizedBox(height: 16),
-              TextField(
-                key: const Key('referralCode'),
-                controller: _referral,
-                textCapitalization: TextCapitalization.characters,
-                decoration: const InputDecoration(
-                  labelText: 'Code de parrainage (facultatif)',
-                  hintText: 'ex. AWA7K2',
-                  helperText: 'Un commerçant vous a invité ? 1 mois Pro offert à chacun.',
+              if (_otherCity) ...[
+                const SizedBox(height: 10),
+                TextField(
+                  key: const Key('businessCity'),
+                  controller: _city,
+                  autofocus: true,
+                  textCapitalization: TextCapitalization.words,
+                  decoration: const InputDecoration(labelText: 'Votre ville'),
+                ),
+              ],
+              const SizedBox(height: 12),
+              if (_showReferral)
+                TextField(
+                  key: const Key('referralCode'),
+                  controller: _referral,
+                  textCapitalization: TextCapitalization.characters,
+                  decoration: const InputDecoration(
+                    labelText: 'Code de parrainage',
+                    hintText: 'ex. AWA7K2',
+                    helperText: '1 mois Pro offert à vous et à celui qui vous a invité.',
+                  ),
+                )
+              else
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: TextButton.icon(
+                    key: const Key('show_referral'),
+                    onPressed: () => setState(() => _showReferral = true),
+                    icon: const Icon(Icons.card_giftcard_rounded, size: 18),
+                    label: const Text('J’ai un code de parrainage'),
+                  ),
+                ),
+              const SizedBox(height: 20),
+              BusyButton(accent: true, label: "Créer l'entreprise", busy: _busy, onPressed: _create),
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Text(
+                  'Logo, téléphone et le reste se règlent plus tard dans « Ma boutique ».',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: AppColors.muted, fontSize: 12),
                 ),
               ),
-              const SizedBox(height: 24),
-              BusyButton(label: "Créer l'entreprise", busy: _busy, onPressed: _create),
-              if (list.isNotEmpty) CancelButton(onPressed: () => setState(() => _creating = false)),
+              if (list.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                CancelButton(onPressed: () => setState(() => _creating = false)),
+              ],
               if (list.isEmpty) ...[
                 const DeletedBusinessesList(),
                 const SizedBox(height: 12),
