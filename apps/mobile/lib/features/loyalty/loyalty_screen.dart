@@ -141,42 +141,47 @@ class _ProgramCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final d = dashboard;
+    // Fond vert profond (comme les autres cartes de chiffres) : le texte blanc reste lisible
     return Sheen(
       radius: 26,
-      child: Glass(
-        tone: GlassTone.dark,
-        radius: 26,
-        padding: const EdgeInsets.all(18),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Row(
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(26),
+        child: AuroraBackground(
+          tone: AuroraTone.deep,
+          child: Padding(
+            padding: const EdgeInsets.all(18),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(Icons.stars_rounded, color: Color(0xFFFFC857)),
-                SizedBox(width: 8),
-                Text(
-                  'Programme actif',
-                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800),
+                const Row(
+                  children: [
+                    Icon(Icons.stars_rounded, color: Color(0xFFFFC857)),
+                    SizedBox(width: 8),
+                    Text(
+                      'Programme actif',
+                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                Text(loyaltyRuleText(d.settings), style: const TextStyle(color: Color(0xFFCDE9DD), fontSize: 12.5)),
+                const SizedBox(height: 14),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _Stat(label: 'Clients avec des points', value: '${d.members}'),
+                    ),
+                    Expanded(
+                      child: _Stat(label: 'Points en cours', value: '${d.pointsOutstanding}'),
+                    ),
+                    Expanded(
+                      child: _Stat(label: 'Points utilisés', value: '${d.pointsRedeemed}'),
+                    ),
+                  ],
                 ),
               ],
             ),
-            const SizedBox(height: 6),
-            Text(loyaltyRuleText(d.settings), style: const TextStyle(color: Color(0xFFCDE9DD), fontSize: 12.5)),
-            const SizedBox(height: 14),
-            Row(
-              children: [
-                Expanded(
-                  child: _Stat(label: 'Clients avec des points', value: '${d.members}'),
-                ),
-                Expanded(
-                  child: _Stat(label: 'Points en cours', value: '${d.pointsOutstanding}'),
-                ),
-                Expanded(
-                  child: _Stat(label: 'Points utilisés', value: '${d.pointsRedeemed}'),
-                ),
-              ],
-            ),
-          ],
+          ),
         ),
       ),
     );
@@ -447,7 +452,7 @@ class _LoyaltySettingsScreenState extends ConsumerState<LoyaltySettingsScreen> {
                           child: _NumberField(
                             key: const Key('rewardPoints'),
                             controller: _rewardPoints,
-                            label: 'Points pour une récompense',
+                            label: 'Points nécessaires',
                             suffix: 'pts',
                             onChanged: () => setState(() {}),
                           ),

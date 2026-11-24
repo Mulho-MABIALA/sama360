@@ -95,23 +95,27 @@ class _StockScreenState extends ConsumerState<StockScreen> {
             child: ListView(
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 120),
               children: [
-                Row(
-                  children: [
-                    // Valeur du stock (prix d'achat) : pas pour le vendeur
-                    if (costs) ...[
+                // Tuiles de même hauteur, même si un libellé passe sur deux lignes
+                IntrinsicHeight(
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      // Valeur du stock (prix d'achat) : pas pour le vendeur
+                      if (costs) ...[
+                        Expanded(
+                          child: StatTile(label: 'Valeur du stock', value: moneyShort(s.stockValue)),
+                        ),
+                        const SizedBox(width: 8),
+                      ],
                       Expanded(
-                        child: StatTile(label: 'Votre stock vaut', value: moneyShort(s.stockValue)),
+                        child: StatTile(label: 'Produits', value: '${s.items.length}'),
                       ),
                       const SizedBox(width: 8),
+                      Expanded(
+                        child: StatTile(label: 'Stock bas', value: '${s.lowStock}', warn: s.lowStock > 0),
+                      ),
                     ],
-                    Expanded(
-                      child: StatTile(label: 'Produits', value: '${s.items.length}'),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: StatTile(label: 'Stock bas', value: '${s.lowStock}', warn: s.lowStock > 0),
-                    ),
-                  ],
+                  ),
                 ),
                 const SizedBox(height: 12),
                 TextField(

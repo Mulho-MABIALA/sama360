@@ -17,3 +17,4 @@ dump.rdb
 # APK / IPA de test
 builds/
 apps/mobile/android/build/
+apps/mobile/test/screenshots/tour/

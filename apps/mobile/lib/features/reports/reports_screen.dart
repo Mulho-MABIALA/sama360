@@ -478,28 +478,31 @@ class _Hero extends StatelessWidget {
                 ),
                 const SizedBox(height: 14),
                 // Les deux autres chiffres qui comptent : ce qu'il reste en poche, ce qu'on vous doit
-                Row(
-                  children: [
-                    Expanded(
-                      child: _HeroFigure(
-                        key: const Key('report_gained'),
-                        label: 'Gagné',
-                        hint: 'après achats et dépenses',
-                        value: moneyShort(r.netProfit),
-                        color: r.netProfit < 0 ? const Color(0xFFFFB4A8) : AppColors.glow,
+                IntrinsicHeight(
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Expanded(
+                        child: _HeroFigure(
+                          key: const Key('report_gained'),
+                          label: 'Gagné',
+                          hint: 'après achats et dépenses',
+                          value: moneyShort(r.netProfit),
+                          color: r.netProfit < 0 ? const Color(0xFFFFB4A8) : AppColors.glow,
+                        ),
                       ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: _HeroFigure(
-                        key: const Key('report_owed'),
-                        label: 'On vous doit',
-                        hint: 'ventes à crédit',
-                        value: moneyShort(r.onCredit),
-                        color: r.onCredit > 0 ? const Color(0xFFFFD59A) : Colors.white,
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: _HeroFigure(
+                          key: const Key('report_owed'),
+                          label: 'On vous doit',
+                          hint: 'ventes à crédit',
+                          value: moneyShort(r.onCredit),
+                          color: r.onCredit > 0 ? const Color(0xFFFFD59A) : Colors.white,
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ],
             ),

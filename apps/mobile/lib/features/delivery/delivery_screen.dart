@@ -777,7 +777,7 @@ class _NewDeliveryScreenState extends ConsumerState<NewDeliveryScreen> {
               child: TextField(
                 controller: _fee,
                 keyboardType: TextInputType.number,
-                decoration: const InputDecoration(labelText: 'Frais de livraison (F)'),
+                decoration: const InputDecoration(labelText: 'Livraison (F)'),
               ),
             ),
           ],

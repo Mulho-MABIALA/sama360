@@ -42,8 +42,8 @@ class BusinessScreen extends ConsumerStatefulWidget {
 
 class _BusinessScreenState extends ConsumerState<BusinessScreen> {
   final _name = TextEditingController();
-  late final _city = TextEditingController(text: _country.cities.first);
-  late Country _country = ref.read(loginCountryProvider);
+  late Country _country;
+  late final TextEditingController _city;
 
   /// Code de parrainage : repris du lien d'invitation (…/app/?ref=CODE) sur la version web.
   final _referral = TextEditingController(text: kIsWeb ? (Uri.base.queryParameters['ref'] ?? '') : '');
@@ -53,6 +53,14 @@ class _BusinessScreenState extends ConsumerState<BusinessScreen> {
   bool _otherCity = false;
   bool _creating = false;
   bool _busy = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Lu ici (et pas paresseusement) : sinon dispose() créerait le champ avec un ref déjà démonté
+    _country = ref.read(loginCountryProvider);
+    _city = TextEditingController(text: _country.cities.first);
+  }
 
   @override
   void dispose() {

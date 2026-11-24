@@ -594,7 +594,8 @@ class _ProductEditorScreenState extends ConsumerState<ProductEditorScreen> {
                                         style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15),
                                       ),
                                       Text(
-                                        'Prix d’achat, catégorie, service, prix de gros, code-barres, alerte stock',
+                                        'Prix d’achat, unité, carton, prix de gros, catégorie, code-barres, '
+                                        'suppléments, péremption, IMEI…',
                                         style: TextStyle(color: AppColors.muted, fontSize: 12.5),
                                       ),
                                     ],

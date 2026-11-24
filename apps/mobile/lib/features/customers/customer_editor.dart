@@ -388,7 +388,7 @@ class _BirthdayField extends StatelessWidget {
         child: DropdownButtonFormField<int?>(
           key: const Key('cBirthDay'),
           initialValue: day,
-          decoration: const InputDecoration(labelText: 'Anniversaire', prefixIcon: Icon(Icons.cake_rounded)),
+          decoration: const InputDecoration(labelText: 'Anniversaire'),
           items: [
             const DropdownMenuItem(value: null, child: Text('Jour')),
             for (var d = 1; d <= _daysIn(month); d++) DropdownMenuItem(value: d, child: Text('$d')),

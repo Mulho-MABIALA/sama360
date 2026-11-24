@@ -445,10 +445,12 @@ class _ActionBar extends ConsumerWidget {
         ),
       if (d.status.canReceive)
         Expanded(
+          flex: 3,
           child: BusyButton(label: 'Marchandise arrivée', busy: false, onPressed: () => onReceive(d)),
         ),
       if (d.payable > 0 && d.status != PurchaseStatus.draft)
         Expanded(
+          flex: 2,
           child: OutlinedButton.icon(
             style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(52)),
             onPressed: () => onPay(d),

@@ -61,6 +61,9 @@ final checkoutLauncherProvider = Provider<Future<bool> Function(Uri)>(
 
 final _emailRe = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
 
+/// Pro à vie (offert par l'équipe) : ni prix ni paiement à montrer.
+bool _lifetime(ProStatus s) => s.state == ProState.active && s.endsAt != null && proEndLabel(s.endsAt!) == 'à vie';
+
 String _daysText(int d) => d <= 1 ? 'dernier jour' : '$d jours restants';
 
 // ───────────────────────────────────────────────────────────── Offre Pro
@@ -261,35 +264,39 @@ class _ProScreenState extends ConsumerState<ProScreen> with WidgetsBindingObserv
                 ),
               ),
               const SizedBox(height: 14),
-              Row(
-                children: [
-                  Expanded(
-                    child: _PriceCard(
-                      key: const Key('cycle_monthly'),
-                      title: 'Mensuel',
-                      price: moneyShort(s.monthly),
-                      sub: 'par mois',
-                      selected: _cycle == 'monthly',
-                      onTap: () => setState(() => _cycle = 'monthly'),
+              if (!_lifetime(s))
+                Row(
+                  children: [
+                    Expanded(
+                      child: _PriceCard(
+                        key: const Key('cycle_monthly'),
+                        title: 'Mensuel',
+                        price: moneyShort(s.monthly),
+                        sub: 'par mois',
+                        selected: _cycle == 'monthly',
+                        onTap: () => setState(() => _cycle = 'monthly'),
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: _PriceCard(
-                      key: const Key('cycle_yearly'),
-                      title: 'Annuel',
-                      price: moneyShort(s.yearly),
-                      sub: '2 mois offerts',
-                      selected: _cycle == 'yearly',
-                      onTap: () => setState(() => _cycle = 'yearly'),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: _PriceCard(
+                        key: const Key('cycle_yearly'),
+                        title: 'Annuel',
+                        price: moneyShort(s.yearly),
+                        sub: '2 mois offerts',
+                        selected: _cycle == 'yearly',
+                        onTap: () => setState(() => _cycle = 'yearly'),
+                      ),
                     ),
-                  ),
-                ],
-              ),
+                  ],
+                ),
               const SizedBox(height: 14),
               if (_paid) const _OnlineDone() else if (_waitingId != null) _OnlineWaiting(onCheck: _check),
               if (_paid || _waitingId != null) const SizedBox(height: 14),
-              if (s.pending != null)
+              if (_lifetime(s))
+                // Pro à vie : rien à payer
+                const SizedBox.shrink()
+              else if (s.pending != null)
                 _Pending(request: s.pending!)
               else if (!canPay)
                 Glass(
