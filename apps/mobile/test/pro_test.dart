@@ -160,6 +160,8 @@ void main() {
     await pumpSama(tester, location: '/business/settings', repo: repo);
     await tester.scrollUntilVisible(find.byKey(const Key('pro_row')), 200, scrollable: find.byType(Scrollable).first);
     expect(find.text('Essai · 24 jours restants'), findsOneWidget);
+    await tester.ensureVisible(find.byKey(const Key('pro_row')));
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('pro_row')));
     await tester.pumpAndSettle();
     expect(find.textContaining('Essai Pro offert'), findsOneWidget);

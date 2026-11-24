@@ -8,6 +8,7 @@ import '../../core/glass.dart';
 import '../../core/models.dart';
 import '../../core/providers.dart';
 import '../../core/theme.dart';
+import '../../core/trades.dart';
 import '../../core/widgets.dart';
 import '../auth/auth_controller.dart';
 import '../../core/offline/pending_sales.dart';
@@ -25,7 +26,7 @@ import 'monument.dart';
 import 'promo_carousel.dart';
 
 class _Service {
-  const _Service(this.name, this.icon, this.color, {this.route, this.art, this.pro, this.perm});
+  const _Service(this.name, this.icon, this.color, {this.route, this.art, this.pro, this.perm, this.svc});
   final String name;
   final IconData icon;
   final Color color;
@@ -39,6 +40,9 @@ class _Service {
 
   /// Droit nécessaire pour voir la tuile sur l'accueil (sinon une autre prend sa place).
   final String? perm;
+
+  /// Service qu'on peut masquer selon le métier (null : toujours là).
+  final BizService? svc;
 }
 
 // ---------- Catalogue des services ----------
@@ -65,6 +69,7 @@ const _invoices = _Service(
   route: '/invoices',
   art: 'factures',
   perm: 'invoicing:read',
+  svc: BizService.invoices,
 );
 const _customers = _Service(
   'Clients',
@@ -81,6 +86,7 @@ const _reminders = _Service(
   route: '/reminders',
   art: 'relances',
   perm: 'contacts:read',
+  svc: BizService.reminders,
 );
 const _loyalty = _Service(
   'Fidélité',
@@ -89,6 +95,7 @@ const _loyalty = _Service(
   route: '/loyalty',
   art: 'fidelite',
   perm: 'contacts:read',
+  svc: BizService.loyalty,
 );
 const _stock = _Service(
   'Stock',
@@ -105,6 +112,7 @@ const _purchases = _Service(
   route: '/purchases',
   art: 'achats',
   perm: 'purchasing:read',
+  svc: BizService.purchases,
 );
 const _delivery = _Service(
   'Livraison',
@@ -114,6 +122,7 @@ const _delivery = _Service(
   art: 'livraison',
   pro: ProFeature.delivery,
   perm: 'sales:read',
+  svc: BizService.delivery,
 );
 const _shop = _Service(
   'Boutique',
@@ -123,6 +132,7 @@ const _shop = _Service(
   art: 'boutique',
   pro: ProFeature.shop,
   perm: 'sales:read',
+  svc: BizService.shop,
 );
 const _booking = _Service(
   'Réservation',
@@ -131,6 +141,7 @@ const _booking = _Service(
   route: '/booking',
   art: 'reservation',
   perm: 'sales:read',
+  svc: BizService.booking,
 );
 const _expenses = _Service(
   'Dépenses',
@@ -156,6 +167,7 @@ const _team = _Service(
   art: 'equipe',
   pro: ProFeature.team,
   perm: 'members:read',
+  svc: BizService.team,
 );
 const _documents = _Service(
   'Documents',
@@ -165,6 +177,7 @@ const _documents = _Service(
   art: 'documents',
   pro: ProFeature.documents,
   perm: 'documents:read',
+  svc: BizService.documents,
 );
 const _settings = _Service(
   'Ma boutique',
@@ -180,6 +193,7 @@ const _assistant = _Service(
   route: '/assistant',
   art: 'assistant',
   pro: ProFeature.assistant,
+  svc: BizService.assistant,
 );
 
 /// Accueil : 7 tuiles + « Plus ». Ventes, Stock et Clients n'y sont pas : ils sont déjà dans la barre
@@ -210,12 +224,16 @@ class HomeScreen extends ConsumerWidget {
     final simple = ref.watch(displaySettingsProvider).simple;
 
     // Activité « services » : les rendez-vous passent devant le stock sur l'accueil
-    final services = ref.watch(currentBusinessProvider).value?.focus == 'services';
+    final business = ref.watch(currentBusinessProvider).value;
+    final services = business?.focus == 'services';
+    // Seulement les outils du métier (ou ceux choisis dans « Mes services »)
+    final enabled = enabledServices(business);
+    bool visible(_Service s) => (s.svc == null || enabled.contains(s.svc)) && (s.perm == null || ref.can(s.perm!));
     final shown = [
-      if (services) _booking,
-      for (final s in _homeOrder)
-        if (s.perm == null || ref.can(s.perm!)) s,
-    ].take(7).toList();
+      if (services && visible(_booking)) _booking,
+      for (final s in [..._homeOrder, _shop, _booking, _team, _documents, _assistant])
+        if (visible(s)) s,
+    ].fold(<_Service>[], (l, s) => l.contains(s) ? l : (l..add(s))).take(7).toList();
 
     void open(_Service s) {
       if (s.pro != null && !ref.read(isProProvider)) {
@@ -306,22 +324,25 @@ class HomeScreen extends ConsumerWidget {
     );
   }
 
-  Future<void> _showMore(BuildContext context, WidgetRef ref, void Function(_Service) open) =>
-      showModalBottomSheet<void>(
-        useRootNavigator: true,
-        context: context,
-        isScrollControlled: true,
-        showDragHandle: true,
-        builder: (ctx) => SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text('Tous les services', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
-              const SizedBox(height: 4),
-              Text('De nouveaux services arrivent régulièrement.', style: TextStyle(color: AppColors.muted)),
-              for (final (title, list) in _groups) ...[
+  Future<void> _showMore(BuildContext context, WidgetRef ref, void Function(_Service) open) {
+    final enabled = enabledServices(ref.read(currentBusinessProvider).value);
+    bool visible(_Service s) => (s.svc == null || enabled.contains(s.svc)) && (s.perm == null || ref.can(s.perm!));
+    return showModalBottomSheet<void>(
+      useRootNavigator: true,
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (ctx) => SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Tous les services', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+            const SizedBox(height: 4),
+            Text('Les outils de votre métier.', style: TextStyle(color: AppColors.muted)),
+            for (final (title, list) in _groups)
+              if (list.any(visible)) ...[
                 const SizedBox(height: 16),
                 Text(
                   title,
@@ -343,7 +364,7 @@ class HomeScreen extends ConsumerWidget {
                   childAspectRatio: 0.95,
                   children: [
                     for (final s in list)
-                      if (s.perm == null || ref.can(s.perm!))
+                      if (visible(s))
                         _ServiceTile(
                           service: s,
                           onTap: () {
@@ -354,10 +375,25 @@ class HomeScreen extends ConsumerWidget {
                   ],
                 ),
               ],
+            if (ref.can('business:update')) ...[
+              const SizedBox(height: 12),
+              Center(
+                child: TextButton.icon(
+                  key: const Key('manage_services'),
+                  onPressed: () {
+                    Navigator.pop(ctx);
+                    context.push('/business/services');
+                  },
+                  icon: const Icon(Icons.tune_rounded, size: 18),
+                  label: const Text('Ajouter ou retirer des services'),
+                ),
+              ),
             ],
-          ),
+          ],
         ),
-      );
+      ),
+    );
+  }
 
   Future<void> _addExpense(BuildContext context, WidgetRef ref) async {
     final saved = await showModalBottomSheet<bool>(

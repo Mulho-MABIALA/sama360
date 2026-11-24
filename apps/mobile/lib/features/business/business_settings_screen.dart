@@ -7,6 +7,7 @@ import '../../core/glass.dart';
 import '../../core/models.dart';
 import '../../core/providers.dart';
 import '../../core/theme.dart';
+import '../../core/trades.dart';
 import '../../core/widgets.dart';
 import '../auth/auth_controller.dart';
 import '../profile/profile_screen.dart' show SettingsRow, SettingsSection;
@@ -135,6 +136,15 @@ class _BusinessSettingsScreenState extends ConsumerState<BusinessSettingsScreen>
                 SettingsSection(
                   title: 'Identité',
                   children: [
+                    SettingsRow(
+                      key: const Key('trade_row'),
+                      icon: Icons.storefront_rounded,
+                      color: const Color(0xFF0A8453),
+                      label: 'Métier et services',
+                      value: tradeLabels[b.category] ?? 'Non précisé',
+                      hint: 'Les outils montrés sur l’accueil',
+                      onTap: () => context.push('/business/services'),
+                    ),
                     SettingsRow(
                       key: const Key('logo_row'),
                       icon: Icons.image_rounded,

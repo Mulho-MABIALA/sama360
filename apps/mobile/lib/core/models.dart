@@ -100,6 +100,8 @@ class CurrentBusiness {
     this.requireOpenCash = false,
     this.payAccounts = const {},
     this.focus,
+    this.category,
+    this.services,
     this.country = Country.sn,
     this.proUntil,
     this.trial = false,
@@ -127,6 +129,12 @@ class CurrentBusiness {
 
   /// Activité : « products », « services », « both » (null : pas encore choisie).
   final String? focus;
+
+  /// Métier choisi à la création (boutique, mode, restaurant…), voir trades.dart.
+  final String? category;
+
+  /// Services choisis par le commerçant ; null = ceux de son métier.
+  final List<String>? services;
 
   /// Pays : indicatif des numéros, paiements mobiles, identifiant fiscal.
   final Country country;
@@ -162,6 +170,8 @@ class CurrentBusiness {
       requireOpenCash: b['requireOpenCash'] == true,
       payAccounts: PayAccount.parseAll((b['settings'] as Map?)?['payAccounts']),
       focus: (b['settings'] as Map?)?['focus'] as String?,
+      category: b['category'] as String?,
+      services: ((b['settings'] as Map?)?['services'] as List?)?.cast<String>(),
       country: Country.fromCode(b['country'] as String?),
       proUntil: _proUntil(j['subscription'] as Map?),
       trial: (j['subscription'] as Map?)?['status'] == 'trialing',

@@ -7,20 +7,10 @@ import '../../core/glass.dart';
 import '../../core/models.dart';
 import '../../core/providers.dart';
 import '../../core/theme.dart';
+import '../../core/trades.dart';
 import '../../core/widgets.dart';
 import '../auth/auth_controller.dart';
 import '../profile/closure_screens.dart' show DeletedBusinessesList;
-
-const _categories = {
-  'boutique': 'Boutique',
-  'mode': 'Habits & chaussures',
-  'quincaillerie': 'Quincaillerie',
-  'alimentation': 'Alimentation',
-  'restaurant': 'Restaurant',
-  'salon': 'Salon / beauté',
-  'prestataire': 'Prestataire',
-  'autre': 'Autre',
-};
 
 /// Ce que la boutique vend surtout : adapte l'accueil et les premiers pas.
 const focusLabels = {'products': 'Des produits', 'services': 'Des services', 'both': 'Les deux'};
@@ -29,7 +19,7 @@ const focusLabels = {'products': 'Des produits', 'services': 'Des services', 'bo
 String focusFor(String category) => switch (category) {
   'salon' || 'prestataire' => 'services',
   'restaurant' => 'products',
-  'boutique' || 'mode' || 'quincaillerie' || 'alimentation' => 'products',
+  'boutique' || 'mode' || 'quincaillerie' || 'alimentation' || 'telephonie' => 'products',
   _ => 'both',
 };
 
@@ -150,13 +140,18 @@ class _BusinessScreenState extends ConsumerState<BusinessScreen> {
                 decoration: const InputDecoration(labelText: "Nom de l'entreprise", hintText: 'Ex. Awa Beauté'),
               ),
               const SizedBox(height: 16),
-              const Text("Type d'activité", style: TextStyle(fontWeight: FontWeight.w700)),
+              const Text('Votre métier', style: TextStyle(fontWeight: FontWeight.w700)),
+              const SizedBox(height: 2),
+              Text(
+                'Sama360 vous montre les outils de votre métier. Vous pourrez en ajouter ensuite.',
+                style: TextStyle(color: AppColors.muted, fontSize: 12.5),
+              ),
               const SizedBox(height: 8),
               Wrap(
                 spacing: 8,
                 runSpacing: 8,
                 children: [
-                  for (final e in _categories.entries)
+                  for (final e in tradeLabels.entries)
                     Pill(
                       label: e.value,
                       selected: _category == e.key,

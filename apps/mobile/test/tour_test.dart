@@ -119,6 +119,25 @@ void main() {
       await _shot(tester, e.key);
     });
   }
+  // Métiers : l'accueil d'une boutique d'habits et d'un restaurant, et l'écran des services
+  final trades = {
+    '59_accueil_mode': ('/', 'mode'),
+    '60_accueil_restaurant': ('/', 'restaurant'),
+    '61_services': ('/business/services', 'mode'),
+  };
+  for (final e in trades.entries) {
+    testWidgets(e.key, (tester) async {
+      phoneSize(tester);
+      await pumpSama(tester, location: e.value.$1, repo: FakeRepo()..businessCategory = e.value.$2);
+      if (e.value.$1 == '/') {
+        await tester.ensureVisible(find.byIcon(Icons.apps_rounded));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byIcon(Icons.apps_rounded));
+        await tester.pumpAndSettle();
+      }
+      await _shot(tester, e.key);
+    });
+  }
   for (final e in routes.entries) {
     testWidgets(e.key, (tester) async {
       phoneSize(tester);

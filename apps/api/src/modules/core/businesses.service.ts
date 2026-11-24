@@ -1,6 +1,7 @@
 import { Focus, onboardingSteps } from './onboarding';
 import { Injectable } from '@nestjs/common';
 import { DEFAULT_MODULES } from '@sama360/contracts';
+import type { BizService } from '../../shared/services';
 import { eq, like, or, sql } from 'drizzle-orm';
 import { DbService } from '../../shared/db/db.service';
 import { businesses, memberships, moduleActivations, roles, subscriptions, users } from '../../shared/db/schema';
@@ -27,6 +28,7 @@ export interface CreateBusinessInput {
 
 export interface UpdateBusinessInput extends Partial<Omit<CreateBusinessInput, 'focus'>> {
   focus?: Focus;
+  services?: BizService[] | null;
   onboardingDismissed?: boolean;
   brandColor?: string | null;
   requireOpenCash?: boolean;
@@ -157,11 +159,13 @@ export class BusinessesService {
   }
 
   async update(businessId: string, input: UpdateBusinessInput) {
-    const { focus, onboardingDismissed, payAccounts, ...columns } = input;
+    const { focus, onboardingDismissed, payAccounts, services, ...columns } = input;
     // Réglages libres (activité, guide masqué) : fusionnés dans le JSON, sans écraser le reste
     const patch: Record<string, unknown> = {};
     if (focus !== undefined) patch.focus = focus;
     if (onboardingDismissed !== undefined) patch.onboardingDismissed = onboardingDismissed;
+    // Liste sans doublons ; null = services du métier (la clé est retirée plus bas)
+    if (services !== undefined && services !== null) patch.services = [...new Set(services)];
     if (payAccounts !== undefined) {
       // Remplace tous les comptes ; ceux laissés vides sont retirés
       const clean: Record<string, { number?: string; link?: string }> = {};
@@ -177,8 +181,10 @@ export class BusinessesService {
       .set({
         ...columns,
         ...(columns.country ? { currency: COUNTRIES[columns.country].currency } : {}),
-        ...(Object.keys(patch).length
-          ? { settings: sql`${businesses.settings} || ${JSON.stringify(patch)}::jsonb` }
+        ...(Object.keys(patch).length || services === null
+          ? {
+              settings: sql`(${businesses.settings} ${services === null ? sql`- 'services'` : sql``}) || ${JSON.stringify(patch)}::jsonb`,
+            }
           : {}),
         updatedAt: new Date(),
       })

@@ -14,6 +14,7 @@ import {
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { z } from 'zod';
+import { BIZ_SERVICES } from '../../shared/services';
 import { AuthUser, TenantContext } from '../../shared/auth/auth.types';
 import { CurrentTenant, CurrentUser, RequirePermission, RequirePro } from '../../shared/auth/decorators';
 import { env } from '../../shared/config/env';
@@ -50,6 +51,8 @@ const UpdateBusiness = CreateBusiness.omit({ referralCode: true })
     focus: z.enum(FOCUSES).optional(),
     // Le patron a masqué la carte « Premiers pas »
     onboardingDismissed: z.boolean().optional(),
+    // Services montrés sur l'accueil (selon le métier) ; null = revenir à ceux du métier
+    services: z.array(z.enum(BIZ_SERVICES)).max(BIZ_SERVICES.length).nullish(),
     // Couleur de la boutique (« #0A7E4F ») ; null pour revenir au vert Sama360
     brandColor: z
       .string()

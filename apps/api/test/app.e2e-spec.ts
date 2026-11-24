@@ -3109,6 +3109,30 @@ describe('Socle Sama360 (e2e)', () => {
       await http.patch('/v1/business').set(A()).send({ onboardingDismissed: true }).expect(200);
       const d = (await http.get('/v1/business/onboarding').set(A()).expect(200)).body;
       expect(d).toMatchObject({ focus: 'services', dismissed: true });
+
+      // Services selon le métier : choisis par le commerçant, sans toucher aux autres réglages
+      await http
+        .patch('/v1/business')
+        .set(A())
+        .send({ services: ['loyalty', 'bidon'] })
+        .expect(422);
+      await http
+        .patch('/v1/business')
+        .set(A())
+        .send({ category: 'salon', services: ['booking', 'loyalty', 'booking'] })
+        .expect(200);
+      let b = (await http.get('/v1/business').set(A()).expect(200)).body.business;
+      expect(b.category).toBe('salon');
+      expect(b.settings).toMatchObject({
+        focus: 'services',
+        onboardingDismissed: true,
+        services: ['booking', 'loyalty'],
+      });
+      // null : retour aux services du métier
+      await http.patch('/v1/business').set(A()).send({ services: null }).expect(200);
+      b = (await http.get('/v1/business').set(A()).expect(200)).body.business;
+      expect(b.settings.services).toBeUndefined();
+      expect(b.settings.focus).toBe('services');
     });
 
     it('activité choisie dès la création de l’entreprise', async () => {

@@ -128,6 +128,16 @@ class SamaRepository {
   /// Couleur de la boutique (« #0A7E4F ») ; null pour revenir au vert Sama360.
   Future<void> updateRequireOpenCash(bool value) => api.patch<void>('/v1/business', data: {'requireOpenCash': value});
 
+  /// Métier et services de l'accueil (services null = ceux du métier).
+  Future<void> updateTrade({String? category, List<String>? services, bool resetServices = false}) => api.patch<void>(
+    '/v1/business',
+    data: {
+      'category': ?category,
+      'services': ?services,
+      if (resetServices) 'services': null,
+    },
+  );
+
   // ── Sama360 Pro et parrainage
 
   Future<ProStatus> subscription() async => ProStatus.fromJson(await api.get<Map<String, dynamic>>('/v1/subscription'));

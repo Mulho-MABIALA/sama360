@@ -250,6 +250,17 @@ class FakeRepo extends SamaRepository {
   @override
   Future<void> updateRequireOpenCash(bool value) async => requireOpenCash = value;
 
+  /// Métier (null = aucun : tous les services) et services choisis
+  String? businessCategory;
+  List<String>? businessServices;
+
+  @override
+  Future<void> updateTrade({String? category, List<String>? services, bool resetServices = false}) async {
+    if (category != null) businessCategory = category;
+    if (services != null) businessServices = services;
+    if (resetServices) businessServices = null;
+  }
+
   @override
   Future<void> updateCountry(String code) async => businessCountry = Country.fromCode(code);
 
@@ -266,6 +277,8 @@ class FakeRepo extends SamaRepository {
     requireOpenCash: requireOpenCash,
     payAccounts: payAccounts,
     focus: businessFocus,
+    category: businessCategory,
+    services: businessServices,
     country: businessCountry,
     proUntil: proUntil,
     trial: proTrial,

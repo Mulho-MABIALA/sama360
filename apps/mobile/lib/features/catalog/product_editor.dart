@@ -11,6 +11,7 @@ import '../../core/glass.dart';
 import '../../core/models.dart';
 import '../../core/providers.dart';
 import '../../core/theme.dart';
+import '../../core/trades.dart';
 import '../../core/widgets.dart';
 import 'barcode_scanner.dart';
 import 'categories_screen.dart' show pickOrCreateCategory;
@@ -278,115 +279,128 @@ class _ProductEditorScreenState extends ConsumerState<ProductEditorScreen> {
 
   /// Suppléments, péremption, IMEI et garantie : utiles selon le métier.
   Widget _tradeFields(List<TextInputFormatter> digits) {
-    final cat = ref.watch(authProvider).value?.business?.category;
+    final business = ref.watch(currentBusinessProvider).value;
+    final cat = business != null ? business.category : ref.watch(authProvider).value?.business?.category;
+    // Champs du métier ; un champ déjà rempli reste visible (produit repris d'un autre métier)
+    final extras = tradeShows(cat, TradeField.extras) || _extras.isNotEmpty;
+    final expiry = tradeShows(cat, TradeField.expiry) || _expires != null;
+    final serial = tradeShows(cat, TradeField.serial) || _trackSerial || _warranty.text.isNotEmpty;
+    if (!extras && !expiry && !serial) return const SizedBox.shrink();
     final heading = TextStyle(fontWeight: FontWeight.w800, color: AppColors.ink);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const SizedBox(height: 12),
-        Text(cat == 'restaurant' ? 'Suppléments et options' : 'Suppléments et options (restaurant…)', style: heading),
-        const SizedBox(height: 6),
-        if (_extras.isNotEmpty)
-          Wrap(
-            spacing: 6,
-            runSpacing: 6,
+        if (extras) ...[
+          const SizedBox(height: 12),
+          Text(cat == 'restaurant' ? 'Suppléments et options' : 'Suppléments et options (restaurant…)', style: heading),
+          const SizedBox(height: 6),
+          if (_extras.isNotEmpty)
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: [
+                for (final e in _extras)
+                  InputChip(
+                    label: Text('${e.name} · ${e.price == 0 ? 'offert' : '+${moneyShort(e.price)}'}'),
+                    onDeleted: () => setState(() => _extras.remove(e)),
+                  ),
+              ],
+            ),
+          const SizedBox(height: 6),
+          Row(
             children: [
-              for (final e in _extras)
-                InputChip(
-                  label: Text('${e.name} · ${e.price == 0 ? 'offert' : '+${moneyShort(e.price)}'}'),
-                  onDeleted: () => setState(() => _extras.remove(e)),
+              Expanded(
+                flex: 3,
+                child: TextField(
+                  key: const Key('pExtraName'),
+                  controller: _extraName,
+                  textCapitalization: TextCapitalization.sentences,
+                  onSubmitted: (_) => _addExtra(),
+                  decoration: const InputDecoration(labelText: 'Ex. Œuf, Sauce, Grande portion', isDense: true),
                 ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                flex: 2,
+                child: TextField(
+                  key: const Key('pExtraPrice'),
+                  controller: _extraPrice,
+                  keyboardType: TextInputType.number,
+                  inputFormatters: digits,
+                  decoration: const InputDecoration(labelText: '+ Prix', suffixText: 'F', isDense: true),
+                ),
+              ),
+              IconButton(
+                key: const Key('pExtraAdd'),
+                tooltip: 'Ajouter le supplément',
+                onPressed: _addExtra,
+                icon: Icon(Icons.add_circle_rounded, color: AppColors.green),
+              ),
             ],
           ),
-        const SizedBox(height: 6),
-        Row(
-          children: [
-            Expanded(
-              flex: 3,
-              child: TextField(
-                key: const Key('pExtraName'),
-                controller: _extraName,
-                textCapitalization: TextCapitalization.sentences,
-                onSubmitted: (_) => _addExtra(),
-                decoration: const InputDecoration(labelText: 'Ex. Œuf, Sauce, Grande portion', isDense: true),
+        ],
+        if (expiry) ...[
+          const SizedBox(height: 14),
+          InkWell(
+            key: const Key('pExpiry'),
+            borderRadius: BorderRadius.circular(14),
+            onTap: () async {
+              final now = DateTime.now();
+              final d = await showDatePicker(
+                context: context,
+                initialDate: _expires ?? now.add(const Duration(days: 30)),
+                firstDate: now.subtract(const Duration(days: 365)),
+                lastDate: now.add(const Duration(days: 365 * 10)),
+                helpText: 'Date de péremption',
+              );
+              if (d != null) {
+                setState(() {
+                  _expires = d;
+                  _expiryChanged = true;
+                });
+              }
+            },
+            child: InputDecorator(
+              decoration: InputDecoration(
+                labelText: 'Date de péremption (alimentation…)',
+                prefixIcon: const Icon(Icons.event_busy_rounded),
+                suffixIcon: _expires == null
+                    ? null
+                    : IconButton(
+                        tooltip: 'Retirer la date',
+                        icon: const Icon(Icons.close_rounded),
+                        onPressed: () => setState(() {
+                          _expires = null;
+                          _expiryChanged = true;
+                        }),
+                      ),
               ),
+              child: Text(_expires == null ? 'Aucune' : longDate(_expires!)),
             ),
-            const SizedBox(width: 8),
-            Expanded(
-              flex: 2,
-              child: TextField(
-                key: const Key('pExtraPrice'),
-                controller: _extraPrice,
-                keyboardType: TextInputType.number,
-                inputFormatters: digits,
-                decoration: const InputDecoration(labelText: '+ Prix', suffixText: 'F', isDense: true),
-              ),
-            ),
-            IconButton(
-              key: const Key('pExtraAdd'),
-              tooltip: 'Ajouter le supplément',
-              onPressed: _addExtra,
-              icon: Icon(Icons.add_circle_rounded, color: AppColors.green),
-            ),
-          ],
-        ),
-        const SizedBox(height: 14),
-        InkWell(
-          key: const Key('pExpiry'),
-          borderRadius: BorderRadius.circular(14),
-          onTap: () async {
-            final now = DateTime.now();
-            final d = await showDatePicker(
-              context: context,
-              initialDate: _expires ?? now.add(const Duration(days: 30)),
-              firstDate: now.subtract(const Duration(days: 365)),
-              lastDate: now.add(const Duration(days: 365 * 10)),
-              helpText: 'Date de péremption',
-            );
-            if (d != null) {
-              setState(() {
-                _expires = d;
-                _expiryChanged = true;
-              });
-            }
-          },
-          child: InputDecorator(
-            decoration: InputDecoration(
-              labelText: 'Date de péremption (alimentation…)',
-              prefixIcon: const Icon(Icons.event_busy_rounded),
-              suffixIcon: _expires == null
-                  ? null
-                  : IconButton(
-                      tooltip: 'Retirer la date',
-                      icon: const Icon(Icons.close_rounded),
-                      onPressed: () => setState(() {
-                        _expires = null;
-                        _expiryChanged = true;
-                      }),
-                    ),
-            ),
-            child: Text(_expires == null ? 'Aucune' : longDate(_expires!)),
           ),
-        ),
-        SwitchListTile(
-          key: const Key('pSerial'),
-          contentPadding: EdgeInsets.zero,
-          value: _trackSerial,
-          onChanged: (v) => setState(() => _trackSerial = v),
-          title: const Text('IMEI / numéro de série à la vente', style: TextStyle(fontWeight: FontWeight.w700)),
-          subtitle: const Text('Téléphones, appareils : le numéro est noté sur le reçu'),
-        ),
-        TextField(
-          key: const Key('pWarranty'),
-          controller: _warranty,
-          keyboardType: TextInputType.number,
-          inputFormatters: digits,
-          decoration: const InputDecoration(
-            labelText: 'Garantie (facultatif)',
-            suffixText: 'mois',
-            prefixIcon: Icon(Icons.verified_user_rounded),
+        ],
+        if (serial) ...[
+          const SizedBox(height: 6),
+          SwitchListTile(
+            key: const Key('pSerial'),
+            contentPadding: EdgeInsets.zero,
+            value: _trackSerial,
+            onChanged: (v) => setState(() => _trackSerial = v),
+            title: const Text('IMEI / numéro de série à la vente', style: TextStyle(fontWeight: FontWeight.w700)),
+            subtitle: const Text('Téléphones, appareils : le numéro est noté sur le reçu'),
           ),
-        ),
+          TextField(
+            key: const Key('pWarranty'),
+            controller: _warranty,
+            keyboardType: TextInputType.number,
+            inputFormatters: digits,
+            decoration: const InputDecoration(
+              labelText: 'Garantie (facultatif)',
+              suffixText: 'mois',
+              prefixIcon: Icon(Icons.verified_user_rounded),
+            ),
+          ),
+        ],
       ],
     );
   }
