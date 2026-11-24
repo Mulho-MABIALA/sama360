@@ -22,7 +22,15 @@ import { LineInput, priceSale, PricingError, catalogUnitPrice } from './pricing'
 export interface CreateSaleInput {
   id?: string; // id généré par le mobile : rend la création idempotente (hors ligne)
   customerId?: string | null;
-  items: { productId?: string | null; name?: string; quantity: number; unitPrice?: number; discount?: number }[];
+  items: {
+    productId?: string | null;
+    name?: string;
+    quantity: number;
+    unitPrice?: number;
+    discount?: number;
+    extras?: string[];
+    serials?: string[];
+  }[];
   discount?: number;
   payments: { method: PaymentMethod; amount: number; reference?: string | null }[];
   soldAt?: Date;
@@ -69,6 +77,9 @@ export class SalesService {
               cost: products.cost,
               trackStock: products.trackStock,
               variantAxes: products.variantAxes,
+              extras: products.extras,
+              trackSerial: products.trackSerial,
+              warrantyMonths: products.warrantyMonths,
             })
             .from(products)
             .where(and(inArray(products.id, ids), isNull(products.deletedAt)))
@@ -80,14 +91,42 @@ export class SalesService {
           const p = byId.get(it.productId);
           if (!p) throw new AppError('NOT_FOUND', `Produit introuvable (ligne ${i + 1})`, HttpStatus.NOT_FOUND);
           if (p.variantAxes?.length) throw variantRequired(p.name);
+          // Suppléments (restaurant) : chacun doit exister sur la fiche ; leur prix s'ajoute
+          const chosen = (it.extras ?? []).map((name) => {
+            const e = (p.extras ?? []).find((x) => x.name.toLowerCase() === name.toLowerCase());
+            if (!e)
+              throw new AppError('VALIDATION_FAILED', `« ${name} » n’est pas un supplément de « ${p.name} »`, 422);
+            return e;
+          });
+          // Téléphonie : un numéro de série (IMEI) par appareil vendu
+          const serials = it.serials?.length ? [...new Set(it.serials)] : null;
+          if (p.trackSerial) {
+            if (!serials || serials.length !== it.quantity) {
+              throw new AppError(
+                'VALIDATION_FAILED',
+                `« ${p.name} » : indiquez un numéro de série (IMEI) par appareil vendu`,
+                422,
+                { productId: p.id },
+              );
+            }
+          }
+          const warrantyUntil = p.warrantyMonths
+            ? (() => {
+                const d = new Date(input.soldAt ?? Date.now());
+                d.setMonth(d.getMonth() + p.warrantyMonths);
+                return d.toISOString().slice(0, 10);
+              })()
+            : null;
           return {
             productId: p.id,
-            name: p.name,
+            name: chosen.length ? `${p.name} + ${chosen.map((e) => e.name).join(', ')}`.slice(0, 160) : p.name,
             quantity: it.quantity,
-            unitPrice: catalogUnitPrice(p, it.quantity, it.unitPrice),
+            unitPrice: catalogUnitPrice(p, it.quantity, it.unitPrice) + chosen.reduce((s, e) => s + e.price, 0),
             unitCost: p.cost,
             discount: it.discount ?? 0,
             trackStock: p.trackStock,
+            serials,
+            warrantyUntil,
           };
         }
         if (!it.name || it.unitPrice === undefined) {
@@ -166,6 +205,8 @@ export class SalesService {
           discount: l.discount,
           total: l.total,
           trackStock: l.trackStock,
+          serials: l.serials ?? null,
+          warrantyUntil: l.warrantyUntil ?? null,
         })),
       );
       if (input.payments.length) {

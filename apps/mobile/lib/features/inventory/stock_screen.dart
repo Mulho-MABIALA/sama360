@@ -23,6 +23,9 @@ class StockScreen extends ConsumerStatefulWidget {
 
 class _StockScreenState extends ConsumerState<StockScreen> {
   late bool _lowOnly = widget.lowOnly;
+
+  /// Alimentation : seulement ce qui est périmé ou le sera dans les 30 jours.
+  bool _expiringOnly = false;
   String _search = '';
   final _searchCtrl = TextEditingController();
 
@@ -84,6 +87,7 @@ class _StockScreenState extends ConsumerState<StockScreen> {
         data: (s) {
           final items = s.items
               .where((i) => !_lowOnly || i.low)
+              .where((i) => !_expiringOnly || i.expiresWithin(30))
               .where((i) => _search.isEmpty || i.name.toLowerCase().contains(_search))
               .toList();
           return RefreshIndicator(
@@ -127,9 +131,32 @@ class _StockScreenState extends ConsumerState<StockScreen> {
                 const SizedBox(height: 10),
                 Row(
                   children: [
-                    Pill(label: 'Tous', selected: !_lowOnly, onTap: () => setState(() => _lowOnly = false)),
+                    Pill(
+                      label: 'Tous',
+                      selected: !_lowOnly && !_expiringOnly,
+                      onTap: () => setState(() => _lowOnly = _expiringOnly = false),
+                    ),
                     const SizedBox(width: 8),
-                    Pill(label: 'Stock bas', selected: _lowOnly, onTap: () => setState(() => _lowOnly = true)),
+                    Pill(
+                      label: 'Stock bas',
+                      selected: _lowOnly,
+                      onTap: () => setState(() {
+                        _lowOnly = true;
+                        _expiringOnly = false;
+                      }),
+                    ),
+                    if (s.items.any((i) => i.expiresOn != null)) ...[
+                      const SizedBox(width: 8),
+                      Pill(
+                        key: const Key('filter_expiring'),
+                        label: 'Bientôt périmés (${s.items.where((i) => i.expiresWithin(30)).length})',
+                        selected: _expiringOnly,
+                        onTap: () => setState(() {
+                          _expiringOnly = true;
+                          _lowOnly = false;
+                        }),
+                      ),
+                    ],
                   ],
                 ),
                 if (_lowOnly && s.lowStock > 0 && ref.can('inventory:write')) ...[
@@ -266,6 +293,31 @@ class _StockRow extends ConsumerWidget {
                     color: item.low ? AppColors.warn : AppColors.ink,
                   ),
                 ),
+                if (item.expiresOn != null && item.onHand > 0)
+                  Container(
+                    margin: const EdgeInsets.only(top: 3),
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: item.expiresWithin(0)
+                          ? AppColors.danger.withValues(alpha: 0.12)
+                          : item.expiresWithin(30)
+                          ? AppColors.warnBg
+                          : AppColors.greenSoft,
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      item.expiresWithin(0) ? 'Périmé' : 'Périme le ${shortDate(item.expiresOn!)}',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: item.expiresWithin(0)
+                            ? AppColors.danger
+                            : item.expiresWithin(30)
+                            ? AppColors.warnText
+                            : AppColors.greenDark,
+                      ),
+                    ),
+                  ),
                 if (item.low)
                   Container(
                     margin: const EdgeInsets.only(top: 3),

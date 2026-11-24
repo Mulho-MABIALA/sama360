@@ -233,6 +233,11 @@ export const products = catalogSchema.table('products', {
   // Conditionnement : « Carton » de 24 (le stock reste à l'unité)
   packName: varchar('pack_name', { length: 20 }),
   packSize: qty('pack_size'),
+  // Restaurant : suppléments ajoutés au prix ; alimentation : péremption ; téléphonie : IMEI et garantie
+  extras: jsonb('extras').$type<{ name: string; price: number }[]>(),
+  expiresOn: date('expires_on', { mode: 'string' }),
+  warrantyMonths: integer('warranty_months'),
+  trackSerial: boolean('track_serial').notNull().default(false),
   published: boolean('published').notNull().default(false),
   // Prestations : durée d'un rendez-vous (réservation en ligne)
   durationMinutes: integer('duration_minutes'),
@@ -338,6 +343,8 @@ export const saleItems = salesSchema.table('sale_items', {
   discount: money('discount').notNull().default(0),
   total: money('total').notNull(),
   trackStock: boolean('track_stock').notNull().default(false),
+  serials: text('serials').array(),
+  warrantyUntil: date('warranty_until', { mode: 'string' }),
 });
 
 export type PaymentMethod = 'cash' | 'wave' | 'orange_money' | 'free_money' | 'mtn_momo' | 'moov_money' | 'airtel_money' | 'card';

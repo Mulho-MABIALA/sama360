@@ -304,6 +304,7 @@ class ReceiptPaper extends StatelessWidget {
                 Text(l.name, style: const TextStyle(fontWeight: FontWeight.w700)),
                 row(lineDetail(l), moneyShort(l.total), style: const TextStyle(fontSize: 13)),
                 if (l.discount > 0) row('Réduction', '−${moneyShort(l.discount)}', style: small),
+                for (final t in serialLines(l)) Text(t, style: small),
                 const SizedBox(height: 4),
               ],
               const _Dashed(),

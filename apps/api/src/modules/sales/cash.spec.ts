@@ -22,14 +22,26 @@ describe('caisse', () => {
   });
 
   it('les espèces apparaissent même sans mouvement', () => {
-    const lines = expectedByMethod(0, { sales: {}, repayments: {}, invoices: {}, expenses: {}, suppliers: {}, movementsIn: 0, movementsOut: 0 });
+    const lines = expectedByMethod(0, {
+      sales: {},
+      repayments: {},
+      invoices: {},
+      expenses: {},
+      suppliers: {},
+      movementsIn: 0,
+      movementsOut: 0,
+    });
     expect(lines).toEqual([expect.objectContaining({ method: 'cash', expected: 0 })]);
   });
 
   it('écarts : un moyen non compté ne crée pas d’écart', () => {
     const lines = expectedByMethod(10000, flows);
     const d = differences(lines, { cash: 11500, wave: 3000 });
-    expect(d.byMethod.find((m) => m.method === 'cash')).toMatchObject({ expected: 12000, counted: 11500, difference: -500 });
+    expect(d.byMethod.find((m) => m.method === 'cash')).toMatchObject({
+      expected: 12000,
+      counted: 11500,
+      difference: -500,
+    });
     expect(d.byMethod.find((m) => m.method === 'orange_money')).toMatchObject({ counted: 1500, difference: 0 });
     expect(d.total).toBe(-500);
   });

@@ -38,10 +38,7 @@ const startOfDay = (d: Date) => Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.
 export const daysBetween = (from: Date, to: Date) => Math.round((startOfDay(to) - startOfDay(from)) / DAY);
 
 /** Faut-il relancer aujourd'hui ? En retard (au-delà du délai de grâce) et pas relancé depuis une semaine. */
-export function isDue(
-  item: Pick<ReminderItem, 'kind' | 'daysLate' | 'lastRemindedAt'>,
-  now: Date,
-): boolean {
+export function isDue(item: Pick<ReminderItem, 'kind' | 'daysLate' | 'lastRemindedAt'>, now: Date): boolean {
   const late = item.kind === 'credit' ? item.daysLate >= CREDIT_GRACE_DAYS : item.daysLate > 0;
   if (!late) return false;
   if (!item.lastRemindedAt) return true;

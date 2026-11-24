@@ -49,6 +49,7 @@ void main() {
         'wholesaleMinQty': 10.0,
         'packName': null,
         'packSize': null,
+        'trackSerial': false,
       });
       expect(const ProductDraft(name: 'Coupe', price: 2000, isService: true).toJson()['trackStock'], isFalse);
     });

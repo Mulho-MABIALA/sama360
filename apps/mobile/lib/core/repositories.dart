@@ -431,11 +431,13 @@ class SamaRepository {
     required List<({PayMethod method, int amount})> payments,
     DateTime? soldAt,
     int redeemRewards = 0,
+    // Par ligne : suppléments (restaurant), IMEI (téléphonie)
+    Map<int, Map<String, Object>> details = const {},
   }) => {
     'id': id,
     'customerId': ?customerId,
     'items': [
-      for (final i in items) {'productId': i.productId, 'quantity': i.quantity},
+      for (final (n, i) in items.indexed) {'productId': i.productId, 'quantity': i.quantity, ...?details[n]},
     ],
     'payments': [
       for (final p in payments) {'method': p.method.api, 'amount': p.amount},

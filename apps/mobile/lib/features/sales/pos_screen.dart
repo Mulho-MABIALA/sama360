@@ -18,6 +18,7 @@ import '../../core/theme.dart';
 import '../../core/widgets.dart';
 import '../locations/locations_screen.dart' show SellingAtBanner;
 import '../catalog/variant_picker.dart';
+import 'line_options_sheet.dart';
 import 'quantity_sheet.dart';
 import '../catalog/product_photo.dart';
 import '../customers/customer_picker.dart';
@@ -37,6 +38,37 @@ class _PosScreenState extends ConsumerState<PosScreen> {
   String _search = '';
   String? _categoryId;
   bool _busy = false;
+
+  /// Ajout d'un produit selon son métier : IMEI (téléphonie), suppléments (restaurant),
+  /// quantité tapée (mètre, kilo, carton), sinon +1.
+  Future<void> _addFlow(Product p, {double? onHand}) async {
+    final cart = ref.read(cartProvider.notifier);
+    if (p.trackSerial) {
+      final existing = ref.read(cartProvider).lines[p.id];
+      final serials = await pickSerials(context, p, current: existing?.serials ?? const []);
+      if (serials == null) return;
+      cart.setLineQuantity(p.id, 0);
+      if (serials.isNotEmpty) cart.addLine(CartLine(p, serials.length.toDouble(), serials: serials));
+      return;
+    }
+    if (p.extras.isNotEmpty) {
+      final line = await pickExtras(context, p);
+      if (line != null) cart.addLine(line);
+      return;
+    }
+    if (p.decimalUnit || p.hasPack) {
+      final q = await pickQuantity(
+        context,
+        product: p,
+        current: ref.read(cartProvider).quantityOf(p.id),
+        onHand: onHand,
+      );
+      if (q != null) cart.setQuantity(p, q);
+      return;
+    }
+    HapticFeedback.selectionClick();
+    cart.add(p);
+  }
 
   Future<void> _checkout() async {
     final cart = ref.read(cartProvider);
@@ -58,6 +90,15 @@ class _PosScreenState extends ConsumerState<PosScreen> {
             customer: cart.customer,
             total: cart.total,
             lines: [for (final l in cart.lines.values) (product: l.product, quantity: l.quantity)],
+            details: {
+              for (final (n, l) in cart.lines.values.indexed)
+                if (l.extras.isNotEmpty || l.serials.isNotEmpty)
+                  n: {
+                    if (l.extras.isNotEmpty) 'extras': [for (final e in l.extras) e.name],
+                    if (l.serials.isNotEmpty) 'serials': l.serials,
+                  },
+            },
+            names: {for (final (n, l) in cart.lines.values.indexed) n: l.name},
             payments: paymentsFor(cart.total, cart.mode, cart.deposit),
             redeemRewards: cart.customer == null ? 0 : cart.rewards,
           );
@@ -401,21 +442,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
                           product: p,
                           stock: onHand[p.id],
                           quantity: cart.quantityOf(p.id),
-                          onAdd: () async {
-                            // Au mètre, au kilo, au carton : on tape la quantité
-                            if (p.decimalUnit || p.hasPack) {
-                              final q = await pickQuantity(
-                                context,
-                                product: p,
-                                current: cart.quantityOf(p.id),
-                                onHand: onHand[p.id]?.onHand,
-                              );
-                              if (q != null) ref.read(cartProvider.notifier).setQuantity(p, q);
-                              return;
-                            }
-                            HapticFeedback.selectionClick();
-                            ref.read(cartProvider.notifier).add(p);
-                          },
+                          onAdd: () => _addFlow(p, onHand: onHand[p.id]?.onHand),
                           onRemove: () => ref.read(cartProvider.notifier).remove(p.id),
                         );
                       }
@@ -431,18 +458,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
                           onHand: stock == null ? null : {for (final x in items) x.productId: x.onHand},
                         );
                         if (v == null || !context.mounted) return;
-                        if (v.decimalUnit || v.hasPack) {
-                          final q = await pickQuantity(
-                            context,
-                            product: v,
-                            current: ref.read(cartProvider).quantityOf(v.id),
-                            onHand: onHand[v.id]?.onHand,
-                          );
-                          if (q != null) ref.read(cartProvider.notifier).setQuantity(v, q);
-                          return;
-                        }
-                        HapticFeedback.selectionClick();
-                        ref.read(cartProvider.notifier).add(v);
+                        await _addFlow(v, onHand: onHand[v.id]?.onHand);
                       }
 
                       return _ProductCard(
@@ -547,28 +563,45 @@ class _CartLines extends ConsumerWidget {
                       itemBuilder: (_, i) {
                         final l = lines[i];
                         return Padding(
-                          key: Key('cart_line_${l.product.id}'),
+                          key: Key('cart_line_${l.key}'),
                           padding: const EdgeInsets.symmetric(vertical: 6),
                           child: Row(
                             children: [
                               Expanded(
                                 // Toucher la ligne : taper la quantité (2,5 m, 1 carton, 50 pièces…)
                                 child: InkWell(
-                                  key: Key('cart_qty_${l.product.id}'),
+                                  key: Key('cart_qty_${l.key}'),
                                   borderRadius: BorderRadius.circular(8),
                                   onTap: () async {
+                                    // Téléphones : on corrige la liste des IMEI ; sinon la quantité
+                                    if (l.product.trackSerial) {
+                                      final serials = await pickSerials(context, l.product, current: l.serials);
+                                      if (serials == null) return;
+                                      ctrl.setLineQuantity(l.key, 0);
+                                      if (serials.isNotEmpty) {
+                                        ctrl.addLine(CartLine(l.product, serials.length.toDouble(), serials: serials));
+                                      }
+                                      return;
+                                    }
                                     final q = await pickQuantity(context, product: l.product, current: l.quantity);
-                                    if (q != null) ctrl.setQuantity(l.product, q);
+                                    if (q != null) ctrl.setLineQuantity(l.key, q, product: l.product);
                                   },
                                   child: Column(
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
                                       Text(
-                                        l.product.name,
+                                        l.name,
                                         maxLines: 2,
                                         overflow: TextOverflow.ellipsis,
                                         style: const TextStyle(fontWeight: FontWeight.w700),
                                       ),
+                                      if (l.serials.isNotEmpty)
+                                        Text(
+                                          'IMEI ${l.serials.join(', ')}',
+                                          maxLines: 2,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: TextStyle(color: AppColors.muted, fontSize: 11.5),
+                                        ),
                                       Text(
                                         '${qty(l.quantity)}${l.product.unit == 'pièce' ? '' : ' ${l.product.unit}'} × ${moneyShort(l.unitPrice)}',
                                         style: TextStyle(
@@ -585,12 +618,23 @@ class _CartLines extends ConsumerWidget {
                               ),
                               IconButton(
                                 tooltip: 'Retirer un',
-                                onPressed: () => ctrl.remove(l.product.id),
+                                onPressed: () => ctrl.remove(l.key),
                                 icon: const Icon(Icons.remove_circle_outline_rounded),
                               ),
                               IconButton(
                                 tooltip: 'Ajouter un',
-                                onPressed: () => ctrl.add(l.product),
+                                onPressed: () async {
+                                  if (l.product.trackSerial) {
+                                    final serials = await pickSerials(context, l.product, current: l.serials);
+                                    if (serials == null) return;
+                                    ctrl.setLineQuantity(l.key, 0);
+                                    if (serials.isNotEmpty) {
+                                      ctrl.addLine(CartLine(l.product, serials.length.toDouble(), serials: serials));
+                                    }
+                                    return;
+                                  }
+                                  ctrl.addLine(CartLine(l.product, 1, extras: l.extras));
+                                },
                                 icon: Icon(Icons.add_circle_rounded, color: AppColors.green),
                               ),
                               SizedBox(

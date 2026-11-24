@@ -4353,6 +4353,117 @@ describe('Socle Sama360 (e2e)', () => {
     });
   });
 
+  describe('Métiers : restaurant, alimentation, téléphonie', () => {
+    it('suppléments ajoutés au prix, péremption au stock, IMEI et garantie à la vente', async () => {
+      const biz = (
+        await http.post('/v1/businesses').set(auth(awa.accessToken)).send({ name: 'Multi Métiers' }).expect(201)
+      ).body.business.id;
+      const M = () => auth(awa.accessToken, biz);
+
+      // Restaurant : le thiéboudienne avec œuf et piment
+      const plat = (
+        await http
+          .post('/v1/catalog/products')
+          .set(M())
+          .send({
+            name: 'Thiéboudienne',
+            price: 2500,
+            trackStock: false,
+            extras: [
+              { name: 'Œuf', price: 200 },
+              { name: 'Piment', price: 0 },
+            ],
+          })
+          .expect(201)
+      ).body.id;
+      const meal = await http
+        .post('/v1/sales')
+        .set(M())
+        .send({
+          id: '01930000-0000-7000-8000-0000000b0001',
+          items: [{ productId: plat, quantity: 2, extras: ['œuf', 'Piment'] }],
+          payments: [{ method: 'cash', amount: 5400 }],
+        })
+        .expect(201);
+      expect(meal.body.items[0]).toMatchObject({ name: 'Thiéboudienne + Œuf, Piment', unitPrice: 2700, total: 5400 });
+      const unknown = await http
+        .post('/v1/sales')
+        .set(M())
+        .send({
+          id: '01930000-0000-7000-8000-0000000b0002',
+          items: [{ productId: plat, quantity: 1, extras: ['Fromage'] }],
+          payments: [],
+        })
+        .expect(422);
+      expect(unknown.body.error.message).toContain('Fromage');
+
+      // Alimentation : la date de péremption remonte dans le stock
+      const yaourt = (
+        await http
+          .post('/v1/catalog/products')
+          .set(M())
+          .send({ name: 'Yaourt', price: 300, expiresOn: '2026-12-05' })
+          .expect(201)
+      ).body.id;
+      await http
+        .post('/v1/inventory/movements')
+        .set(M())
+        .send({ productId: yaourt, type: 'purchase', quantity: 10 })
+        .expect(201);
+      const stock = (await http.get('/v1/inventory/stock').set(M()).expect(200)).body.items as {
+        productId: string;
+        expiresOn: string;
+      }[];
+      expect(stock.find((x) => x.productId === yaourt)?.expiresOn).toBe('2026-12-05');
+
+      // Téléphonie : un IMEI par appareil, garantie de 12 mois, retrouvée par l'IMEI
+      const tel = (
+        await http
+          .post('/v1/catalog/products')
+          .set(M())
+          .send({ name: 'Tecno Spark 20', price: 85000, trackSerial: true, warrantyMonths: 12 })
+          .expect(201)
+      ).body.id;
+      await http
+        .post('/v1/inventory/movements')
+        .set(M())
+        .send({ productId: tel, type: 'purchase', quantity: 5 })
+        .expect(201);
+      const noImei = await http
+        .post('/v1/sales')
+        .set(M())
+        .send({
+          id: '01930000-0000-7000-8000-0000000b0003',
+          items: [{ productId: tel, quantity: 2, serials: ['356789012345678'] }],
+          payments: [],
+        })
+        .expect(422);
+      expect(noImei.body.error.message).toContain('IMEI');
+      const phone = await http
+        .post('/v1/sales')
+        .set(M())
+        .send({
+          id: '01930000-0000-7000-8000-0000000b0004',
+          items: [{ productId: tel, quantity: 2, serials: ['356789012345678', '356789012345679'] }],
+          payments: [{ method: 'cash', amount: 170000 }],
+          soldAt: '2026-11-20T10:00:00Z',
+        })
+        .expect(201);
+      expect(phone.body.items[0]).toMatchObject({
+        serials: ['356789012345678', '356789012345679'],
+        warrantyUntil: '2027-11-20',
+      });
+      const found = (await http.get('/v1/sales/by-serial/356789012345679').set(M()).expect(200)).body;
+      expect(found).toMatchObject({
+        number: phone.body.number,
+        product: 'Tecno Spark 20',
+        warrantyUntil: '2027-11-20',
+        underWarranty: true,
+      });
+      await http.get('/v1/sales/by-serial/000').set(M()).expect(404);
+    });
+  });
+
   describe('Pages légales et suppression du compte depuis le web', () => {
     it('CGU, confidentialité, page de suppression ; suppression par code sans créer de compte', async () => {
       const cgu = await http.get('/cgu').expect(200);

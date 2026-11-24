@@ -46,6 +46,14 @@ class _ProductEditorScreenState extends ConsumerState<ProductEditorScreen> {
   String _packName = packNames.first;
   final _packSize = TextEditingController();
   final _packPrice = TextEditingController();
+  // Selon le métier : suppléments (restaurant), péremption (alimentation), IMEI et garantie (téléphonie)
+  final _extras = <ProductExtra>[];
+  final _extraName = TextEditingController();
+  final _extraPrice = TextEditingController();
+  DateTime? _expires;
+  bool _expiryChanged = false;
+  bool _trackSerial = false;
+  final _warranty = TextEditingController();
   bool _isService = false;
 
   /// « Plus d'options » ouvert : toujours en modification ; à la création, seulement si besoin.
@@ -100,6 +108,10 @@ class _ProductEditorScreenState extends ConsumerState<ProductEditorScreen> {
         _trackStock = p.trackStock;
         _wholesale = p.hasWholesale;
         _published = p.published;
+        _extras.addAll(p.extras);
+        _expires = p.expiresOn;
+        _trackSerial = p.trackSerial;
+        _warranty.text = (p.warrantyMonths ?? 0) > 0 ? '${p.warrantyMonths}' : '';
         _pack = p.hasPack;
         if (p.hasPack) {
           _packName = p.packName!;
@@ -122,7 +134,22 @@ class _ProductEditorScreenState extends ConsumerState<ProductEditorScreen> {
 
   @override
   void dispose() {
-    for (final c in [_name, _price, _cost, _barcode, _sku, _threshold, _wPrice, _wQty, _qty, _packSize, _packPrice]) {
+    for (final c in [
+      _name,
+      _price,
+      _cost,
+      _barcode,
+      _sku,
+      _threshold,
+      _wPrice,
+      _wQty,
+      _qty,
+      _packSize,
+      _packPrice,
+      _extraName,
+      _extraPrice,
+      _warranty,
+    ]) {
       c.dispose();
     }
     super.dispose();
@@ -192,6 +219,11 @@ class _ProductEditorScreenState extends ConsumerState<ProductEditorScreen> {
       wholesaleMinQty: wholesale ? wQty : null,
       packName: _pack ? _packName : null,
       packSize: _pack ? packSize : null,
+      extras: List.of(_extras),
+      expiresOn: _expires,
+      clearExpiry: _expiryChanged && _expires == null,
+      warrantyMonths: _int(_warranty) ?? 0,
+      trackSerial: _trackSerial,
     );
     setState(() => _busy = true);
     final repo = ref.read(repoProvider);
@@ -231,6 +263,132 @@ class _ProductEditorScreenState extends ConsumerState<ProductEditorScreen> {
         showError(context, e);
       }
     }
+  }
+
+  void _addExtra() {
+    final name = _extraName.text.trim();
+    if (name.isEmpty) return;
+    setState(() {
+      _extras.removeWhere((e) => e.name.toLowerCase() == name.toLowerCase());
+      _extras.add(ProductExtra(name, _int(_extraPrice) ?? 0));
+      _extraName.clear();
+      _extraPrice.clear();
+    });
+  }
+
+  /// Suppléments, péremption, IMEI et garantie : utiles selon le métier.
+  Widget _tradeFields(List<TextInputFormatter> digits) {
+    final cat = ref.watch(authProvider).value?.business?.category;
+    final heading = TextStyle(fontWeight: FontWeight.w800, color: AppColors.ink);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const SizedBox(height: 12),
+        Text(cat == 'restaurant' ? 'Suppléments et options' : 'Suppléments et options (restaurant…)', style: heading),
+        const SizedBox(height: 6),
+        if (_extras.isNotEmpty)
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: [
+              for (final e in _extras)
+                InputChip(
+                  label: Text('${e.name} · ${e.price == 0 ? 'offert' : '+${moneyShort(e.price)}'}'),
+                  onDeleted: () => setState(() => _extras.remove(e)),
+                ),
+            ],
+          ),
+        const SizedBox(height: 6),
+        Row(
+          children: [
+            Expanded(
+              flex: 3,
+              child: TextField(
+                key: const Key('pExtraName'),
+                controller: _extraName,
+                textCapitalization: TextCapitalization.sentences,
+                onSubmitted: (_) => _addExtra(),
+                decoration: const InputDecoration(labelText: 'Ex. Œuf, Sauce, Grande portion', isDense: true),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              flex: 2,
+              child: TextField(
+                key: const Key('pExtraPrice'),
+                controller: _extraPrice,
+                keyboardType: TextInputType.number,
+                inputFormatters: digits,
+                decoration: const InputDecoration(labelText: '+ Prix', suffixText: 'F', isDense: true),
+              ),
+            ),
+            IconButton(
+              key: const Key('pExtraAdd'),
+              tooltip: 'Ajouter le supplément',
+              onPressed: _addExtra,
+              icon: Icon(Icons.add_circle_rounded, color: AppColors.green),
+            ),
+          ],
+        ),
+        const SizedBox(height: 14),
+        InkWell(
+          key: const Key('pExpiry'),
+          borderRadius: BorderRadius.circular(14),
+          onTap: () async {
+            final now = DateTime.now();
+            final d = await showDatePicker(
+              context: context,
+              initialDate: _expires ?? now.add(const Duration(days: 30)),
+              firstDate: now.subtract(const Duration(days: 365)),
+              lastDate: now.add(const Duration(days: 365 * 10)),
+              helpText: 'Date de péremption',
+            );
+            if (d != null) {
+              setState(() {
+                _expires = d;
+                _expiryChanged = true;
+              });
+            }
+          },
+          child: InputDecorator(
+            decoration: InputDecoration(
+              labelText: 'Date de péremption (alimentation…)',
+              prefixIcon: const Icon(Icons.event_busy_rounded),
+              suffixIcon: _expires == null
+                  ? null
+                  : IconButton(
+                      tooltip: 'Retirer la date',
+                      icon: const Icon(Icons.close_rounded),
+                      onPressed: () => setState(() {
+                        _expires = null;
+                        _expiryChanged = true;
+                      }),
+                    ),
+            ),
+            child: Text(_expires == null ? 'Aucune' : longDate(_expires!)),
+          ),
+        ),
+        SwitchListTile(
+          key: const Key('pSerial'),
+          contentPadding: EdgeInsets.zero,
+          value: _trackSerial,
+          onChanged: (v) => setState(() => _trackSerial = v),
+          title: const Text('IMEI / numéro de série à la vente', style: TextStyle(fontWeight: FontWeight.w700)),
+          subtitle: const Text('Téléphones, appareils : le numéro est noté sur le reçu'),
+        ),
+        TextField(
+          key: const Key('pWarranty'),
+          controller: _warranty,
+          keyboardType: TextInputType.number,
+          inputFormatters: digits,
+          decoration: const InputDecoration(
+            labelText: 'Garantie (facultatif)',
+            suffixText: 'mois',
+            prefixIcon: Icon(Icons.verified_user_rounded),
+          ),
+        ),
+      ],
+    );
   }
 
   /// Retour à l'écran précédent (ou au stock si la fiche a été ouverte directement).
@@ -653,6 +811,7 @@ class _ProductEditorScreenState extends ConsumerState<ProductEditorScreen> {
                                 ],
                               ),
                             ],
+                            if (!_isService) _tradeFields(digits),
                             const SizedBox(height: 10),
                             InkWell(
                               borderRadius: BorderRadius.circular(14),

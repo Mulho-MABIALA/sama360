@@ -15,7 +15,15 @@ import { SalesService } from './sales.service';
 
 @Module({
   imports: [InventoryModule],
-  controllers: [SalesController, ReportsController, InsightsController, CustomersController, CashController, RemindersController, LoyaltyController],
+  controllers: [
+    SalesController,
+    ReportsController,
+    InsightsController,
+    CustomersController,
+    CashController,
+    RemindersController,
+    LoyaltyController,
+  ],
   providers: [SalesService, CustomersService, CashService, RemindersService, LoyaltyService],
   exports: [SalesService],
 })

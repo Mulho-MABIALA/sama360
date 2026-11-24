@@ -161,6 +161,8 @@ class PendingSalesController extends Notifier<List<PendingSale>> {
     Contact? customer,
     DateTime? now,
     int redeemRewards = 0,
+    Map<int, Map<String, Object>> details = const {},
+    Map<int, String> names = const {},
   }) async {
     final soldAt = now ?? DateTime.now();
     final body = SamaRepository.saleBody(
@@ -170,6 +172,7 @@ class PendingSalesController extends Notifier<List<PendingSale>> {
       payments: payments,
       soldAt: soldAt,
       redeemRewards: redeemRewards,
+      details: details,
     );
     // Point de vente au moment de la vente : une vente hors ligne envoyée plus tard reste au bon endroit
     final location = ref.read(apiClientProvider).locationId;
@@ -187,7 +190,10 @@ class PendingSalesController extends Notifier<List<PendingSale>> {
         body: body,
         total: total,
         customerName: customer?.name,
-        lines: [for (final l in lines) (productId: l.product.id, name: l.product.name, quantity: l.quantity)],
+        lines: [
+          for (final (n, l) in lines.indexed)
+            (productId: l.product.id, name: names[n] ?? l.product.name, quantity: l.quantity),
+        ],
       );
       await _save([...state.where((p) => p.id != id), pending]);
       return SaleQueued(pending);

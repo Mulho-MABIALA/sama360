@@ -28,6 +28,9 @@ const CreateSale = z.object({
         quantity: z.coerce.number().positive().max(1_000_000),
         unitPrice: amount.optional(),
         discount: amount.optional(),
+        // Restaurant : suppléments choisis ; téléphonie : un IMEI / numéro de série par unité
+        extras: z.array(z.string().trim().min(1).max(40)).max(20).optional(),
+        serials: z.array(z.string().trim().min(3).max(40)).max(500).optional(),
       }),
     )
     .min(1)
@@ -138,6 +141,39 @@ export class SalesController {
       const hasMore = rows.length > q.limit;
       const data = rows.slice(0, q.limit).map((r) => ({ ...r, due: r.total - r.paid }));
       return { data, nextCursor: hasMore ? data[data.length - 1].id : null };
+    });
+  }
+
+  /** Téléphonie : la vente d'un appareil par son IMEI / numéro de série (garantie, retour). */
+  @Get('by-serial/:serial')
+  @RequirePermission('sales:read')
+  bySerial(@CurrentTenant() t: TenantContext, @Param('serial') serial: string) {
+    const code = serial.trim().slice(0, 40);
+    return this.dbs.withTenant(t.businessId, async (tx) => {
+      const [row] = (
+        await tx.execute(sql`
+          SELECT s.id, s.number, s.sold_at, s.status, i.name, i.unit_price, i.warranty_until::text AS warranty_until,
+                 c.name AS customer_name, c.phone AS customer_phone
+          FROM sales.sale_items i
+          JOIN sales.sales s ON s.id = i.sale_id
+          LEFT JOIN contacts.contacts c ON c.id = s.customer_id
+          WHERE i.serials @> ARRAY[${code}]::text[]
+          ORDER BY s.sold_at DESC LIMIT 1`)
+      ).rows as Record<string, unknown>[];
+      if (!row) throw new AppError('NOT_FOUND', `Aucune vente avec le numéro ${code}`, 404);
+      const until = row.warranty_until as string | null;
+      return {
+        saleId: row.id,
+        number: row.number,
+        soldAt: row.sold_at,
+        status: row.status,
+        product: row.name,
+        price: Number(row.unit_price),
+        customerName: row.customer_name ?? null,
+        customerPhone: row.customer_phone ?? null,
+        warrantyUntil: until,
+        underWarranty: until !== null && until >= new Date().toISOString().slice(0, 10),
+      };
     });
   }
 

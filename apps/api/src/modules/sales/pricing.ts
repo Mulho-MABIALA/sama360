@@ -11,6 +11,8 @@ export interface LineInput {
   unitCost: number;
   discount: number;
   trackStock: boolean;
+  serials?: string[] | null;
+  warrantyUntil?: string | null;
 }
 
 export interface PricedLine extends LineInput {

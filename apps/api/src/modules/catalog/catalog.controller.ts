@@ -45,6 +45,16 @@ const ProductInput = z.object({
   wholesaleMinQty: z.coerce.number().positive().max(1_000_000).nullish(),
   packName: z.string().trim().min(1).max(20).nullish(),
   packSize: z.coerce.number().gt(1).max(100_000).nullish(),
+  extras: z
+    .array(z.object({ name: z.string().trim().min(1).max(40), price: amount }))
+    .max(20)
+    .nullish(),
+  expiresOn: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .nullish(),
+  warrantyMonths: z.number().int().min(0).max(120).nullish(),
+  trackSerial: z.boolean().optional(),
   durationMinutes: z.number().int().min(5).max(720).nullish(),
 });
 // Les valeurs par défaut ne doivent pas s'appliquer lors d'une modification partielle.
@@ -64,6 +74,16 @@ const ProductPatch = z.object({
   wholesaleMinQty: z.coerce.number().positive().max(1_000_000).nullish(),
   packName: z.string().trim().min(1).max(20).nullish(),
   packSize: z.coerce.number().gt(1).max(100_000).nullish(),
+  extras: z
+    .array(z.object({ name: z.string().trim().min(1).max(40), price: amount }))
+    .max(20)
+    .nullish(),
+  expiresOn: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .nullish(),
+  warrantyMonths: z.number().int().min(0).max(120).nullish(),
+  trackSerial: z.boolean().optional(),
   durationMinutes: z.number().int().min(5).max(720).nullish(),
 });
 const ListQuery = PageQuery.extend({
@@ -394,6 +414,9 @@ export class CatalogController {
             wholesaleMinQty: parent.wholesaleMinQty,
             packName: parent.packName,
             packSize: parent.packSize,
+            extras: parent.extras,
+            warrantyMonths: parent.warrantyMonths,
+            trackSerial: parent.trackSerial,
             sku: w.sku ?? null,
             barcode: w.barcode ?? null,
           });
@@ -483,6 +506,9 @@ export class CatalogController {
               wholesaleMinQty: product.wholesaleMinQty,
               packName: product.packName,
               packSize: product.packSize,
+              extras: product.extras,
+              warrantyMonths: product.warrantyMonths,
+              trackSerial: product.trackSerial,
               ...(c.price === current.price ? { price: product.price } : {}),
               ...(c.cost === current.cost ? { cost: product.cost } : {}),
               version: c.version + 1,

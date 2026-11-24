@@ -97,11 +97,6 @@ void main() {
     await tester.pumpAndSettle();
     final list = find.byType(Scrollable).first;
     await tester.scrollUntilVisible(find.byKey(const Key('pPack')), 200, scrollable: list);
-    await tester.drag(
-      find.ancestor(of: find.byKey(const Key('pPack')), matching: find.byType(Scrollable)).first,
-      const Offset(0, -120),
-    );
-    await tester.pumpAndSettle();
     tester.widget<SwitchListTile>(find.byKey(const Key('pPack'))).onChanged!(true);
     await tester.pumpAndSettle();
     await tester.enterText(find.byKey(const Key('pPackSize')), '6');

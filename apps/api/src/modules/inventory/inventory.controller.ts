@@ -70,6 +70,7 @@ export class InventoryController {
       const search = q.search ? `%${q.search}%` : null;
       const res = await tx.execute(sql`
         SELECT p.id, p.name, p.sku, p.price, p.cost, p.low_stock_threshold, p.image_file_ids[1] AS image_file_id,
+               p.expires_on::text AS expires_on,
                coalesce(sum(sl.on_hand) FILTER (WHERE ${warehouseId}::uuid IS NULL OR sl.warehouse_id = ${warehouseId}), 0)
                  AS on_hand,
                coalesce(jsonb_object_agg(sl.warehouse_id, sl.on_hand) FILTER (WHERE sl.warehouse_id IS NOT NULL), '{}')
@@ -89,6 +90,7 @@ export class InventoryController {
         cost: string;
         low_stock_threshold: number;
         image_file_id: string | null;
+        expires_on: string | null;
         on_hand: string;
         by_location: Record<string, string | number>;
       };
@@ -107,6 +109,8 @@ export class InventoryController {
             threshold: r.low_stock_threshold,
             onHand: qty,
             low: qty <= r.low_stock_threshold,
+            // Alimentation : date de péremption du stock en rayon
+            expiresOn: r.expires_on,
             value: costs ? Math.round(qty * cost) : null,
             byLocation: Object.fromEntries(Object.entries(r.by_location).map(([k, v]) => [k, Number(v)])),
           };

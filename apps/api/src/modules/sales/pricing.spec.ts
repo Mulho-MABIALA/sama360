@@ -13,7 +13,10 @@ const line = (over: Partial<Parameters<typeof priceSale>[0][number]> = {}) => ({
 
 describe('priceSale', () => {
   it('calcule lignes, sous-total, remise, total et coût', () => {
-    const r = priceSale([line(), line({ name: 'Huile de coco', quantity: 1, unitPrice: 4000, unitCost: 2600, discount: 500 })], 1000);
+    const r = priceSale(
+      [line(), line({ name: 'Huile de coco', quantity: 1, unitPrice: 4000, unitCost: 2600, discount: 500 })],
+      1000,
+    );
     expect(r.lines.map((l) => l.total)).toEqual([7000, 3500]);
     expect(r).toMatchObject({ subtotal: 10500, discount: 1000, total: 9500, costTotal: 6600 });
   });

@@ -460,7 +460,21 @@ class Product {
     this.variantAxes = const [],
     this.packName,
     this.packSize,
+    this.extras = const [],
+    this.expiresOn,
+    this.warrantyMonths,
+    this.trackSerial = false,
   });
+
+  /// Restaurant : suppléments et options choisis à la caisse, ajoutés au prix.
+  final List<ProductExtra> extras;
+
+  /// Alimentation : date de péremption du stock en rayon.
+  final DateTime? expiresOn;
+
+  /// Téléphonie : garantie (mois) et numéro de série / IMEI demandé à la vente.
+  final int? warrantyMonths;
+  final bool trackSerial;
 
   /// Conditionnement : « Carton » de [packSize] unités (le stock reste à l'unité).
   final String? packName;
@@ -540,8 +554,26 @@ class Product {
     ],
     packName: j['packName'] as String?,
     packSize: j['packSize'] == null ? null : _num(j['packSize']),
+    extras: [for (final e in (j['extras'] as List?) ?? const []) ProductExtra.fromJson(e as Map<String, dynamic>)],
+    expiresOn: j['expiresOn'] == null ? null : DateTime.tryParse(j['expiresOn'] as String),
+    warrantyMonths: (j['warrantyMonths'] as num?)?.toInt(),
+    trackSerial: j['trackSerial'] as bool? ?? false,
   );
 }
+
+/// Supplément ou option d'un plat : « Œuf » +200 F, « Piment » offert.
+class ProductExtra {
+  const ProductExtra(this.name, this.price);
+  final String name;
+  final int price;
+
+  factory ProductExtra.fromJson(Map<String, dynamic> j) => ProductExtra(j['name'] as String, _int(j['price']));
+  Map<String, dynamic> toJson() => {'name': name, 'price': price};
+}
+
+/// Date « AAAA-MM-JJ » pour l'API.
+String isoDay(DateTime d) =>
+    '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
 
 /// Option d'un produit à variantes : « Taille » avec ses valeurs S, M, L…
 class VariantAxis {
@@ -588,9 +620,19 @@ class ProductDraft {
     this.published,
     this.packName,
     this.packSize,
+    this.extras,
+    this.expiresOn,
+    this.clearExpiry = false,
+    this.warrantyMonths,
+    this.trackSerial = false,
   });
   final String? packName;
   final double? packSize;
+  final List<ProductExtra>? extras;
+  final DateTime? expiresOn;
+  final bool clearExpiry;
+  final int? warrantyMonths;
+  final bool trackSerial;
   final String name;
   final int price;
 
@@ -625,6 +667,10 @@ class ProductDraft {
     'published': ?published,
     'packName': isService ? null : packName,
     'packSize': isService || packName == null ? null : packSize,
+    if (extras != null) 'extras': [for (final e in extras!) e.toJson()],
+    if (expiresOn != null || clearExpiry) 'expiresOn': expiresOn == null ? null : isoDay(expiresOn!),
+    if (warrantyMonths != null) 'warrantyMonths': warrantyMonths == 0 ? null : warrantyMonths,
+    if (!isService) 'trackSerial': trackSerial,
   };
 }
 
@@ -639,7 +685,20 @@ class StockItem {
     required this.low,
     this.imageFileId,
     this.byLocation = const {},
+    this.expiresOn,
   });
+
+  /// Alimentation : date de péremption du stock.
+  final DateTime? expiresOn;
+
+  /// Périmé, ou qui le sera dans [days] jours.
+  bool expiresWithin(int days, [DateTime? now]) {
+    if (expiresOn == null || onHand <= 0) return false;
+    final n = now ?? DateTime.now();
+    final today = DateTime(n.year, n.month, n.day);
+    return !expiresOn!.isAfter(today.add(Duration(days: days)));
+  }
+
   final String productId;
   final String name;
   final int price;
@@ -662,6 +721,7 @@ class StockItem {
     low: j['low'] as bool? ?? false,
     imageFileId: j['imageFileId'] as String?,
     byLocation: {for (final e in ((j['byLocation'] as Map?) ?? const {}).entries) e.key as String: _num(e.value)},
+    expiresOn: j['expiresOn'] == null ? null : DateTime.tryParse(j['expiresOn'] as String),
   );
 
   int get margin => price == 0 ? 0 : (((price - cost) / price) * 100).round();
@@ -676,6 +736,7 @@ class StockItem {
     low: low ?? this.low,
     imageFileId: imageFileId,
     byLocation: byLocation,
+    expiresOn: expiresOn,
   );
 }
 
@@ -1252,6 +1313,8 @@ class ReceiptLine {
     required this.unitPrice,
     this.discount = 0,
     required this.total,
+    this.serials = const [],
+    this.warrantyUntil,
   });
   final String name;
   final double quantity;
@@ -1259,12 +1322,18 @@ class ReceiptLine {
   final int discount;
   final int total;
 
+  /// Téléphonie : IMEI / numéros de série vendus, garantie jusqu'à cette date.
+  final List<String> serials;
+  final DateTime? warrantyUntil;
+
   factory ReceiptLine.fromJson(Map<String, dynamic> j) => ReceiptLine(
     name: j['name'] as String,
     quantity: _num(j['quantity']),
     unitPrice: _int(j['unitPrice']),
     discount: _int(j['discount']),
     total: _int(j['total']),
+    serials: ((j['serials'] as List?) ?? const []).map((e) => '$e').toList(),
+    warrantyUntil: j['warrantyUntil'] == null ? null : DateTime.tryParse(j['warrantyUntil'] as String),
   );
 }
 

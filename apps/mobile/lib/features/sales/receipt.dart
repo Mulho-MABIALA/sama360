@@ -39,6 +39,9 @@ String receiptText(SaleDetail s, CurrentBusiness b) {
   out.writeln();
   for (final l in s.lines) {
     out.writeln('${qty(l.quantity)} × ${l.name} : ${receiptMoney(l.total)}');
+    for (final t in serialLines(l)) {
+      out.writeln('   $t');
+    }
   }
   out.writeln();
   if (s.discount > 0) out.writeln('Réduction : -${receiptMoney(s.discount)}');
@@ -150,6 +153,7 @@ Future<List<int>> buildReceiptPdf(SaleDetail s, CurrentBusiness b, {ReceiptFonts
             pw.Text(l.name, style: bold),
             row(lineDetail(l), receiptMoney(l.total)),
             if (l.discount > 0) row('  Réduction', '-${receiptMoney(l.discount)}'),
+            for (final t in serialLines(l)) pw.Text('  $t', style: base),
           ],
           dash(),
           if (s.discount > 0) ...[
@@ -177,3 +181,11 @@ Future<List<int>> buildReceiptPdf(SaleDetail s, CurrentBusiness b, {ReceiptFonts
 
 /// Nom de fichier du PDF : « Recu-VEN-2026-0004.pdf ».
 String receiptFileName(SaleDetail s) => 'Recu-${s.number}.pdf';
+
+final _warrantyDay = DateFormat('d/MM/yyyy', 'fr');
+
+/// Téléphonie : IMEI vendus et fin de garantie, sous la ligne du reçu.
+List<String> serialLines(ReceiptLine l) => [
+  if (l.serials.isNotEmpty) 'IMEI / N° de série : ${l.serials.join(', ')}',
+  if (l.warrantyUntil != null) 'Garantie jusqu’au ${_warrantyDay.format(l.warrantyUntil!)}',
+];

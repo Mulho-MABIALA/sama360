@@ -31,15 +31,33 @@ enum PaymentMode {
 }
 
 class CartLine {
-  const CartLine(this.product, this.quantity);
+  const CartLine(this.product, this.quantity, {this.extras = const [], this.serials = const []});
   final Product product;
   final double quantity;
 
-  /// Prix unitaire appliqué (prix de gros dès la quantité minimale, comme le serveur).
-  int get unitPrice => product.unitPriceFor(quantity);
-  bool get wholesale => unitPrice != product.price;
+  /// Restaurant : suppléments choisis (ajoutés au prix).
+  final List<ProductExtra> extras;
+
+  /// Téléphonie : IMEI / numéros de série, un par appareil.
+  final List<String> serials;
+
+  /// Identifiant de la ligne : un même plat avec ou sans supplément fait deux lignes.
+  String get key => lineKey(product.id, extras);
+
+  String get name => extras.isEmpty ? product.name : '${product.name} + ${extras.map((e) => e.name).join(', ')}';
+
+  /// Prix unitaire appliqué (prix de gros dès la quantité minimale, comme le serveur), suppléments compris.
+  int get unitPrice => product.unitPriceFor(quantity) + extras.fold(0, (s, e) => s + e.price);
+  bool get wholesale => product.unitPriceFor(quantity) != product.price;
   int get total => (unitPrice * quantity).round();
+
+  CartLine copyWith({double? quantity, List<String>? serials}) =>
+      CartLine(product, quantity ?? this.quantity, extras: extras, serials: serials ?? this.serials);
 }
+
+/// Clé d'une ligne de panier : le produit et ses suppléments.
+String lineKey(String productId, List<ProductExtra> extras) =>
+    extras.isEmpty ? productId : '$productId|${(extras.map((e) => e.name).toList()..sort()).join('|')}';
 
 class CartState {
   const CartState({
@@ -70,7 +88,10 @@ class CartState {
   int get total => subtotal - loyaltyDiscount;
   double get itemCount => lines.values.fold(0.0, (s, l) => s + l.quantity);
   bool get isEmpty => lines.isEmpty;
-  double quantityOf(String productId) => lines[productId]?.quantity ?? 0;
+
+  /// Quantité d'un produit dans le panier, toutes lignes confondues (avec ou sans suppléments).
+  double quantityOf(String productId) =>
+      lines.values.where((l) => l.product.id == productId).fold(0.0, (s, l) => s + l.quantity);
 
   CartState copyWith({
     Map<String, CartLine>? lines,
@@ -117,18 +138,38 @@ class CartController extends Notifier<CartState> {
 
   void add(Product p, {double step = 1}) {
     final lines = Map.of(state.lines);
-    lines[p.id] = CartLine(p, (lines[p.id]?.quantity ?? 0) + step);
+    final current = lines[p.id];
+    lines[p.id] = current == null ? CartLine(p, step) : current.copyWith(quantity: current.quantity + step);
     state = state.copyWith(lines: lines);
   }
 
   /// Quantité saisie à la main (2,5 m, 1 carton de 24…) ; 0 retire la ligne.
-  void setQuantity(Product p, double quantity) {
+  void setQuantity(Product p, double quantity) => setLineQuantity(p.id, quantity, product: p);
+
+  /// Quantité d'une ligne précise (plat avec suppléments…) ; 0 la retire.
+  void setLineQuantity(String key, double quantity, {Product? product}) {
     final lines = Map.of(state.lines);
+    final current = lines[key];
     if (quantity <= 0) {
-      lines.remove(p.id);
-    } else {
-      lines[p.id] = CartLine(lines[p.id]?.product ?? p, quantity);
+      lines.remove(key);
+    } else if (current != null) {
+      lines[key] = current.copyWith(quantity: quantity);
+    } else if (product != null) {
+      lines[key] = CartLine(product, quantity);
     }
+    state = state.copyWith(lines: lines);
+  }
+
+  /// Ajoute une ligne (plat avec suppléments, téléphones avec leurs IMEI) ; fusionne avec la même.
+  void addLine(CartLine line) {
+    final lines = Map.of(state.lines);
+    final current = lines[line.key];
+    lines[line.key] = current == null
+        ? line
+        : current.copyWith(
+            quantity: current.quantity + line.quantity,
+            serials: [...current.serials, ...line.serials.where((s) => !current.serials.contains(s))],
+          );
     state = state.copyWith(lines: lines);
   }
 
@@ -140,7 +181,11 @@ class CartController extends Notifier<CartState> {
     if (next <= 0) {
       lines.remove(productId);
     } else {
-      lines[productId] = CartLine(current.product, next);
+      // Un appareil de moins : son IMEI part aussi
+      lines[productId] = current.copyWith(
+        quantity: next,
+        serials: current.serials.isEmpty ? null : current.serials.take(next.round()).toList(),
+      );
     }
     state = state.copyWith(lines: lines);
   }
