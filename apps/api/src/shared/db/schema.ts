@@ -230,6 +230,9 @@ export const products = catalogSchema.table('products', {
   lowStockThreshold: integer('low_stock_threshold').notNull().default(5),
   wholesalePrice: money('wholesale_price'),
   wholesaleMinQty: qty('wholesale_min_qty'),
+  // Conditionnement : « Carton » de 24 (le stock reste à l'unité)
+  packName: varchar('pack_name', { length: 20 }),
+  packSize: qty('pack_size'),
   published: boolean('published').notNull().default(false),
   // Prestations : durée d'un rendez-vous (réservation en ligne)
   durationMinutes: integer('duration_minutes'),

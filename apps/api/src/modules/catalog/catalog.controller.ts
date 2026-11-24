@@ -43,6 +43,8 @@ const ProductInput = z.object({
   published: z.boolean().default(false),
   wholesalePrice: amount.nullish(),
   wholesaleMinQty: z.coerce.number().positive().max(1_000_000).nullish(),
+  packName: z.string().trim().min(1).max(20).nullish(),
+  packSize: z.coerce.number().gt(1).max(100_000).nullish(),
   durationMinutes: z.number().int().min(5).max(720).nullish(),
 });
 // Les valeurs par défaut ne doivent pas s'appliquer lors d'une modification partielle.
@@ -60,6 +62,8 @@ const ProductPatch = z.object({
   published: z.boolean().optional(),
   wholesalePrice: amount.nullish(),
   wholesaleMinQty: z.coerce.number().positive().max(1_000_000).nullish(),
+  packName: z.string().trim().min(1).max(20).nullish(),
+  packSize: z.coerce.number().gt(1).max(100_000).nullish(),
   durationMinutes: z.number().int().min(5).max(720).nullish(),
 });
 const ListQuery = PageQuery.extend({
@@ -116,6 +120,17 @@ const CategoryPatch = z.object({
 type Tx = Parameters<Parameters<DbService['withTenant']>[1]>[0];
 
 /** Prix de gros : les deux champs ensemble, et plus bas que le prix normal. */
+/** Conditionnement : le nom et la contenance vont ensemble. */
+function checkPack(name?: string | null, size?: number | null) {
+  if (!!name !== (size !== null && size !== undefined)) {
+    throw new AppError(
+      'VALIDATION_FAILED',
+      'Conditionnement : indiquez le nom (carton, sac…) et ce qu’il contient',
+      422,
+    );
+  }
+}
+
 function checkWholesale(price: number, wholesalePrice?: number | null, minQty?: number | null) {
   const hasPrice = wholesalePrice !== null && wholesalePrice !== undefined;
   const hasQty = minQty !== null && minQty !== undefined;
@@ -225,6 +240,7 @@ export class CatalogController {
   createProduct(@CurrentTenant() t: TenantContext, @CurrentUser() user: AuthUser, @Body() body: unknown) {
     const input = parse(ProductInput, body);
     checkWholesale(input.price, input.wholesalePrice, input.wholesaleMinQty);
+    checkPack(input.packName, input.packSize);
     return this.dbs.withTenant(t.businessId, async (tx) => {
       await this.assertCategory(tx, input.categoryId);
       await this.assertCodesFree(tx, input.sku, input.barcode);
@@ -376,6 +392,8 @@ export class CatalogController {
             cost: parent.cost,
             wholesalePrice: parent.wholesalePrice,
             wholesaleMinQty: parent.wholesaleMinQty,
+            packName: parent.packName,
+            packSize: parent.packSize,
             sku: w.sku ?? null,
             barcode: w.barcode ?? null,
           });
@@ -427,6 +445,10 @@ export class CatalogController {
       if (!current) throw AppError.notFound('Produit');
       await this.assertCategory(tx, input.categoryId);
       await this.assertCodesFree(tx, input.sku, input.barcode, id);
+      checkPack(
+        input.packName === undefined ? current.packName : input.packName,
+        input.packSize === undefined ? current.packSize : input.packSize,
+      );
       checkWholesale(
         input.price ?? current.price,
         input.wholesalePrice === undefined ? current.wholesalePrice : input.wholesalePrice,
@@ -459,6 +481,8 @@ export class CatalogController {
               published: product.published,
               wholesalePrice: product.wholesalePrice,
               wholesaleMinQty: product.wholesaleMinQty,
+              packName: product.packName,
+              packSize: product.packSize,
               ...(c.price === current.price ? { price: product.price } : {}),
               ...(c.cost === current.cost ? { cost: product.cost } : {}),
               version: c.version + 1,

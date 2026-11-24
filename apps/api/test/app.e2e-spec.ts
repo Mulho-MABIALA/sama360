@@ -4294,6 +4294,65 @@ describe('Socle Sama360 (e2e)', () => {
     });
   });
 
+  describe('Quincaillerie : unités, conditionnement, catégories du métier', () => {
+    it('vente au mètre, carton de 24, catégories prêtes', async () => {
+      const biz = (
+        await http
+          .post('/v1/businesses')
+          .set(auth(awa.accessToken))
+          .send({ name: 'Quincaillerie Fall', category: 'quincaillerie' })
+          .expect(201)
+      ).body.business.id;
+      const Q = () => auth(awa.accessToken, biz);
+      await relay.relayOnce();
+      const cats = await waitFor(
+        async () => (await http.get('/v1/catalog/categories').set(Q()).expect(200)).body as { name: string }[],
+        (c) => c.length >= 5,
+      );
+      expect(cats.map((c) => c.name)).toEqual(expect.arrayContaining(['Plomberie', 'Électricité', 'Outillage']));
+
+      const bad = await http
+        .post('/v1/catalog/products')
+        .set(Q())
+        .send({ name: 'Vis 6 mm', price: 25, packName: 'Boîte' })
+        .expect(422);
+      expect(bad.body.error.message).toContain('Conditionnement');
+      const vis = (
+        await http
+          .post('/v1/catalog/products')
+          .set(Q())
+          .send({ name: 'Vis 6 mm', price: 25, packName: 'Boîte', packSize: 100 })
+          .expect(201)
+      ).body;
+      expect(vis).toMatchObject({ packName: 'Boîte', packSize: 100 });
+      await http.patch(`/v1/catalog/products/${vis.id}`).set(Q()).send({ packName: null, packSize: null }).expect(200);
+
+      const cable = (
+        await http
+          .post('/v1/catalog/products')
+          .set(Q())
+          .send({ name: 'Câble 2,5 mm²', price: 600, unit: 'mètre' })
+          .expect(201)
+      ).body.id;
+      await http
+        .post('/v1/inventory/movements')
+        .set(Q())
+        .send({ productId: cable, type: 'purchase', quantity: 100 })
+        .expect(201);
+      const sale = await http
+        .post('/v1/sales')
+        .set(Q())
+        .send({
+          id: '01930000-0000-7000-8000-0000000af001',
+          items: [{ productId: cable, quantity: 2.5 }],
+          payments: [{ method: 'cash', amount: 1500 }],
+        })
+        .expect(201);
+      expect(sale.body).toMatchObject({ total: 1500 });
+      expect(sale.body.items[0].quantity).toBe(2.5);
+    });
+  });
+
   describe('Pages légales et suppression du compte depuis le web', () => {
     it('CGU, confidentialité, page de suppression ; suppression par code sans créer de compte', async () => {
       const cgu = await http.get('/cgu').expect(200);

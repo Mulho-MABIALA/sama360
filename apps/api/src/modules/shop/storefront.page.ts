@@ -373,7 +373,8 @@ input:focus,textarea:focus{border-color:var(--green)}
         opts +
         (v && !v.available ? '<div class="out" style="margin-top:10px">Cette version est épuisée</div>' : '') +
         (!p.variants && !p.available ? '<div class="out" style="margin-top:10px">Rupture de stock</div>' : '') +
-        (p.available ? '<div class="qty"><button id="pm" aria-label="Un de moins">−</button><b>' + q + '</b><button id="pl" aria-label="Un de plus">+</button></div>' +
+        (p.available ? '<div class="qty"><button id="pm" aria-label="Un de moins">−</button><b>' + q + '</b><button id="pl" aria-label="Un de plus">+</button>' +
+          (shown.packSize && shown.packSize === Math.round(shown.packSize) ? '<button class="val" id="ppk">+ 1 ' + esc(shown.packName.toLowerCase()) + ' (' + shown.packSize + ')</button>' : '') + '</div>' +
           '<button class="cta" id="padd"' + (canAdd ? '' : ' disabled') + '>' +
           (missing.length ? 'Choisissez ' + missing.join(' et ') : 'Ajouter au panier · ' + money(unitPrice(shown, q) * q)) + '</button>' : '') +
         '<button class="ghost" id="pall">Voir toute la boutique</button></div></div>';
@@ -387,6 +388,8 @@ input:focus,textarea:focus{border-color:var(--green)}
         var max = (v || p).maxQuantity || 99;
         sheet.querySelector('#pm').addEventListener('click', function(){ q = Math.max(1, q - 1); draw(); });
         sheet.querySelector('#pl').addEventListener('click', function(){ q = Math.min(p.variants && !v ? 99 : max, q + 1); draw(); });
+        var pk = sheet.querySelector('#ppk');
+        if (pk) pk.addEventListener('click', function(){ q = Math.min(max, (q === 1 ? 0 : q) + shown.packSize); draw(); });
         sheet.querySelector('#padd').addEventListener('click', function(){
           if (!canAdd) return;
           if (v) setQty(v.id, (state.cart[v.id] || 0) + q); else setQty(p.id, q);

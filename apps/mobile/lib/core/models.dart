@@ -2,6 +2,7 @@
 library;
 
 import 'countries.dart';
+import 'format.dart' show qty;
 
 export 'countries.dart' show Country;
 
@@ -411,7 +412,30 @@ class Category {
 }
 
 /// Unités proposées dans la fiche produit.
-const productUnits = ['pièce', 'kg', 'g', 'litre', 'mètre', 'paquet', 'sac', 'carton', 'boîte', 'sachet', 'heure'];
+const productUnits = [
+  'pièce',
+  'kg',
+  'g',
+  'litre',
+  'mètre',
+  'm²',
+  'tonne',
+  'paquet',
+  'sac',
+  'carton',
+  'boîte',
+  'sachet',
+  'rouleau',
+  'barre',
+  'douzaine',
+  'heure',
+];
+
+/// Unités qui se vendent au détail : 2,5 m de câble, 1,2 kg de riz.
+const decimalUnits = {'kg', 'g', 'litre', 'mètre', 'm²', 'tonne'};
+
+/// Conditionnements proposés : vendre ou acheter au carton, au sac…
+const packNames = ['Carton', 'Sac', 'Paquet', 'Boîte', 'Douzaine', 'Rouleau', 'Fût', 'Palette'];
 
 class Product {
   const Product({
@@ -434,7 +458,20 @@ class Product {
     this.parentId,
     this.options = const {},
     this.variantAxes = const [],
+    this.packName,
+    this.packSize,
   });
+
+  /// Conditionnement : « Carton » de [packSize] unités (le stock reste à l'unité).
+  final String? packName;
+  final double? packSize;
+  bool get hasPack => packName != null && packSize != null;
+
+  /// Se vend au détail (mètre, kilo…) : on saisit la quantité.
+  bool get decimalUnit => decimalUnits.contains(unit);
+
+  /// « Carton de 24 », « Sac de 50 kg ».
+  String get packLabel => hasPack ? '$packName de ${qty(packSize!)}${unit == 'pièce' ? '' : ' $unit'}' : '';
   final String id;
   final String name;
   final int price;
@@ -501,6 +538,8 @@ class Product {
     variantAxes: [
       for (final a in (j['variantAxes'] as List?) ?? const []) VariantAxis.fromJson(a as Map<String, dynamic>),
     ],
+    packName: j['packName'] as String?,
+    packSize: j['packSize'] == null ? null : _num(j['packSize']),
   );
 }
 
@@ -547,7 +586,11 @@ class ProductDraft {
     this.wholesalePrice,
     this.wholesaleMinQty,
     this.published,
+    this.packName,
+    this.packSize,
   });
+  final String? packName;
+  final double? packSize;
   final String name;
   final int price;
 
@@ -580,6 +623,8 @@ class ProductDraft {
     'wholesaleMinQty': wholesaleMinQty,
     if (isService) 'durationMinutes': durationMinutes,
     'published': ?published,
+    'packName': isService ? null : packName,
+    'packSize': isService || packName == null ? null : packSize,
   };
 }
 

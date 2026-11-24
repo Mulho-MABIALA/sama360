@@ -136,7 +136,7 @@ export class ShopService {
         await tx.execute(sql`
           SELECT p.id, p.name, p.price, p.unit, p.category_id, p.image_file_ids[1] AS image_file_id, p.track_stock,
                  p.wholesale_price, p.wholesale_min_qty, coalesce(sum(sl.on_hand), 0) AS on_hand,
-                 p.parent_id, p.options, p.variant_axes
+                 p.parent_id, p.options, p.variant_axes, p.pack_name, p.pack_size
           FROM catalog.products p
           LEFT JOIN inventory.stock_levels sl ON sl.product_id = p.id
           WHERE p.published AND p.deleted_at IS NULL
@@ -185,6 +185,9 @@ export class ShopService {
               imageFileId: (p.image_file_id as string | null) ?? null,
               wholesalePrice: p.wholesale_price === null ? null : Number(p.wholesale_price),
               wholesaleMinQty: p.wholesale_min_qty === null ? null : Number(p.wholesale_min_qty),
+              // Conditionnement : le client peut commander « 1 carton (24) »
+              packName: (p.pack_name as string | null) ?? null,
+              packSize: p.pack_size === null ? null : Number(p.pack_size),
               available: !tracked || onHand > 0,
               // Quantité maximale commandable (le stock exact n'est pas affiché au public)
               maxQuantity: tracked ? Math.max(0, Math.min(MAX_SHOWN_STOCK, Math.floor(onHand))) : MAX_SHOWN_STOCK,

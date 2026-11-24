@@ -47,6 +47,8 @@ void main() {
         'lowStockThreshold': 5,
         'wholesalePrice': 4600,
         'wholesaleMinQty': 10.0,
+        'packName': null,
+        'packSize': null,
       });
       expect(const ProductDraft(name: 'Coupe', price: 2000, isService: true).toJson()['trackStock'], isFalse);
     });

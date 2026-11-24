@@ -18,6 +18,7 @@ import '../../core/theme.dart';
 import '../../core/widgets.dart';
 import '../locations/locations_screen.dart' show SellingAtBanner;
 import '../catalog/variant_picker.dart';
+import 'quantity_sheet.dart';
 import '../catalog/product_photo.dart';
 import '../customers/customer_picker.dart';
 import '../offline/offline_ui.dart';
@@ -400,7 +401,18 @@ class _PosScreenState extends ConsumerState<PosScreen> {
                           product: p,
                           stock: onHand[p.id],
                           quantity: cart.quantityOf(p.id),
-                          onAdd: () {
+                          onAdd: () async {
+                            // Au mètre, au kilo, au carton : on tape la quantité
+                            if (p.decimalUnit || p.hasPack) {
+                              final q = await pickQuantity(
+                                context,
+                                product: p,
+                                current: cart.quantityOf(p.id),
+                                onHand: onHand[p.id]?.onHand,
+                              );
+                              if (q != null) ref.read(cartProvider.notifier).setQuantity(p, q);
+                              return;
+                            }
                             HapticFeedback.selectionClick();
                             ref.read(cartProvider.notifier).add(p);
                           },
@@ -418,7 +430,17 @@ class _PosScreenState extends ConsumerState<PosScreen> {
                           variants: vs,
                           onHand: stock == null ? null : {for (final x in items) x.productId: x.onHand},
                         );
-                        if (v == null) return;
+                        if (v == null || !context.mounted) return;
+                        if (v.decimalUnit || v.hasPack) {
+                          final q = await pickQuantity(
+                            context,
+                            product: v,
+                            current: ref.read(cartProvider).quantityOf(v.id),
+                            onHand: onHand[v.id]?.onHand,
+                          );
+                          if (q != null) ref.read(cartProvider.notifier).setQuantity(v, q);
+                          return;
+                        }
                         HapticFeedback.selectionClick();
                         ref.read(cartProvider.notifier).add(v);
                       }
@@ -530,20 +552,35 @@ class _CartLines extends ConsumerWidget {
                           child: Row(
                             children: [
                               Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      l.product.name,
-                                      maxLines: 2,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: const TextStyle(fontWeight: FontWeight.w700),
-                                    ),
-                                    Text(
-                                      '${qty(l.quantity)} × ${moneyShort(l.unitPrice)}',
-                                      style: TextStyle(color: AppColors.muted, fontSize: 12.5),
-                                    ),
-                                  ],
+                                // Toucher la ligne : taper la quantité (2,5 m, 1 carton, 50 pièces…)
+                                child: InkWell(
+                                  key: Key('cart_qty_${l.product.id}'),
+                                  borderRadius: BorderRadius.circular(8),
+                                  onTap: () async {
+                                    final q = await pickQuantity(context, product: l.product, current: l.quantity);
+                                    if (q != null) ctrl.setQuantity(l.product, q);
+                                  },
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        l.product.name,
+                                        maxLines: 2,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(fontWeight: FontWeight.w700),
+                                      ),
+                                      Text(
+                                        '${qty(l.quantity)}${l.product.unit == 'pièce' ? '' : ' ${l.product.unit}'} × ${moneyShort(l.unitPrice)}',
+                                        style: TextStyle(
+                                          color: AppColors.green,
+                                          fontSize: 12.5,
+                                          fontWeight: FontWeight.w700,
+                                          decoration: TextDecoration.underline,
+                                          decorationStyle: TextDecorationStyle.dotted,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
                                 ),
                               ),
                               IconButton(

@@ -121,6 +121,17 @@ class CartController extends Notifier<CartState> {
     state = state.copyWith(lines: lines);
   }
 
+  /// Quantité saisie à la main (2,5 m, 1 carton de 24…) ; 0 retire la ligne.
+  void setQuantity(Product p, double quantity) {
+    final lines = Map.of(state.lines);
+    if (quantity <= 0) {
+      lines.remove(p.id);
+    } else {
+      lines[p.id] = CartLine(lines[p.id]?.product ?? p, quantity);
+    }
+    state = state.copyWith(lines: lines);
+  }
+
   void remove(String productId, {double step = 1}) {
     final current = state.lines[productId];
     if (current == null) return;

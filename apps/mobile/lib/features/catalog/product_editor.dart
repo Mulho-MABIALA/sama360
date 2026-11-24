@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 
+import '../auth/auth_controller.dart' show authProvider;
 import '../auth/pin_screen.dart' show confirmSensitive;
 import '../../core/api/api_client.dart';
 import '../../core/format.dart';
@@ -40,6 +41,11 @@ class _ProductEditorScreenState extends ConsumerState<ProductEditorScreen> {
   final _wPrice = TextEditingController();
   final _wQty = TextEditingController();
   final _qty = TextEditingController(); // nouveau produit : quantité déjà en stock
+  // Conditionnement : vendu ou acheté aussi au carton, au sac…
+  bool _pack = false;
+  String _packName = packNames.first;
+  final _packSize = TextEditingController();
+  final _packPrice = TextEditingController();
   bool _isService = false;
 
   /// « Plus d'options » ouvert : toujours en modification ; à la création, seulement si besoin.
@@ -60,6 +66,12 @@ class _ProductEditorScreenState extends ConsumerState<ProductEditorScreen> {
   final _errors = <String, String>{};
 
   bool get _editing => widget.productId != null;
+
+  /// Métier où l'unité compte autant que le prix (mètre de câble, sac de ciment, kilo de riz).
+  bool get _unitFirst {
+    final c = ref.watch(authProvider).value?.business?.category;
+    return c == 'quincaillerie' || c == 'alimentation';
+  }
 
   @override
   void initState() {
@@ -88,6 +100,15 @@ class _ProductEditorScreenState extends ConsumerState<ProductEditorScreen> {
         _trackStock = p.trackStock;
         _wholesale = p.hasWholesale;
         _published = p.published;
+        _pack = p.hasPack;
+        if (p.hasPack) {
+          _packName = p.packName!;
+          _packSize.text = qty(p.packSize!);
+          // Prix du carton : celui du prix de gros quand il démarre au carton
+          if (p.hasWholesale && p.wholesaleMinQty == p.packSize) {
+            _packPrice.text = '${(p.wholesalePrice! * p.packSize!).round()}';
+          }
+        }
         if (p.hasWholesale) {
           _wPrice.text = '${p.wholesalePrice}';
           _wQty.text = qty(p.wholesaleMinQty!);
@@ -101,7 +122,7 @@ class _ProductEditorScreenState extends ConsumerState<ProductEditorScreen> {
 
   @override
   void dispose() {
-    for (final c in [_name, _price, _cost, _barcode, _sku, _threshold, _wPrice, _wQty, _qty]) {
+    for (final c in [_name, _price, _cost, _barcode, _sku, _threshold, _wPrice, _wQty, _qty, _packSize, _packPrice]) {
       c.dispose();
     }
     super.dispose();
@@ -117,13 +138,28 @@ class _ProductEditorScreenState extends ConsumerState<ProductEditorScreen> {
   Future<void> _save({bool thenVariants = false}) async {
     final price = _int(_price);
     final cost = _int(_cost) ?? 0;
-    final wPrice = _int(_wPrice);
-    final wQty = double.tryParse(_wQty.text.replaceAll(',', '.').replaceAll(' ', ''));
+    var wPrice = _int(_wPrice);
+    var wQty = double.tryParse(_wQty.text.replaceAll(',', '.').replaceAll(' ', ''));
+    final packSize = double.tryParse(_packSize.text.replaceAll(',', '.').replaceAll(' ', ''));
+    final packPrice = _int(_packPrice);
+    var wholesale = _wholesale;
+    // Prix du carton : devient le prix de gros à partir d'un carton
+    if (_pack && packSize != null && packSize > 1 && packPrice != null) {
+      wholesale = true;
+      wPrice = (packPrice / packSize).round();
+      wQty = packSize;
+    }
     setState(() {
       _errors.clear();
       if (_name.text.trim().isEmpty) _errors['name'] = 'Donnez un nom';
       if (price == null) _errors['price'] = 'Indiquez le prix de vente';
-      if (_wholesale) {
+      if (_pack && !_isService && (packSize == null || packSize <= 1)) {
+        _errors['packSize'] = 'Plus de 1';
+      }
+      if (_pack && packSize != null && packPrice != null && price != null && packPrice >= price * packSize) {
+        _errors['packPrice'] = 'Moins cher que ${moneyShort((price * packSize).round())} (à la pièce)';
+      }
+      if (wholesale && !(_pack && packPrice != null)) {
         if (wPrice == null) _errors['wPrice'] = 'Prix de gros';
         if (wQty == null || wQty <= 0) _errors['wQty'] = 'Quantité minimale';
         if (wPrice != null && price != null && wPrice >= price) {
@@ -132,7 +168,7 @@ class _ProductEditorScreenState extends ConsumerState<ProductEditorScreen> {
       }
     });
     if (_errors.isNotEmpty) {
-      if (_errors.containsKey('wPrice') || _errors.containsKey('wQty')) setState(() => _more = true);
+      if (_errors.keys.any((k) => k.startsWith('w') || k.startsWith('pack'))) setState(() => _more = true);
       return;
     }
     final initialQty = _editing || _isService || !_trackStock
@@ -152,8 +188,10 @@ class _ProductEditorScreenState extends ConsumerState<ProductEditorScreen> {
       trackStock: _trackStock,
       published: _published,
       lowStockThreshold: _int(_threshold) ?? 5,
-      wholesalePrice: _wholesale ? wPrice : null,
-      wholesaleMinQty: _wholesale ? wQty : null,
+      wholesalePrice: wholesale ? wPrice : null,
+      wholesaleMinQty: wholesale ? wQty : null,
+      packName: _pack ? _packName : null,
+      packSize: _pack ? packSize : null,
     );
     setState(() => _busy = true);
     final repo = ref.read(repoProvider);
@@ -335,6 +373,29 @@ class _ProductEditorScreenState extends ConsumerState<ProductEditorScreen> {
                               ],
                             ],
                           ),
+                          // Quincaillerie, alimentation : on choisit tout de suite au mètre, au kilo, au sac…
+                          if (!_isService && _unitFirst) ...[
+                            const SizedBox(height: 10),
+                            Text('Vendu', style: TextStyle(color: AppColors.muted, fontSize: 12.5)),
+                            const SizedBox(height: 6),
+                            Wrap(
+                              spacing: 6,
+                              runSpacing: 6,
+                              children: [
+                                for (final u in const ['pièce', 'mètre', 'kg', 'litre', 'sac', 'carton', 'rouleau'])
+                                  Pill(
+                                    key: Key('pUnit_$u'),
+                                    label: u == 'pièce'
+                                        ? 'à la pièce'
+                                        : u == 'kg'
+                                        ? 'au kilo'
+                                        : 'au $u',
+                                    selected: _unit == u,
+                                    onTap: () => setState(() => _unit = u),
+                                  ),
+                              ],
+                            ),
+                          ],
                         ],
                       ),
                       if (!_isService && !(_product?.isVariant ?? false)) ...[
@@ -475,6 +536,81 @@ class _ProductEditorScreenState extends ConsumerState<ProductEditorScreen> {
                                   ),
                                 ],
                               ),
+                            if (!_isService) ...[
+                              SwitchListTile(
+                                key: const Key('pPack'),
+                                contentPadding: EdgeInsets.zero,
+                                value: _pack,
+                                onChanged: (v) => setState(() => _pack = v),
+                                title: const Text(
+                                  'Vendu aussi au carton, au sac…',
+                                  style: TextStyle(fontWeight: FontWeight.w700),
+                                ),
+                                subtitle: const Text(
+                                  'Le stock reste compté à l’unité ; la caisse propose « 1 carton »',
+                                ),
+                              ),
+                              if (_pack) ...[
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: InputDecorator(
+                                        decoration: const InputDecoration(labelText: 'Conditionnement'),
+                                        child: DropdownButtonHideUnderline(
+                                          child: DropdownButton<String>(
+                                            key: const Key('pPackName'),
+                                            isDense: true,
+                                            isExpanded: true,
+                                            value: packNames.contains(_packName) ? _packName : packNames.first,
+                                            items: [
+                                              for (final n in packNames) DropdownMenuItem(value: n, child: Text(n)),
+                                            ],
+                                            onChanged: (n) => setState(() => _packName = n ?? packNames.first),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 10),
+                                    Expanded(
+                                      child: TextField(
+                                        key: const Key('pPackSize'),
+                                        controller: _packSize,
+                                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                        onChanged: (_) => setState(() {}),
+                                        decoration: InputDecoration(
+                                          labelText: 'Contient',
+                                          suffixText: _unit,
+                                          errorText: _errors['packSize'],
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 10),
+                                TextField(
+                                  key: const Key('pPackPrice'),
+                                  controller: _packPrice,
+                                  keyboardType: TextInputType.number,
+                                  inputFormatters: digits,
+                                  onChanged: (_) => setState(() {}),
+                                  decoration: InputDecoration(
+                                    labelText: 'Prix du ${_packName.toLowerCase()} (facultatif)',
+                                    suffixText: 'F',
+                                    errorText: _errors['packPrice'],
+                                    errorMaxLines: 2,
+                                    helperText: () {
+                                      final size = double.tryParse(_packSize.text.replaceAll(',', '.'));
+                                      final unitPrice = _int(_price);
+                                      if (size == null || size <= 1 || unitPrice == null) return null;
+                                      final pp = _int(_packPrice);
+                                      return pp == null
+                                          ? 'Sinon : ${qty(size)} × ${moneyShort(unitPrice)} = ${moneyShort((unitPrice * size).round())}'
+                                          : 'Soit ${moneyShort((pp / size).round())} ${_unit == 'pièce' ? 'la pièce' : 'le $_unit'}';
+                                    }(),
+                                  ),
+                                ),
+                              ],
+                            ],
                           ],
                         ),
                         const SizedBox(height: 12),

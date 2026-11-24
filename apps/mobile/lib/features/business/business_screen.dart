@@ -13,6 +13,9 @@ import '../profile/closure_screens.dart' show DeletedBusinessesList;
 
 const _categories = {
   'boutique': 'Boutique',
+  'mode': 'Habits & chaussures',
+  'quincaillerie': 'Quincaillerie',
+  'alimentation': 'Alimentation',
   'restaurant': 'Restaurant',
   'salon': 'Salon / beauté',
   'prestataire': 'Prestataire',
@@ -26,7 +29,7 @@ const focusLabels = {'products': 'Des produits', 'services': 'Des services', 'bo
 String focusFor(String category) => switch (category) {
   'salon' || 'prestataire' => 'services',
   'restaurant' => 'products',
-  'boutique' => 'products',
+  'boutique' || 'mode' || 'quincaillerie' || 'alimentation' => 'products',
   _ => 'both',
 };
 

@@ -11,6 +11,9 @@ export const DEFAULT_CATEGORIES: Record<string, string[]> = {
   restaurant: ['Plats', 'Boissons', 'Desserts'],
   prestataire: ['Prestations', 'Fournitures'],
   salon: ['Prestations', 'Produits'],
+  quincaillerie: ['Plomberie', 'Électricité', 'Peinture', 'Outillage', 'Matériaux'],
+  mode: ['Femme', 'Homme', 'Enfant', 'Chaussures', 'Accessoires'],
+  alimentation: ['Boissons', 'Épicerie', 'Produits frais', 'Hygiène'],
 };
 
 @Injectable()

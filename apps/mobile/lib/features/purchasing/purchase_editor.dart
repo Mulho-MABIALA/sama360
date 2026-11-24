@@ -544,18 +544,22 @@ class _LineTile extends StatelessWidget {
   );
 }
 
-/// Quantité et prix d'achat d'une ligne.
-class _LineSheet extends StatefulWidget {
+/// Quantité et prix d'achat d'une ligne ; au carton si le produit a un conditionnement.
+class _LineSheet extends ConsumerStatefulWidget {
   const _LineSheet({required this.line});
   final PurchaseLineDraft line;
   @override
-  State<_LineSheet> createState() => _LineSheetState();
+  ConsumerState<_LineSheet> createState() => _LineSheetState();
 }
 
-class _LineSheetState extends State<_LineSheet> {
+class _LineSheetState extends ConsumerState<_LineSheet> {
   late final _qty = TextEditingController(text: qty(widget.line.quantity));
   late final _cost = TextEditingController(text: '${widget.line.unitCost}');
   String? _error;
+  bool _byPack = false;
+
+  Product? get _product =>
+      (ref.read(productsProvider).value ?? const <Product>[]).where((p) => p.id == widget.line.productId).firstOrNull;
 
   @override
   void dispose() {
@@ -564,62 +568,122 @@ class _LineSheetState extends State<_LineSheet> {
     super.dispose();
   }
 
+  double? get _q => double.tryParse(_qty.text.replaceAll(',', '.').replaceAll(RegExp(r'\s'), ''));
+  int? get _c => int.tryParse(_cost.text.replaceAll(RegExp(r'\s'), ''));
+
+  /// Passe de l'unité au carton (et inversement) en convertissant ce qui est déjà saisi.
+  void _switch(bool byPack, double size) {
+    if (byPack == _byPack) return;
+    final q = _q, c = _c;
+    setState(() {
+      _byPack = byPack;
+      if (q != null) _qty.text = qty(byPack ? (q / size * 1000).round() / 1000 : q * size);
+      if (c != null) _cost.text = '${byPack ? (c * size).round() : (c / size).round()}';
+    });
+  }
+
   void _ok() {
-    final q = double.tryParse(_qty.text.replaceAll(',', '.').replaceAll(RegExp(r'\s'), ''));
-    final c = int.tryParse(_cost.text.replaceAll(RegExp(r'\s'), ''));
+    var q = _q;
+    var c = _c;
     if (q == null || q <= 0 || c == null) {
       setState(() => _error = 'Quantité et prix d’achat sont nécessaires');
       return;
+    }
+    // Le stock et le coût restent à l'unité
+    final size = _product?.packSize;
+    if (_byPack && size != null) {
+      q = q * size;
+      c = (c / size).round();
     }
     Navigator.pop(context, widget.line.copyWith(quantity: q, unitCost: c));
   }
 
   @override
-  Widget build(BuildContext context) => Padding(
-    padding: EdgeInsets.fromLTRB(20, 0, 20, 20 + MediaQuery.viewInsetsOf(context).bottom),
-    child: Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Text(widget.line.name, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
-        const SizedBox(height: 14),
-        Row(
-          children: [
-            Expanded(
-              child: TextField(
-                key: const Key('plQty'),
-                controller: _qty,
-                autofocus: true,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                decoration: InputDecoration(
-                  labelText: 'Quantité',
-                  suffixText: widget.line.unit == 'pièce' ? null : widget.line.unit,
+  Widget build(BuildContext context) {
+    final p = _product;
+    final pack = p != null && p.hasPack ? p : null;
+    final unit = widget.line.unit == 'pièce' ? null : widget.line.unit;
+    final q = _q, c = _c;
+    return Padding(
+      padding: EdgeInsets.fromLTRB(20, 0, 20, 20 + MediaQuery.viewInsetsOf(context).bottom),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(widget.line.name, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+          if (pack != null) ...[
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Pill(
+                  key: const Key('plByUnit'),
+                  label: unit == null ? 'À la pièce' : 'Au $unit',
+                  selected: !_byPack,
+                  onTap: () => _switch(false, pack.packSize!),
                 ),
-              ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              flex: 2,
-              child: TextField(
-                key: const Key('plCost'),
-                controller: _cost,
-                keyboardType: TextInputType.number,
-                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                decoration: const InputDecoration(labelText: 'Prix d’achat unitaire', suffixText: 'F'),
-              ),
+                const SizedBox(width: 8),
+                Pill(
+                  key: const Key('plByPack'),
+                  label: '${pack.packLabel[0].toUpperCase()}${pack.packLabel.substring(1)}',
+                  selected: _byPack,
+                  onTap: () => _switch(true, pack.packSize!),
+                ),
+              ],
             ),
           ],
-        ),
-        if (_error != null)
-          Padding(
-            padding: const EdgeInsets.only(top: 8),
-            child: Text(_error!, style: TextStyle(color: AppColors.danger)),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  key: const Key('plQty'),
+                  controller: _qty,
+                  autofocus: true,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  onChanged: (_) => setState(() {}),
+                  decoration: InputDecoration(
+                    labelText: _byPack ? '${pack!.packName}s' : 'Quantité',
+                    suffixText: _byPack ? null : unit,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                flex: 2,
+                child: TextField(
+                  key: const Key('plCost'),
+                  controller: _cost,
+                  keyboardType: TextInputType.number,
+                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                  onChanged: (_) => setState(() {}),
+                  decoration: InputDecoration(
+                    labelText: _byPack ? 'Prix d’achat du ${pack!.packName!.toLowerCase()}' : 'Prix d’achat unitaire',
+                    suffixText: 'F',
+                  ),
+                ),
+              ),
+            ],
           ),
-        const SizedBox(height: 16),
-        FilledButton(onPressed: _ok, child: const Text('Valider')),
-      ],
-    ),
-  );
+          if (_byPack && q != null && c != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Text(
+                '= ${qty(q * pack!.packSize!)}${unit == null ? ' pièces' : ' $unit'} en stock, '
+                '${moneyShort((c / pack.packSize!).round())} ${unit == null ? 'la pièce' : 'le $unit'}',
+                style: TextStyle(color: AppColors.green, fontWeight: FontWeight.w700),
+              ),
+            ),
+          if (_error != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Text(_error!, style: TextStyle(color: AppColors.danger)),
+            ),
+          const SizedBox(height: 16),
+          FilledButton(onPressed: _ok, child: const Text('Valider')),
+        ],
+      ),
+    );
+  }
 }
 
 /// Choix d'un produit du catalogue (articles suivis ou non).
