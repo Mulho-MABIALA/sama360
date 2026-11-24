@@ -1,6 +1,7 @@
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../../core/format.dart';
@@ -9,6 +10,8 @@ import '../../core/models.dart';
 import '../../core/providers.dart';
 import '../../core/theme.dart';
 import '../../core/widgets.dart';
+import '../catalog/product_photo.dart';
+import 'shop_cover.dart';
 
 /// Réglages de la boutique : ouverture, présentation, livraison, retrait, minimum.
 class ShopSettingsScreen extends ConsumerStatefulWidget {
@@ -23,7 +26,11 @@ class ShopSettingsScreen extends ConsumerStatefulWidget {
 
 class _ShopSettingsScreenState extends ConsumerState<ShopSettingsScreen> {
   final _title = TextEditingController();
+  final _tagline = TextEditingController();
   final _description = TextEditingController();
+  String? _coverFileId;
+  String? _city;
+  bool _coverBusy = false;
   final _whatsapp = TextEditingController();
   final _fee = TextEditingController();
   final _zone = TextEditingController();
@@ -46,6 +53,9 @@ class _ShopSettingsScreenState extends ConsumerState<ShopSettingsScreen> {
         final s = o.settings;
         _enabled = s.enabled || widget.opening;
         _title.text = s.title ?? b.name;
+        _tagline.text = s.tagline ?? '';
+        _coverFileId = s.coverFileId;
+        _city = b.city;
         _description.text = s.description ?? '';
         final wa = s.whatsapp ?? b.phone;
         _whatsapp.text = wa == null ? '' : editablePhone(wa.replaceAll(' ', ''), b.country);
@@ -65,7 +75,7 @@ class _ShopSettingsScreenState extends ConsumerState<ShopSettingsScreen> {
 
   @override
   void dispose() {
-    for (final c in [_title, _description, _whatsapp, _fee, _zone, _min]) {
+    for (final c in [_title, _tagline, _description, _whatsapp, _fee, _zone, _min]) {
       c.dispose();
     }
     super.dispose();
@@ -86,6 +96,7 @@ class _ShopSettingsScreenState extends ConsumerState<ShopSettingsScreen> {
         ShopSettings(
           enabled: _enabled,
           title: _title.text.trim(),
+          tagline: _tagline.text.trim(),
           description: _description.text.trim(),
           whatsapp: phone,
           pickup: _pickup,
@@ -109,6 +120,142 @@ class _ShopSettingsScreenState extends ConsumerState<ShopSettingsScreen> {
     }
   }
 
+  /// Choisir, remplacer ou retirer la photo de couverture (envoyée tout de suite).
+  Future<void> _pickCover() async {
+    final action = await showModalBottomSheet<String>(
+      context: context,
+      useRootNavigator: true,
+      showDragHandle: true,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: Icon(Icons.photo_library_rounded, color: AppColors.green),
+              title: const Text('Choisir dans la galerie'),
+              onTap: () => Navigator.pop(ctx, 'gallery'),
+            ),
+            ListTile(
+              leading: Icon(Icons.photo_camera_rounded, color: AppColors.green),
+              title: const Text('Prendre une photo'),
+              onTap: () => Navigator.pop(ctx, 'camera'),
+            ),
+            if (_coverFileId != null)
+              ListTile(
+                leading: Icon(Icons.delete_rounded, color: AppColors.danger),
+                title: Text('Retirer la photo', style: TextStyle(color: AppColors.danger)),
+                onTap: () => Navigator.pop(ctx, 'remove'),
+              ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+    if (action == null || !mounted) return;
+    final repo = ref.read(repoProvider);
+    try {
+      ShopSettings saved;
+      if (action == 'remove') {
+        setState(() => _coverBusy = true);
+        saved = await repo.deleteShopCover();
+      } else {
+        final photo = await ref.read(coverPhotoPickerProvider)(
+          action == 'camera' ? ImageSource.camera : ImageSource.gallery,
+        );
+        if (photo == null) return;
+        setState(() => _coverBusy = true);
+        saved = await repo.uploadShopCover(photo.bytes, filename: photo.filename);
+      }
+      refreshShop(ref);
+      if (mounted) setState(() => _coverFileId = saved.coverFileId);
+    } catch (e) {
+      if (mounted) showError(context, e);
+    } finally {
+      if (mounted) setState(() => _coverBusy = false);
+    }
+  }
+
+  Widget _vitrine() {
+    final headline = _tagline.text.trim().isNotEmpty
+        ? _tagline.text.trim()
+        : (_title.text.trim().isEmpty ? 'Ma boutique' : _title.text.trim());
+    return _Section(
+      title: 'Votre vitrine',
+      subtitle: 'Le haut de votre page, ce que vos clients voient en premier',
+      children: [
+        Stack(
+          children: [
+            ShopCover(
+              key: const Key('shopCoverPreview'),
+              headline: headline,
+              coverFileId: _coverFileId,
+              kicker: _city ?? _title.text.trim(),
+              subtitle: _description.text.trim(),
+              height: 250,
+              radius: 20,
+              bottom: const ShopCoverButton(label: 'Découvrir la boutique'),
+            ),
+            if (_coverBusy)
+              const Positioned.fill(
+                child: ColoredBox(
+                  color: Color(0x66000000),
+                  child: Center(child: CircularProgressIndicator(color: Colors.white)),
+                ),
+              ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        Row(
+          children: [
+            Expanded(
+              child: FilledButton.icon(
+                key: const Key('shopCoverPick'),
+                style: accentButtonStyle().copyWith(minimumSize: const WidgetStatePropertyAll(Size.fromHeight(46))),
+                onPressed: _coverBusy ? null : _pickCover,
+                icon: Icon(_coverFileId == null ? Icons.add_photo_alternate_rounded : Icons.photo_rounded),
+                label: Text(_coverFileId == null ? 'Ajouter une photo de couverture' : 'Changer la photo'),
+              ),
+            ),
+          ],
+        ),
+        if (_coverFileId == null)
+          Padding(
+            padding: const EdgeInsets.only(top: 6),
+            child: Text(
+              'Une belle photo de vos produits ou de votre boutique, en largeur.',
+              style: TextStyle(color: AppColors.muted, fontSize: 12),
+            ),
+          ),
+        const SizedBox(height: 14),
+        TextField(
+          key: const Key('shopTagline'),
+          controller: _tagline,
+          maxLength: 120,
+          textCapitalization: TextCapitalization.sentences,
+          onChanged: (_) => setState(() {}),
+          decoration: const InputDecoration(
+            labelText: 'Phrase d’accroche',
+            hintText: 'Ex. Des soins naturels pour chaque peau',
+            prefixIcon: Icon(Icons.format_quote_rounded),
+          ),
+        ),
+        const SizedBox(height: 4),
+        TextField(
+          key: const Key('shopDescription'),
+          controller: _description,
+          minLines: 2,
+          maxLines: 4,
+          textCapitalization: TextCapitalization.sentences,
+          onChanged: (_) => setState(() {}),
+          decoration: const InputDecoration(
+            labelText: 'Petit texte (facultatif)',
+            hintText: 'Ex. Cosmétiques naturels, livrés partout à Dakar en 24 h',
+          ),
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final digits = [FilteringTextInputFormatter.digitsOnly];
@@ -127,6 +274,8 @@ class _ShopSettingsScreenState extends ConsumerState<ShopSettingsScreen> {
                   child: ListView(
                     padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
                     children: [
+                      _vitrine(),
+                      const SizedBox(height: 12),
                       _Section(
                         title: 'Boutique',
                         children: [
@@ -155,19 +304,8 @@ class _ShopSettingsScreenState extends ConsumerState<ShopSettingsScreen> {
                             key: const Key('shopTitle'),
                             controller: _title,
                             textCapitalization: TextCapitalization.words,
+                            onChanged: (_) => setState(() {}),
                             decoration: const InputDecoration(labelText: 'Nom affiché'),
-                          ),
-                          const SizedBox(height: 12),
-                          TextField(
-                            key: const Key('shopDescription'),
-                            controller: _description,
-                            minLines: 2,
-                            maxLines: 4,
-                            textCapitalization: TextCapitalization.sentences,
-                            decoration: const InputDecoration(
-                              labelText: 'Présentation (facultatif)',
-                              hintText: 'Ex. Cosmétiques naturels, livrés partout à Dakar en 24 h',
-                            ),
                           ),
                           const SizedBox(height: 12),
                           TextField(
@@ -263,8 +401,9 @@ class _ShopSettingsScreenState extends ConsumerState<ShopSettingsScreen> {
 }
 
 class _Section extends StatelessWidget {
-  const _Section({required this.title, required this.children});
+  const _Section({required this.title, required this.children, this.subtitle});
   final String title;
+  final String? subtitle;
   final List<Widget> children;
 
   @override
@@ -278,7 +417,8 @@ class _Section extends StatelessWidget {
           header: true,
           child: Text(title, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
         ),
-        const SizedBox(height: 6),
+        if (subtitle != null) Text(subtitle!, style: TextStyle(color: AppColors.muted, fontSize: 12)),
+        const SizedBox(height: 8),
         ...children,
       ],
     ),

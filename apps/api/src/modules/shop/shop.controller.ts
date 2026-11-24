@@ -1,9 +1,33 @@
-import { Body, Controller, Get, Header, HttpCode, Param, ParseUUIDPipe, Post, Put, Query, Res } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Header,
+  HttpCode,
+  Param,
+  ParseUUIDPipe,
+  Post,
+  Put,
+  Query,
+  Res,
+  UploadedFile,
+  UseInterceptors,
+} from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { Throttle } from '@nestjs/throttler';
 import type { Response } from 'express';
 import { z } from 'zod';
 import { AuthUser, TenantContext } from '../../shared/auth/auth.types';
-import { CurrentTenant, CurrentUser, Public, RequireModule, RequirePermission, RequirePro } from '../../shared/auth/decorators';
+import {
+  CurrentTenant,
+  CurrentUser,
+  Public,
+  RequireModule,
+  RequirePermission,
+  RequirePro,
+} from '../../shared/auth/decorators';
+import { env } from '../../shared/config/env';
 import { AppError } from '../../shared/http/app-error';
 import { parse } from '../../shared/http/zod';
 import { storefrontPage } from './storefront.page';
@@ -20,6 +44,7 @@ const money = z.coerce.number().int().min(0).max(1_000_000_000);
 const Settings = z.object({
   enabled: z.boolean().optional(),
   title: z.string().trim().max(120).nullish(),
+  tagline: z.string().trim().max(120).nullish(),
   description: z.string().trim().max(1000).nullish(),
   whatsapp: z.string().trim().max(25).nullish(),
   pickup: z.boolean().optional(),
@@ -53,7 +78,10 @@ const SetStatus = z.object({
   status: z.enum(['confirmed', 'ready', 'delivering', 'completed', 'cancelled']),
   reason: z.string().trim().max(300).nullish(),
   payment: z
-    .object({ method: z.enum(['cash', 'wave', 'orange_money', 'free_money', 'mtn_momo', 'moov_money', 'airtel_money', 'card']), amount: money })
+    .object({
+      method: z.enum(['cash', 'wave', 'orange_money', 'free_money', 'mtn_momo', 'moov_money', 'airtel_money', 'card']),
+      amount: money,
+    })
     .nullish(),
 });
 
@@ -111,6 +139,32 @@ export class ShopController {
   @RequirePermission('catalog:write')
   settings(@CurrentTenant() t: TenantContext, @Body() body: unknown) {
     return this.shop.saveSettings(t.businessId, parse(Settings, body));
+  }
+
+  /** Couverture de la vitrine (JPEG, PNG ou WebP). */
+  @Post('v1/shop/cover')
+  @RequirePro('shop')
+  @RequireModule('shop')
+  @RequirePermission('catalog:write')
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 20 * 1024 * 1024, files: 1 } }))
+  setCover(
+    @CurrentTenant() t: TenantContext,
+    @CurrentUser() user: AuthUser,
+    @UploadedFile() file?: { buffer: Buffer; size: number },
+  ) {
+    if (!file?.buffer?.length) throw new AppError('VALIDATION_FAILED', 'Ajoutez une image (champ « file »)', 422);
+    const maxMb = env().MAX_UPLOAD_MB;
+    if (file.size > maxMb * 1024 * 1024) {
+      throw new AppError('PAYLOAD_TOO_LARGE', `Image trop lourde (maximum ${maxMb} Mo)`, 413);
+    }
+    return this.shop.setCover(t.businessId, user.id, file.buffer);
+  }
+
+  @Delete('v1/shop/cover')
+  @RequireModule('shop')
+  @RequirePermission('catalog:write')
+  removeCover(@CurrentTenant() t: TenantContext) {
+    return this.shop.removeCover(t.businessId);
   }
 
   @Post('v1/shop/publish')

@@ -10,6 +10,7 @@ import '../../core/providers.dart';
 import '../../core/theme.dart';
 import '../../core/widgets.dart';
 import '../sales/receipt_screen.dart' show receiptActionsProvider, whatsAppUri;
+import 'shop_cover.dart';
 
 /// Adresse publique complète de la boutique (servie par l'API).
 String shopUrl(String apiBase, String path) => '${apiBase.replaceAll(RegExp(r'/+$'), '')}$path';
@@ -249,68 +250,97 @@ class _LinkCard extends ConsumerWidget {
     final url = shopUrl(ref.watch(apiBaseUrlProvider), overview.path);
     final actions = ref.read(receiptActionsProvider);
     final name = shopDisplayName(overview.settings, ref.watch(shopBusinessNameProvider));
+    final st = overview.settings;
+    final b = ref.watch(currentBusinessProvider).value;
     Widget action(IconData icon, String label, VoidCallback onTap) => Expanded(
       child: FilledButton.icon(
         style: FilledButton.styleFrom(
-          backgroundColor: Colors.white.withValues(alpha: 0.16),
+          backgroundColor: Colors.white.withValues(alpha: 0.18),
           foregroundColor: Colors.white,
-          minimumSize: const Size.fromHeight(44),
+          minimumSize: const Size.fromHeight(40),
           padding: const EdgeInsets.symmetric(horizontal: 6),
-          textStyle: Theme.of(context).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w700, fontSize: 13),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          textStyle: Theme.of(context).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w700, fontSize: 12.5),
         ),
         onPressed: onTap,
-        icon: Icon(icon, size: 17),
+        icon: Icon(icon, size: 16),
         label: Text(label),
       ),
     );
-    return Sheen(
-      radius: 26,
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(26),
-        child: AuroraBackground(
-          tone: AuroraTone.deep,
-          child: Padding(
-            padding: const EdgeInsets.all(18),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Row(
-                  children: [
-                    const Icon(Icons.circle, size: 10, color: AppColors.glow),
-                    const SizedBox(width: 6),
-                    const Text('Boutique ouverte', style: TextStyle(color: Color(0xFFCDE9DD), fontSize: 12.5)),
-                  ],
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  name,
-                  style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w800),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  url.replaceFirst(RegExp(r'^https?://'), ''),
-                  style: const TextStyle(color: Color(0xFFFFC28F), fontWeight: FontWeight.w700),
-                ),
-                const SizedBox(height: 14),
-                Row(
-                  children: [
-                    action(Icons.chat_rounded, 'Partager', () {
-                      actions.openWhatsApp(whatsAppUri('Découvrez $name et commandez directement ici : $url'));
-                    }),
-                    const SizedBox(width: 8),
-                    action(Icons.copy_rounded, 'Copier', () async {
-                      await Clipboard.setData(ClipboardData(text: url));
-                      if (context.mounted) showInfo(context, 'Lien copié');
-                    }),
-                    const SizedBox(width: 8),
-                    action(Icons.open_in_new_rounded, 'Voir', () => actions.openWhatsApp(Uri.parse(url))),
-                  ],
-                ),
-              ],
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Stack(
+          children: [
+            ShopCover(
+              headline: (st.tagline ?? '').trim().isNotEmpty ? st.tagline!.trim() : name,
+              coverFileId: st.coverFileId,
+              kicker: b?.city ?? name,
+              height: 300,
+              bottom: Column(
+                children: [
+                  // Toujours là : ouvre la boutique telle que la voient les clients
+                  ShopCoverButton(
+                    key: const Key('shop_view'),
+                    label: 'Voir ma boutique',
+                    onTap: () => actions.openWhatsApp(Uri.parse(url)),
+                  ),
+                  const SizedBox(height: 14),
+                  Row(
+                    children: [
+                      action(Icons.chat_rounded, 'Partager', () {
+                        actions.openWhatsApp(whatsAppUri('Découvrez $name et commandez directement ici : $url'));
+                      }),
+                      const SizedBox(width: 8),
+                      action(Icons.copy_rounded, 'Copier le lien', () async {
+                        await Clipboard.setData(ClipboardData(text: url));
+                        if (context.mounted) showInfo(context, 'Lien copié');
+                      }),
+                    ],
+                  ),
+                ],
+              ),
             ),
+            Positioned(
+              top: 12,
+              left: 12,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                decoration: BoxDecoration(color: const Color(0x66000000), borderRadius: BorderRadius.circular(20)),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.circle, size: 8, color: AppColors.glow),
+                    SizedBox(width: 6),
+                    Text(
+                      'En ligne',
+                      style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w700),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            Positioned(
+              top: 8,
+              right: 8,
+              child: IconButton(
+                key: const Key('shop_edit_cover'),
+                tooltip: 'Modifier la vitrine',
+                style: IconButton.styleFrom(backgroundColor: const Color(0x66000000), foregroundColor: Colors.white),
+                onPressed: () => context.push('/shop/settings'),
+                icon: const Icon(Icons.edit_rounded, size: 18),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Center(
+          child: Text(
+            url.replaceFirst(RegExp(r'^https?://'), ''),
+            style: TextStyle(color: AppColors.muted, fontWeight: FontWeight.w600, fontSize: 12.5),
           ),
         ),
-      ),
+      ],
     );
   }
 }

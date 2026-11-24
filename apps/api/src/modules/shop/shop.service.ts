@@ -2,6 +2,7 @@ import { readableOnWhite } from '../../shared/color';
 import { Injectable } from '@nestjs/common';
 import { sql } from 'drizzle-orm';
 import { DbService, Tx } from '../../shared/db/db.service';
+import { FilesService } from '../files/files.service';
 import { OutboxService } from '../../shared/events/outbox.service';
 import { AppError } from '../../shared/http/app-error';
 import { newId } from '../../shared/ids';
@@ -11,7 +12,8 @@ import { catalogUnitPrice } from '../sales/pricing';
 import { fcfa, SalesService } from '../sales/sales.service';
 
 export type ShopOrderStatus = 'new' | 'confirmed' | 'ready' | 'delivering' | 'completed' | 'cancelled';
-export type PayMethod = 'cash' | 'wave' | 'orange_money' | 'free_money' | 'mtn_momo' | 'moov_money' | 'airtel_money' | 'card';
+export type PayMethod =
+  'cash' | 'wave' | 'orange_money' | 'free_money' | 'mtn_momo' | 'moov_money' | 'airtel_money' | 'card';
 
 /** Étapes possibles depuis chaque statut. */
 export const TRANSITIONS: Record<ShopOrderStatus, ShopOrderStatus[]> = {
@@ -40,6 +42,7 @@ export function canMove(from: ShopOrderStatus, to: ShopOrderStatus, mode: 'picku
 export interface SettingsInput {
   enabled?: boolean;
   title?: string | null;
+  tagline?: string | null;
   description?: string | null;
   whatsapp?: string | null;
   pickup?: boolean;
@@ -64,6 +67,9 @@ type Row = Record<string, unknown>;
 export interface ShopSettings {
   enabled: boolean;
   title: string | null;
+  /** Phrase d'accroche en grand sur la couverture. */
+  tagline: string | null;
+  coverFileId: string | null;
   description: string | null;
   whatsapp: string | null;
   pickup: boolean;
@@ -82,6 +88,7 @@ export class ShopService {
     private readonly dbs: DbService,
     private readonly outbox: OutboxService,
     private readonly sales: SalesService,
+    private readonly files: FilesService,
   ) {}
 
   // ------------------------------------------------------------------ public
@@ -144,6 +151,8 @@ export class ShopService {
           slug: slug.toLowerCase(),
           name: settings.title || b.name,
           businessName: b.name,
+          tagline: settings.tagline,
+          coverFileId: settings.coverFileId,
           description: settings.description,
           whatsapp: settings.whatsapp ?? b.phone,
           address: [b.address, b.city].filter(Boolean).join(', ') || null,
@@ -351,20 +360,44 @@ export class ShopService {
         next.whatsapp = null;
       }
       // Textes vides : effacés
-      for (const k of ['title', 'description', 'deliveryZone'] as const) if (next[k] === '') next[k] = null;
+      for (const k of ['title', 'tagline', 'description', 'deliveryZone'] as const) if (next[k] === '') next[k] = null;
       if (!next.pickup && !next.delivery) {
         throw new AppError('VALIDATION_FAILED', 'Proposez au moins le retrait en boutique ou la livraison', 422);
       }
       await tx.execute(sql`
         INSERT INTO shop.settings
-          (business_id, enabled, title, description, whatsapp, pickup, delivery, delivery_fee, delivery_zone, min_order, updated_at)
-        VALUES (${businessId}, ${next.enabled}, ${next.title}, ${next.description}, ${next.whatsapp}, ${next.pickup},
+          (business_id, enabled, title, tagline, description, whatsapp, pickup, delivery, delivery_fee, delivery_zone, min_order, updated_at)
+        VALUES (${businessId}, ${next.enabled}, ${next.title}, ${next.tagline}, ${next.description}, ${next.whatsapp}, ${next.pickup},
                 ${next.delivery}, ${next.deliveryFee}, ${next.deliveryZone}, ${next.minOrder}, now())
         ON CONFLICT (business_id) DO UPDATE SET
-          enabled = EXCLUDED.enabled, title = EXCLUDED.title, description = EXCLUDED.description,
+          enabled = EXCLUDED.enabled, title = EXCLUDED.title, tagline = EXCLUDED.tagline, description = EXCLUDED.description,
           whatsapp = EXCLUDED.whatsapp, pickup = EXCLUDED.pickup, delivery = EXCLUDED.delivery,
           delivery_fee = EXCLUDED.delivery_fee, delivery_zone = EXCLUDED.delivery_zone,
           min_order = EXCLUDED.min_order, updated_at = now()`);
+      return this.settingsRow(tx);
+    });
+  }
+
+  /** Image de couverture de la vitrine (remplace l'ancienne). */
+  setCover(businessId: string, userId: string, data: Buffer) {
+    return this.dbs.withTenant(businessId, async (tx) => {
+      const [before] = (await tx.execute(sql`SELECT cover_file_id FROM shop.settings`)).rows as Row[];
+      const saved = await this.files.saveImage(tx, { businessId, kind: 'shop-cover', data, createdBy: userId });
+      await tx.execute(sql`
+        INSERT INTO shop.settings (business_id, cover_file_id, updated_at) VALUES (${businessId}, ${saved.id}, now())
+        ON CONFLICT (business_id) DO UPDATE SET cover_file_id = EXCLUDED.cover_file_id, updated_at = now()`);
+      if (before?.cover_file_id) await this.files.remove(tx, before.cover_file_id as string);
+      return this.settingsRow(tx);
+    });
+  }
+
+  removeCover(businessId: string) {
+    return this.dbs.withTenant(businessId, async (tx) => {
+      const [before] = (await tx.execute(sql`SELECT cover_file_id FROM shop.settings`)).rows as Row[];
+      if (before?.cover_file_id) {
+        await tx.execute(sql`UPDATE shop.settings SET cover_file_id = NULL, updated_at = now()`);
+        await this.files.remove(tx, before.cover_file_id as string);
+      }
       return this.settingsRow(tx);
     });
   }
@@ -499,6 +532,8 @@ export class ShopService {
       return {
         enabled: false,
         title: null,
+        tagline: null,
+        coverFileId: null,
         description: null,
         whatsapp: null,
         pickup: true,
@@ -511,6 +546,8 @@ export class ShopService {
     return {
       enabled: s ? (s.enabled as boolean) && moduleOn : false,
       title: (s?.title as string) ?? null,
+      tagline: (s?.tagline as string) ?? null,
+      coverFileId: (s?.cover_file_id as string) ?? null,
       description: (s?.description as string) ?? null,
       whatsapp: (s?.whatsapp as string) ?? null,
       pickup: s ? (s.pickup as boolean) : true,

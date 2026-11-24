@@ -702,22 +702,14 @@ class MyDay {
 
 /// Rôles proposés à l'invitation (le propriétaire ne s'invite pas).
 enum TeamRole {
-  manager(
-    'manager',
-    'Gérant',
-    'Gère tout sauf l’abonnement : ventes, stock, achats, clients, rapports, invitations.',
-  ),
+  manager('manager', 'Gérant', 'Gère tout sauf l’abonnement : ventes, stock, achats, clients, rapports, invitations.'),
   cashier(
     'cashier',
     'Vendeur / caissier',
     'Vend, encaisse et tient sa caisse. Voit le stock (sans prix d’achat), les clients et ses propres ventes. '
         'Pas de bénéfices, d’achats ni de rapports.',
   ),
-  accountant(
-    'accountant',
-    'Comptable',
-    'Consulte les ventes, les rapports, les factures et les achats. Ne vend pas.',
-  );
+  accountant('accountant', 'Comptable', 'Consulte les ventes, les rapports, les factures et les achats. Ne vend pas.');
 
   const TeamRole(this.api, this.label, this.description);
   final String api;
@@ -2047,6 +2039,8 @@ class ShopSettings {
   const ShopSettings({
     this.enabled = false,
     this.title,
+    this.tagline,
+    this.coverFileId,
     this.description,
     this.whatsapp,
     this.pickup = true,
@@ -2057,6 +2051,12 @@ class ShopSettings {
   });
   final bool enabled;
   final String? title;
+
+  /// Phrase d'accroche en grand sur la couverture de la vitrine.
+  final String? tagline;
+
+  /// Image de couverture (envoyée à part : POST /v1/shop/cover).
+  final String? coverFileId;
   final String? description;
   final String? whatsapp;
   final bool pickup;
@@ -2068,6 +2068,8 @@ class ShopSettings {
   factory ShopSettings.fromJson(Map<String, dynamic> j) => ShopSettings(
     enabled: j['enabled'] as bool? ?? false,
     title: j['title'] as String?,
+    tagline: j['tagline'] as String?,
+    coverFileId: j['coverFileId'] as String?,
     description: j['description'] as String?,
     whatsapp: j['whatsapp'] as String?,
     pickup: j['pickup'] as bool? ?? true,
@@ -2080,6 +2082,7 @@ class ShopSettings {
   Map<String, dynamic> toJson() => {
     'enabled': enabled,
     'title': title ?? '',
+    'tagline': tagline ?? '',
     'description': description ?? '',
     'whatsapp': whatsapp ?? '',
     'pickup': pickup,

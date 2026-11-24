@@ -29,6 +29,16 @@ final photoPickerProvider = Provider<PhotoPicker>((ref) {
   };
 });
 
+/// Couverture de la boutique en ligne : grande image (affichée en plein écran sur ordinateur).
+final coverPhotoPickerProvider = Provider<PhotoPicker>((ref) {
+  final picker = ImagePicker();
+  return (source) async {
+    final file = await picker.pickImage(source: source, maxWidth: 1920, maxHeight: 1920, imageQuality: 82);
+    if (file == null) return null;
+    return PickedPhoto(await file.readAsBytes(), file.name.isEmpty ? 'couverture.jpg' : file.name);
+  };
+});
+
 /// Photo de document (facture) : plus grande, pour que les petits caractères restent lisibles.
 final documentPhotoPickerProvider = Provider<PhotoPicker>((ref) {
   final picker = ImagePicker();

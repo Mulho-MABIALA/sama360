@@ -1164,6 +1164,8 @@ class FakeRepo extends SamaRepository {
     settings: ShopSettings(
       enabled: shopEnabled,
       title: shopEnabled ? 'Awa Beauté en ligne' : null,
+      tagline: shopTagline,
+      coverFileId: shopCoverFileId,
       whatsapp: shopEnabled ? '+221771112233' : null,
       deliveryFee: 1000,
       deliveryZone: 'Dakar',
@@ -1175,6 +1177,23 @@ class FakeRepo extends SamaRepository {
     publishedProducts: shopEnabled ? publishedCount : 0,
     totalProducts: 6,
   );
+
+  String? shopCoverFileId;
+  String? shopTagline;
+  int shopCoverUploads = 0;
+
+  @override
+  Future<ShopSettings> uploadShopCover(List<int> bytes, {String filename = 'cover.jpg'}) async {
+    shopCoverUploads++;
+    shopCoverFileId = 'cover$shopCoverUploads';
+    return ShopSettings(enabled: shopEnabled, coverFileId: shopCoverFileId);
+  }
+
+  @override
+  Future<ShopSettings> deleteShopCover() async {
+    shopCoverFileId = null;
+    return ShopSettings(enabled: shopEnabled);
+  }
 
   @override
   Future<ShopSettings> saveShopSettings(ShopSettings s) async {

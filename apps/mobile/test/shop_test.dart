@@ -4,6 +4,7 @@ import 'package:intl/date_symbol_data_local.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:sama360/core/models.dart';
 import 'package:sama360/core/providers.dart';
+import 'package:sama360/features/catalog/product_photo.dart';
 import 'package:sama360/features/sales/receipt_screen.dart';
 import 'package:sama360/features/shop/shop_order_screen.dart';
 import 'package:sama360/features/shop/shop_screen.dart';
@@ -94,9 +95,13 @@ void main() {
         startsWith('Découvrez Awa Beauté en ligne et commandez directement ici'),
       );
       expect(actions.whatsApp!.queryParameters['text'], endsWith('/s/awa-beaute'));
-      await tester.tap(find.text('Copier'));
+      await tester.tap(find.text('Copier le lien'));
       await tester.pumpAndSettle();
       expect(copied, endsWith('/s/awa-beaute'));
+      // « Voir ma boutique » : toujours là, ouvre la page publique
+      await tester.tap(find.byKey(const Key('shop_view')));
+      await tester.pumpAndSettle();
+      expect(actions.whatsApp.toString(), endsWith('/s/awa-beaute'));
 
       await tester.scrollUntilVisible(find.text('Terminées'), 200, scrollable: mainScroll);
       await tester.tap(find.text('Terminées'));
@@ -111,7 +116,14 @@ void main() {
     testWidgets('boutique fermée : ouverture guidée, tous les produits mis en ligne', (tester) async {
       phoneSize(tester);
       final repo = FakeRepo()..shopEnabled = false;
-      final (c, _) = await pumpSama(tester, location: '/shop', repo: repo);
+      final (c, _) = await pumpSama(
+        tester,
+        location: '/shop',
+        repo: repo,
+        overrides: [
+          coverPhotoPickerProvider.overrideWithValue((_) async => const PickedPhoto([1, 2, 3], 'c.jpg')),
+        ],
+      );
       expect(find.text('Vendez aussi sur Internet'), findsOneWidget);
       await tester.tap(find.text('Ouvrir ma boutique'));
       await tester.pumpAndSettle();
@@ -124,6 +136,17 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Numéro invalide : 9 chiffres, ex. 77 123 45 67'), findsOneWidget);
 
+      // Vitrine : photo de couverture et phrase d'accroche, aperçu en direct
+      await tester.tap(find.byKey(const Key('shopCoverPick')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Choisir dans la galerie'));
+      await tester.pumpAndSettle();
+      expect(repo.shopCoverUploads, 1);
+      expect(find.text('Changer la photo'), findsOneWidget);
+      await tester.enterText(find.byKey(const Key('shopTagline')), 'Des soins naturels pour chaque peau');
+      await tester.pump();
+      expect(find.text('Des soins naturels pour chaque peau'), findsWidgets);
+
       await tester.enterText(find.byKey(const Key('shopWhatsapp')), '77 111 22 33');
       await tester.enterText(find.byKey(const Key('shopDescription')), 'Cosmétiques naturels livrés à Dakar');
       await tester.scrollUntilVisible(find.byKey(const Key('shopFee')), 200, scrollable: mainScroll);
@@ -132,8 +155,8 @@ void main() {
       await tester.pumpAndSettle();
       final s = repo.shopSettingsSaved.single;
       expect(
-        (s.enabled, s.whatsapp, s.deliveryFee, s.description),
-        (true, '+221771112233', 1500, 'Cosmétiques naturels livrés à Dakar'),
+        (s.enabled, s.whatsapp, s.deliveryFee, s.description, s.tagline),
+        (true, '+221771112233', 1500, 'Cosmétiques naturels livrés à Dakar', 'Des soins naturels pour chaque peau'),
       );
       expect(repo.publishCalls, [(null, true)]);
       expect(find.text('Votre boutique est en ligne !'), findsOneWidget);

@@ -1699,8 +1699,33 @@ describe('Socle Sama360 (e2e)', () => {
       await http.post('/v1/shop/publish').set(auth(cashier, awaBiz)).send({ published: true }).expect(403);
       await http.put('/v1/shop/settings').set(auth(cashier, awaBiz)).send({ enabled: false }).expect(403);
 
+      // Vitrine : accroche et image de couverture (remplacée puis retirée)
+      const png = Buffer.from(
+        'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
+        'base64',
+      );
+      await http.put('/v1/shop/settings').set(A()).send({ tagline: 'Le beau pagne de Dakar' }).expect(200);
+      const c1 = (await http.post('/v1/shop/cover').set(A()).attach('file', png, { filename: 'c.png' }).expect(201))
+        .body;
+      expect(c1).toMatchObject({ tagline: 'Le beau pagne de Dakar', coverFileId: expect.any(String) });
+      const c2 = (await http.post('/v1/shop/cover').set(A()).attach('file', png, { filename: 'c.png' }).expect(201))
+        .body;
+      await http.get(`/v1/files/${c1.coverFileId}`).expect(404);
+      await http.get(`/v1/files/${c2.coverFileId}`).expect(200);
+      await http
+        .post('/v1/shop/cover')
+        .set(auth(cashier, awaBiz))
+        .attach('file', png, { filename: 'c.png' })
+        .expect(403);
+      expect((await http.delete('/v1/shop/cover').set(A()).expect(200)).body.coverFileId).toBeNull();
+      const c3 = (await http.post('/v1/shop/cover').set(A()).attach('file', png, { filename: 'c.png' }).expect(201))
+        .body;
+
       const o = (await http.get('/v1/shop').set(A()).expect(200)).body;
-      expect(o).toMatchObject({ path: `/s/${slug}`, settings: { enabled: true, minOrder: 10000 } });
+      expect(o).toMatchObject({
+        path: `/s/${slug}`,
+        settings: { enabled: true, minOrder: 10000, coverFileId: c3.coverFileId },
+      });
       expect(o.stats.publishedProducts).toBeGreaterThanOrEqual(2);
     });
 
@@ -1709,6 +1734,8 @@ describe('Socle Sama360 (e2e)', () => {
       expect(v.shop).toMatchObject({
         slug,
         name: 'Awa Beauté en ligne',
+        tagline: 'Le beau pagne de Dakar',
+        coverFileId: expect.any(String),
         whatsapp: '+221771112233',
         deliveryFee: 1000,
         minOrder: 10000,

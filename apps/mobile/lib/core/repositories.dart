@@ -670,6 +670,13 @@ class SamaRepository {
   // ---------- Boutique en ligne ----------
   Future<ShopOverview> shop() async => ShopOverview.fromJson(await _cachedGet<Map<String, dynamic>>('/v1/shop'));
 
+  /// Couverture de la vitrine : renvoie les réglages à jour.
+  Future<ShopSettings> uploadShopCover(List<int> bytes, {String filename = 'cover.jpg'}) async =>
+      ShopSettings.fromJson(await api.upload<Map<String, dynamic>>('/v1/shop/cover', bytes, filename: filename));
+
+  Future<ShopSettings> deleteShopCover() async =>
+      ShopSettings.fromJson(await api.delete<Map<String, dynamic>>('/v1/shop/cover'));
+
   Future<ShopSettings> saveShopSettings(ShopSettings s) async =>
       ShopSettings.fromJson(await api.put<Map<String, dynamic>>('/v1/shop/settings', data: s.toJson()));
 
