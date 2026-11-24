@@ -201,6 +201,8 @@ void main() {
     final repo = FakeRepo()..businessCountry = Country.ci;
     final (c, _) = await pumpSama(tester, location: '/pos', repo: repo);
     expect(c.read(countryProvider), Country.ci);
+    await tester.tap(find.text('Beurre de karité 250 g'));
+    await tester.pump();
     expect(find.text('MTN MoMo'), findsOneWidget);
     expect(find.text('Moov'), findsOneWidget);
     expect(find.text('Wave'), findsOneWidget);

@@ -30,10 +30,10 @@ Future<Product?> scanForProduct(BuildContext context, WidgetRef ref) async {
       icon: const Icon(Icons.qr_code_2_rounded, size: 40),
       title: const Text('Produit inconnu'),
       content: Text('Aucun produit n’a le code $code.${canCreate ? ' Voulez-vous créer sa fiche ?' : ''}'),
-      actions: [
+      actions: dialogActions([
         CancelButton(label: 'Fermer', onPressed: () => Navigator.pop(ctx, false)),
         if (canCreate) ConfirmButton(label: 'Créer la fiche', onPressed: () => Navigator.pop(ctx, true)),
-      ],
+      ]),
     ),
   );
   if (create != true || !context.mounted) return null;

@@ -152,10 +152,10 @@ class _CustomerEditorScreenState extends ConsumerState<CustomerEditorScreen> {
               ? 'Il disparaît de vos fournisseurs. Ses bons de commande passés restent dans l’historique.'
               : 'Il disparaît de vos clients. Ses ventes et factures passées restent dans l’historique.',
         ),
-        actions: [
+        actions: dialogActions([
           CancelButton(onPressed: () => Navigator.pop(ctx, false)),
           ConfirmButton(danger: true, label: 'Supprimer', onPressed: () => Navigator.pop(ctx, true)),
-        ],
+        ]),
       ),
     );
     if (ok != true || !mounted) return;

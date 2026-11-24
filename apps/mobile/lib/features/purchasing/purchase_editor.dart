@@ -329,7 +329,10 @@ class _PurchaseEditorScreenState extends ConsumerState<PurchaseEditorScreen> {
                                             child: Icon(b.$1, size: 20, color: b.$4),
                                           ),
                                           const SizedBox(height: 4),
-                                          Text(b.$2, style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700)),
+                                          Text(
+                                            b.$2,
+                                            style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700),
+                                          ),
                                         ],
                                       ),
                                     ),
@@ -719,7 +722,7 @@ class SupplierPickerState extends ConsumerState<SupplierPicker> {
                 ),
               ],
             ),
-            actions: [
+            actions: dialogActions([
               CancelButton(onPressed: () => Navigator.pop(ctx)),
               FilledButton(
                 onPressed: busy
@@ -749,7 +752,7 @@ class SupplierPickerState extends ConsumerState<SupplierPicker> {
                       },
                 child: const Text('Créer'),
               ),
-            ],
+            ]),
           ),
         );
       },

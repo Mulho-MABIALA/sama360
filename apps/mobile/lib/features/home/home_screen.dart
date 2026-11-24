@@ -841,7 +841,7 @@ class _CashCard extends ConsumerWidget {
                 const SizedBox(width: 8),
                 const Flexible(
                   child: Text(
-                    'Caisse du jour',
+                    'Vendu aujourd’hui',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(fontWeight: FontWeight.w800, color: Colors.white),

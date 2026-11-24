@@ -367,7 +367,8 @@ class _ProScreenState extends ConsumerState<ProScreen> with WidgetsBindingObserv
             spacing: 8,
             runSpacing: 8,
             children: [
-              for (final m in ref.watch(countryProvider).mobileMoney) _MethodChip(logo: PayLogo(m, size: 22), label: m.label),
+              for (final m in ref.watch(countryProvider).mobileMoney)
+                _MethodChip(logo: PayLogo(m, size: 22), label: m.label),
               _MethodChip(
                 logo: Icon(Icons.credit_card_rounded, size: 20, color: AppColors.ink),
                 label: 'Carte',
@@ -452,7 +453,7 @@ class _ProScreenState extends ConsumerState<ProScreen> with WidgetsBindingObserv
           runSpacing: 6,
           children: [
             for (final m in s.methods)
-              Pill(label: m.label, selected: method == m, onTap: () => setState(() => _method = m)),
+              PayMethodChip(m, selected: method == m, onTap: () => setState(() => _method = m)),
           ],
         ),
         const SizedBox(height: 12),
@@ -506,9 +507,7 @@ class _Hero extends StatelessWidget {
     decoration: BoxDecoration(
       gradient: const LinearGradient(colors: _gold, begin: Alignment.topLeft, end: Alignment.bottomRight),
       borderRadius: BorderRadius.circular(24),
-      boxShadow: [
-        BoxShadow(color: proGold.last.withValues(alpha: 0.25), blurRadius: 24, offset: const Offset(0, 10)),
-      ],
+      boxShadow: [BoxShadow(color: proGold.last.withValues(alpha: 0.25), blurRadius: 24, offset: const Offset(0, 10))],
     ),
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,

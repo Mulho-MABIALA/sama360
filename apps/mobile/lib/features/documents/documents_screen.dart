@@ -658,10 +658,10 @@ class _StoredDocumentScreenState extends ConsumerState<StoredDocumentScreen> {
       builder: (ctx) => AlertDialog(
         title: const Text('Supprimer ce document ?'),
         content: Text('« ${d.title} » sera supprimé définitivement, fichier compris.'),
-        actions: [
+        actions: dialogActions([
           CancelButton(onPressed: () => Navigator.pop(ctx, false)),
           ConfirmButton(danger: true, label: 'Supprimer', onPressed: () => Navigator.pop(ctx, true)),
-        ],
+        ]),
       ),
     );
     if (ok != true || !mounted) return;

@@ -273,10 +273,10 @@ class PendingSalesSection extends ConsumerWidget {
                   builder: (d) => AlertDialog(
                     title: const Text('Supprimer cette vente ?'),
                     content: const Text('Elle ne sera jamais envoyée ni comptée dans votre caisse.'),
-                    actions: [
+                    actions: dialogActions([
                       CancelButton(onPressed: () => Navigator.pop(d, false)),
                       ConfirmButton(danger: true, label: 'Supprimer', onPressed: () => Navigator.pop(d, true)),
-                    ],
+                    ]),
                   ),
                 );
                 if (ok == true) {

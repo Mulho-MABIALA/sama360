@@ -86,10 +86,10 @@ class _PurchaseScreenState extends ConsumerState<PurchaseScreen> {
       builder: (ctx) => AlertDialog(
         title: Text('Annuler ${d.number} ?'),
         content: const Text('La commande reste dans l’historique, marquée « Annulé ».'),
-        actions: [
+        actions: dialogActions([
           CancelButton(label: 'Retour', onPressed: () => Navigator.pop(ctx, false)),
           ConfirmButton(danger: true, label: 'Oui, annuler', onPressed: () => Navigator.pop(ctx, true)),
-        ],
+        ]),
       ),
     );
     if (ok != true || !mounted) return;
@@ -539,96 +539,232 @@ class _ReceiveSheetState extends ConsumerState<_ReceiveSheet> {
     }
   }
 
-  @override
-  Widget build(BuildContext context) => SizedBox(
-    height: MediaQuery.sizeOf(context).height * 0.85,
-    child: Padding(
-      padding: EdgeInsets.fromLTRB(20, 0, 20, 16 + MediaQuery.viewInsetsOf(context).bottom),
+  Widget _sectionTitle(IconData icon, String text, Color color) => Padding(
+    padding: const EdgeInsets.only(top: 6, bottom: 8),
+    child: Row(
+      children: [
+        Icon(icon, size: 18, color: color),
+        const SizedBox(width: 6),
+        Text(
+          text,
+          style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14, color: color),
+        ),
+      ],
+    ),
+  );
+
+  Widget _line(PurchaseLine l) {
+    final q = _q(l.id);
+    final c = _c(l.id);
+    final sub = q > 0 && c >= 0 ? (q * c).round() : 0;
+    final (warnBg, warnFg) = AppColors.tone(AppColors.warnBg, AppColors.warnText);
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+      decoration: BoxDecoration(
+        color: AppColors.surface(0.9),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: AppColors.glassLine),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Text('La marchandise est arrivée', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
-          Text(
-            'Corrigez les quantités arrivées et le prix s’il a changé. Le stock et le coût d’achat moyen sont mis à jour.',
-            style: TextStyle(color: AppColors.muted, fontSize: 12.5),
+          Row(
+            children: [
+              Container(
+                width: 34,
+                height: 34,
+                decoration: BoxDecoration(color: AppColors.greenSoft, borderRadius: BorderRadius.circular(10)),
+                child: Icon(Icons.inventory_2_rounded, size: 18, color: AppColors.green),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  l.name,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                decoration: BoxDecoration(color: warnBg, borderRadius: BorderRadius.circular(20)),
+                child: Text(
+                  'Attendu : ${qty(l.remaining)}${l.unit == 'pièce' ? '' : ' ${l.unit}'}',
+                  style: TextStyle(color: warnFg, fontSize: 11.5, fontWeight: FontWeight.w700),
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 12),
-          Expanded(
-            child: ListView(
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  key: Key('rq_${l.id}'),
+                  controller: _qty[l.id],
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  decoration: const InputDecoration(labelText: 'Reçu', isDense: true),
+                  onChanged: (_) => setState(() {}),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                flex: 2,
+                child: TextField(
+                  key: Key('rc_${l.id}'),
+                  controller: _cost[l.id],
+                  keyboardType: TextInputType.number,
+                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                  decoration: const InputDecoration(labelText: 'Prix unitaire', suffixText: 'F', isDense: true),
+                  onChanged: (_) => setState(() {}),
+                ),
+              ),
+            ],
+          ),
+          if (sub > 0)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Text(
+                '= ${money(sub)}',
+                textAlign: TextAlign.right,
+                style: TextStyle(color: AppColors.green, fontWeight: FontWeight.w800),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final paid = int.tryParse(_paid.text) ?? 0;
+    final rest = _value - paid;
+    return SizedBox(
+      height: MediaQuery.sizeOf(context).height * 0.88,
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(20, 0, 20, 16 + MediaQuery.viewInsetsOf(context).bottom),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
               children: [
-                for (final l in _open)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
+                Container(
+                  width: 46,
+                  height: 46,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(colors: [AppColors.green, AppColors.greenDark]),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: Icon(Icons.local_shipping_rounded, color: AppColors.onGreen),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'La marchandise est arrivée',
+                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+                      ),
+                      Text(
+                        'Vérifiez ce qui est arrivé et le prix. Le stock se met à jour tout seul.',
+                        style: TextStyle(color: AppColors.muted, fontSize: 12.5),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+            Expanded(
+              child: ListView(
+                children: [
+                  _sectionTitle(Icons.inventory_2_outlined, 'Produits reçus', AppColors.green),
+                  for (final l in _open) _line(l),
+                  const SizedBox(height: 6),
+                  _sectionTitle(Icons.payments_rounded, 'Payer le livreur', AppColors.accent),
+                  TextField(
+                    key: const Key('receivePaid'),
+                    controller: _paid,
+                    keyboardType: TextInputType.number,
+                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                    decoration: const InputDecoration(
+                      labelText: 'Montant payé maintenant (facultatif)',
+                      suffixText: 'F',
+                    ),
+                    onChanged: (_) => setState(() {}),
+                  ),
+                  const SizedBox(height: 10),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      for (final m in [PayMethod.cash, ...ref.watch(countryProvider).mobileMoney])
+                        PayMethodChip(m, selected: _method == m, onTap: () => setState(() => _method = m)),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    key: const Key('receiveNote'),
+                    controller: _note,
+                    decoration: const InputDecoration(
+                      labelText: 'Note (facultatif)',
+                      hintText: 'Ex. 2 cartons abîmés',
+                      prefixIcon: Icon(Icons.edit_note_rounded),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 10),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: BoxDecoration(color: AppColors.greenSoft, borderRadius: BorderRadius.circular(16)),
+              child: Row(
+                children: [
+                  Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(l.name, style: const TextStyle(fontWeight: FontWeight.w700)),
+                        Text('Valeur reçue', style: TextStyle(color: AppColors.greenDark, fontSize: 12)),
                         Text(
-                          'Reste à recevoir : ${qty(l.remaining)}${l.unit == 'pièce' ? '' : ' ${l.unit}'}',
-                          style: TextStyle(color: AppColors.muted, fontSize: 12),
-                        ),
-                        const SizedBox(height: 6),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: TextField(
-                                key: Key('rq_${l.id}'),
-                                controller: _qty[l.id],
-                                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                                decoration: const InputDecoration(labelText: 'Reçu', isDense: true),
-                                onChanged: (_) => setState(() {}),
-                              ),
-                            ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              flex: 2,
-                              child: TextField(
-                                key: Key('rc_${l.id}'),
-                                controller: _cost[l.id],
-                                keyboardType: TextInputType.number,
-                                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                                decoration: const InputDecoration(
-                                  labelText: 'Prix unitaire',
-                                  suffixText: 'F',
-                                  isDense: true,
-                                ),
-                                onChanged: (_) => setState(() {}),
-                              ),
-                            ),
-                          ],
+                          money(_value),
+                          style: TextStyle(color: AppColors.greenDark, fontSize: 20, fontWeight: FontWeight.w800),
                         ),
                       ],
                     ),
                   ),
-                TextField(
-                  key: const Key('receiveNote'),
-                  controller: _note,
-                  decoration: const InputDecoration(labelText: 'Note (facultatif)', hintText: 'Ex. 2 cartons abîmés'),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  key: const Key('receivePaid'),
-                  controller: _paid,
-                  keyboardType: TextInputType.number,
-                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                  decoration: const InputDecoration(labelText: 'Payé au livreur (facultatif)', suffixText: 'F'),
-                ),
-                const SizedBox(height: 10),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    for (final m in [PayMethod.cash, ...ref.watch(countryProvider).mobileMoney])
-                      Pill(label: m.label, selected: _method == m, onTap: () => setState(() => _method = m)),
-                  ],
-                ),
-              ],
+                  if (paid > 0)
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Text(
+                          rest > 0 ? 'Reste à payer' : 'Tout est payé',
+                          style: TextStyle(color: AppColors.muted, fontSize: 12),
+                        ),
+                        if (rest > 0)
+                          Text(
+                            money(rest),
+                            style: TextStyle(color: AppColors.warnText, fontSize: 15, fontWeight: FontWeight.w800),
+                          ),
+                      ],
+                    ),
+                ],
+              ),
             ),
-          ),
-          const SizedBox(height: 10),
-          BusyButton(label: 'Valider la réception · ${moneyShort(_value)}', busy: _busy, onPressed: _save),
-        ],
+            const SizedBox(height: 10),
+            BusyButton(
+              accent: true,
+              icon: Icons.check_circle_rounded,
+              label: 'Valider la réception',
+              busy: _busy,
+              onPressed: _save,
+            ),
+          ],
+        ),
       ),
-    ),
-  );
+    );
+  }
 }

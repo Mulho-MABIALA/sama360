@@ -216,12 +216,13 @@ void main() {
       expect(textMatching(r'^24 × 2 000 F · reçu 0/24$'), findsOneWidget);
       await tester.tap(find.text('Marchandise arrivée'));
       await tester.pumpAndSettle();
-      expect(textMatching(r'Valider la réception · 88 000 F$'), findsOneWidget);
+      expect(textMatching(r'^88.000 F$'), findsWidgets);
       await tester.enterText(find.byKey(const Key('rq_l12')), '30');
       await tester.enterText(find.byKey(const Key('rc_l12')), '850');
       await tester.enterText(find.byKey(const Key('receivePaid')), '20000');
       await tester.pumpAndSettle();
-      expect(textMatching(r'Valider la réception · 73 500 F$'), findsOneWidget);
+      expect(textMatching(r'^73.500 F$'), findsWidgets);
+      expect(textMatching(r'^53.500 F$'), findsOneWidget); // reste à payer
       await tester.tap(textMatching(r'^Valider la réception'));
       await tester.pumpAndSettle();
       final (id, lines, _, payment) = repo.receptions.single;

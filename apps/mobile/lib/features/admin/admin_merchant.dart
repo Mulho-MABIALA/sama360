@@ -78,14 +78,14 @@ class _AdminMerchantScreenState extends ConsumerState<AdminMerchantScreen> {
               ),
             ],
           ),
-          actions: [
+          actions: dialogActions([
             CancelButton(onPressed: () => Navigator.pop(ctx, false)),
             ConfirmButton(
               danger: true,
               label: 'Suspendre',
               onPressed: reason.text.trim().length < 3 ? null : () => Navigator.pop(ctx, true),
             ),
-          ],
+          ]),
         ),
       ),
     );
@@ -103,10 +103,10 @@ class _AdminMerchantScreenState extends ConsumerState<AdminMerchantScreen> {
       builder: (ctx) => AlertDialog(
         title: Text('Restaurer ${b.name} ?'),
         content: const Text('À faire seulement si le propriétaire le demande. Toutes ses données reviennent.'),
-        actions: [
+        actions: dialogActions([
           CancelButton(onPressed: () => Navigator.pop(ctx, false)),
           ConfirmButton(label: 'Restaurer', onPressed: () => Navigator.pop(ctx, true)),
-        ],
+        ]),
       ),
     );
     if (ok == true) await _run(() => ref.read(repoProvider).adminRestore(b.id), '${b.name} est restaurée');
@@ -571,12 +571,12 @@ class _GiftDialogState extends State<_GiftDialog> {
         ),
       ],
     ),
-    actions: [
+    actions: dialogActions([
       CancelButton(onPressed: () => Navigator.pop(context)),
       ConfirmButton(
         label: 'Offrir',
         onPressed: () => Navigator.pop(context, (_days, _reason.text.trim().isEmpty ? null : _reason.text.trim())),
       ),
-    ],
+    ]),
   );
 }

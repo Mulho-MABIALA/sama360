@@ -12,7 +12,7 @@ void main() {
     phoneSize(tester);
     await pumpSama(tester);
     expect(find.text('Awa Beauté'), findsOneWidget);
-    expect(find.text('Caisse du jour'), findsOneWidget);
+    expect(find.text('Vendu aujourd’hui'), findsOneWidget);
     expect(find.textContaining('86'), findsWidgets); // 86 500 F
     expect(find.text('12 ventes aujourd’hui'), findsOneWidget);
     expect(find.text('2 produits en stock bas'), findsOneWidget);
@@ -54,7 +54,7 @@ void main() {
 
     await tester.tap(find.widgetWithText(TextButton, 'Nouvelle vente'));
     await tester.pumpAndSettle();
-    expect(find.text('Encaisser'), findsOneWidget); // panier vidé
+    expect(find.byKey(const Key('pos_compact_panel')), findsOneWidget); // panier vidé
   });
 
   testWidgets('caisse sur ordinateur : panier à droite, + / − sur chaque ligne', (tester) async {
@@ -83,6 +83,7 @@ void main() {
     phoneSize(tester);
     final (_, repo) = await pumpSama(tester, location: '/pos');
     await tester.tap(find.text('Savon noir'));
+    await tester.pump();
     await tester.tap(find.text('Crédit'));
     await tester.pump();
     await tester.tap(find.text('Valider à crédit'));

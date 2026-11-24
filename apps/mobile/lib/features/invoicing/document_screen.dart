@@ -90,14 +90,14 @@ class _DocumentScreenState extends ConsumerState<DocumentScreen> {
             ),
           ],
         ),
-        actions: [
+        actions: dialogActions([
           CancelButton(label: 'Retour', onPressed: () => Navigator.pop(ctx, false)),
           ConfirmButton(
             danger: true,
             label: 'Oui, annuler',
             onPressed: () => Navigator.pop(ctx, reason.text.trim().length >= 3),
           ),
-        ],
+        ]),
       ),
     );
     if (ok != true || !mounted) return;
@@ -549,7 +549,7 @@ class _PaymentSheetState extends ConsumerState<_PaymentSheet> {
           runSpacing: 8,
           children: [
             for (final m in _methods)
-              Pill(label: m.label, selected: _method == m, onTap: () => setState(() => _method = m)),
+              PayMethodChip(m, selected: _method == m, onTap: () => setState(() => _method = m)),
           ],
         ),
         const SizedBox(height: 12),

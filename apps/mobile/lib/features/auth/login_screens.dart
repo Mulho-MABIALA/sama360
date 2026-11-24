@@ -696,7 +696,7 @@ Future<void> editServerUrl(BuildContext context, WidgetRef ref) async {
             ),
           ],
         ),
-        actions: [
+        actions: dialogActions([
           TextButton(onPressed: () => Navigator.pop(ctx, ''), child: const Text('Par défaut')),
           CancelButton(onPressed: () => Navigator.pop(ctx)),
           ConfirmButton(
@@ -720,7 +720,7 @@ Future<void> editServerUrl(BuildContext context, WidgetRef ref) async {
               }
             },
           ),
-        ],
+        ]),
       ),
     ),
   );

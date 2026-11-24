@@ -140,7 +140,7 @@ Future<Contact?> createCustomerDialog(BuildContext context, WidgetRef ref, {Stri
               ),
             ],
           ),
-          actions: [
+          actions: dialogActions([
             CancelButton(onPressed: () => Navigator.pop(ctx)),
             FilledButton(
               style: FilledButton.styleFrom(minimumSize: const Size(110, 44)),
@@ -164,7 +164,7 @@ Future<Contact?> createCustomerDialog(BuildContext context, WidgetRef ref, {Stri
                     },
               child: const Text('Créer'),
             ),
-          ],
+          ]),
         ),
       );
     },

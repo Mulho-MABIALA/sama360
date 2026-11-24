@@ -106,6 +106,7 @@ void main() {
     phoneSize(tester);
     await pumpSama(tester, location: '/pos');
     await tester.tap(find.text('Beurre de karité 250 g'));
+    await tester.pump();
     await tester.tap(find.text('Wave'));
     await tester.pump();
     expect(find.byKey(const Key('show_pay_qr')), findsNothing);

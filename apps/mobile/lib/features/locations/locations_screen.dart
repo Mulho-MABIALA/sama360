@@ -491,10 +491,10 @@ class _LocationEditorState extends ConsumerState<_LocationEditor> {
           'Ses ventes passées restent dans les rapports. Son stock doit être vide '
           '(transférez-le avant) et sa caisse fermée.',
         ),
-        actions: [
+        actions: dialogActions([
           CancelButton(onPressed: () => Navigator.pop(ctx, false)),
           ConfirmButton(danger: true, label: 'Fermer', onPressed: () => Navigator.pop(ctx, true)),
-        ],
+        ]),
       ),
     );
     if (ok != true) return;

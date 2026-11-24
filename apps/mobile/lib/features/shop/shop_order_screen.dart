@@ -100,14 +100,14 @@ class _ShopOrderScreenState extends ConsumerState<ShopOrderScreen> {
           autofocus: true,
           decoration: const InputDecoration(labelText: 'Raison', hintText: 'Ex. produit épuisé, client injoignable'),
         ),
-        actions: [
+        actions: dialogActions([
           CancelButton(label: 'Retour', onPressed: () => Navigator.pop(ctx)),
           ConfirmButton(
             danger: true,
             label: 'Oui, annuler',
             onPressed: () => Navigator.pop(ctx, c.text.trim().isEmpty ? 'Annulée par la boutique' : c.text.trim()),
           ),
-        ],
+        ]),
       ),
     );
   }
@@ -410,7 +410,7 @@ class _CollectSheetState extends State<_CollectSheet> {
             runSpacing: 8,
             children: [
               for (final m in const [PayMethod.cash, PayMethod.wave, PayMethod.orangeMoney, PayMethod.freeMoney])
-                Pill(label: m.label, selected: _method == m, onTap: () => setState(() => _method = m)),
+                PayMethodChip(m, selected: _method == m, onTap: () => setState(() => _method = m)),
             ],
           ),
           const SizedBox(height: 16),

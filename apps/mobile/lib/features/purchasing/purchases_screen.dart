@@ -692,7 +692,7 @@ class _PaySheetState extends ConsumerState<PaySheet> {
               PayMethod.transfer,
               PayMethod.cheque,
             ])
-              Pill(label: m.label, selected: _method == m, onTap: () => setState(() => _method = m)),
+              PayMethodChip(m, selected: _method == m, onTap: () => setState(() => _method = m)),
           ],
         ),
         const SizedBox(height: 16),

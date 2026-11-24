@@ -146,7 +146,7 @@ class _TeamScreenState extends ConsumerState<TeamScreen> {
           textAlign: TextAlign.center,
         ),
         actionsAlignment: MainAxisAlignment.center,
-        actions: [
+        actions: dialogActions([
           Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -168,7 +168,7 @@ class _TeamScreenState extends ConsumerState<TeamScreen> {
               CancelButton(label: 'Plus tard', onPressed: () => Navigator.pop(ctx)),
             ],
           ),
-        ],
+        ]),
       ),
     );
   }
@@ -440,10 +440,10 @@ class _ManageSheetState extends ConsumerState<_ManageSheet> {
         content: const Text(
           'Cette personne n’aura plus accès à l’entreprise. Ses ventes passées restent enregistrées.',
         ),
-        actions: [
+        actions: dialogActions([
           CancelButton(onPressed: () => Navigator.pop(ctx, false)),
           ConfirmButton(danger: true, label: 'Retirer', onPressed: () => Navigator.pop(ctx, true)),
-        ],
+        ]),
       ),
     );
     if (ok != true || !mounted) return;

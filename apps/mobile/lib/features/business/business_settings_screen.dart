@@ -47,10 +47,10 @@ class _BusinessSettingsScreenState extends ConsumerState<BusinessSettingsScreen>
               ),
             ],
           ),
-          actions: [
+          actions: dialogActions([
             CancelButton(onPressed: () => Navigator.pop(ctx, false)),
             ConfirmButton(label: 'Enregistrer', onPressed: () => Navigator.pop(ctx, true)),
-          ],
+          ]),
         ),
       ),
     );

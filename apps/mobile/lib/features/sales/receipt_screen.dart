@@ -80,7 +80,7 @@ class _ReceiptScreenState extends ConsumerState<ReceiptScreen> {
             ),
           ],
         ),
-        actions: [
+        actions: dialogActions([
           CancelButton(label: 'Retour', onPressed: () => Navigator.pop(ctx, false)),
           ConfirmButton(
             danger: true,
@@ -90,7 +90,7 @@ class _ReceiptScreenState extends ConsumerState<ReceiptScreen> {
               Navigator.pop(ctx, true);
             },
           ),
-        ],
+        ]),
       ),
     );
     if (ok != true || !mounted) return;

@@ -273,6 +273,90 @@ class Pill extends StatelessWidget {
   );
 }
 
+/// Couleurs de marque d'un moyen de paiement : (fond doux, couleur vive, texte foncé).
+(Color, Color, Color) payBrand(PayMethod m) => switch (m) {
+  PayMethod.wave => (const Color(0xFFEAF5FE), const Color(0xFF1D9BF0), const Color(0xFF0B4F82)),
+  PayMethod.orangeMoney => (const Color(0xFFFFF1E6), const Color(0xFFF07B14), const Color(0xFF8A3D00)),
+  PayMethod.freeMoney => (const Color(0xFFFDE8E8), const Color(0xFFCD1E25), const Color(0xFF7A0000)),
+  PayMethod.mtnMomo => (const Color(0xFFFFF7D6), const Color(0xFFE0B400), const Color(0xFF5C4A00)),
+  PayMethod.moovMoney => (const Color(0xFFE6F1FA), const Color(0xFF0066B3), const Color(0xFF003B66)),
+  PayMethod.airtelMoney => (const Color(0xFFFDE8E8), const Color(0xFFE40000), const Color(0xFF7A0000)),
+  _ => (AppColors.greenSoft, AppColors.green, AppColors.greenDark),
+};
+
+/// Choix d'un moyen de paiement : logo + nom, aux couleurs de la marque quand il est choisi.
+class PayMethodChip extends StatelessWidget {
+  const PayMethodChip(this.method, {super.key, required this.selected, required this.onTap});
+  final PayMethod method;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final (soft, strong, text) = payBrand(method);
+    final (bg, fg) = AppColors.tone(soft, text);
+    return TapTarget(
+      onTap: onTap,
+      child: Semantics(
+        selected: selected,
+        button: true,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 160),
+          decoration: BoxDecoration(
+            color: selected ? bg : AppColors.surface(0.85),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: selected ? strong : AppColors.glassLine, width: selected ? 2 : 1.2),
+          ),
+          child: Material(
+            type: MaterialType.transparency,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(14),
+              onTap: onTap,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(10, 8, 12, 8),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    PayLogo(method, size: 22, color: strong),
+                    const SizedBox(width: 8),
+                    Text(
+                      method.label,
+                      style: TextStyle(
+                        fontSize: 13.5,
+                        fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
+                        color: selected ? (AppColors.isDark ? fg : text) : AppColors.ink,
+                      ),
+                    ),
+                    if (selected) ...[
+                      const SizedBox(width: 6),
+                      Icon(Icons.check_circle_rounded, size: 16, color: strong),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Boutons d'une boîte de dialogue côte à côte, de même taille (Annuler | Valider).
+/// Au-delà de deux boutons, on garde la disposition standard.
+List<Widget> dialogActions(List<Widget> children) {
+  if (children.length != 2) return children;
+  return [
+    Row(
+      children: [
+        Expanded(child: SizedBox(height: 50, child: children[0])),
+        const SizedBox(width: 10),
+        Expanded(child: SizedBox(height: 50, child: children[1])),
+      ],
+    ),
+  ];
+}
+
 void showError(BuildContext context, Object error) {
   final text = error is String ? error : errorMessage(error);
   // Fonction Pro : on propose de passer à Pro plutôt qu'une simple erreur

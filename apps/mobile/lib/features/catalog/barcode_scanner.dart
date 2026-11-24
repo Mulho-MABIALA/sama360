@@ -132,10 +132,10 @@ class _ScannerScreenState extends State<ScannerScreen> {
           decoration: const InputDecoration(hintText: 'Chiffres sous le code-barres'),
           onSubmitted: (v) => Navigator.pop(ctx, v),
         ),
-        actions: [
+        actions: dialogActions([
           CancelButton(onPressed: () => Navigator.pop(ctx)),
           ConfirmButton(label: 'Valider', onPressed: () => Navigator.pop(ctx, ctrl.text)),
-        ],
+        ]),
       ),
     );
     if (code != null) _found(code);

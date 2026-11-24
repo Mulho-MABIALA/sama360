@@ -33,7 +33,7 @@ void main() {
     expect(find.text('Propriétaire · Awa Beauté'), findsWidgets);
     await tester.tap(find.byTooltip('Retour'));
     await tester.pumpAndSettle();
-    expect(find.text('Caisse du jour'), findsOneWidget);
+    expect(find.text('Vendu aujourd’hui'), findsOneWidget);
 
     await tester.tap(find.text('AD').first);
     await tester.pumpAndSettle();

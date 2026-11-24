@@ -237,10 +237,10 @@ class _InvoiceScanScreenState extends ConsumerState<InvoiceScanScreen> {
             ),
           ],
         ),
-        actions: [
+        actions: dialogActions([
           CancelButton(onPressed: () => Navigator.pop(ctx, false)),
           ConfirmButton(label: 'Valider', onPressed: () => Navigator.pop(ctx, true)),
-        ],
+        ]),
       ),
     );
     if (ok != true || !mounted) return;
@@ -833,9 +833,9 @@ class _NewProductDialogState extends ConsumerState<_NewProductDialog> {
         ],
       ),
     ),
-    actions: [
+    actions: dialogActions([
       CancelButton(onPressed: () => Navigator.pop(context)),
       ConfirmButton(key: const Key('new_product_save'), label: _busy ? '…' : 'Créer', onPressed: _busy ? null : _save),
-    ],
+    ]),
   );
 }

@@ -136,6 +136,8 @@ void main() {
     phoneSize(tester);
     final repo = FakeRepo()..shopLocations = _two;
     await pumpSama(tester, location: '/pos', repo: repo);
+    await tester.tap(find.text('Beurre de karité 250 g'));
+    await tester.pump();
     expect(find.byKey(const Key('selling_at')), findsOneWidget);
     expect(find.textContaining('Boutique principale', findRichText: true), findsWidgets);
   });

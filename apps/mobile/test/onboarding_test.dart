@@ -48,9 +48,9 @@ void main() {
       repo: repo,
       biometrics: FakeBiometrics(kindValue: BiometricKind.fingerprint),
     );
-    // L'empreinte s'ajoute comme 6e étape sur un téléphone qui en a une
-    expect(find.text('1 sur 6 · quelques minutes pour bien démarrer'), findsOneWidget);
-    expect(find.text('Activer l’empreinte digitale'), findsOneWidget);
+    // L'empreinte n'est plus une étape du guide (elle se règle dans le profil)
+    expect(find.text('1 sur 5 · quelques minutes pour bien démarrer'), findsOneWidget);
+    expect(find.text('Activer l’empreinte digitale'), findsNothing);
 
     // Le numéro de la boutique est celui du compte : seule l'étape du logo reste, et elle ouvre le choix du logo
     expect(find.text('Ajouter votre logo'), findsOneWidget);

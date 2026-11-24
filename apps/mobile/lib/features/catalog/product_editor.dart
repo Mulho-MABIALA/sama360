@@ -197,10 +197,10 @@ class _ProductEditorScreenState extends ConsumerState<ProductEditorScreen> {
         content: const Text(
           'Il disparaît du catalogue et de la caisse. Les ventes et factures passées gardent son nom et son prix.',
         ),
-        actions: [
+        actions: dialogActions([
           CancelButton(onPressed: () => Navigator.pop(ctx, false)),
           ConfirmButton(danger: true, label: 'Supprimer', onPressed: () => Navigator.pop(ctx, true)),
-        ],
+        ]),
       ),
     );
     if (ok != true || !mounted) return;

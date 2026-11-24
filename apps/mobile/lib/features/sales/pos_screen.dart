@@ -110,11 +110,11 @@ class _PosScreenState extends ConsumerState<PosScreen> {
         content: Text(
           'Aucun produit n’a le code $code.${ref.can('catalog:write') ? ' Voulez-vous créer sa fiche ?' : ''}',
         ),
-        actions: [
+        actions: dialogActions([
           CancelButton(label: 'Fermer', onPressed: () => Navigator.pop(ctx, false)),
           if (ref.can('catalog:write'))
             ConfirmButton(label: 'Créer la fiche', onPressed: () => Navigator.pop(ctx, true)),
-        ],
+        ]),
       ),
     );
     if (create == true && mounted) {
@@ -142,7 +142,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
         ],
       ),
       actionsAlignment: MainAxisAlignment.center,
-      actions: [FilledButton(onPressed: () => Navigator.pop(ctx), child: const Text('Nouvelle vente'))],
+      actions: dialogActions([FilledButton(onPressed: () => Navigator.pop(ctx), child: const Text('Nouvelle vente'))]),
     ),
   );
 
@@ -273,9 +273,15 @@ class _PosScreenState extends ConsumerState<PosScreen> {
           ],
         ),
         actions: [
-          _HeaderAction(tooltip: 'Ma caisse', icon: Icons.point_of_sale_rounded, onTap: () => context.push('/cash')),
+          _HeaderAction(
+            label: 'Caisse',
+            tooltip: 'Ma caisse',
+            icon: Icons.point_of_sale_rounded,
+            onTap: () => context.push('/cash'),
+          ),
           const SizedBox(width: 8),
           _HeaderAction(
+            label: 'Reçus',
             tooltip: "Ventes d'aujourd'hui",
             icon: Icons.receipt_long_rounded,
             onTap: () => context.push('/sales'),
@@ -398,7 +404,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
             return Column(
               children: [
                 ...catalog,
-                _CheckoutPanel(busy: _busy, onCheckout: _checkout),
+                _CheckoutPanel(busy: _busy, onCheckout: _checkout, compact: true),
               ],
             );
           }
@@ -522,7 +528,10 @@ class _CartLines extends ConsumerWidget {
 }
 
 class _HeaderAction extends StatelessWidget {
-  const _HeaderAction({required this.tooltip, required this.icon, required this.onTap});
+  const _HeaderAction({required this.label, required this.tooltip, required this.icon, required this.onTap});
+
+  /// Mot sous l'icône : une icône seule ne se comprend pas toujours.
+  final String label;
   final String tooltip;
   final IconData icon;
   final VoidCallback onTap;
@@ -535,7 +544,21 @@ class _HeaderAction extends StatelessWidget {
       blur: 10,
       shadow: false,
       onTap: onTap,
-      child: SizedBox(width: 48, height: 48, child: Icon(icon, color: AppColors.ink, size: 22)),
+      child: SizedBox(
+        width: 56,
+        height: 50,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, color: AppColors.ink, size: 19),
+            Text(
+              label,
+              maxLines: 1,
+              style: TextStyle(fontSize: 10.5, height: 1.1, fontWeight: FontWeight.w700, color: AppColors.ink),
+            ),
+          ],
+        ),
+      ),
     ),
   );
 }
@@ -769,9 +792,28 @@ class _ProductCard extends StatelessWidget {
 }
 
 class _CheckoutPanel extends ConsumerWidget {
-  const _CheckoutPanel({required this.busy, required this.onCheckout});
+  const _CheckoutPanel({required this.busy, required this.onCheckout, this.compact = false});
   final bool busy;
   final VoidCallback onCheckout;
+
+  /// Téléphone : panier vide = une seule ligne (plus de place pour les produits) ;
+  /// le nombre d'articles s'ouvre pour voir et ajuster les lignes du panier.
+  final bool compact;
+
+  void _showLines(BuildContext context) => showModalBottomSheet<void>(
+    context: context,
+    useRootNavigator: true,
+    isScrollControlled: true,
+    showDragHandle: true,
+    builder: (ctx) => Consumer(
+      builder: (ctx, ref, _) {
+        // Hauteur selon le nombre de lignes, sans dépasser 70 % de l'écran
+        final lines = ref.watch(cartProvider).lines.length;
+        final h = (110.0 + lines * 72).clamp(180.0, MediaQuery.sizeOf(ctx).height * 0.7);
+        return SizedBox(height: h, child: const _CartLines());
+      },
+    ),
+  );
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -780,6 +822,42 @@ class _CheckoutPanel extends ConsumerWidget {
     final credit = cart.mode == PaymentMode.credit;
     final n = cart.itemCount;
     final mustOpen = ref.watch(mustOpenCashProvider);
+
+    // Panier vide sur téléphone : une ligne discrète, les produits gardent la place
+    if (compact && cart.isEmpty && !mustOpen) {
+      return Padding(
+        padding: EdgeInsets.fromLTRB(10, 4, 10, 8 + MediaQuery.paddingOf(context).bottom),
+        child: Glass(
+          key: const Key('pos_compact_panel'),
+          radius: 24,
+          padding: const EdgeInsets.fromLTRB(16, 10, 10, 10),
+          child: Row(
+            children: [
+              Icon(Icons.touch_app_rounded, color: AppColors.muted, size: 20),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Touchez un produit',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(color: AppColors.muted, fontWeight: FontWeight.w600),
+                ),
+              ),
+              Flexible(
+                child: _CustomerChip(
+                  customer: cart.customer,
+                  onPick: () async {
+                    final c = await pickCustomer(context);
+                    if (c != null) ctrl.setCustomer(c);
+                  },
+                  onClear: () => ctrl.setCustomer(null),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
 
     // Panneau du panier : carte flottante en verre.
     return Padding(
@@ -799,15 +877,38 @@ class _CheckoutPanel extends ConsumerWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        n == 0
-                            ? 'Panier vide'
-                            : cart.loyaltyDiscount > 0
-                            ? '${qty(n)} article${n > 1 ? 's' : ''} · au lieu de ${moneyShort(cart.subtotal)}'
-                            : '${qty(n)} article${n > 1 ? 's' : ''}',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(fontSize: 12, color: AppColors.muted, fontWeight: FontWeight.w600),
+                      InkWell(
+                        key: const Key('cart_lines_open'),
+                        borderRadius: BorderRadius.circular(8),
+                        onTap: compact && n > 0 ? () => _showLines(context) : null,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Flexible(
+                              child: Text(
+                                n == 0
+                                    ? 'Panier vide'
+                                    : cart.loyaltyDiscount > 0
+                                    ? '${qty(n)} article${n > 1 ? 's' : ''} · au lieu de ${moneyShort(cart.subtotal)}'
+                                    : '${qty(n)} article${n > 1 ? 's' : ''}',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: compact && n > 0 ? AppColors.green : AppColors.muted,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ),
+                            if (compact && n > 0) ...[
+                              Text(
+                                ' · voir',
+                                style: TextStyle(fontSize: 12, color: AppColors.green, fontWeight: FontWeight.w700),
+                              ),
+                              Icon(Icons.expand_less_rounded, size: 16, color: AppColors.green),
+                            ],
+                          ],
+                        ),
                       ),
                       FittedBox(
                         fit: BoxFit.scaleDown,
@@ -952,9 +1053,7 @@ class _PayQrButton extends ConsumerWidget {
             if (paid) onCheckout();
           },
           icon: const Icon(Icons.qr_code_2_rounded),
-          label: Text(
-            (account.link ?? '').isNotEmpty ? 'Montrer le QR au client' : 'Montrer mon numéro au client',
-          ),
+          label: Text((account.link ?? '').isNotEmpty ? 'Montrer le QR au client' : 'Montrer mon numéro au client'),
         ),
       );
     }
@@ -966,7 +1065,7 @@ class _PayQrButton extends ConsumerWidget {
           style: TextButton.styleFrom(minimumSize: const Size(0, 40)),
           onPressed: () => context.push(payAccountsRoute),
           icon: const Icon(Icons.qr_code_2_rounded, size: 18),
-          label: Text('Ajoutez votre ${m!.label} pour le montrer au client'),
+          label: Text('Ajoutez votre numéro ${m!.label} : le client verra où payer'),
         ),
       );
     }

@@ -71,10 +71,10 @@ class _CashCloseScreenState extends ConsumerState<CashCloseScreen> {
               ? 'Il manque ${money(-diff)}. La caisse sera fermée avec cet écart.'
               : 'Il y a ${money(diff)} en trop. La caisse sera fermée avec cet écart.',
         ),
-        actions: [
+        actions: dialogActions([
           CancelButton(onPressed: () => Navigator.pop(ctx, false)),
           ConfirmButton(label: 'Fermer', onPressed: () => Navigator.pop(ctx, true)),
-        ],
+        ]),
       ),
     );
     if (ok != true) return;

@@ -1193,7 +1193,7 @@ class _RepaySheetState extends ConsumerState<_RepaySheet> {
           runSpacing: 8,
           children: [
             for (final m in [PayMethod.cash, PayMethod.wave, PayMethod.orangeMoney, PayMethod.freeMoney])
-              Pill(label: m.label, selected: _method == m, onTap: () => setState(() => _method = m)),
+              PayMethodChip(m, selected: _method == m, onTap: () => setState(() => _method = m)),
           ],
         ),
         const SizedBox(height: 16),
@@ -1222,10 +1222,10 @@ class LoyaltyCardTile extends ConsumerWidget {
           inputFormatters: [FilteringTextInputFormatter.digitsOnly],
           decoration: const InputDecoration(labelText: 'Nombre de points', suffixText: 'pts'),
         ),
-        actions: [
+        actions: dialogActions([
           CancelButton(onPressed: () => Navigator.pop(ctx)),
           ConfirmButton(label: 'Offrir', onPressed: () => Navigator.pop(ctx, int.tryParse(ctrl.text))),
-        ],
+        ]),
       ),
     );
     if (points == null || points <= 0 || !context.mounted) return;

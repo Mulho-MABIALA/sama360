@@ -23,10 +23,10 @@ Future<String?> _askName(BuildContext context, {String? initial, required String
         decoration: const InputDecoration(hintText: 'Ex. Cosmétiques, Épicerie…'),
         onSubmitted: (v) => Navigator.pop(ctx, v.trim()),
       ),
-      actions: [
+      actions: dialogActions([
         CancelButton(onPressed: () => Navigator.pop(ctx)),
         ConfirmButton(label: 'Valider', onPressed: () => Navigator.pop(ctx, ctrl.text.trim())),
-      ],
+      ]),
     ),
   );
 }
@@ -186,14 +186,14 @@ class CategoriesScreen extends ConsumerWidget {
                                       ? 'Cette catégorie est vide.'
                                       : 'Ses ${c.productCount} produit(s) restent dans le catalogue, sans catégorie.',
                                 ),
-                                actions: [
+                                actions: dialogActions([
                                   CancelButton(onPressed: () => Navigator.pop(ctx, false)),
                                   ConfirmButton(
                                     danger: true,
                                     label: 'Supprimer',
                                     onPressed: () => Navigator.pop(ctx, true),
                                   ),
-                                ],
+                                ]),
                               ),
                             );
                             if (ok != true || !context.mounted) return;

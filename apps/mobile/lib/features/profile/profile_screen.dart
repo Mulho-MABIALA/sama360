@@ -176,10 +176,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           'Il faudra recevoir un nouveau code pour vous reconnecter.'
           '${unsentSalesCount(ref) > 0 ? '\n\nLes ventes pas encore envoyées depuis ce téléphone seront perdues.' : ''}',
         ),
-        actions: [
+        actions: dialogActions([
           CancelButton(onPressed: () => Navigator.pop(ctx, false)),
           ConfirmButton(danger: true, label: 'Tout déconnecter', onPressed: () => Navigator.pop(ctx, true)),
-        ],
+        ]),
       ),
     );
     if (ok != true) return;
@@ -204,10 +204,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     : 'Attention : $unsent ventes n’ont pas encore été envoyées. Elles seront perdues si vous vous déconnectez.',
                 style: TextStyle(color: AppColors.danger),
               ),
-        actions: [
+        actions: dialogActions([
           CancelButton(onPressed: () => Navigator.pop(ctx, false)),
           ConfirmButton(danger: true, label: 'Déconnexion', onPressed: () => Navigator.pop(ctx, true)),
-        ],
+        ]),
       ),
     );
     if (ok == true) await ref.read(authProvider.notifier).signOut();

@@ -27,16 +27,14 @@ class _Blob {
 }
 
 const _lightBlobs = [
-  _Blob(Color(0x8C8BE8BC), Alignment(-1.1, -1.0), 0.75, 0.0),
-  _Blob(Color(0x6687D8EC), Alignment(1.2, -0.25), 0.62, 1.7),
+  _Blob(Color(0x3387D8EC), Alignment(1.2, 0.1), 0.55, 1.7),
   _Blob(Color(0x5CFFC59A), Alignment(-1.0, 0.85), 0.62, 3.1),
   _Blob(Color(0x4DC8B9FF), Alignment(1.1, 1.1), 0.58, 4.4),
 ];
 
 /// Fond clair en mode sombre : mêmes nappes, très atténuées, sur un vert nuit.
 const _nightBlobs = [
-  _Blob(Color(0x4021C98A), Alignment(-1.1, -1.0), 0.75, 0.0),
-  _Blob(Color(0x330FA3A0), Alignment(1.2, -0.25), 0.62, 1.7),
+  _Blob(Color(0x1F0FA3A0), Alignment(1.2, 0.1), 0.55, 1.7),
   _Blob(Color(0x24FF9A4D), Alignment(-1.0, 0.85), 0.62, 3.1),
   _Blob(Color(0x2E8E7CF6), Alignment(1.1, 1.1), 0.58, 4.4),
 ];
@@ -93,7 +91,7 @@ class _AuroraBackgroundState extends State<AuroraBackground> with SingleTickerPr
             ? const [Color(0xFF042A21), Color(0xFF07473A), Color(0xFF0A5F49)]
             : night
             ? const [Color(0xFF07110D), Color(0xFF0B1913)]
-            : const [Color(0xFFF3FAF6), Color(0xFFEFF6F3)],
+            : const [Color(0xFFF7F8F7), Color(0xFFF2F4F3)],
       ),
       child: widget.child,
     );

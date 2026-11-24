@@ -5,7 +5,6 @@ import 'package:material_ui/material_ui.dart';
 import '../../core/biometrics.dart';
 import '../../core/glass.dart';
 import '../../core/models.dart';
-import '../../core/pin_lock.dart';
 import '../../core/providers.dart';
 import '../../core/theme.dart';
 import '../../core/widgets.dart';
@@ -89,10 +88,8 @@ class OnboardingCard extends ConsumerWidget {
     if (o == null || o.dismissed) return const SizedBox.shrink();
     if (o.focus == null) return const _FocusQuestion();
 
-    // Étape « sécurité » : seulement si le téléphone a un capteur
-    final bio = ref.watch(biometricKindProvider).value;
-    final bioOn = ref.watch(pinLockProvider).pin?.biometric ?? false;
-    final steps = [...o.steps, if (bio != null) OnboardingStep('security', bioOn)];
+    // L'empreinte n'est pas une étape de démarrage : elle reste dans Mon compte → Sécurité.
+    final steps = o.steps;
     final done = steps.where((s) => s.done).length;
     final allDone = done == steps.length;
 
@@ -139,10 +136,7 @@ class OnboardingCard extends ConsumerWidget {
                     ref.invalidate(onboardingProvider);
                   },
                   icon: const Icon(Icons.close_rounded, size: 18),
-                  label: Text(
-                    allDone ? 'Fermer' : 'Masquer',
-                    style: const TextStyle(fontWeight: FontWeight.w800),
-                  ),
+                  label: Text(allDone ? 'Fermer' : 'Masquer', style: const TextStyle(fontWeight: FontWeight.w800)),
                 ),
               ],
             ),
@@ -161,11 +155,7 @@ class OnboardingCard extends ConsumerWidget {
             ),
             if (!allDone) ...[
               const SizedBox(height: 6),
-              for (final s in steps)
-                _StepRow(
-                  step: s,
-                  info: stepInfo(s.key, bio: bio),
-                ),
+              for (final s in steps) _StepRow(step: s, info: stepInfo(s.key)),
             ],
           ],
         ),

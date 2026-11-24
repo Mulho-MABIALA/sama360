@@ -41,10 +41,10 @@ class _AdminPaymentsScreenState extends ConsumerState<AdminPaymentsScreen> {
           '${r.businessName} · ${moneyShort(r.amount)} par ${r.method.label}, réf. ${r.reference}.\n'
           'Vérifiez d’abord que l’argent est bien arrivé.',
         ),
-        actions: [
+        actions: dialogActions([
           CancelButton(onPressed: () => Navigator.pop(ctx, false)),
           ConfirmButton(label: 'Valider', onPressed: () => Navigator.pop(ctx, true)),
-        ],
+        ]),
       ),
     );
     if (ok != true) return;
@@ -69,10 +69,10 @@ class _AdminPaymentsScreenState extends ConsumerState<AdminPaymentsScreen> {
           maxLines: 2,
           decoration: const InputDecoration(labelText: 'Raison (vue par le commerçant)'),
         ),
-        actions: [
+        actions: dialogActions([
           CancelButton(onPressed: () => Navigator.pop(ctx, false)),
           ConfirmButton(danger: true, label: 'Refuser', onPressed: () => Navigator.pop(ctx, true)),
-        ],
+        ]),
       ),
     );
     if (ok != true) return;
@@ -94,7 +94,9 @@ class _AdminPaymentsScreenState extends ConsumerState<AdminPaymentsScreen> {
       section: AdminSection.payments,
       title: 'Paiements',
       subtitle: 'Abonnements Sama360 Pro',
-      actions: [IconButton(tooltip: 'Actualiser', onPressed: _refresh, icon: const Icon(Icons.refresh_rounded))],
+      actions: dialogActions([
+        IconButton(tooltip: 'Actualiser', onPressed: _refresh, icon: const Icon(Icons.refresh_rounded)),
+      ]),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [

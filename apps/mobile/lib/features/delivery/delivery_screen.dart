@@ -132,10 +132,10 @@ Future<Courier?> courierDialog(BuildContext context, WidgetRef ref, {Courier? co
             ),
           ],
         ),
-        actions: [
+        actions: dialogActions([
           CancelButton(onPressed: () => Navigator.pop(ctx, false)),
           ConfirmButton(label: 'Enregistrer', onPressed: () => Navigator.pop(ctx, name.text.trim().length >= 2)),
-        ],
+        ]),
       ),
     ),
   );
@@ -214,10 +214,10 @@ class _DeliveriesScreenState extends ConsumerState<DeliveriesScreen> {
         content: Text(
           'Encaissé sur ${c.deliveries} livraison${c.deliveries > 1 ? 's' : ''}. Pensez à le mettre en caisse.',
         ),
-        actions: [
+        actions: dialogActions([
           CancelButton(onPressed: () => Navigator.pop(ctx, false)),
           ConfirmButton(label: 'Argent reçu', onPressed: () => Navigator.pop(ctx, true)),
-        ],
+        ]),
       ),
     );
     if (ok == true) await _run(() => ref.read(repoProvider).settleCourier(c.courierId), 'Argent reçu de ${c.name}');
@@ -245,13 +245,13 @@ class _DeliveriesScreenState extends ConsumerState<DeliveriesScreen> {
             ),
           ],
         ),
-        actions: [
+        actions: dialogActions([
           CancelButton(onPressed: () => Navigator.pop(ctx)),
           ConfirmButton(
             label: 'Valider',
             onPressed: () => Navigator.pop(ctx, ctrl.text.trim().isEmpty ? 'Échec' : ctrl.text.trim()),
           ),
-        ],
+        ]),
       ),
     );
   }
