@@ -95,6 +95,9 @@ export const businesses = core.table('businesses', {
   deletedAt: ts('deleted_at'),
   deletedBy: uuid('deleted_by'),
   deletedWithAccount: boolean('deleted_with_account').notNull().default(false),
+  /** Suspendue par l'équipe Sama360 : plus accessible, boutique en ligne fermée */
+  suspendedAt: ts('suspended_at'),
+  suspendedReason: text('suspended_reason'),
 });
 
 export const roles = core.table('roles', {

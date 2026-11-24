@@ -91,7 +91,7 @@ export class BookingService {
     const b = (
       await this.dbs.transaction((tx) =>
         tx.execute(sql`SELECT id, name, phone, address, city, logo_file_id, brand_color, country FROM core.businesses
-          WHERE slug = ${slug.toLowerCase()} AND deleted_at IS NULL
+          WHERE slug = ${slug.toLowerCase()} AND deleted_at IS NULL AND suspended_at IS NULL
             AND EXISTS (SELECT 1 FROM core.subscriptions s WHERE s.business_id = core.businesses.id
                         AND s.plan = 'pro' AND s.current_period_end > now())`),
       )

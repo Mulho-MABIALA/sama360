@@ -54,6 +54,7 @@ export class TenantGuard implements CanActivate {
         planStatus: subscriptions.status,
         periodEnd: subscriptions.currentPeriodEnd,
         memberWarehouse: memberships.warehouseId,
+        suspendedAt: businesses.suspendedAt,
       })
       .from(memberships)
       .innerJoin(roles, eq(roles.id, memberships.roleId))
@@ -69,6 +70,9 @@ export class TenantGuard implements CanActivate {
       )
       .limit(1);
     if (!m) throw new AppError('NOT_A_MEMBER', "Vous n'avez pas accès à cette entreprise", 403);
+    if (m.suspendedAt) {
+      throw new AppError('BUSINESS_SUSPENDED', 'Cette boutique est suspendue. Contactez l’équipe Sama360.', 403);
+    }
 
     const requested = req.header('x-location-id');
     const { modules, locations } = await this.dbs.withTenant(businessId, async (tx) => {

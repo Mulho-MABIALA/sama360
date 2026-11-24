@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:dio/dio.dart' show Options, ResponseType;
 import 'package:intl/intl.dart' show DateFormat;
 
+import 'admin_models.dart';
 import 'api/api_client.dart';
 import 'push.dart' show PushWebConfig;
 import 'models.dart';
@@ -169,6 +170,53 @@ class SamaRepository {
 
   Future<void> rejectPayment(String id, String? note) =>
       api.post<void>('/v1/admin/subscription-requests/$id/reject', data: {'note': ?note});
+
+  // ───────────── back office de l'équipe Sama360
+
+  Future<AdminOverview> adminOverview({int days = 30}) async =>
+      AdminOverview.fromJson(await api.get<Map<String, dynamic>>('/v1/admin/overview', query: {'days': days}));
+
+  Future<AdminPage<AdminBusiness>> adminBusinesses(AdminBusinessQuery q) async {
+    final j = await api.get<Map<String, dynamic>>('/v1/admin/businesses', query: q.toQuery());
+    return AdminPage(
+      items: [for (final b in j['items'] as List) AdminBusiness.fromJson(b as Map<String, dynamic>)],
+      total: (j['total'] as num).toInt(),
+      page: (j['page'] as num).toInt(),
+      pageSize: (j['pageSize'] as num).toInt(),
+    );
+  }
+
+  Future<AdminBusinessDetail> adminBusiness(String id) async =>
+      AdminBusinessDetail.fromJson(await api.get<Map<String, dynamic>>('/v1/admin/businesses/$id'));
+
+  Future<void> adminGift(String id, int days, String? reason) =>
+      api.post<void>('/v1/admin/businesses/$id/gift', data: {'days': days, 'reason': ?reason});
+
+  Future<void> adminSuspend(String id, String reason) =>
+      api.post<void>('/v1/admin/businesses/$id/suspend', data: {'reason': reason});
+
+  Future<void> adminUnsuspend(String id) => api.post<void>('/v1/admin/businesses/$id/unsuspend');
+
+  Future<void> adminRestore(String id) => api.post<void>('/v1/admin/businesses/$id/restore');
+
+  Future<({List<AdminPayment> items, bool hasMore})> adminPayments({
+    AdminPayStatus? status,
+    bool? online,
+    int page = 1,
+  }) async {
+    final j = await api.get<Map<String, dynamic>>(
+      '/v1/admin/payments',
+      query: {
+        'status': ?status?.api,
+        'source': ?(online == null ? null : (online ? 'online' : 'manual')),
+        'page': page,
+      },
+    );
+    return (
+      items: [for (final p in j['items'] as List) AdminPayment.fromJson(p as Map<String, dynamic>)],
+      hasMore: j['hasMore'] == true,
+    );
+  }
 
   Future<void> updateCountry(String code) => api.patch<void>('/v1/business', data: {'country': code});
 

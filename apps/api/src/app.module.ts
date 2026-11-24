@@ -16,6 +16,7 @@ import { AssistantModule } from './modules/assistant/assistant.module';
 import { BookingModule } from './modules/booking/booking.module';
 import { DeliveryModule } from './modules/delivery/delivery.module';
 import { BillingModule } from './modules/billing/billing.module';
+import { AdminModule } from './modules/admin/admin.module';
 import { DocumentsModule } from './modules/documents/documents.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { Public } from './shared/auth/decorators';
@@ -58,6 +59,7 @@ class HealthController {
     BookingModule,
     DeliveryModule,
     BillingModule,
+    AdminModule,
     NotificationsModule,
   ],
   controllers: [HealthController],

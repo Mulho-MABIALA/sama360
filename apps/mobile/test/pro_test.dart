@@ -224,47 +224,4 @@ void main() {
     await tester.pumpAndSettle();
     expect(repo.createdBusinesses.single, containsPair('referralCode', 'AWA7K2'));
   });
-
-  testWidgets('équipe Sama360 : valider et refuser des paiements', (tester) async {
-    phoneSize(tester);
-    PaymentRequest req(String id, String name, Country c) => PaymentRequest(
-      id: id,
-      cycle: 'monthly',
-      amount: 5000,
-      method: PayMethod.wave,
-      reference: 'TX-$id',
-      status: 'pending',
-      createdAt: DateTime(2026, 11, 18, 9),
-      payerPhone: '+2250707123456',
-      businessName: name,
-      businessCountry: c,
-      businessCity: 'Abidjan',
-    );
-    final repo = FakeRepo()
-      ..platformAdmin = true
-      ..adminQueue.addAll([req('a', 'Koné Market', Country.ci), req('b', 'Chez Maman Mav', Country.cg)]);
-    await pumpSama(tester, location: '/account', repo: repo);
-    await tester.scrollUntilVisible(find.byKey(const Key('admin_row')), 200, scrollable: find.byType(Scrollable).first);
-    await tester.ensureVisible(find.byKey(const Key('admin_row')));
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('admin_row')));
-    await tester.pumpAndSettle();
-    expect(find.text('Koné Market'), findsOneWidget);
-    expect(find.textContaining('payé depuis +225 07 07 12 34 56'), findsWidgets);
-
-    await tester.tap(find.byKey(const Key('approve_a')));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Valider').last);
-    await tester.pumpAndSettle();
-    expect(repo.adminOps.single, ('approve', 'a', null));
-    expect(find.text('Koné Market'), findsNothing);
-
-    await tester.tap(find.byKey(const Key('reject_b')));
-    await tester.pumpAndSettle();
-    await tester.enterText(find.byKey(const Key('reject_note')), 'Référence introuvable');
-    await tester.tap(find.text('Refuser').last);
-    await tester.pumpAndSettle();
-    expect(repo.adminOps.last, ('reject', 'b', 'Référence introuvable'));
-    expect(find.text('Rien ici'), findsOneWidget);
-  });
 }

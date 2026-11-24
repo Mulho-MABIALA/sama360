@@ -448,6 +448,21 @@ export class BillingService {
   }
 
   /** Prolonge Pro de `days` jours (à partir de la fin en cours si elle est à venir). */
+  /** Équipe Sama360 : jours de Pro offerts (geste commercial, dédommagement). */
+  async gift(businessId: string, days: number, reason: string | null, now = new Date()) {
+    const end = await this.dbs.transaction((tx) => this.extend(tx, businessId, days, now));
+    const day = end.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
+    await this.notify(businessId, {
+      kind: 'pro_active',
+      title: `Cadeau : ${days} jour${days > 1 ? 's' : ''} de Pro offert${days > 1 ? 's' : ''}`,
+      body: `${reason ? `${reason}. ` : ''}Sama360 Pro court jusqu’au ${day}.`,
+      link: '/pro',
+      audience: 'business:update',
+      dedupeKey: `pro_gift:${businessId}:${now.getTime()}`,
+    });
+    return { endsAt: end.toISOString() };
+  }
+
   private async extend(tx: Tx, businessId: string, days: number, now: Date): Promise<Date> {
     const cur = await this.sub(tx, businessId);
     const end = extendFrom(cur?.plan === 'pro' ? cur.currentPeriodEnd : null, days, now);

@@ -13,6 +13,7 @@ import 'package:sama360/core/pin_lock.dart';
 import 'package:sama360/core/api/api_client.dart';
 import 'package:sama360/core/api/session_store.dart';
 import 'package:sama360/core/glass.dart';
+import 'package:sama360/core/admin_models.dart';
 import 'package:sama360/core/models.dart';
 import 'package:sama360/core/offline/kv_store.dart';
 import 'package:sama360/core/offline/pending_sales.dart' show keyValueStoreProvider;
@@ -253,6 +254,11 @@ class FakeRepo extends SamaRepository {
   bool platformAdmin = false;
   final adminQueue = <PaymentRequest>[];
   final adminOps = <(String, String, String?)>[];
+  final adminBusinessList = <AdminBusiness>[];
+  final adminDetails = <String, AdminBusinessDetail>{};
+  final adminPaymentList = <AdminPayment>[];
+  final adminQueries = <AdminBusinessQuery>[];
+  AdminOverview? overview;
 
   ProStatus get _defaultPro => ProStatus(
     pro: proUntil != null && proUntil!.isAfter(DateTime.now()),
@@ -343,6 +349,49 @@ class FakeRepo extends SamaRepository {
   @override
   Future<List<PaymentRequest>> adminPaymentRequests({String status = 'pending'}) async =>
       adminQueue.where((r) => r.status == status).toList();
+
+  @override
+  Future<AdminOverview> adminOverview({int days = 30}) async => overview ?? fakeOverview(days: days);
+
+  @override
+  Future<AdminPage<AdminBusiness>> adminBusinesses(AdminBusinessQuery q) async {
+    adminQueries.add(q);
+    final needle = q.search.toLowerCase();
+    final items = adminBusinessList
+        .where((b) => needle.isEmpty || b.name.toLowerCase().contains(needle) || b.ownerPhone.contains(needle))
+        .where((b) => q.plan == null || b.plan == q.plan)
+        .where((b) => q.status == null ? b.status != AdminStatus.deleted : b.status == q.status)
+        .toList();
+    return AdminPage(items: items, total: items.length, page: 1, pageSize: 25);
+  }
+
+  @override
+  Future<AdminBusinessDetail> adminBusiness(String id) async => adminDetails[id]!;
+
+  @override
+  Future<void> adminGift(String id, int days, String? reason) async => adminOps.add(('gift:$days', id, reason));
+
+  @override
+  Future<void> adminSuspend(String id, String reason) async => adminOps.add(('suspend', id, reason));
+
+  @override
+  Future<void> adminUnsuspend(String id) async => adminOps.add(('unsuspend', id, null));
+
+  @override
+  Future<void> adminRestore(String id) async => adminOps.add(('restore', id, null));
+
+  @override
+  Future<({List<AdminPayment> items, bool hasMore})> adminPayments({
+    AdminPayStatus? status,
+    bool? online,
+    int page = 1,
+  }) async => (
+    items: adminPaymentList
+        .where((p) => status == null || p.status == status)
+        .where((p) => online == null || p.online == online)
+        .toList(),
+    hasMore: false,
+  );
 
   @override
   Future<void> approvePayment(String id) async {
@@ -2496,6 +2545,79 @@ Future<void> loadTestFonts() async {
   await load('Roboto', ['Roboto-Regular.ttf', 'Roboto-Medium.ttf', 'Roboto-Bold.ttf', 'Roboto-Black.ttf']);
   await load('MaterialIcons', ['MaterialIcons-Regular.otf']);
 }
+
+/// Tableau de bord du back office pour les tests.
+AdminOverview fakeOverview({int days = 30}) {
+  final today = DateTime(2026, 11, 23);
+  List<Map<String, dynamic>> series(int Function(int) f) => [
+    for (var i = days - 1; i >= 0; i--)
+      {'date': today.subtract(Duration(days: i)).toIso8601String().substring(0, 10), 'value': f(i)},
+  ];
+  return AdminOverview.fromJson({
+    'days': days,
+    'businesses': {'total': 128, 'new': 21, 'newPrevious': 14, 'active7': 74, 'everSold': 101, 'suspended': 1, 'deleted': 3},
+    'users': 212,
+    'plans': {'trial': 52, 'active': 31, 'expired': 12, 'free': 33},
+    'trialsEnding': [
+      {'id': 'b2', 'name': 'Chez Maman Mav', 'ownerPhone': '+242061234567', 'daysLeft': 2},
+    ],
+    'revenue': {
+      'period': 185000,
+      'previous': 140000,
+      'allTime': 1240000,
+      'mrr': 162000,
+      'online': 120000,
+      'manual': 65000,
+      'payments': 31,
+    },
+    'pendingPayments': 2,
+    'merchantsGmv30': 48500000,
+    'merchantsSales30': 9120,
+    'signupsByDay': series((i) => (i * 7) % 4),
+    'revenueByDay': series((i) => i % 5 == 0 ? 15000 : 5000 * (i % 2)),
+    'countries': [
+      {'code': 'SN', 'name': 'Sénégal', 'count': 84},
+      {'code': 'CI', 'name': 'Côte d’Ivoire', 'count': 30},
+      {'code': 'CG', 'name': 'Congo', 'count': 14},
+    ],
+    'topBusinesses': [
+      {'id': 'b1', 'name': 'Boutique Awa', 'country': 'SN', 'revenue30': 2450000, 'sales30': 412},
+      {'id': 'b3', 'name': 'Koné Market', 'country': 'CI', 'revenue30': 1810000, 'sales30': 298},
+    ],
+    'latest': [
+      {'id': 'b2', 'name': 'Chez Maman Mav', 'country': 'CG', 'ownerName': 'Mav', 'createdAt': '2026-11-22T10:00:00Z', 'plan': 'trial'},
+    ],
+  });
+}
+
+AdminBusiness fakeAdminBusiness(
+  String id,
+  String name, {
+  String plan = 'trial',
+  String status = 'active',
+  String country = 'SN',
+  String phone = '+221771234567',
+  int revenue30 = 0,
+}) => AdminBusiness.fromJson({
+  'id': id,
+  'name': name,
+  'slug': name.toLowerCase().replaceAll(' ', '-'),
+  'country': country,
+  'createdAt': '2026-10-02T09:00:00Z',
+  'status': status,
+  'owner': {'id': 'u-$id', 'name': 'Proprio $name', 'phone': phone},
+  'plan': {'state': plan, 'endsAt': '2026-12-20T00:00:00Z', 'daysLeft': 27},
+  'everPaid': plan == 'active',
+  'members': 2,
+  'stats': {
+    'sales30': revenue30 == 0 ? 0 : 40,
+    'revenue30': revenue30,
+    'sales7': revenue30 == 0 ? 0 : 9,
+    'lastSaleAt': revenue30 == 0 ? null : '2026-11-22T18:00:00Z',
+    'products': 35,
+    'customers': 18,
+  },
+});
 
 /// Écran de téléphone 390 × 844 (densité 2).
 void phoneSize(WidgetTester tester) {

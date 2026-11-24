@@ -5,6 +5,10 @@ import 'package:material_ui/material_ui.dart';
 import 'core/permissions.dart' show accessRedirect;
 import 'core/providers.dart' show currentBusinessProvider;
 import 'core/widgets.dart' show AccessDeniedScreen;
+import 'features/admin/admin_dashboard.dart';
+import 'features/admin/admin_merchant.dart';
+import 'features/admin/admin_merchants.dart';
+import 'features/admin/admin_payments.dart';
 import 'features/notifications/notifications_screen.dart';
 import 'features/loyalty/loyalty_screen.dart';
 import 'features/reminders/reminders_screen.dart';
@@ -133,6 +137,12 @@ final routerProvider = Provider<GoRouter>((ref) {
             ProScreen(feature: ProFeature.of(s.uri.queryParameters['feature']), paidId: s.uri.queryParameters['paid']),
       ),
       GoRoute(path: '/referral', builder: (_, _) => const ReferralScreen()),
+      GoRoute(path: '/admin', builder: (_, _) => const AdminDashboardScreen()),
+      GoRoute(path: '/admin/merchants', builder: (_, _) => const AdminMerchantsScreen()),
+      GoRoute(
+        path: '/admin/merchants/:id',
+        builder: (_, s) => AdminMerchantScreen(id: s.pathParameters['id']!),
+      ),
       GoRoute(path: '/admin/payments', builder: (_, _) => const AdminPaymentsScreen()),
       GoRoute(
         path: '/status',

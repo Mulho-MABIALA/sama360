@@ -24,6 +24,11 @@ class AsyncView<T> extends StatelessWidget {
   Widget build(BuildContext context) {
     return switch (value) {
       AsyncData(:final value) => data(value),
+      // Boutique suspendue par l'équipe Sama360 : rien à réessayer
+      AsyncError(:final error) when error is ApiException && error.code == 'BUSINESS_SUSPENDED' => ErrorPanel(
+        message: errorMessage(error),
+        icon: Icons.block_rounded,
+      ),
       AsyncError(:final error) => ErrorPanel(message: errorMessage(error), onRetry: onRetry),
       // Squelette plutôt qu'un rond qui tourne : l'écran paraît prêt plus vite, surtout en 3G.
       _ => loading ?? const SkeletonList(),
@@ -32,9 +37,10 @@ class AsyncView<T> extends StatelessWidget {
 }
 
 class ErrorPanel extends StatelessWidget {
-  const ErrorPanel({super.key, required this.message, this.onRetry});
+  const ErrorPanel({super.key, required this.message, this.onRetry, this.icon = Icons.cloud_off_rounded});
   final String message;
   final VoidCallback? onRetry;
+  final IconData icon;
 
   @override
   Widget build(BuildContext context) => Center(
@@ -43,7 +49,7 @@ class ErrorPanel extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.cloud_off_rounded, size: 40, color: AppColors.muted),
+          Icon(icon, size: 40, color: AppColors.muted),
           const SizedBox(height: 12),
           Text(
             message,

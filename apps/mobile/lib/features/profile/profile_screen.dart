@@ -373,10 +373,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                           key: const Key('admin_row'),
                           icon: Icons.verified_user_rounded,
                           color: const Color(0xFF13241C),
-                          label: 'Paiements Pro',
+                          label: 'Back office',
                           value: 'Équipe Sama360',
-                          hint: 'Valider les abonnements payés',
-                          onTap: () => context.push('/admin/payments'),
+                          hint: 'Commerçants, abonnements, paiements',
+                          onTap: () => context.push('/admin'),
                         ),
                       if (business != null && ref.can('business:update'))
                         InkWell(

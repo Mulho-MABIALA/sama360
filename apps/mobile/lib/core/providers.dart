@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'admin_models.dart';
 import 'api/api_client.dart';
 import 'api/session_store.dart';
 import 'config.dart';
@@ -112,6 +113,24 @@ final platformAdminProvider = FutureProvider<bool>((ref) async {
 final adminPaymentsProvider = FutureProvider.autoDispose.family<List<PaymentRequest>, String>(
   (ref, status) => ref.watch(repoProvider).adminPaymentRequests(status: status),
 );
+
+/// Back office : tableau de bord sur une période (jours).
+final adminOverviewProvider = FutureProvider.autoDispose.family<AdminOverview, int>(
+  (ref, days) => ref.watch(repoProvider).adminOverview(days: days),
+);
+
+final adminBusinessesProvider = FutureProvider.autoDispose.family<AdminPage<AdminBusiness>, AdminBusinessQuery>(
+  (ref, q) => ref.watch(repoProvider).adminBusinesses(q),
+);
+
+final adminBusinessProvider = FutureProvider.autoDispose.family<AdminBusinessDetail, String>(
+  (ref, id) => ref.watch(repoProvider).adminBusiness(id),
+);
+
+final adminAllPaymentsProvider = FutureProvider.autoDispose
+    .family<({List<AdminPayment> items, bool hasMore}), ({AdminPayStatus? status, bool? online})>(
+      (ref, f) => ref.watch(repoProvider).adminPayments(status: f.status, online: f.online),
+    );
 
 /// Mes boutiques supprimées, encore restaurables (liste vide en cas d'erreur).
 final deletedBusinessesProvider = FutureProvider.autoDispose<List<DeletedBusiness>>((ref) async {

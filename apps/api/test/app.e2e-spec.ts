@@ -103,6 +103,7 @@ describe('Socle Sama360 (e2e)', () => {
   let cashierToken: string;
   let cashierRefresh: string;
   let moussaBiz: string;
+  let adminToken: string | undefined; // équipe Sama360, connectée une fois (codes limités par numéro)
 
   const auth = (token: string, businessId?: string) => {
     const h: Record<string, string> = { Authorization: `Bearer ${token}` };
@@ -3233,6 +3234,7 @@ describe('Socle Sama360 (e2e)', () => {
       // L'équipe Sama360 valide
       await http.get('/v1/admin/subscription-requests').set(auth(ibou.accessToken)).expect(403);
       const admin = await login('+221700000099');
+      adminToken = admin.accessToken;
       expect((await http.get('/v1/admin/me').set(auth(admin.accessToken)).expect(200)).body).toEqual({ admin: true });
       const list = (await http.get('/v1/admin/subscription-requests').set(auth(admin.accessToken)).expect(200)).body;
       expect(list).toEqual([
@@ -4024,6 +4026,101 @@ describe('Socle Sama360 (e2e)', () => {
       expect(fresh.isNewUser).toBe(true);
       expect(fresh.user.id).not.toBe(back.user.id);
       expect((await http.get('/v1/me').set(auth(fresh.accessToken)).expect(200)).body.businesses).toEqual([]);
+    });
+  });
+
+  describe('Back office Sama360', () => {
+    it('tableau de bord, commerçants, gestes de l’équipe, réservé aux admins', async () => {
+      const A = () => auth(adminToken!);
+      const owner = await login('+221770050001');
+      const biz = (
+        await http.post('/v1/businesses').set(auth(owner.accessToken)).send({ name: 'Atelier Xaritou' }).expect(201)
+      ).body.business.id;
+      const O = () => auth(owner.accessToken, biz);
+      const p = (await http.post('/v1/catalog/products').set(O()).send({ name: 'Boubou', price: 15000 }).expect(201))
+        .body;
+      await http
+        .post('/v1/sales')
+        .set(O())
+        .send({ items: [{ productId: p.id, quantity: 2 }], payments: [{ method: 'cash', amount: 30000 }] })
+        .expect(201);
+
+      // Un commerçant n'y a pas accès
+      for (const path of ['overview', 'businesses', `businesses/${biz}`, 'payments']) {
+        await http.get(`/v1/admin/${path}`).set(auth(owner.accessToken)).expect(403);
+      }
+
+      const ov = (await http.get('/v1/admin/overview?days=30').set(A()).expect(200)).body;
+      expect(ov.businesses.total).toBeGreaterThanOrEqual(5);
+      expect(ov.businesses.new).toBeGreaterThanOrEqual(1);
+      expect(ov.signupsByDay).toHaveLength(30);
+      expect(ov.revenueByDay).toHaveLength(30);
+      expect(ov.revenue.allTime).toBeGreaterThan(0); // le paiement Pro validé plus haut
+      expect(ov.merchantsGmv30).toBeGreaterThanOrEqual(30000);
+      expect(ov.countries[0]).toEqual(expect.objectContaining({ code: 'SN', name: 'Sénégal' }));
+      expect(ov.plans.trial + ov.plans.active + ov.plans.expired + ov.plans.free).toBe(ov.businesses.total);
+
+      const found = (await http.get('/v1/admin/businesses?q=xaritou').set(A()).expect(200)).body;
+      expect(found.total).toBe(1);
+      expect(found.items[0]).toEqual(
+        expect.objectContaining({
+          id: biz,
+          status: 'active',
+          owner: expect.objectContaining({ phone: '+221770050001' }),
+          plan: expect.objectContaining({ state: 'trial' }),
+          stats: expect.objectContaining({ sales30: 1, revenue30: 30000, products: 1 }),
+        }),
+      );
+      const byPhone = (await http.get('/v1/admin/businesses?q=770050001').set(A()).expect(200)).body;
+      expect(byPhone.items.map((b: { id: string }) => b.id)).toEqual([biz]);
+      const trials = (await http.get('/v1/admin/businesses?plan=trial&sort=revenue').set(A()).expect(200)).body;
+      expect(trials.items.every((b: { plan: { state: string } }) => b.plan.state === 'trial')).toBe(true);
+      await http.get('/v1/admin/businesses?plan=gold').set(A()).expect(422);
+
+      // Mois offert : notifié, tracé
+      const before = (await http.get(`/v1/admin/businesses/${biz}`).set(A()).expect(200)).body;
+      expect(before.members).toEqual([expect.objectContaining({ phone: '+221770050001', roleKey: 'owner' })]);
+      expect(before.locations.length).toBeGreaterThanOrEqual(1);
+      await http.post(`/v1/admin/businesses/${biz}/gift`).set(A()).send({ days: 0 }).expect(422);
+      const gift = (
+        await http
+          .post(`/v1/admin/businesses/${biz}/gift`)
+          .set(A())
+          .send({ days: 15, reason: 'Panne réseau' })
+          .expect(200)
+      ).body;
+      expect(Date.parse(gift.endsAt)).toBeGreaterThan(Date.parse(before.plan.endsAt));
+      const notes = (await http.get('/v1/notifications').set(O()).expect(200)).body;
+      expect(JSON.stringify(notes)).toContain('15 jours de Pro offerts');
+
+      // Suspension : la boutique est bloquée avec un message clair, la boutique en ligne aussi
+      await http.post(`/v1/admin/businesses/${biz}/suspend`).set(A()).send({ reason: '' }).expect(422);
+      await http.post(`/v1/admin/businesses/${biz}/suspend`).set(A()).send({ reason: 'Fraude signalée' }).expect(200);
+      await http.post(`/v1/admin/businesses/${biz}/suspend`).set(A()).send({ reason: 'Encore' }).expect(409);
+      const blocked = await http.get('/v1/catalog/products').set(O()).expect(403);
+      expect(blocked.body.error?.code ?? blocked.body.code).toBe('BUSINESS_SUSPENDED');
+      const sus = (await http.get('/v1/admin/businesses?status=suspended').set(A()).expect(200)).body;
+      expect(sus.items.map((b: { id: string }) => b.id)).toContain(biz);
+      await http.post(`/v1/admin/businesses/${biz}/unsuspend`).set(A()).expect(200);
+      await http.get('/v1/catalog/products').set(O()).expect(200);
+
+      const detail = (await http.get(`/v1/admin/businesses/${biz}`).set(A()).expect(200)).body;
+      expect(detail.actions.map((a: { action: string }) => a.action)).toEqual(['unsuspend', 'suspend', 'gift']);
+      expect(detail.status).toBe('active');
+
+      // Paiements : la demande validée plus haut y figure
+      const pays = (await http.get('/v1/admin/payments?status=paid').set(A()).expect(200)).body;
+      expect(pays.items.length).toBeGreaterThanOrEqual(1);
+      expect(pays.items.every((x: { status: string }) => x.status === 'paid')).toBe(true);
+
+      // Boutique supprimée : rétablie par l'équipe à la demande du commerçant
+      await http.delete('/v1/business').set(O()).send({ confirmName: 'Atelier Xaritou' }).expect(200);
+      expect((await http.get('/v1/admin/businesses?q=xaritou').set(A()).expect(200)).body.total).toBe(0);
+      const gone = (await http.get('/v1/admin/businesses?status=deleted&q=xaritou').set(A()).expect(200)).body;
+      expect(gone.items[0].status).toBe('deleted');
+      await http.post(`/v1/admin/businesses/${biz}/gift`).set(A()).send({ days: 5 }).expect(409);
+      await http.post(`/v1/admin/businesses/${biz}/restore`).set(A()).expect(200);
+      await http.get('/v1/catalog/products').set(O()).expect(200);
     });
   });
 
