@@ -153,52 +153,97 @@ class _PosScreenState extends ConsumerState<PosScreen> {
       builder: (ctx) => Stack(
         children: [
           if (milestone != null) const Positioned.fill(child: ConfettiBurst()),
-          AlertDialog(
-            icon: const SuccessCheck(),
-            title: const Text('Vente enregistrée'),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (milestone != null) ...[
-                  Text(
-                    milestone,
-                    key: const Key('sale_milestone'),
-                    textAlign: TextAlign.center,
-                    style: TextStyle(color: AppColors.green, fontWeight: FontWeight.w800, fontSize: 15),
-                  ),
-                  const SizedBox(height: 6),
-                ],
-                Text(sale.number, style: TextStyle(color: AppColors.muted)),
-                const SizedBox(height: 8),
-                Text(money(sale.total), style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w800)),
-                if (sale.due > 0) ...[
-                  const SizedBox(height: 8),
-                  Text(
-                    '${money(sale.due)} ajoutés au crédit de ${customer?.name ?? 'ce client'}',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(color: AppColors.warn, fontWeight: FontWeight.w700),
-                  ),
-                ],
-              ],
-            ),
-            actionsAlignment: MainAxisAlignment.center,
-            actions: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  FilledButton.icon(
-                    onPressed: () {
-                      Navigator.pop(ctx);
-                      context.push('/sales/${sale.id}');
-                    },
-                    icon: const Icon(Icons.receipt_long_rounded),
-                    label: const Text('Voir le reçu'),
-                  ),
-                  const SizedBox(height: 8),
-                  OutlinedButton(onPressed: () => Navigator.pop(ctx), child: const Text('Nouvelle vente')),
-                ],
+          Dialog(
+            key: const Key('sale_success'),
+            insetPadding: const EdgeInsets.symmetric(horizontal: 28, vertical: 24),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 380),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(22, 26, 22, 18),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // Taille fixe, centrée : sur le web, l'emplacement d'icône d'AlertDialog l'étirait.
+                    const Center(child: SuccessCheck(size: 76)),
+                    const SizedBox(height: 14),
+                    const Text(
+                      'Vente enregistrée',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(fontSize: 21, fontWeight: FontWeight.w800),
+                    ),
+                    if (milestone != null) ...[
+                      const SizedBox(height: 8),
+                      Center(
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+                          decoration: BoxDecoration(
+                            color: AppColors.saffron.withValues(alpha: 0.18),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Text(
+                            milestone,
+                            key: const Key('sale_milestone'),
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: AppColors.strongOf(AppColors.warnBg, const Color(0xFF8A5300)),
+                              fontWeight: FontWeight.w800,
+                              fontSize: 13.5,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 16),
+                    Container(
+                      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 14),
+                      decoration: BoxDecoration(
+                        color: AppColors.greenSoft.withValues(alpha: 0.6),
+                        borderRadius: BorderRadius.circular(18),
+                      ),
+                      child: Column(
+                        children: [
+                          FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: Text(
+                              money(sale.total),
+                              style: const TextStyle(fontSize: 32, fontWeight: FontWeight.w900, letterSpacing: -0.5),
+                            ),
+                          ),
+                          Text(sale.number, style: TextStyle(color: AppColors.muted, fontSize: 13)),
+                        ],
+                      ),
+                    ),
+                    if (sale.due > 0) ...[
+                      const SizedBox(height: 10),
+                      Text(
+                        '${money(sale.due)} ajoutés au crédit de ${customer?.name ?? 'ce client'}',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(color: AppColors.warnText, fontWeight: FontWeight.w700),
+                      ),
+                    ],
+                    const SizedBox(height: 18),
+                    FilledButton.icon(
+                      style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(50)),
+                      onPressed: () {
+                        Navigator.pop(ctx);
+                        context.push('/sales/${sale.id}');
+                      },
+                      icon: const Icon(Icons.receipt_long_rounded),
+                      label: const Text('Voir le reçu'),
+                    ),
+                    const SizedBox(height: 8),
+                    TextButton.icon(
+                      style: TextButton.styleFrom(minimumSize: const Size.fromHeight(46)),
+                      onPressed: () => Navigator.pop(ctx),
+                      icon: const Icon(Icons.add_shopping_cart_rounded, size: 19),
+                      label: const Text('Nouvelle vente'),
+                    ),
+                  ],
+                ),
               ),
-            ],
+            ),
           ),
         ],
       ),

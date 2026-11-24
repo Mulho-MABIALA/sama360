@@ -13,6 +13,7 @@ import '../../core/models.dart';
 import '../../core/providers.dart';
 import '../../core/theme.dart';
 import '../../core/widgets.dart';
+import '../home/monument.dart' show MonumentBackdrop;
 import 'auth_controller.dart';
 
 /// Étape 1 : numéro de téléphone.
@@ -50,12 +51,18 @@ class _PhoneScreenState extends ConsumerState<PhoneScreen> {
     try {
       final sent = await ref.read(authProvider.notifier).requestOtp(phone, channel: channel);
       if (mounted) {
-        context.push('/otp', extra: OtpTarget(sent.phone, channel: sent.channel, channels: channels));
+        context.push(
+          '/otp',
+          extra: OtpTarget(sent.phone, channel: sent.channel, channels: channels),
+        );
       }
     } on ApiException catch (e) {
       // Un code a déjà été envoyé il y a moins d'une minute : on passe quand même à la saisie.
       if (e.code == 'OTP_TOO_SOON' && mounted) {
-        context.push('/otp', extra: OtpTarget(phone, channel: channel, channels: channels));
+        context.push(
+          '/otp',
+          extra: OtpTarget(phone, channel: channel, channels: channels),
+        );
       } else {
         setState(() => _error = e.message);
       }
@@ -89,24 +96,20 @@ class _PhoneScreenState extends ConsumerState<PhoneScreen> {
         padding: EdgeInsets.zero,
         children: [
           // En-tête émeraude : logo brillant posé sur un miroir.
-          ClipRRect(
-            borderRadius: const BorderRadius.vertical(bottom: Radius.circular(40)),
-            child: AuroraBackground(
-              tone: AuroraTone.deep,
-              child: Padding(
-                padding: EdgeInsets.fromLTRB(24, top + 36, 24, 64),
-                child: const Column(
-                  children: [
-                    MirrorReflection(size: 76, child: BrandMark(size: 76)),
-                    SizedBox(height: 6),
-                    SamaLogo(size: 34, onDark: true),
-                    SizedBox(height: 6),
-                    Text(
-                      'Un seul compte. Plusieurs services.',
-                      style: TextStyle(color: Color(0xFFCDE9DD), fontSize: 15),
-                    ),
-                  ],
-                ),
+          MonumentHeader(
+            child: Padding(
+              padding: EdgeInsets.fromLTRB(24, top + 36, 24, 64),
+              child: const Column(
+                children: [
+                  MirrorReflection(size: 76, child: BrandMark(size: 76)),
+                  SizedBox(height: 6),
+                  SamaLogo(size: 34, onDark: true),
+                  SizedBox(height: 6),
+                  Text(
+                    'Un seul compte. Plusieurs services.',
+                    style: TextStyle(color: Color(0xFFE6F4EE), fontSize: 15, fontWeight: FontWeight.w600),
+                  ),
+                ],
               ),
             ),
           ),
@@ -294,78 +297,292 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
     OtpChannel.sms => 'Le code arrive par SMS dans quelques secondes.',
   };
 
+  IconData _icon(OtpChannel c) => switch (c) {
+    OtpChannel.whatsapp => Icons.chat_rounded,
+    OtpChannel.sms => Icons.sms_rounded,
+    OtpChannel.call => Icons.phone_in_talk_rounded,
+  };
+
   @override
   Widget build(BuildContext context) {
+    final top = MediaQuery.paddingOf(context).top;
+    const muted = Color(0xFFCDE9DD);
+    final others = widget.target.channels.where((c) => c != _channel).toList();
     return AuroraScaffold(
-      appBar: AppBar(),
-      body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
-          children: [
-            const Text('Code de connexion', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800)),
-            const SizedBox(height: 6),
-            Text(
-              'Envoyé ${_channel.by} au ${intlPhone(widget.phone)}',
-              key: const Key('otp_sent_to'),
-              style: TextStyle(color: AppColors.muted),
-            ),
-            const SizedBox(height: 2),
-            Text(_tip, style: TextStyle(color: AppColors.muted, fontSize: 13)),
-            const SizedBox(height: 24),
-            TextField(
-              key: const Key('code'),
-              controller: _code,
-              autofocus: true,
-              keyboardType: TextInputType.number,
-              textAlign: TextAlign.center,
-              inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(6)],
-              style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w800, letterSpacing: 12),
-              decoration: InputDecoration(hintText: '••••••', errorText: _error, errorMaxLines: 3),
-              onChanged: (v) {
-                if (v.length == 6) _verify();
-              },
-            ),
-            const SizedBox(height: 20),
-            BusyButton(label: 'Valider', busy: _busy, onPressed: _verify),
-            const SizedBox(height: 8),
-            TextButton(
-              key: const Key('otp_resend'),
-              onPressed: _wait == 0 && _sending == null ? () => _resend() : null,
-              child: Text(_wait == 0 ? 'Renvoyer le code' : 'Renvoyer le code dans $_wait s'),
-            ),
-            if (widget.target.channels.length > 1) ...[
-              const SizedBox(height: 14),
-              Text(
-                'Pas reçu ?',
-                textAlign: TextAlign.center,
-                style: TextStyle(fontWeight: FontWeight.w800, color: AppColors.ink),
-              ),
-              const SizedBox(height: 8),
-              for (final c in widget.target.channels.where((c) => c != _channel))
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: OutlinedButton.icon(
-                    key: Key('otp_switch_${c.name}'),
-                    style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(48)),
-                    onPressed: _elapsed >= _switchAfter && _sending == null ? () => _resend(c) : null,
-                    icon: _sending == c
-                        ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
-                        : Icon(switch (c) {
-                            OtpChannel.whatsapp => Icons.chat_rounded,
-                            OtpChannel.sms => Icons.sms_rounded,
-                            OtpChannel.call => Icons.phone_in_talk_rounded,
-                          }),
-                    label: Text(
-                      _elapsed >= _switchAfter ? c.action : '${c.action} (${_switchAfter - _elapsed} s)',
+      body: ListView(
+        padding: EdgeInsets.zero,
+        children: [
+          // En-tête émeraude, comme l'écran du numéro : le moyen d'envoi et le numéro.
+          MonumentHeader(
+            child: Padding(
+              padding: EdgeInsets.fromLTRB(12, top + 4, 12, 60),
+              child: Column(
+                children: [
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: IconButton(
+                      tooltip: 'Changer de numéro',
+                      onPressed: () => context.canPop() ? context.pop() : context.go('/login'),
+                      icon: const Icon(Icons.arrow_back_rounded, color: Colors.white),
                     ),
                   ),
+                  GlossyOrb(
+                    icon: _icon(_channel),
+                    color: _channel == OtpChannel.whatsapp ? AppColors.whatsapp : AppColors.leaf,
+                    size: 68,
+                    iconColor: _channel == OtpChannel.whatsapp ? AppColors.onWhatsapp : Colors.white,
+                  ),
+                  const SizedBox(height: 14),
+                  const Text(
+                    'Code de connexion',
+                    style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w800),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Envoyé ${_channel.by} au ${intlPhone(widget.phone)}',
+                    key: const Key('otp_sent_to'),
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(color: muted, fontSize: 15),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          Transform.translate(
+            offset: const Offset(0, -36),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 18),
+              child: Glass(
+                radius: 28,
+                padding: const EdgeInsets.fromLTRB(18, 20, 18, 16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(Icons.info_outline_rounded, size: 18, color: AppColors.muted),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(_tip, style: TextStyle(color: AppColors.muted, fontSize: 13.5)),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    _CodeBoxes(controller: _code, error: _error, onComplete: _verify),
+                    const SizedBox(height: 18),
+                    BusyButton(label: 'Valider', busy: _busy, onPressed: _verify),
+                    const SizedBox(height: 4),
+                    TextButton.icon(
+                      key: const Key('otp_resend'),
+                      onPressed: _wait == 0 && _sending == null ? () => _resend() : null,
+                      icon: const Icon(Icons.refresh_rounded, size: 18),
+                      label: Text(_wait == 0 ? 'Renvoyer le code' : 'Renvoyer le code dans $_wait s'),
+                    ),
+                  ],
                 ),
-            ],
-          ],
-        ),
+              ),
+            ),
+          ),
+          if (others.isNotEmpty)
+            Transform.translate(
+              offset: const Offset(0, -20),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 18),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text(
+                      'Pas reçu ? Essayez autrement',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(fontWeight: FontWeight.w800, color: AppColors.ink),
+                    ),
+                    const SizedBox(height: 10),
+                    Row(
+                      children: [
+                        for (final (i, c) in others.indexed) ...[
+                          if (i > 0) const SizedBox(width: 10),
+                          Expanded(
+                            child: OutlinedButton.icon(
+                              key: Key('otp_switch_${c.name}'),
+                              style: OutlinedButton.styleFrom(
+                                minimumSize: const Size(0, 50),
+                                padding: const EdgeInsets.symmetric(horizontal: 8),
+                                backgroundColor: AppColors.surface(0.7),
+                              ),
+                              onPressed: _elapsed >= _switchAfter && _sending == null ? () => _resend(c) : null,
+                              icon: _sending == c
+                                  ? const SizedBox(
+                                      width: 18,
+                                      height: 18,
+                                      child: CircularProgressIndicator(strokeWidth: 2),
+                                    )
+                                  : Icon(_icon(c), size: 19),
+                              label: FittedBox(
+                                fit: BoxFit.scaleDown,
+                                child: Text(
+                                  _elapsed >= _switchAfter ? c.action : '${c.action} (${_switchAfter - _elapsed} s)',
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }
+}
+
+/// Six cases pour le code ; un seul champ invisible dessous (collage, remplissage auto du SMS).
+class _CodeBoxes extends StatefulWidget {
+  const _CodeBoxes({required this.controller, required this.error, required this.onComplete});
+  final TextEditingController controller;
+  final String? error;
+  final VoidCallback onComplete;
+
+  @override
+  State<_CodeBoxes> createState() => _CodeBoxesState();
+}
+
+class _CodeBoxesState extends State<_CodeBoxes> {
+  final _focus = FocusNode();
+
+  @override
+  void initState() {
+    super.initState();
+    widget.controller.addListener(_changed);
+    _focus.addListener(_changed);
+  }
+
+  void _changed() => setState(() {});
+
+  @override
+  void dispose() {
+    widget.controller.removeListener(_changed);
+    _focus.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final code = widget.controller.text;
+    final error = widget.error != null;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Stack(
+          children: [
+            Row(
+              children: [
+                for (var i = 0; i < 6; i++) ...[
+                  if (i > 0) SizedBox(width: i == 3 ? 14 : 8),
+                  Expanded(
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 160),
+                      height: 58,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: AppColors.surface(0.85),
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(
+                          width: 2,
+                          color: error
+                              ? AppColors.danger
+                              : _focus.hasFocus && i == code.length.clamp(0, 5)
+                              ? AppColors.green
+                              : i < code.length
+                              ? AppColors.green.withValues(alpha: 0.35)
+                              : AppColors.line,
+                        ),
+                      ),
+                      child: Text(
+                        i < code.length ? code[i] : '',
+                        style: TextStyle(fontSize: 26, fontWeight: FontWeight.w800, color: AppColors.ink),
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+            Positioned.fill(
+              child: Semantics(
+                label: 'Code à 6 chiffres',
+                child: TextField(
+                  key: const Key('code'),
+                  controller: widget.controller,
+                  focusNode: _focus,
+                  autofocus: true,
+                  keyboardType: TextInputType.number,
+                  autofillHints: const [AutofillHints.oneTimeCode],
+                  inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(6)],
+                  showCursor: false,
+                  enableInteractiveSelection: false,
+                  style: const TextStyle(color: Colors.transparent, fontSize: 1),
+                  decoration: const InputDecoration(
+                    border: InputBorder.none,
+                    enabledBorder: InputBorder.none,
+                    focusedBorder: InputBorder.none,
+                    filled: false,
+                    counterText: '',
+                    contentPadding: EdgeInsets.zero,
+                  ),
+                  onChanged: (v) {
+                    if (v.length == 6) widget.onComplete();
+                  },
+                ),
+              ),
+            ),
+          ],
+        ),
+        if (error) ...[
+          const SizedBox(height: 8),
+          Text(
+            widget.error!,
+            textAlign: TextAlign.center,
+            style: TextStyle(color: AppColors.danger, fontWeight: FontWeight.w600, fontSize: 13),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+/// En-tête des écrans de connexion : la photo du monument du jour (elle change chaque jour),
+/// sous un voile vert profond pour que le logo et le texte restent lisibles.
+class MonumentHeader extends StatelessWidget {
+  const MonumentHeader({super.key, required this.child});
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => ClipRRect(
+    borderRadius: const BorderRadius.vertical(bottom: Radius.circular(40)),
+    child: Stack(
+      children: [
+        const Positioned.fill(
+          child: AuroraBackground(tone: AuroraTone.deep, child: SizedBox.expand()),
+        ),
+        const Positioned.fill(child: MonumentBackdrop()),
+        const Positioned.fill(
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                stops: [0, 0.45, 1],
+                colors: [Color(0x26000000), Color(0x00052A1F), Color(0x99052A1F)],
+              ),
+            ),
+          ),
+        ),
+        SizedBox(width: double.infinity, child: child),
+      ],
+    ),
+  );
 }
 
 /// Étape 3 (première connexion) : nom.

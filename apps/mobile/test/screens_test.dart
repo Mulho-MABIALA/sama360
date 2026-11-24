@@ -52,7 +52,7 @@ void main() {
       {'method': 'cash', 'amount': 11000},
     ]);
 
-    await tester.tap(find.widgetWithText(OutlinedButton, 'Nouvelle vente'));
+    await tester.tap(find.widgetWithText(TextButton, 'Nouvelle vente'));
     await tester.pumpAndSettle();
     expect(find.text('Encaisser'), findsOneWidget); // panier vidé
   });

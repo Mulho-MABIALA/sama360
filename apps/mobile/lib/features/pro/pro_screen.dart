@@ -360,9 +360,23 @@ class _ProScreenState extends ConsumerState<ProScreen> with WidgetsBindingObserv
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text('Payer en ligne', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
-          const SizedBox(height: 4),
+          const SizedBox(height: 10),
+          // Moyens acceptés : logos du pays + carte bancaire
+          Wrap(
+            key: const Key('pay_online_methods'),
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final m in ref.watch(countryProvider).mobileMoney) _MethodChip(logo: PayLogo(m, size: 22), label: m.label),
+              _MethodChip(
+                logo: Icon(Icons.credit_card_rounded, size: 20, color: AppColors.ink),
+                label: 'Carte',
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
           Text(
-            'Wave, Orange Money, MoMo ou carte bancaire. Pro s’active tout seul dès que le paiement passe.',
+            'Pro s’active tout seul dès que le paiement passe.',
             style: TextStyle(color: AppColors.muted, fontSize: 13.5),
           ),
           const SizedBox(height: 12),
@@ -886,3 +900,28 @@ class _Stat extends StatelessWidget {
 }
 
 // ───────────────────────────────────────────────────────────── Équipe Sama360
+
+/// Moyen de paiement accepté (logo + nom).
+class _MethodChip extends StatelessWidget {
+  const _MethodChip({required this.logo, required this.label});
+  final Widget logo;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.fromLTRB(6, 5, 11, 5),
+    decoration: BoxDecoration(
+      color: AppColors.surface(0.85),
+      borderRadius: BorderRadius.circular(20),
+      border: Border.all(color: AppColors.line),
+    ),
+    child: Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        logo,
+        const SizedBox(width: 6),
+        Text(label, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12.5)),
+      ],
+    ),
+  );
+}

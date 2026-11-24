@@ -296,14 +296,15 @@ class _PurchaseEditorScreenState extends ConsumerState<PurchaseEditorScreen> {
                             Row(
                               children: [
                                 for (final (i, b) in [
-                                  (Icons.inventory_2_outlined, 'Produit', _pickProduct),
-                                  (Icons.qr_code_scanner_rounded, 'Scanner', _scan),
-                                  (Icons.trending_down_rounded, 'Stock bas', _addLowStock),
+                                  (Icons.inventory_2_rounded, 'Produit', _pickProduct, const Color(0xFF0F9D6B)),
+                                  (Icons.qr_code_scanner_rounded, 'Scanner', _scan, const Color(0xFF2563EB)),
+                                  (Icons.trending_down_rounded, 'Stock bas', _addLowStock, const Color(0xFFEA580C)),
                                   if (!_editing && _lines.isEmpty)
                                     (
                                       Icons.document_scanner_rounded,
                                       'Facture',
                                       () => startInvoiceScan(context, ref, replace: true),
+                                      const Color(0xFF7A5AF8),
                                     ),
                                 ].indexed) ...[
                                   if (i > 0) const SizedBox(width: 8),
@@ -311,15 +312,24 @@ class _PurchaseEditorScreenState extends ConsumerState<PurchaseEditorScreen> {
                                     child: OutlinedButton(
                                       style: OutlinedButton.styleFrom(
                                         padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 10),
-                                        minimumSize: const Size(0, 58),
+                                        minimumSize: const Size(0, 76),
                                       ),
                                       onPressed: b.$3,
                                       child: Column(
                                         mainAxisSize: MainAxisSize.min,
                                         children: [
-                                          Icon(b.$1, size: 20),
-                                          const SizedBox(height: 2),
-                                          Text(b.$2, style: const TextStyle(fontSize: 12.5)),
+                                          // Pastille colorée : les raccourcis attirent l'œil
+                                          Container(
+                                            width: 34,
+                                            height: 34,
+                                            decoration: BoxDecoration(
+                                              color: b.$4.withValues(alpha: 0.14),
+                                              borderRadius: BorderRadius.circular(11),
+                                            ),
+                                            child: Icon(b.$1, size: 20, color: b.$4),
+                                          ),
+                                          const SizedBox(height: 4),
+                                          Text(b.$2, style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700)),
                                         ],
                                       ),
                                     ),
