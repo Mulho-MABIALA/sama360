@@ -100,6 +100,8 @@ services:
         sync: false
       - key: CHARIOW_PRODUCT_YEARLY
         sync: false
+      - key: CHARIOW_PRODUCT_WEEKLY
+        sync: false
       # Notifications push (Firebase) : clé du compte de service (JSON, ou en base64) ; vide = pas de push
       - key: FCM_SERVICE_ACCOUNT
         sync: false

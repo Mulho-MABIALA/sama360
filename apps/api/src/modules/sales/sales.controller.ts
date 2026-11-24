@@ -10,6 +10,7 @@ import { contacts, customerLedger, expenses, sales, users } from '../../shared/d
 import { AppError } from '../../shared/http/app-error';
 import { atLocation, unpaidByCustomer } from '../../shared/tenant/location';
 import { PageQuery, parse } from '../../shared/http/zod';
+import { freeHistoryStart } from '../../shared/plans';
 import { SalesService } from './sales.service';
 
 const amount = z.coerce.number().int().min(0).max(1_000_000_000_000);
@@ -106,6 +107,8 @@ export class SalesController {
       if (q.cashierId) where.push(eq(sales.cashierId, q.cashierId));
       if (q.mine === 'true') where.push(eq(sales.cashierId, user.id));
       if (q.from) where.push(gte(sales.soldAt, startOf(q.from)));
+      // Gratuit : la liste des ventes s'arrête aux 30 derniers jours (les crédits restent tous visibles ailleurs)
+      if (!t.pro) where.push(gte(sales.soldAt, startOf(freeHistoryStart())));
       if (q.to) where.push(lt(sales.soldAt, endOf(q.to)));
       if (q.customerId) where.push(eq(sales.customerId, q.customerId));
       if (q.status) where.push(eq(sales.status, q.status));

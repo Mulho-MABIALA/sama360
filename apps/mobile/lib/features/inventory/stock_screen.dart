@@ -117,6 +117,7 @@ class _StockScreenState extends ConsumerState<StockScreen> {
                     ],
                   ),
                 ),
+                const FreeProductsBanner(),
                 const SizedBox(height: 12),
                 TextField(
                   controller: _searchCtrl,
@@ -453,4 +454,58 @@ class _StockEntrySheetState extends ConsumerState<_StockEntrySheet> {
       ],
     ),
   );
+}
+
+/// Version gratuite : jauge des produits quand on approche de la limite, pour que Pro ne tombe pas par surprise.
+class FreeProductsBanner extends ConsumerWidget {
+  const FreeProductsBanner({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    if (ref.watch(isProProvider)) return const SizedBox.shrink();
+    final products = ref.watch(catalogProductsProvider).value;
+    if (products == null) return const SizedBox.shrink();
+    final count = products.where((p) => p.parentId == null).length;
+    if (count < kFreeProducts - 10) return const SizedBox.shrink();
+    final full = count >= kFreeProducts;
+    return Padding(
+      padding: const EdgeInsets.only(top: 12),
+      child: Glass(
+        key: const Key('free_products_banner'),
+        radius: 18,
+        padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+        onTap: () => context.push('/pro?feature=catalog'),
+        child: Row(
+          children: [
+            const Icon(Icons.workspace_premium_rounded, color: Color(0xFFFF7A00)),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    full ? 'Limite gratuite atteinte : $count produits' : '$count produits sur $kFreeProducts gratuits',
+                    style: const TextStyle(fontWeight: FontWeight.w800),
+                  ),
+                  const SizedBox(height: 6),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(4),
+                    child: LinearProgressIndicator(
+                      value: (count / kFreeProducts).clamp(0, 1).toDouble(),
+                      minHeight: 6,
+                      color: full ? AppColors.danger : const Color(0xFFFF7A00),
+                      backgroundColor: AppColors.glassLine,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text('Produits illimités avec Pro', style: TextStyle(color: AppColors.muted, fontSize: 12.5)),
+                ],
+              ),
+            ),
+            Icon(Icons.chevron_right_rounded, color: AppColors.muted),
+          ],
+        ),
+      ),
+    );
+  }
 }

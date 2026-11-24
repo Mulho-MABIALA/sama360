@@ -106,6 +106,8 @@ const BaseSchema = z.object({
   // Produits Chariow (type Licence, achetable plusieurs fois) : prix du mois et de l'année
   CHARIOW_PRODUCT_MONTHLY: z.string().min(1).optional(),
   CHARIOW_PRODUCT_YEARLY: z.string().min(1).optional(),
+  // Facultatif : produit de la semaine ; sans lui, la semaine se paie par transfert
+  CHARIOW_PRODUCT_WEEKLY: z.string().min(1).optional(),
   // Adresse publique (retour après paiement) ; par défaut, celle de la requête
   PUBLIC_URL: z.string().url().optional(),
   // Notifications push (Firebase Cloud Messaging). Clé du compte de service : le JSON

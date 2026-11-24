@@ -5,10 +5,11 @@ import { z } from 'zod';
 import type { AuthUser, TenantContext } from '../../shared/auth/auth.types';
 import { CurrentTenant, CurrentUser, Public, RequirePermission } from '../../shared/auth/decorators';
 import { parse } from '../../shared/http/zod';
+import { CYCLES } from '../../shared/plans';
 import { BillingService, PAY_METHODS } from './billing.service';
 
 const PaymentRequest = z.object({
-  cycle: z.enum(['monthly', 'yearly']),
+  cycle: z.enum(CYCLES),
   method: z.enum(PAY_METHODS),
   // Référence de la transaction (SMS de Wave / Orange Money / MoMo)
   reference: z.string().trim().min(4).max(60),
@@ -16,7 +17,7 @@ const PaymentRequest = z.object({
 });
 
 const Checkout = z.object({
-  cycle: z.enum(['monthly', 'yearly']),
+  cycle: z.enum(CYCLES),
   // Pour le reçu Chariow
   email: z.string().trim().toLowerCase().email().max(160),
 });

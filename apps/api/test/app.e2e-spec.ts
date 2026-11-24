@@ -3210,7 +3210,7 @@ describe('Socle Sama360 (e2e)', () => {
       const F = () => auth(fatou.accessToken, fBiz);
       const fSub = (await http.get('/v1/subscription').set(F()).expect(200)).body;
       expect(fSub).toMatchObject({ pro: true, state: 'trial', daysLeft: 30, currency: 'XOF' });
-      expect(fSub.prices).toEqual({ monthly: 5000, yearly: 50000 });
+      expect(fSub.prices).toEqual({ weekly: 1500, monthly: 5000, yearly: 50000 });
       expect(fSub.payTo).toBe('Wave au 77 000 00 00 (Zolaa Tech)');
       expect(fSub.referralCode).toMatch(/^FAT[A-Z2-9]{3}$/);
       const fatouEnd = Date.parse(fSub.endsAt);
@@ -3246,6 +3246,29 @@ describe('Socle Sama360 (e2e)', () => {
         pro: false,
         state: 'expired',
       });
+
+      // Gratuit : 50 produits (les variantes ne comptent pas), rapports et ventes des 30 derniers jours
+      await dbs.withTenant(iBiz, (tx) =>
+        tx.execute(sql`
+          INSERT INTO catalog.products (id, business_id, name, price)
+          SELECT gen_random_uuid(), ${iBiz}, 'Article ' || i, 1000 FROM generate_series(1, 50) i`),
+      );
+      const full = await http
+        .post('/v1/catalog/products')
+        .set(I())
+        .send({ name: 'Un de trop', price: 500 })
+        .expect(402);
+      expect(full.body.error).toMatchObject({ code: 'PRO_REQUIRED', details: { feature: 'catalog', limit: 50 } });
+      const today = new Date().toISOString().slice(0, 10);
+      const old = new Date(Date.now() - 45 * 86_400_000).toISOString().slice(0, 10);
+      const recent = new Date(Date.now() - 29 * 86_400_000).toISOString().slice(0, 10);
+      await http.get(`/v1/reports/overview?from=${recent}&to=${today}`).set(I()).expect(200);
+      const hist = await http.get(`/v1/reports/overview?from=${old}&to=${today}`).set(I()).expect(402);
+      expect(hist.body.error).toMatchObject({ code: 'PRO_REQUIRED', details: { feature: 'history', days: 30 } });
+      const offer = (await http.get('/v1/subscription').set(I()).expect(200)).body;
+      expect(offer.prices).toEqual({ weekly: 1500, monthly: 5000, yearly: 50000 });
+      expect(offer.freeLimits).toEqual({ products: 50, historyDays: 30 });
+      expect(offer.features.map((f: { key: string }) => f.key)).toEqual(expect.arrayContaining(['catalog', 'history']));
 
       // « J'ai payé »
       const req = (

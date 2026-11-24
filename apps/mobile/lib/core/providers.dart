@@ -586,3 +586,11 @@ void refreshDeliveries(WidgetRef ref) {
   ref.invalidate(deliveryBoardProvider);
   ref.invalidate(couriersProvider);
 }
+
+/// Nouvel essai automatique d'un chargement raté : seulement pour le réseau ou une panne du serveur.
+/// Un refus de l'API (Pro requis, droit manquant, introuvable…) ne changera pas en réessayant.
+Duration? samaRetry(int retryCount, Object error) {
+  if (error is ApiException && error.code != ApiException.network && (error.status ?? 400) < 500) return null;
+  if (retryCount >= 5) return null;
+  return Duration(milliseconds: 200 * (1 << retryCount));
+}

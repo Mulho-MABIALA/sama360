@@ -29,12 +29,98 @@ class AsyncView<T> extends StatelessWidget {
         message: errorMessage(error),
         icon: Icons.block_rounded,
       ),
+      // Limite de la version gratuite (ex. rapports de plus de 30 jours) : on propose Pro, pas « Réessayer »
+      AsyncError(:final error) when error is ApiException && error.code == 'PRO_REQUIRED' => ProLockPanel(
+        message: errorMessage(error),
+        feature: (error.details as Map?)?['feature'] as String?,
+      ),
       AsyncError(:final error) => ErrorPanel(message: errorMessage(error), onRetry: onRetry),
       // Squelette plutôt qu'un rond qui tourne : l'écran paraît prêt plus vite, surtout en 3G.
       _ => loading ?? const SkeletonList(),
     };
   }
 }
+
+/// Fonction ou limite Pro atteinte, à la place du contenu de l'écran.
+class ProLockPanel extends StatelessWidget {
+  const ProLockPanel({super.key, required this.message, this.feature});
+  final String message;
+  final String? feature;
+
+  @override
+  Widget build(BuildContext context) => Center(
+    child: Padding(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.workspace_premium_rounded, size: 44, color: Color(0xFFFF7A00)),
+          const SizedBox(height: 12),
+          Text(
+            message,
+            key: const Key('pro_lock_message'),
+            textAlign: TextAlign.center,
+            style: const TextStyle(fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 14),
+          FilledButton.icon(
+            key: const Key('pro_lock_open'),
+            style: accentButtonStyle(),
+            onPressed: () => GoRouter.of(context).push('/pro${feature == null ? '' : '?feature=$feature'}'),
+            icon: const Icon(Icons.workspace_premium_rounded, size: 18),
+            label: const Text('Voir Sama360 Pro'),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
+/// Limite gratuite atteinte pendant une action : feuille qui explique et mène à Pro.
+Future<void> showProOffer(BuildContext context, {required String message, String? feature}) =>
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheet) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const Icon(Icons.workspace_premium_rounded, size: 44, color: Color(0xFFFF7A00)),
+              const SizedBox(height: 10),
+              Text(
+                message,
+                key: const Key('pro_offer_message'),
+                textAlign: TextAlign.center,
+                style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                'Sama360 Pro : tout compris, prix fixe, sans commission. Dès 1 500 F la semaine.',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: AppColors.muted),
+              ),
+              const SizedBox(height: 16),
+              SizedBox(
+                height: 52,
+                child: FilledButton(
+                  key: const Key('pro_offer_open'),
+                  style: accentButtonStyle(),
+                  onPressed: () {
+                    Navigator.of(sheet).pop();
+                    GoRouter.of(context).push('/pro${feature == null ? '' : '?feature=$feature'}');
+                  },
+                  child: const Text('Voir Sama360 Pro'),
+                ),
+              ),
+              TextButton(onPressed: () => Navigator.of(sheet).pop(), child: const Text('Plus tard')),
+            ],
+          ),
+        ),
+      ),
+    );
 
 class ErrorPanel extends StatelessWidget {
   const ErrorPanel({super.key, required this.message, this.onRetry, this.icon = Icons.cloud_off_rounded});
@@ -361,18 +447,8 @@ void showError(BuildContext context, Object error) {
   final text = error is String ? error : errorMessage(error);
   // Fonction Pro : on propose de passer à Pro plutôt qu'une simple erreur
   if (error is ApiException && error.code == 'PRO_REQUIRED') {
-    final feature = (error.details as Map?)?['feature'];
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(
-          content: Text(text),
-          action: SnackBarAction(
-            label: 'Passer à Pro',
-            onPressed: () => GoRouter.of(context).push('/pro${feature == null ? '' : '?feature=$feature'}'),
-          ),
-        ),
-      );
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+    showProOffer(context, message: text, feature: (error.details as Map?)?['feature'] as String?);
     return;
   }
   ScaffoldMessenger.of(context)

@@ -336,6 +336,7 @@ class AdminPayment {
     required this.businessId,
     required this.businessName,
     required this.yearly,
+    this.cycle = 'monthly',
     required this.amount,
     required this.method,
     required this.reference,
@@ -347,6 +348,7 @@ class AdminPayment {
 
   final String id, businessId, businessName, method;
   final bool online, yearly;
+  final String cycle;
   final int amount;
   final String? reference, note;
   final AdminPayStatus status;
@@ -359,6 +361,7 @@ class AdminPayment {
     businessId: j['businessId'] as String,
     businessName: j['businessName'] as String? ?? '—',
     yearly: j['cycle'] == 'yearly',
+    cycle: j['cycle'] as String? ?? 'monthly',
     amount: _int(j['amount']),
     method: j['method'] as String? ?? '',
     reference: j['reference'] as String?,

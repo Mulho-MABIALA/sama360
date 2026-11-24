@@ -27,6 +27,7 @@ Future<void> main() async {
   }
   runApp(
     ProviderScope(
+      retry: samaRetry,
       overrides: [
         sessionStoreProvider.overrideWithValue(kIsWeb ? PrefsSessionStore() : SecureSessionStore()),
         keyValueStoreProvider.overrideWithValue(store),

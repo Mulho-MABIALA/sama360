@@ -21,7 +21,8 @@ import { CurrentTenant, CurrentUser, RequirePermission } from '../../shared/auth
 import { DbService } from '../../shared/db/db.service';
 import { categories, products, VariantAxis } from '../../shared/db/schema';
 import { OutboxService } from '../../shared/events/outbox.service';
-import { AppError } from '../../shared/http/app-error';
+import { AppError, proRequired } from '../../shared/http/app-error';
+import { FREE_LIMITS } from '../../shared/plans';
 import { PageQuery, parse } from '../../shared/http/zod';
 import { newId } from '../../shared/ids';
 import { env } from '../../shared/config/env';
@@ -262,6 +263,7 @@ export class CatalogController {
     checkWholesale(input.price, input.wholesalePrice, input.wholesaleMinQty);
     checkPack(input.packName, input.packSize);
     return this.dbs.withTenant(t.businessId, async (tx) => {
+      if (!t.pro) await this.assertFreeRoom(tx);
       await this.assertCategory(tx, input.categoryId);
       await this.assertCodesFree(tx, input.sku, input.barcode);
       const [product] = await tx
@@ -277,6 +279,22 @@ export class CatalogController {
       });
       return product;
     });
+  }
+
+  /** Gratuit : FREE_LIMITS.products articles (les variantes d'un article ne comptent pas). */
+  private async assertFreeRoom(tx: Tx) {
+    const [{ count }] = (
+      await tx.execute(
+        sql`SELECT count(*)::int AS count FROM catalog.products WHERE deleted_at IS NULL AND parent_id IS NULL`,
+      )
+    ).rows as { count: number }[];
+    if (count >= FREE_LIMITS.products) {
+      throw proRequired(
+        'catalog',
+        `Vous avez ${FREE_LIMITS.products} produits : passez à Pro pour en ajouter autant que vous voulez`,
+        { limit: FREE_LIMITS.products },
+      );
+    }
   }
 
   /** Produit par code-barres ou référence (scan en caisse). */

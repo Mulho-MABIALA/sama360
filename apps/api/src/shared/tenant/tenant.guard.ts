@@ -1,5 +1,5 @@
 import { countryOf } from '../countries';
-import { CanActivate, ExecutionContext, HttpStatus, Injectable } from '@nestjs/common';
+import { CanActivate, ExecutionContext, Injectable } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { hasPermission } from '@sama360/contracts';
 import { and, eq, isNull } from 'drizzle-orm';
@@ -9,7 +9,7 @@ import { IS_PUBLIC, REQUIRED_MODULE, REQUIRED_PERMISSION, REQUIRED_PRO, TENANT_S
 import { effectivePlan, PRO_FEATURE_LABELS, ProFeature } from '../plans';
 import { DbService } from '../db/db.service';
 import { businesses, memberships, moduleActivations, roles, subscriptions } from '../db/schema';
-import { AppError } from '../http/app-error';
+import { AppError, proRequired } from '../http/app-error';
 import { newId } from '../ids';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -109,12 +109,7 @@ export class TenantGuard implements CanActivate {
       m.plan ? { plan: m.plan, status: m.planStatus ?? 'active', currentPeriodEnd: m.periodEnd } : null,
     ).pro;
     if (proFeature && !pro) {
-      throw new AppError(
-        'PRO_REQUIRED',
-        `${PRO_FEATURE_LABELS[proFeature]} : fonction Sama360 Pro`,
-        HttpStatus.PAYMENT_REQUIRED,
-        { feature: proFeature },
-      );
+      throw proRequired(proFeature, `${PRO_FEATURE_LABELS[proFeature]} : fonction Sama360 Pro`);
     }
 
     req.tenant = {

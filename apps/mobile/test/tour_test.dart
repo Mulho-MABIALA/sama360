@@ -7,6 +7,8 @@ import 'dart:io';
 
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:sama360/core/api/api_client.dart';
+import 'package:sama360/core/models.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -94,6 +96,29 @@ void main() {
     }
     await serif.load();
   });
+  // Version gratuite : l'offre Pro, la jauge de produits, un rapport au-delà de 30 jours
+  final free = {
+    '56_pro_gratuit': ('/pro', null),
+    '57_stock_gratuit': ('/stock', null),
+    '58_rapport_bloque': ('/reports', 'history'),
+  };
+  for (final e in free.entries) {
+    testWidgets(e.key, (tester) async {
+      phoneSize(tester);
+      final repo = FakeRepo()
+        ..proUntil = DateTime(2026, 1, 1)
+        ..extraProducts = [for (var i = 0; i < 42; i++) Product(id: 'x$i', name: 'Article $i', price: 1000, cost: 500)];
+      if (e.value.$2 != null) {
+        repo.reportsError = const ApiException(
+          'PRO_REQUIRED',
+          'Version gratuite : rapports des 30 derniers jours. Passez à Pro pour tout votre historique',
+          details: {'feature': 'history'},
+        );
+      }
+      await pumpSama(tester, location: e.value.$1, repo: repo);
+      await _shot(tester, e.key);
+    });
+  }
   for (final e in routes.entries) {
     testWidgets(e.key, (tester) async {
       phoneSize(tester);

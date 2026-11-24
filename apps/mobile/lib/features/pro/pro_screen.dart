@@ -29,7 +29,9 @@ const _gold = proGold;
 const proBadgeText = Color(0xFF9A3412);
 
 /// Ce qui reste gratuit, pour rassurer.
-const freeFeatures = 'Ventes, caisse, stock, clients et crédits, dépenses, factures, rapports simples';
+String freeFeatures(ProStatus s) =>
+    'ventes, caisse, stock (jusqu’à ${s.freeProducts} produits), clients et crédits, dépenses, factures, '
+    'rapports des ${s.freeHistoryDays} derniers jours';
 
 /// Message de parrainage envoyé sur WhatsApp.
 String referralMessage({required String business, required String code, required String link, int days = 30}) =>
@@ -258,38 +260,48 @@ class _ProScreenState extends ConsumerState<ProScreen> with WidgetsBindingObserv
                         ),
                       ),
                     const Divider(height: 18),
-                    Text('Toujours gratuit : $freeFeatures.', style: TextStyle(color: AppColors.muted, fontSize: 13)),
+                    Text(
+                      'Toujours gratuit : ${freeFeatures(s)}.',
+                      style: TextStyle(color: AppColors.muted, fontSize: 13),
+                    ),
                     const SizedBox(height: 8),
                   ],
                 ),
               ),
               const SizedBox(height: 14),
-              if (!_lifetime(s))
-                Row(
-                  children: [
-                    Expanded(
-                      child: _PriceCard(
-                        key: const Key('cycle_monthly'),
-                        title: 'Mensuel',
-                        price: moneyShort(s.monthly),
-                        sub: 'par mois',
-                        selected: _cycle == 'monthly',
-                        onTap: () => setState(() => _cycle = 'monthly'),
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: _PriceCard(
-                        key: const Key('cycle_yearly'),
-                        title: 'Annuel',
-                        price: moneyShort(s.yearly),
-                        sub: '2 mois offerts',
-                        selected: _cycle == 'yearly',
-                        onTap: () => setState(() => _cycle = 'yearly'),
-                      ),
-                    ),
-                  ],
+              if (!_lifetime(s)) ...[
+                IntrinsicHeight(
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      for (final (i, c) in [
+                        ('weekly', 'Semaine', 'par semaine'),
+                        ('monthly', 'Mois', '${moneyShort(s.perDay)} par jour'),
+                        ('yearly', 'Année', '2 mois offerts'),
+                      ].indexed) ...[
+                        if (i > 0) const SizedBox(width: 8),
+                        Expanded(
+                          child: _PriceCard(
+                            key: Key('cycle_${c.$1}'),
+                            title: c.$2,
+                            price: moneyShort(s.priceOf(c.$1)),
+                            sub: c.$3,
+                            selected: _cycle == c.$1,
+                            onTap: () => setState(() => _cycle = c.$1),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
                 ),
+                const SizedBox(height: 8),
+                Text(
+                  'Un prix fixe, tout compris. Aucune commission sur vos ventes.',
+                  key: const Key('pro_fixed_price'),
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: AppColors.muted, fontSize: 12.5, fontWeight: FontWeight.w600),
+                ),
+              ],
               const SizedBox(height: 14),
               if (_paid) const _OnlineDone() else if (_waitingId != null) _OnlineWaiting(onCheck: _check),
               if (_paid || _waitingId != null) const SizedBox(height: 14),
@@ -307,7 +319,7 @@ class _ProScreenState extends ConsumerState<ProScreen> with WidgetsBindingObserv
                     style: TextStyle(color: AppColors.muted),
                   ),
                 )
-              else if (s.online) ...[
+              else if (s.online && s.onlineCycles.contains(_cycle)) ...[
                 if (!_paid) _onlineForm(s),
                 const SizedBox(height: 10),
                 Glass(
@@ -359,7 +371,7 @@ class _ProScreenState extends ConsumerState<ProScreen> with WidgetsBindingObserv
   }
 
   Widget _onlineForm(ProStatus s) {
-    final amount = moneyShort(_cycle == 'yearly' ? s.yearly : s.monthly);
+    final amount = moneyShort(s.priceOf(_cycle));
     return Glass(
       key: const Key('pay_online_card'),
       radius: 22,
@@ -428,7 +440,7 @@ class _ProScreenState extends ConsumerState<ProScreen> with WidgetsBindingObserv
 
   Widget _payForm(ProStatus s, {bool framed = true}) {
     final method = _method ?? (s.methods.isEmpty ? PayMethod.wave : s.methods.first);
-    final amount = moneyShort(_cycle == 'yearly' ? s.yearly : s.monthly);
+    final amount = moneyShort(s.priceOf(_cycle));
     final body = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -578,7 +590,7 @@ class _PriceCard extends StatelessWidget {
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
-        padding: const EdgeInsets.all(14),
+        padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
           color: selected ? AppColors.ink : AppColors.surface(0.8),
           borderRadius: BorderRadius.circular(18),
@@ -589,12 +601,16 @@ class _PriceCard extends StatelessWidget {
           children: [
             Text(title, style: TextStyle(color: selected ? AppColors.ground : AppColors.muted, fontSize: 13)),
             const SizedBox(height: 4),
-            Text(
-              price,
-              style: TextStyle(
-                color: selected ? AppColors.ground : AppColors.ink,
-                fontWeight: FontWeight.w900,
-                fontSize: 20,
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerLeft,
+              child: Text(
+                price,
+                style: TextStyle(
+                  color: selected ? AppColors.ground : AppColors.ink,
+                  fontWeight: FontWeight.w900,
+                  fontSize: 20,
+                ),
               ),
             ),
             Text(

@@ -147,6 +147,8 @@ void main() {
       ..onlineStatus = 'paid';
     await pumpSama(tester, location: '/pro?paid=op42', repo: repo);
     expect(repo.onlineChecks, contains('op42'));
+    final scroll = find.descendant(of: find.byType(ListView), matching: find.byType(Scrollable)).first;
+    await tester.scrollUntilVisible(find.byKey(const Key('pay_online_done')), 300, scrollable: scroll);
     expect(find.byKey(const Key('pay_online_done')), findsOneWidget);
   });
 
@@ -176,8 +178,8 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    expect(find.text('Passer à Pro'), findsOneWidget);
-    await tester.tap(find.text('Passer à Pro'));
+    expect(find.byKey(const Key('pro_offer_message')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('pro_offer_open')));
     await tester.pumpAndSettle();
     expect(routerOf(c).state.uri.toString(), '/pro?feature=delivery');
   });

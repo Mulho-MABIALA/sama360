@@ -5,7 +5,8 @@ import { TenantContext } from '../../shared/auth/auth.types';
 import { CurrentTenant, RequireModule, RequirePermission } from '../../shared/auth/decorators';
 import { DbService, Tx } from '../../shared/db/db.service';
 import { atLocation } from '../../shared/tenant/location';
-import { AppError } from '../../shared/http/app-error';
+import { AppError, proRequired } from '../../shared/http/app-error';
+import { FREE_LIMITS, freeHistoryStart } from '../../shared/plans';
 import { parse } from '../../shared/http/zod';
 import {
   bucketsOf,
@@ -37,6 +38,14 @@ export class ReportsController {
     if (to < from) throw new AppError('VALIDATION_FAILED', 'La date de fin précède la date de début', 422);
     if (spanDays(from, to) > MAX_REPORT_DAYS) {
       throw new AppError('VALIDATION_FAILED', `Période trop longue (${MAX_REPORT_DAYS} jours maximum)`, 422);
+    }
+    // Gratuit : les 30 derniers jours ; au-delà, c'est Pro
+    if (!t.pro && from < freeHistoryStart()) {
+      throw proRequired(
+        'history',
+        `Version gratuite : rapports des ${FREE_LIMITS.historyDays} derniers jours. Passez à Pro pour tout votre historique`,
+        { days: FREE_LIMITS.historyDays },
+      );
     }
     const prev = previousPeriod(from, to);
     const g = granularity(from, to);

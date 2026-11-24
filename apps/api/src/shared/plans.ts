@@ -1,6 +1,7 @@
 /**
  * Sama360 Pro : ce qui est payant, combien, et l'état effectif d'un abonnement.
- * Gratuit : vendre, caisse, stock, clients, dépenses, factures, rapports simples.
+ * Gratuit : vendre, caisse, stock, clients, dépenses, factures, rapports simples,
+ * dans les limites de FREE_LIMITS. Pro : un abonnement fixe, tout compris, sans commission.
  */
 export const PRO_FEATURES = [
   'team', // vendeurs et gérants
@@ -12,6 +13,8 @@ export const PRO_FEATURES = [
   'documents', // coffre de documents
   'invoice_scan', // facture fournisseur en photo → achat et stock
   'multi_shop', // plusieurs points de vente
+  'catalog', // plus de FREE_LIMITS.products produits
+  'history', // rapports au-delà de FREE_LIMITS.historyDays jours
 ] as const;
 export type ProFeature = (typeof PRO_FEATURES)[number];
 
@@ -25,12 +28,26 @@ export const PRO_FEATURE_LABELS: Record<ProFeature, string> = {
   documents: 'Coffre de documents',
   invoice_scan: 'Facture fournisseur en photo',
   multi_shop: 'Plusieurs points de vente',
+  catalog: 'Produits illimités',
+  history: 'Tout l’historique des ventes',
 };
 
-/** Prix en francs CFA (XOF et XAF ont la même valeur). L'année = 10 mois. */
-export const PRO_PRICES = { monthly: 5000, yearly: 50000 } as const;
+/** Ce que la version gratuite permet : de quoi démarrer, la limite tombe quand le commerce grandit. */
+export const FREE_LIMITS = { products: 50, historyDays: 30 } as const;
+
+/** Premier jour visible sans Pro (AAAA-MM-JJ, heure de Dakar = UTC). */
+export function freeHistoryStart(now = new Date()): string {
+  return new Date(now.getTime() - (FREE_LIMITS.historyDays - 1) * 86_400_000).toISOString().slice(0, 10);
+}
+
+/**
+ * Prix en francs CFA (XOF et XAF ont la même valeur). L'année = 10 mois.
+ * La semaine, pour ceux qui ne peuvent pas avancer un mois d'un coup.
+ */
+export const PRO_PRICES = { weekly: 1500, monthly: 5000, yearly: 50000 } as const;
 export type Cycle = keyof typeof PRO_PRICES;
-export const CYCLE_DAYS: Record<Cycle, number> = { monthly: 30, yearly: 365 };
+export const CYCLES = ['weekly', 'monthly', 'yearly'] as const satisfies readonly Cycle[];
+export const CYCLE_DAYS: Record<Cycle, number> = { weekly: 7, monthly: 30, yearly: 365 };
 
 export const TRIAL_DAYS = 30;
 /** Mois offert au parrain et au filleul quand le filleul paie pour la première fois. */

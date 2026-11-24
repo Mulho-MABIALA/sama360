@@ -8,11 +8,13 @@ import { newId } from '../../shared/ids';
 import { normalizePhone } from '../../shared/phone';
 import {
   CYCLE_DAYS,
+  CYCLES,
   Cycle,
   effectivePlan,
   extendFrom,
   PRO_FEATURE_LABELS,
   PRO_FEATURES,
+  FREE_LIMITS,
   PRO_PRICES,
   REFERRAL_BONUS_DAYS,
   SubscriptionRow,
@@ -93,6 +95,7 @@ export class BillingService {
         ...effectivePlan(sub),
         currency: country.currency,
         prices: PRO_PRICES,
+        freeLimits: FREE_LIMITS,
         features: PRO_FEATURES.map((key) => ({ key, label: PRO_FEATURE_LABELS[key] })),
         payTo: payTo(country.code),
         methods: country.mobileMoney,
@@ -102,6 +105,8 @@ export class BillingService {
         history: requests.map(view),
         referralCode: (b.referral_code as string) ?? null,
         online: this.onlineEnabled(),
+        // Durées payables en ligne (la semaine seulement si son produit Chariow existe)
+        onlineCycles: this.onlineEnabled() ? CYCLES.filter((c) => !!this.productFor(c)) : [],
       };
     });
   }
@@ -225,7 +230,9 @@ export class BillingService {
 
   private productFor(cycle: Cycle): string {
     const e = env();
-    return (cycle === 'monthly' ? e.CHARIOW_PRODUCT_MONTHLY : e.CHARIOW_PRODUCT_YEARLY) as string;
+    return ({ weekly: e.CHARIOW_PRODUCT_WEEKLY, monthly: e.CHARIOW_PRODUCT_MONTHLY, yearly: e.CHARIOW_PRODUCT_YEARLY }[
+      cycle
+    ] ?? '') as string;
   }
 
   /** Ouvre une page de paiement Chariow pour un mois ou un an de Pro. */
@@ -241,6 +248,8 @@ export class BillingService {
     }
     const e = env();
     const productId = this.productFor(input.cycle);
+    if (!productId) throw new AppError('VALIDATION_FAILED', 'Cette durée se paie par transfert pour le moment', 422);
+
     const paymentId = newId();
     const info = await this.dbs.transaction(async (tx) => {
       const b = (await tx.execute(sql`SELECT name, country, phone FROM core.businesses WHERE id = ${businessId}`))

@@ -184,6 +184,8 @@ DateTime? _proUntil(Map? sub) {
 
 /// Fonctions réservées à Pro (mêmes clés que l'API : shared/plans.ts).
 enum ProFeature {
+  catalog('catalog', 'Produits illimités'),
+  history('history', 'Tout l’historique des ventes'),
   team('team', 'Vendeurs et gérants'),
   shop('shop', 'Boutique en ligne et statuts WhatsApp'),
   delivery('delivery', 'Livraisons et livreurs'),
@@ -192,7 +194,8 @@ enum ProFeature {
   assistant('assistant', 'Assistant IA'),
   documents('documents', 'Coffre de documents'),
   invoiceScan('invoice_scan', 'Facture fournisseur en photo'),
-  multiShop('multi_shop', 'Plusieurs points de vente');
+  multiShop('multi_shop', 'Plusieurs points de vente'),
+  branding('branding', 'Reçus à votre seul nom, sans mention Sama360');
 
   const ProFeature(this.key, this.label);
   final String key;
@@ -202,6 +205,16 @@ enum ProFeature {
 }
 
 enum ProState { trial, active, expired, free }
+
+/// Version gratuite : nombre de produits (les variantes d'un article ne comptent pas).
+const kFreeProducts = 50;
+
+/// Durée d'abonnement payée : semaine, mois ou année.
+String cycleLabel(String cycle) => switch (cycle) {
+  'weekly' => 'Semaine',
+  'yearly' => 'Annuel',
+  _ => 'Mensuel',
+};
 
 class PaymentRequest {
   const PaymentRequest({
@@ -266,6 +279,10 @@ class ProStatus {
     required this.monthly,
     required this.yearly,
     required this.methods,
+    this.weekly = 1500,
+    this.freeProducts = 50,
+    this.freeHistoryDays = 30,
+    this.onlineCycles = const ['monthly', 'yearly'],
     this.endsAt,
     this.currency = 'XOF',
     this.payTo,
@@ -280,9 +297,26 @@ class ProStatus {
   final DateTime? endsAt;
   final int daysLeft;
   final String currency;
+  final int weekly;
   final int monthly;
   final int yearly;
+
+  /// Limites de la version gratuite
+  final int freeProducts;
+  final int freeHistoryDays;
+
+  /// Durées payables en ligne (les autres : par transfert)
+  final List<String> onlineCycles;
   final String? payTo;
+
+  int priceOf(String cycle) => switch (cycle) {
+    'weekly' => weekly,
+    'yearly' => yearly,
+    _ => monthly,
+  };
+
+  /// Prix d'un jour avec l'abonnement du mois : « 167 F par jour » parle mieux que « 5 000 F par mois ».
+  int get perDay => (monthly / 30).round();
   final List<PayMethod> methods;
   final PaymentRequest? pending;
   final List<PaymentRequest> history;
@@ -302,8 +336,14 @@ class ProStatus {
       endsAt: j['endsAt'] == null ? null : DateTime.parse(j['endsAt'] as String),
       daysLeft: (j['daysLeft'] as num?)?.toInt() ?? 0,
       currency: j['currency'] as String? ?? 'XOF',
+      weekly: (prices['weekly'] as num?)?.toInt() ?? 1500,
       monthly: (prices['monthly'] as num).toInt(),
       yearly: (prices['yearly'] as num).toInt(),
+      freeProducts: ((j['freeLimits'] as Map?)?['products'] as num?)?.toInt() ?? 50,
+      freeHistoryDays: ((j['freeLimits'] as Map?)?['historyDays'] as num?)?.toInt() ?? 30,
+      onlineCycles: [
+        for (final c in (j['onlineCycles'] as List? ?? const ['monthly', 'yearly'])) c as String,
+      ],
       payTo: j['payTo'] as String?,
       methods: [for (final m in (j['methods'] as List? ?? const [])) ?PayMethod.fromApi(m as String)],
       pending: j['pending'] == null ? null : PaymentRequest.fromJson(j['pending'] as Map<String, dynamic>),

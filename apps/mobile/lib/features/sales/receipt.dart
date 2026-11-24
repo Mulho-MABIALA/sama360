@@ -59,6 +59,13 @@ String receiptText(SaleDetail s, CurrentBusiness b) {
   out
     ..writeln()
     ..write('Merci de votre confiance !');
+  // Version gratuite : chaque reçu envoyé fait connaître Sama360 ; Pro l'enlève
+  if (!b.isPro) {
+    out
+      ..writeln()
+      ..writeln()
+      ..write('_Reçu fait avec Sama360, la caisse gratuite des commerçants_');
+  }
   return out.toString();
 }
 
@@ -171,7 +178,8 @@ Future<List<int>> buildReceiptPdf(SaleDetail s, CurrentBusiness b, {ReceiptFonts
           dash(),
           pw.Text('Merci de votre confiance !', textAlign: pw.TextAlign.center, style: bold),
           pw.SizedBox(height: 2),
-          pw.Text('Reçu émis avec Sama360', textAlign: pw.TextAlign.center, style: base.copyWith(fontSize: 6.5)),
+          if (!b.isPro)
+            pw.Text('Reçu émis avec Sama360', textAlign: pw.TextAlign.center, style: base.copyWith(fontSize: 6.5)),
         ],
       ),
     ),

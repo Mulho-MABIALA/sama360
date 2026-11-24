@@ -75,3 +75,8 @@ export class AppError extends Error {
 export function variantRequired(name: string) {
   return new AppError('VARIANT_REQUIRED', `Choisissez la variante de « ${name} » (taille, couleur…)`, 422);
 }
+
+/** Fonction ou limite Sama360 Pro : l'app propose de passer à Pro (details.feature). */
+export function proRequired(feature: string, message: string, details: Record<string, unknown> = {}) {
+  return new AppError('PRO_REQUIRED', message, 402, { feature, ...details });
+}

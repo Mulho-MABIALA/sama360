@@ -2127,8 +2127,12 @@ class FakeRepo extends SamaRepository {
     });
   }
 
+  /// Erreur renvoyée par les rapports (ex. limite de la version gratuite)
+  Object? reportsError;
+
   @override
   Future<ReportOverview> report(DateTime from, DateTime to) async {
+    if (reportsError != null) throw reportsError!;
     reportRequests.add((from, to));
     final days = to.difference(from).inDays + 1;
     String d(DateTime x) => x.toIso8601String().substring(0, 10);
@@ -2557,6 +2561,7 @@ Future<(ProviderContainer, FakeRepo)> pumpSama(
   await initializeDateFormatting('fr');
   repo ??= FakeRepo();
   final container = ProviderContainer(
+    retry: samaRetry,
     overrides: [
       sessionStoreProvider.overrideWithValue(MemorySessionStore()),
       // Code secret : coupé par défaut ; activé quand un test fournit [pinStore]

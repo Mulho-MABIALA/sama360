@@ -304,7 +304,7 @@ class _RequestCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 Text(moneyShort(r.amount), style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 17)),
-                Text(r.yearly ? 'Annuel' : 'Mensuel', style: TextStyle(color: AppColors.muted, fontSize: 12)),
+                Text(cycleLabel(r.cycle), style: TextStyle(color: AppColors.muted, fontSize: 12)),
               ],
             ),
           ],
@@ -388,14 +388,14 @@ class PaymentTile extends StatelessWidget {
             )
           : SizedBox(width: 40, child: Center(child: PayLogo(PayMethod.fromApi(p.method), size: 28))),
       title: Text(
-        showBusiness ? p.businessName : '${p.yearly ? 'Annuel' : 'Mensuel'} · $method',
+        showBusiness ? p.businessName : '${cycleLabel(p.cycle)} · $method',
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
         style: const TextStyle(fontWeight: FontWeight.w700),
       ),
       subtitle: Text(
         [
-          if (showBusiness) '${p.yearly ? 'Annuel' : 'Mensuel'} · $method',
+          if (showBusiness) '${cycleLabel(p.cycle)} · $method',
           DateFormat('d MMM y', 'fr').format(date),
           if (p.reference != null && !p.online) 'réf. ${p.reference}',
           if (p.note != null) p.note!,
