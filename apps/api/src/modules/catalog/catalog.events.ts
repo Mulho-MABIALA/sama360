@@ -14,6 +14,8 @@ export const DEFAULT_CATEGORIES: Record<string, string[]> = {
   quincaillerie: ['Plomberie', 'Électricité', 'Peinture', 'Outillage', 'Matériaux'],
   mode: ['Femme', 'Homme', 'Enfant', 'Chaussures', 'Accessoires'],
   alimentation: ['Boissons', 'Épicerie', 'Produits frais', 'Hygiène'],
+  cosmetique: ['Parfums', 'Encens et thiouraye', 'Soins visage', 'Soins corps', 'Cheveux', 'Maquillage'],
+  telephonie: ['Téléphones', 'Accessoires', 'Tablettes et ordinateurs'],
 };
 
 @Injectable()

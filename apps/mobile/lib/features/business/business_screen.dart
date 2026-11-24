@@ -19,7 +19,7 @@ const focusLabels = {'products': 'Des produits', 'services': 'Des services', 'bo
 String focusFor(String category) => switch (category) {
   'salon' || 'prestataire' => 'services',
   'restaurant' => 'products',
-  'boutique' || 'mode' || 'quincaillerie' || 'alimentation' || 'telephonie' => 'products',
+  'boutique' || 'mode' || 'cosmetique' || 'quincaillerie' || 'alimentation' || 'telephonie' => 'products',
   _ => 'both',
 };
 

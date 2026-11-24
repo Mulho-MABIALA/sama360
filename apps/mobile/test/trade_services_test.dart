@@ -11,6 +11,8 @@ void main() {
   test('services par défaut selon le métier', () {
     expect(defaultServices('mode'), isNot(contains(BizService.booking)));
     expect(defaultServices('boutique'), isNot(contains(BizService.booking)));
+    expect(defaultServices('cosmetique'), isNot(contains(BizService.booking)));
+    expect(tradeLabels['cosmetique'], 'Parfumerie & cosmétique');
     expect(defaultServices('restaurant'), contains(BizService.booking));
     expect(defaultServices('restaurant'), isNot(contains(BizService.invoices)));
     expect(defaultServices('salon'), containsAll([BizService.booking, BizService.loyalty]));
@@ -25,6 +27,8 @@ void main() {
     expect(tradeShows('telephonie', TradeField.extras), isFalse);
     expect(tradeShows('restaurant', TradeField.extras), isTrue);
     expect(tradeShows('mode', TradeField.expiry), isFalse);
+    expect(tradeShows('cosmetique', TradeField.expiry), isTrue);
+    expect(tradeShows('cosmetique', TradeField.serial), isFalse);
     expect(tradeShows(null, TradeField.serial), isTrue);
   });
 

@@ -4,6 +4,7 @@ import 'models.dart';
 const tradeLabels = {
   'boutique': 'Boutique',
   'mode': 'Habits & chaussures',
+  'cosmetique': 'Parfumerie & cosmétique',
   'quincaillerie': 'Quincaillerie',
   'alimentation': 'Alimentation',
   'telephonie': 'Téléphones & électronique',
@@ -40,7 +41,7 @@ enum BizService {
 Set<BizService> defaultServices(String? trade, {String? focus}) {
   final all = BizService.values.toSet();
   final s = switch (trade) {
-    'boutique' || 'mode' || 'alimentation' || 'telephonie' => all.difference({BizService.booking}),
+    'boutique' || 'mode' || 'cosmetique' || 'alimentation' || 'telephonie' => all.difference({BizService.booking}),
     'quincaillerie' => all.difference({BizService.booking, BizService.loyalty}),
     'restaurant' => all.difference({BizService.invoices}),
     'salon' => all.difference({BizService.delivery, BizService.purchases}),
@@ -65,7 +66,7 @@ enum TradeField { extras, expiry, serial }
 /// Un métier précis ne voit que ses champs ; « Autre » ou sans métier : tous.
 bool tradeShows(String? trade, TradeField f) => switch (trade) {
   'restaurant' => f == TradeField.extras || f == TradeField.expiry,
-  'alimentation' => f == TradeField.expiry,
+  'alimentation' || 'cosmetique' => f == TradeField.expiry, // parfums, crèmes : date de péremption
   'telephonie' => f == TradeField.serial,
   'quincaillerie' => f == TradeField.serial, // garantie des outils et machines
   'boutique' => f == TradeField.expiry || f == TradeField.serial,
