@@ -45,9 +45,13 @@ void main() {
     await tester.tap(find.text('Rapports'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Chiffre d’affaires'), findsWidgets);
+    // 3 chiffres en haut : vendu, gagné, on vous doit ; le reste replié
+    expect(find.text('Vendu'), findsWidgets);
+    expect(find.byKey(const Key('report_gained')), findsOneWidget);
+    expect(find.byKey(const Key('report_owed')), findsOneWidget);
+    expect(find.text('Gagné sur les ventes'), findsNothing);
     expect(find.text('+18 %'), findsOneWidget);
-    expect(find.text('Chiffre d’affaires par jour'), findsOneWidget);
+    expect(find.text('Vendu par jour'), findsOneWidget);
     final (from, to) = repo.reportRequests.last;
     expect(to.difference(from).inDays, 6);
 
@@ -56,7 +60,7 @@ void main() {
     await tester.tap(find.text('12 mois'));
     await tester.pumpAndSettle();
     expect(repo.reportRequests.last.$2.difference(repo.reportRequests.last.$1).inDays, greaterThan(300));
-    expect(find.text('Chiffre d’affaires par mois'), findsOneWidget);
+    expect(find.text('Vendu par mois'), findsOneWidget);
 
     await tester.ensureVisible(find.text('7 jours'));
     await tester.pumpAndSettle();
@@ -69,7 +73,12 @@ void main() {
     expect(find.textContaining('vente(s) · bénéfice'), findsOneWidget);
 
     await tester.scrollUntilVisible(find.text('Meilleurs produits'), 300, scrollable: find.byType(Scrollable).first);
-    expect(find.text('Moyens de paiement'), findsOneWidget);
+    expect(find.text('Moyens de paiement'), findsNothing);
+    await tester.scrollUntilVisible(find.byKey(const Key('report_more')), 300, scrollable: find.byType(Scrollable).first);
+    await tester.tap(find.byKey(const Key('report_more')));
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(find.text('Moyens de paiement'), 300, scrollable: find.byType(Scrollable).first);
+    expect(find.text('Gagné sur les ventes'), findsOneWidget);
     await tester.scrollUntilVisible(find.text('Vendeurs'), 300, scrollable: find.byType(Scrollable).first);
     await tester.scrollUntilVisible(find.text('Loyer'), 300, scrollable: find.byType(Scrollable).first);
   });

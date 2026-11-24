@@ -172,65 +172,30 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
   }
 }
 
-class _ReportBody extends StatelessWidget {
+class _ReportBody extends StatefulWidget {
   const _ReportBody({required this.report});
   final ReportOverview report;
 
   @override
+  State<_ReportBody> createState() => _ReportBodyState();
+}
+
+class _ReportBodyState extends State<_ReportBody> {
+  /// Les chiffres détaillés (bénéfice sur les ventes, dépenses, moyens de paiement…) sont repliés.
+  bool _more = false;
+
+  @override
   Widget build(BuildContext context) {
-    final r = report;
+    final r = widget.report;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         _Hero(report: r),
         const SizedBox(height: 12),
-        GridView.count(
-          crossAxisCount: 2,
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          mainAxisSpacing: 10,
-          crossAxisSpacing: 10,
-          childAspectRatio: 2.1,
-          children: [
-            _Kpi(
-              label: 'Bénéfice brut',
-              value: moneyShort(r.grossProfit),
-              hint: 'Marge ${r.marginRate.toStringAsFixed(1).replaceAll('.', ',')} %',
-            ),
-            _Kpi(label: 'Dépenses', value: moneyShort(r.expenses), hint: '${r.expensesByCategory.length} catégorie(s)'),
-            _Kpi(label: 'Vente moyenne', value: moneyShort(r.averageBasket), hint: '${r.salesCount} vente(s)'),
-            _Kpi(label: 'Encaissé', value: moneyShort(r.collected), hint: 'sur les ventes'),
-            _Kpi(
-              label: 'Vendu à crédit',
-              value: moneyShort(r.onCredit),
-              hint: 'on vous doit encore',
-              warn: r.onCredit > 0,
-            ),
-            _Kpi(label: 'Réductions', value: moneyShort(r.discounts), hint: '${r.voidedCount} vente(s) annulée(s)'),
-          ],
-        ),
-        const SizedBox(height: 12),
         _Card(
-          title: r.byMonth ? 'Chiffre d’affaires par mois' : 'Chiffre d’affaires par jour',
+          title: r.byMonth ? 'Vendu par mois' : 'Vendu par jour',
           child: RevenueChart(points: r.series, byMonth: r.byMonth),
         ),
-        if (r.byMethod.isNotEmpty) ...[
-          const SizedBox(height: 12),
-          _Card(
-            title: 'Moyens de paiement',
-            child: _Bars(
-              rows: [
-                for (final m in r.byMethod)
-                  (
-                    label: m.method?.label ?? 'Autre',
-                    value: m.amount,
-                    sub: '${m.salesCount} vente(s)',
-                    color: _methodColor(m.method),
-                  ),
-              ],
-            ),
-          ),
-        ],
         if (r.topProducts.isNotEmpty) ...[
           const SizedBox(height: 12),
           _Card(
@@ -278,50 +243,123 @@ class _ReportBody extends StatelessWidget {
             ),
           ),
         ],
-        if (r.bySeller.length > 1) ...[
+        const SizedBox(height: 12),
+        Glass(
+          key: const Key('report_more'),
+          radius: 20,
+          onTap: () => setState(() => _more = !_more),
+          padding: const EdgeInsets.fromLTRB(16, 14, 12, 14),
+          child: Row(
+            children: [
+              Icon(Icons.insights_rounded, color: AppColors.green),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  _more ? 'Moins de chiffres' : 'Voir plus de chiffres',
+                  style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15),
+                ),
+              ),
+              AnimatedRotation(
+                turns: _more ? 0.5 : 0,
+                duration: const Duration(milliseconds: 200),
+                child: Icon(Icons.expand_more_rounded, color: AppColors.muted),
+              ),
+            ],
+          ),
+        ),
+        if (_more) ...[
           const SizedBox(height: 12),
-          _Card(
-            title: 'Vendeurs',
-            child: _Bars(
-              rows: [
-                for (final v in r.bySeller)
-                  (
-                    label: v.name.startsWith('+') ? intlPhone(v.name) : v.name,
-                    value: v.revenue,
-                    sub: '${v.salesCount} vente(s)',
-                    color: AppColors.green,
+          GridView.count(
+            crossAxisCount: 2,
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            mainAxisSpacing: 10,
+            crossAxisSpacing: 10,
+            childAspectRatio: 2.1,
+            children: [
+              _Kpi(
+                label: 'Gagné sur les ventes',
+                value: moneyShort(r.grossProfit),
+                hint: 'Marge ${r.marginRate.toStringAsFixed(1).replaceAll('.', ',')} %',
+              ),
+              _Kpi(
+                label: 'Dépenses',
+                value: moneyShort(r.expenses),
+                hint: '${r.expensesByCategory.length} catégorie(s)',
+              ),
+              _Kpi(label: 'Vente moyenne', value: moneyShort(r.averageBasket), hint: '${r.salesCount} vente(s)'),
+              _Kpi(label: 'Argent reçu', value: moneyShort(r.collected), hint: 'sur les ventes'),
+              _Kpi(
+                label: 'Vendu à crédit',
+                value: moneyShort(r.onCredit),
+                hint: 'on vous doit encore',
+                warn: r.onCredit > 0,
+              ),
+              _Kpi(label: 'Réductions', value: moneyShort(r.discounts), hint: '${r.voidedCount} vente(s) annulée(s)'),
+            ],
+          ),
+          if (r.byMethod.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            _Card(
+              title: 'Moyens de paiement',
+              child: _Bars(
+                rows: [
+                  for (final m in r.byMethod)
+                    (
+                      label: m.method?.label ?? 'Autre',
+                      value: m.amount,
+                      sub: '${m.salesCount} vente(s)',
+                      color: _methodColor(m.method),
+                    ),
+                ],
+              ),
+            ),
+          ],
+          if (r.bySeller.length > 1) ...[
+            const SizedBox(height: 12),
+            _Card(
+              title: 'Vendeurs',
+              child: _Bars(
+                rows: [
+                  for (final v in r.bySeller)
+                    (
+                      label: v.name.startsWith('+') ? intlPhone(v.name) : v.name,
+                      value: v.revenue,
+                      sub: '${v.salesCount} vente(s)',
+                      color: AppColors.green,
+                    ),
+                ],
+              ),
+            ),
+          ],
+          if (r.expensesByCategory.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            _Card(
+              title: 'Dépenses',
+              child: _Bars(
+                rows: [
+                  for (final e in r.expensesByCategory)
+                    (label: expenseLabel(e.category), value: e.amount, sub: null, color: const Color(0xFFE0533D)),
+                ],
+              ),
+            ),
+          ],
+          if (r.invoiceCount > 0 || r.invoicePayments > 0) ...[
+            const SizedBox(height: 12),
+            _Card(
+              title: 'Factures',
+              child: Row(
+                children: [
+                  Expanded(
+                    child: _Mini(label: 'Facturé (${r.invoiceCount})', value: moneyShort(r.invoiced)),
                   ),
-              ],
+                  Expanded(
+                    child: _Mini(label: 'Paiements reçus', value: moneyShort(r.invoicePayments)),
+                  ),
+                ],
+              ),
             ),
-          ),
-        ],
-        if (r.expensesByCategory.isNotEmpty) ...[
-          const SizedBox(height: 12),
-          _Card(
-            title: 'Dépenses',
-            child: _Bars(
-              rows: [
-                for (final e in r.expensesByCategory)
-                  (label: expenseLabel(e.category), value: e.amount, sub: null, color: const Color(0xFFE0533D)),
-              ],
-            ),
-          ),
-        ],
-        if (r.invoiceCount > 0 || r.invoicePayments > 0) ...[
-          const SizedBox(height: 12),
-          _Card(
-            title: 'Factures',
-            child: Row(
-              children: [
-                Expanded(
-                  child: _Mini(label: 'Facturé (${r.invoiceCount})', value: moneyShort(r.invoiced)),
-                ),
-                Expanded(
-                  child: _Mini(label: 'Paiements reçus', value: moneyShort(r.invoicePayments)),
-                ),
-              ],
-            ),
-          ),
+          ],
         ],
         if (r.salesCount == 0)
           Padding(
@@ -410,7 +448,7 @@ class _Hero extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const LabelWithEye('Chiffre d’affaires', style: TextStyle(color: muted, fontSize: 12.5)),
+                const LabelWithEye('Vendu', style: TextStyle(color: muted, fontSize: 12.5)),
                 FittedBox(
                   fit: BoxFit.scaleDown,
                   alignment: Alignment.centerLeft,
@@ -439,45 +477,29 @@ class _Hero extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 14),
-                Container(
-                  padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
-                  decoration: BoxDecoration(
-                    color: Colors.black.withValues(alpha: 0.14),
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text('Bénéfice net', style: TextStyle(color: muted, fontSize: 11.5)),
-                            Text(
-                              moneyShort(r.netProfit),
-                              style: TextStyle(
-                                color: r.netProfit < 0 ? const Color(0xFFFFB4A8) : AppColors.glow,
-                                fontWeight: FontWeight.w800,
-                                fontSize: 17,
-                              ),
-                            ),
-                          ],
-                        ),
+                // Les deux autres chiffres qui comptent : ce qu'il reste en poche, ce qu'on vous doit
+                Row(
+                  children: [
+                    Expanded(
+                      child: _HeroFigure(
+                        key: const Key('report_gained'),
+                        label: 'Gagné',
+                        hint: 'après achats et dépenses',
+                        value: moneyShort(r.netProfit),
+                        color: r.netProfit < 0 ? const Color(0xFFFFB4A8) : AppColors.glow,
                       ),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text('Ventes', style: TextStyle(color: muted, fontSize: 11.5)),
-                            Text(
-                              '${r.salesCount}',
-                              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 17),
-                            ),
-                          ],
-                        ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: _HeroFigure(
+                        key: const Key('report_owed'),
+                        label: 'On vous doit',
+                        hint: 'ventes à crédit',
+                        value: moneyShort(r.onCredit),
+                        color: r.onCredit > 0 ? const Color(0xFFFFD59A) : Colors.white,
                       ),
-                      ChangeChip(pct: r.salesChange, onDark: true),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -486,6 +508,39 @@ class _Hero extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Un des chiffres clés posés sur la carte verte.
+class _HeroFigure extends StatelessWidget {
+  const _HeroFigure({super.key, required this.label, required this.hint, required this.value, required this.color});
+  final String label;
+  final String hint;
+  final String value;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+    decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.16), borderRadius: BorderRadius.circular(16)),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 13),
+        ),
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: Alignment.centerLeft,
+          child: MaskedText(
+            value,
+            style: TextStyle(color: color, fontWeight: FontWeight.w900, fontSize: 22),
+          ),
+        ),
+        Text(hint, style: const TextStyle(color: Color(0xFFCDE9DD), fontSize: 11.5)),
+      ],
+    ),
+  );
 }
 
 class _Kpi extends StatelessWidget {
@@ -696,9 +751,9 @@ class _RevenueChartState extends State<RevenueChart> {
         const SizedBox(height: 8),
         Row(
           children: [
-            _Legend(color: AppColors.leaf, label: 'Chiffre d’affaires'),
+            _Legend(color: AppColors.leaf, label: 'Vendu'),
             SizedBox(width: 14),
-            _Legend(color: AppColors.greenDark, label: 'Bénéfice brut'),
+            _Legend(color: AppColors.greenDark, label: 'Gagné'),
           ],
         ),
       ],
