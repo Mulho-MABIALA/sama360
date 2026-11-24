@@ -22,6 +22,7 @@ import 'package:sama360/core/push.dart';
 import 'package:sama360/core/providers.dart';
 import 'package:sama360/core/repositories.dart';
 import 'package:sama360/features/auth/auth_controller.dart';
+import 'package:sama360/admin_main.dart';
 import 'package:sama360/main.dart';
 import 'package:sama360/router.dart';
 
@@ -169,8 +170,10 @@ class FakeRepo extends SamaRepository {
       stockAdds.add((productId, quantity, unitCost));
 
   @override
-  Future<void> updatePayAccounts(Map<PayMethod, PayAccount> accounts) async =>
-      payAccounts = {for (final e in accounts.entries) if (!e.value.isEmpty) e.key: e.value};
+  Future<void> updatePayAccounts(Map<PayMethod, PayAccount> accounts) async => payAccounts = {
+    for (final e in accounts.entries)
+      if (!e.value.isEmpty) e.key: e.value,
+  };
 
   @override
   Future<void> updateBrandColor(String? hex) async {
@@ -2544,6 +2547,35 @@ Future<(ProviderContainer, FakeRepo)> pumpSama(
 
 GoRouter routerOf(ProviderContainer c) => c.read(routerProvider);
 
+/// Back office : l'application à part de l'équipe Sama360 (lib/admin_main.dart).
+Future<(ProviderContainer, FakeRepo)> pumpAdmin(
+  WidgetTester tester, {
+  String location = '/admin',
+  FakeRepo? repo,
+  List<Override> overrides = const [],
+}) async {
+  Motion.enabled = false;
+  await initializeDateFormatting('fr');
+  repo ??= FakeRepo()..platformAdmin = true;
+  final container = ProviderContainer(
+    overrides: [
+      sessionStoreProvider.overrideWithValue(MemorySessionStore()),
+      repoProvider.overrideWithValue(repo),
+      authProvider.overrideWith(FakeAuth.new),
+      ...overrides,
+    ],
+  );
+  addTearDown(container.dispose);
+  AppColors.palette = SamaPalette.light();
+  await tester.pumpWidget(UncontrolledProviderScope(container: container, child: const AdminApp(googleFonts: false)));
+  await tester.pumpAndSettle();
+  if (location != '/admin') {
+    container.read(adminRouterProvider).go(location);
+    await tester.pumpAndSettle();
+  }
+  return (container, repo);
+}
+
 /// Polices réelles (Roboto + icônes Material) pour des captures lisibles.
 Future<void> loadTestFonts() async {
   Motion.enabled = false;
@@ -2570,7 +2602,15 @@ AdminOverview fakeOverview({int days = 30}) {
   ];
   return AdminOverview.fromJson({
     'days': days,
-    'businesses': {'total': 128, 'new': 21, 'newPrevious': 14, 'active7': 74, 'everSold': 101, 'suspended': 1, 'deleted': 3},
+    'businesses': {
+      'total': 128,
+      'new': 21,
+      'newPrevious': 14,
+      'active7': 74,
+      'everSold': 101,
+      'suspended': 1,
+      'deleted': 3,
+    },
     'users': 212,
     'plans': {'trial': 52, 'active': 31, 'expired': 12, 'free': 33},
     'trialsEnding': [
@@ -2600,7 +2640,14 @@ AdminOverview fakeOverview({int days = 30}) {
       {'id': 'b3', 'name': 'Koné Market', 'country': 'CI', 'revenue30': 1810000, 'sales30': 298},
     ],
     'latest': [
-      {'id': 'b2', 'name': 'Chez Maman Mav', 'country': 'CG', 'ownerName': 'Mav', 'createdAt': '2026-11-22T10:00:00Z', 'plan': 'trial'},
+      {
+        'id': 'b2',
+        'name': 'Chez Maman Mav',
+        'country': 'CG',
+        'ownerName': 'Mav',
+        'createdAt': '2026-11-22T10:00:00Z',
+        'plan': 'trial',
+      },
     ],
   });
 }

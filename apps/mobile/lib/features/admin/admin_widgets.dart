@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../../core/admin_models.dart';
+import '../auth/auth_controller.dart';
 import '../../core/format.dart';
 import '../../core/glass.dart';
 import '../../core/providers.dart';
@@ -70,15 +71,6 @@ class AdminShell extends ConsumerWidget {
                 onPressed: () => context.canPop() ? context.pop() : context.pushReplacement(section.path),
                 icon: const Icon(Icons.arrow_back_rounded),
               ),
-            )
-          else if (!wide)
-            Padding(
-              padding: const EdgeInsets.only(right: 10),
-              child: IconButton(
-                tooltip: 'Quitter le back office',
-                onPressed: () => context.canPop() ? context.pop() : context.go('/'),
-                icon: const Icon(Icons.close_rounded),
-              ),
             ),
           Expanded(
             child: Column(
@@ -104,6 +96,13 @@ class AdminShell extends ConsumerWidget {
             ),
           ),
           ...actions,
+          if (!wide && !back)
+            IconButton(
+              key: const Key('admin_logout_narrow'),
+              tooltip: 'Se déconnecter',
+              onPressed: () => ref.read(authProvider.notifier).signOut(),
+              icon: const Icon(Icons.logout_rounded),
+            ),
         ],
       ),
     );
@@ -300,16 +299,18 @@ class _Sidebar extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 10),
-                    TextButton.icon(
-                      key: const Key('admin_exit'),
-                      style: TextButton.styleFrom(
-                        foregroundColor: Colors.white,
-                        minimumSize: const Size(0, 44),
-                        alignment: Alignment.centerLeft,
+                    Consumer(
+                      builder: (context, ref, _) => TextButton.icon(
+                        key: const Key('admin_exit'),
+                        style: TextButton.styleFrom(
+                          foregroundColor: Colors.white,
+                          minimumSize: const Size(0, 44),
+                          alignment: Alignment.centerLeft,
+                        ),
+                        onPressed: () => ref.read(authProvider.notifier).signOut(),
+                        icon: const Icon(Icons.logout_rounded, size: 19),
+                        label: const Text('Se déconnecter'),
                       ),
-                      onPressed: () => context.canPop() ? context.pop() : context.go('/'),
-                      icon: const Icon(Icons.logout_rounded, size: 19),
-                      label: const Text('Retour à l’app'),
                     ),
                   ],
                 ),

@@ -301,16 +301,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                           hint: 'Passer d’une boutique à l’autre',
                           onTap: () => context.push('/business'),
                         ),
-                      if (ref.watch(platformAdminProvider).value == true)
-                        SettingsRow(
-                          key: const Key('admin_row'),
-                          icon: Icons.verified_user_rounded,
-                          color: const Color(0xFF13241C),
-                          label: 'Back office',
-                          value: 'Équipe Sama360',
-                          hint: 'Commerçants, abonnements, paiements',
-                          onTap: () => context.push('/admin'),
-                        ),
                     ],
                   ),
                   const SizedBox(height: 16),

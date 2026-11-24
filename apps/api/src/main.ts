@@ -30,7 +30,9 @@ async function bootstrap() {
   if (e.TRUST_PROXY > 0) app.set('trust proxy', e.TRUST_PROXY);
   app.enableCors({ origin: true, credentials: true });
   app.enableShutdownHooks();
-  serveWebApp(app, e.WEB_APP_DIR);
+  serveWebApp(app, '/app', e.WEB_APP_DIR, '../../builds/web');
+  // Back office de l'équipe Sama360 : application à part
+  serveWebApp(app, '/admin', e.WEB_ADMIN_DIR, '../../builds/admin');
   await app.listen(e.PORT, '0.0.0.0');
   if (e.RUN_WORKER) {
     // Petit hébergement : le worker vit dans le même process (sinon : node dist/worker.js à part)
@@ -46,28 +48,30 @@ async function bootstrap() {
 }
 
 /**
- * Version web de l'app sur /app (tests sur iPhone : Safari → « Sur l'écran d'accueil »).
- * Servie seulement si le dossier construit existe (builds/web à la racine du projet).
+ * Applications web construites avec Flutter, servies seulement si le dossier existe :
+ * /app (commerçants ; sur iPhone, Safari → « Sur l'écran d'accueil ») et /admin (équipe Sama360).
  */
-function serveWebApp(app: NestExpressApplication, dir?: string) {
-  const root = dir ? resolve(dir) : resolve(process.cwd(), '../../builds/web');
+function serveWebApp(app: NestExpressApplication, prefix: string, dir: string | undefined, fallback: string) {
+  const root = dir ? resolve(dir) : resolve(process.cwd(), fallback);
   if (!existsSync(join(root, 'index.html'))) return;
   app.use(
-    '/app',
+    prefix,
     (req: { originalUrl: string }, res: { redirect: (c: number, u: string) => void }, next: () => void) =>
-      req.originalUrl === '/app' ? res.redirect(301, '/app/') : next(),
+      req.originalUrl === prefix ? res.redirect(301, `${prefix}/`) : next(),
   );
   app.useStaticAssets(root, {
-    prefix: '/app/',
+    prefix: `${prefix}/`,
     index: 'index.html',
     // index.html et le chargeur toujours frais, le reste en cache (noms changés à chaque version)
     setHeaders: (res, path) => {
       if (/(index\.html|flutter_bootstrap\.js|flutter_service_worker\.js|manifest\.json|version\.json)$/.test(path)) {
         res.setHeader('Cache-Control', 'no-cache');
       }
+      // Le back office n'a rien à faire dans les moteurs de recherche
+      if (prefix === '/admin') res.setHeader('X-Robots-Tag', 'noindex, nofollow');
     },
   });
-  Logger.log(`Version web de l'app servie sur /app (${root})`, 'Bootstrap');
+  Logger.log(`Application web servie sur ${prefix} (${root})`, 'Bootstrap');
 }
 
 bootstrap().catch((err) => {

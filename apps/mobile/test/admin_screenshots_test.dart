@@ -38,7 +38,7 @@ void main() {
     testWidgets('back office $size', (tester) async {
       wide ? desktopSize(tester) : phoneSize(tester);
       final repo = adminRepo()..adminQueue.addAll([req('a', 'Koné Market', Country.ci)]);
-      await pumpSama(tester, location: '/admin', repo: repo);
+      await pumpAdmin(tester, repo: repo);
       await _shot(tester, 'admin_${size}_1_tableau');
       await tester.tap(find.byKey(Key(wide ? 'admin_side_merchants' : 'admin_tab_merchants')));
       await tester.pumpAndSettle();

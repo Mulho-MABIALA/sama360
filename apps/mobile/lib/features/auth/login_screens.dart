@@ -19,7 +19,10 @@ import 'auth_controller.dart';
 
 /// Étape 1 : numéro de téléphone.
 class PhoneScreen extends ConsumerStatefulWidget {
-  const PhoneScreen({super.key});
+  const PhoneScreen({super.key, this.tagline = 'Un seul compte. Plusieurs services.'});
+
+  /// Phrase sous le logo (« Back office » dans l'application de l'équipe Sama360).
+  final String tagline;
   @override
   ConsumerState<PhoneScreen> createState() => _PhoneScreenState();
 }
@@ -93,118 +96,122 @@ class _PhoneScreenState extends ConsumerState<PhoneScreen> {
     final offered = _offered(channels);
     final channel = _channel(channels);
     return AuroraScaffold(
-      body: ListView(
-        padding: EdgeInsets.zero,
-        children: [
-          // En-tête émeraude : logo brillant posé sur un miroir.
-          MonumentHeader(
-            child: Padding(
-              padding: EdgeInsets.fromLTRB(24, top + 36, 24, 64),
-              child: const Column(
-                children: [
-                  MirrorReflection(size: 76, child: BrandMark(size: 76)),
-                  SizedBox(height: 6),
-                  SamaLogo(size: 34, onDark: true),
-                  SizedBox(height: 6),
-                  Text(
-                    'Un seul compte. Plusieurs services.',
-                    style: TextStyle(color: Color(0xFFE6F4EE), fontSize: 15, fontWeight: FontWeight.w600),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          Transform.translate(
-            offset: const Offset(0, -36),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 18),
-              child: Glass(
-                radius: 28,
-                padding: const EdgeInsets.fromLTRB(20, 22, 20, 20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    const Text(
-                      'Votre numéro de téléphone',
-                      style: TextStyle(fontSize: 21, fontWeight: FontWeight.w800),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      'Nous vous envoyons un code de connexion ${channel.by}.',
-                      key: const Key('otp_channel_text'),
-                      style: TextStyle(color: AppColors.muted),
-                    ),
-                    if (offered.length > 1) ...[
-                      const SizedBox(height: 12),
-                      Row(
-                        children: [
-                          Text('Recevoir le code par', style: TextStyle(color: AppColors.muted, fontSize: 13)),
-                          const SizedBox(width: 10),
-                          for (final c in offered) ...[
-                            Pill(
-                              key: Key('otp_by_${c.name}'),
-                              label: c.label,
-                              selected: c == channel,
-                              onTap: () => ref.read(preferredOtpChannelProvider.notifier).set(c),
-                            ),
-                            const SizedBox(width: 6),
-                          ],
-                        ],
-                      ),
-                    ],
-                    const SizedBox(height: 16),
-                    CountryPills(
-                      value: ref.watch(loginCountryProvider),
-                      onChanged: (c) => setState(() {
-                        ref.read(loginCountryProvider.notifier).set(c);
-                        _error = null;
-                      }),
-                    ),
-                    const SizedBox(height: 14),
-                    TextField(
-                      key: const Key('phone'),
-                      controller: _phone,
-                      keyboardType: TextInputType.phone,
-                      autofocus: true,
-                      inputFormatters: [
-                        FilteringTextInputFormatter.allow(RegExp(r'[\d ]')),
-                        LengthLimitingTextInputFormatter(14),
-                      ],
-                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700, letterSpacing: 0.5),
-                      decoration: InputDecoration(
-                        labelText: 'Numéro',
-                        hintText: ref.watch(loginCountryProvider).example,
-                        prefixText: '+${ref.watch(loginCountryProvider).dial}  ',
-                        errorText: _error,
-                        errorMaxLines: 3,
-                      ),
-                      onSubmitted: (_) => _submit(),
-                    ),
-                    const SizedBox(height: 18),
-                    BusyButton(label: 'Recevoir le code', busy: _busy, onPressed: _submit, accent: true),
-                    const SizedBox(height: 12),
-                    LegalNotice(
-                      baseUrl: ref.watch(apiBaseUrlProvider),
-                      open: (u) => ref.read(openUrlProvider)(u),
-                    ),
-                    if (showServerSetting) ...[
+      // Grand écran (web) : le formulaire reste centré, à largeur de téléphone
+      body: Align(
+        alignment: Alignment.topCenter,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 560),
+          child: ListView(
+            padding: EdgeInsets.zero,
+            children: [
+              // En-tête émeraude : logo brillant posé sur un miroir.
+              MonumentHeader(
+                child: Padding(
+                  padding: EdgeInsets.fromLTRB(24, top + 36, 24, 64),
+                  child: Column(
+                    children: [
+                      const MirrorReflection(size: 76, child: BrandMark(size: 76)),
                       const SizedBox(height: 6),
-                      TextButton.icon(
-                        key: const Key('server_setting'),
-                        onPressed: () => editServerUrl(context, ref),
-                        icon: const Icon(Icons.dns_rounded, size: 16),
-                        label: Text(
-                          'Serveur : ${ref.watch(serverUrlProvider).replaceFirst(RegExp(r'^https?://'), '')}',
-                          style: const TextStyle(fontSize: 12.5),
-                        ),
+                      const SamaLogo(size: 34, onDark: true),
+                      const SizedBox(height: 6),
+                      Text(
+                        widget.tagline,
+                        style: const TextStyle(color: Color(0xFFE6F4EE), fontSize: 15, fontWeight: FontWeight.w600),
                       ),
                     ],
-                  ],
+                  ),
                 ),
               ),
-            ),
+              Transform.translate(
+                offset: const Offset(0, -36),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 18),
+                  child: Glass(
+                    radius: 28,
+                    padding: const EdgeInsets.fromLTRB(20, 22, 20, 20),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        const Text(
+                          'Votre numéro de téléphone',
+                          style: TextStyle(fontSize: 21, fontWeight: FontWeight.w800),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          'Nous vous envoyons un code de connexion ${channel.by}.',
+                          key: const Key('otp_channel_text'),
+                          style: TextStyle(color: AppColors.muted),
+                        ),
+                        if (offered.length > 1) ...[
+                          const SizedBox(height: 12),
+                          Row(
+                            children: [
+                              Text('Recevoir le code par', style: TextStyle(color: AppColors.muted, fontSize: 13)),
+                              const SizedBox(width: 10),
+                              for (final c in offered) ...[
+                                Pill(
+                                  key: Key('otp_by_${c.name}'),
+                                  label: c.label,
+                                  selected: c == channel,
+                                  onTap: () => ref.read(preferredOtpChannelProvider.notifier).set(c),
+                                ),
+                                const SizedBox(width: 6),
+                              ],
+                            ],
+                          ),
+                        ],
+                        const SizedBox(height: 16),
+                        CountryPills(
+                          value: ref.watch(loginCountryProvider),
+                          onChanged: (c) => setState(() {
+                            ref.read(loginCountryProvider.notifier).set(c);
+                            _error = null;
+                          }),
+                        ),
+                        const SizedBox(height: 14),
+                        TextField(
+                          key: const Key('phone'),
+                          controller: _phone,
+                          keyboardType: TextInputType.phone,
+                          autofocus: true,
+                          inputFormatters: [
+                            FilteringTextInputFormatter.allow(RegExp(r'[\d ]')),
+                            LengthLimitingTextInputFormatter(14),
+                          ],
+                          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700, letterSpacing: 0.5),
+                          decoration: InputDecoration(
+                            labelText: 'Numéro',
+                            hintText: ref.watch(loginCountryProvider).example,
+                            prefixText: '+${ref.watch(loginCountryProvider).dial}  ',
+                            errorText: _error,
+                            errorMaxLines: 3,
+                          ),
+                          onSubmitted: (_) => _submit(),
+                        ),
+                        const SizedBox(height: 18),
+                        BusyButton(label: 'Recevoir le code', busy: _busy, onPressed: _submit, accent: true),
+                        const SizedBox(height: 12),
+                        LegalNotice(baseUrl: ref.watch(apiBaseUrlProvider), open: (u) => ref.read(openUrlProvider)(u)),
+                        if (showServerSetting) ...[
+                          const SizedBox(height: 6),
+                          TextButton.icon(
+                            key: const Key('server_setting'),
+                            onPressed: () => editServerUrl(context, ref),
+                            icon: const Icon(Icons.dns_rounded, size: 16),
+                            label: Text(
+                              'Serveur : ${ref.watch(serverUrlProvider).replaceFirst(RegExp(r'^https?://'), '')}',
+                              style: const TextStyle(fontSize: 12.5),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
@@ -315,130 +322,139 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
     const muted = Color(0xFFCDE9DD);
     final others = widget.target.channels.where((c) => c != _channel).toList();
     return AuroraScaffold(
-      body: ListView(
-        padding: EdgeInsets.zero,
-        children: [
-          // En-tête émeraude, comme l'écran du numéro : le moyen d'envoi et le numéro.
-          MonumentHeader(
-            child: Padding(
-              padding: EdgeInsets.fromLTRB(12, top + 4, 12, 60),
-              child: Column(
-                children: [
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: IconButton(
-                      tooltip: 'Changer de numéro',
-                      onPressed: () => context.canPop() ? context.pop() : context.go('/login'),
-                      icon: const Icon(Icons.arrow_back_rounded, color: Colors.white),
-                    ),
+      // Grand écran (web) : le formulaire reste centré, à largeur de téléphone
+      body: Align(
+        alignment: Alignment.topCenter,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 560),
+          child: ListView(
+            padding: EdgeInsets.zero,
+            children: [
+              // En-tête émeraude, comme l'écran du numéro : le moyen d'envoi et le numéro.
+              MonumentHeader(
+                child: Padding(
+                  padding: EdgeInsets.fromLTRB(12, top + 4, 12, 60),
+                  child: Column(
+                    children: [
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: IconButton(
+                          tooltip: 'Changer de numéro',
+                          onPressed: () => context.canPop() ? context.pop() : context.go('/login'),
+                          icon: const Icon(Icons.arrow_back_rounded, color: Colors.white),
+                        ),
+                      ),
+                      GlossyOrb(
+                        icon: _icon(_channel),
+                        color: _channel == OtpChannel.whatsapp ? AppColors.whatsapp : AppColors.leaf,
+                        size: 68,
+                        iconColor: _channel == OtpChannel.whatsapp ? AppColors.onWhatsapp : Colors.white,
+                      ),
+                      const SizedBox(height: 14),
+                      const Text(
+                        'Code de connexion',
+                        style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w800),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Envoyé ${_channel.by} au ${intlPhone(widget.phone)}',
+                        key: const Key('otp_sent_to'),
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(color: muted, fontSize: 15),
+                      ),
+                    ],
                   ),
-                  GlossyOrb(
-                    icon: _icon(_channel),
-                    color: _channel == OtpChannel.whatsapp ? AppColors.whatsapp : AppColors.leaf,
-                    size: 68,
-                    iconColor: _channel == OtpChannel.whatsapp ? AppColors.onWhatsapp : Colors.white,
-                  ),
-                  const SizedBox(height: 14),
-                  const Text(
-                    'Code de connexion',
-                    style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w800),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Envoyé ${_channel.by} au ${intlPhone(widget.phone)}',
-                    key: const Key('otp_sent_to'),
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(color: muted, fontSize: 15),
-                  ),
-                ],
+                ),
               ),
-            ),
-          ),
-          Transform.translate(
-            offset: const Offset(0, -36),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 18),
-              child: Glass(
-                radius: 28,
-                padding: const EdgeInsets.fromLTRB(18, 20, 18, 16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Row(
+              Transform.translate(
+                offset: const Offset(0, -36),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 18),
+                  child: Glass(
+                    radius: 28,
+                    padding: const EdgeInsets.fromLTRB(18, 20, 18, 16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        Icon(Icons.info_outline_rounded, size: 18, color: AppColors.muted),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(_tip, style: TextStyle(color: AppColors.muted, fontSize: 13.5)),
+                        Row(
+                          children: [
+                            Icon(Icons.info_outline_rounded, size: 18, color: AppColors.muted),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(_tip, style: TextStyle(color: AppColors.muted, fontSize: 13.5)),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        _CodeBoxes(controller: _code, error: _error, onComplete: _verify),
+                        const SizedBox(height: 18),
+                        BusyButton(label: 'Valider', busy: _busy, onPressed: _verify, accent: true),
+                        const SizedBox(height: 4),
+                        TextButton.icon(
+                          key: const Key('otp_resend'),
+                          onPressed: _wait == 0 && _sending == null ? () => _resend() : null,
+                          icon: const Icon(Icons.refresh_rounded, size: 18),
+                          label: Text(_wait == 0 ? 'Renvoyer le code' : 'Renvoyer le code dans $_wait s'),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 16),
-                    _CodeBoxes(controller: _code, error: _error, onComplete: _verify),
-                    const SizedBox(height: 18),
-                    BusyButton(label: 'Valider', busy: _busy, onPressed: _verify, accent: true),
-                    const SizedBox(height: 4),
-                    TextButton.icon(
-                      key: const Key('otp_resend'),
-                      onPressed: _wait == 0 && _sending == null ? () => _resend() : null,
-                      icon: const Icon(Icons.refresh_rounded, size: 18),
-                      label: Text(_wait == 0 ? 'Renvoyer le code' : 'Renvoyer le code dans $_wait s'),
-                    ),
-                  ],
+                  ),
                 ),
               ),
-            ),
-          ),
-          if (others.isNotEmpty)
-            Transform.translate(
-              offset: const Offset(0, -20),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 18),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Text(
-                      'Pas reçu ? Essayez autrement',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(fontWeight: FontWeight.w800, color: AppColors.ink),
-                    ),
-                    const SizedBox(height: 10),
-                    Row(
+              if (others.isNotEmpty)
+                Transform.translate(
+                  offset: const Offset(0, -20),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 18),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        for (final (i, c) in others.indexed) ...[
-                          if (i > 0) const SizedBox(width: 10),
-                          Expanded(
-                            child: OutlinedButton.icon(
-                              key: Key('otp_switch_${c.name}'),
-                              style: OutlinedButton.styleFrom(
-                                minimumSize: const Size(0, 50),
-                                padding: const EdgeInsets.symmetric(horizontal: 8),
-                                backgroundColor: AppColors.surface(0.7),
-                              ),
-                              onPressed: _elapsed >= _switchAfter && _sending == null ? () => _resend(c) : null,
-                              icon: _sending == c
-                                  ? const SizedBox(
-                                      width: 18,
-                                      height: 18,
-                                      child: CircularProgressIndicator(strokeWidth: 2),
-                                    )
-                                  : Icon(_icon(c), size: 19),
-                              label: FittedBox(
-                                fit: BoxFit.scaleDown,
-                                child: Text(
-                                  _elapsed >= _switchAfter ? c.action : '${c.action} (${_switchAfter - _elapsed} s)',
+                        Text(
+                          'Pas reçu ? Essayez autrement',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(fontWeight: FontWeight.w800, color: AppColors.ink),
+                        ),
+                        const SizedBox(height: 10),
+                        Row(
+                          children: [
+                            for (final (i, c) in others.indexed) ...[
+                              if (i > 0) const SizedBox(width: 10),
+                              Expanded(
+                                child: OutlinedButton.icon(
+                                  key: Key('otp_switch_${c.name}'),
+                                  style: OutlinedButton.styleFrom(
+                                    minimumSize: const Size(0, 50),
+                                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                                    backgroundColor: AppColors.surface(0.7),
+                                  ),
+                                  onPressed: _elapsed >= _switchAfter && _sending == null ? () => _resend(c) : null,
+                                  icon: _sending == c
+                                      ? const SizedBox(
+                                          width: 18,
+                                          height: 18,
+                                          child: CircularProgressIndicator(strokeWidth: 2),
+                                        )
+                                      : Icon(_icon(c), size: 19),
+                                  label: FittedBox(
+                                    fit: BoxFit.scaleDown,
+                                    child: Text(
+                                      _elapsed >= _switchAfter
+                                          ? c.action
+                                          : '${c.action} (${_switchAfter - _elapsed} s)',
+                                    ),
+                                  ),
                                 ),
                               ),
-                            ),
-                          ),
-                        ],
+                            ],
+                          ],
+                        ),
                       ],
                     ),
-                  ],
+                  ),
                 ),
-              ),
-            ),
-        ],
+            ],
+          ),
+        ),
       ),
     );
   }

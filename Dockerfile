@@ -23,6 +23,10 @@ COPY apps/mobile ./
 # STORE : pas de réglage « serveur » ; l'app web parle à l'adresse d'où elle est servie
 RUN flutter build web --release --base-href /app/ --no-web-resources-cdn --dart-define=STORE=true \
  && find build/web -name '*.map' -delete
+# Back office de l'équipe Sama360 : application à part (son propre point d'entrée), servie sur /admin
+RUN flutter build web --release -t lib/admin_main.dart --base-href /admin/ --no-web-resources-cdn \
+      --dart-define=STORE=true -o build/admin \
+ && find build/admin -name '*.map' -delete
 
 # ---------- API ----------
 FROM public.ecr.aws/docker/library/node:22-bookworm-slim AS build
@@ -43,10 +47,12 @@ RUN pnpm --filter @sama360/api build \
 FROM public.ecr.aws/docker/library/node:22-bookworm-slim
 ENV NODE_ENV=production \
     PORT=3000 \
-    WEB_APP_DIR=/app/web
+    WEB_APP_DIR=/app/web \
+    WEB_ADMIN_DIR=/app/admin
 WORKDIR /app
 COPY --from=build --chown=node:node /out ./
 COPY --from=web --chown=node:node /mobile/build/web ./web
+COPY --from=web --chown=node:node /mobile/build/admin ./admin
 USER node
 EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=40s \

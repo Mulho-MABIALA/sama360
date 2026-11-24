@@ -61,6 +61,7 @@ const BaseSchema = z.object({
   TRUST_PROXY: z.coerce.number().int().min(0).max(5).default(0),
   // Version web de l'app (flutter build web --base-href /app/) servie sur /app ; par défaut ../../builds/web
   WEB_APP_DIR: z.string().optional(),
+  WEB_ADMIN_DIR: z.string().optional(),
   // Faire tourner le worker (outbox + abonnés) dans le process de l'API : un seul service à héberger
   RUN_WORKER: z
     .enum(['true', 'false'])

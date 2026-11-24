@@ -58,9 +58,14 @@ class SecureSessionStore implements SessionStore {
 /// Version web : préférences du navigateur. Le stockage chiffré a besoin de WebCrypto,
 /// absent d'une page en http:// sur le Wi-Fi (http://192.168…:3000/app) ; c'est le cas des tests sur iPhone.
 class PrefsSessionStore implements SessionStore {
-  static const _access = 'sama_access';
-  static const _refresh = 'sama_refresh';
-  static const _business = 'sama_business';
+  /// [prefix] sépare deux sessions dans le même navigateur (ex. « admin. » pour le back office).
+  PrefsSessionStore({String prefix = ''})
+    : _access = '${prefix}sama_access',
+      _refresh = '${prefix}sama_refresh',
+      _business = '${prefix}sama_business';
+  final String _access;
+  final String _refresh;
+  final String _business;
 
   @override
   Future<Session?> read() async {

@@ -1,7 +1,10 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sama360/admin_main.dart';
 import 'package:sama360/core/admin_models.dart';
+import 'package:sama360/features/auth/auth_controller.dart';
 import 'package:sama360/core/models.dart';
 import 'package:sama360/features/admin/admin_widgets.dart';
 import 'helpers.dart';
@@ -124,16 +127,11 @@ void main() {
     await initializeDateFormatting('fr');
   });
 
-  testWidgets('depuis le profil : tableau de bord, puis paiements à valider et refuser', (tester) async {
+  testWidgets('back office : tableau de bord, puis paiements à valider et refuser', (tester) async {
     phoneSize(tester);
     final repo = adminRepo()
       ..adminQueue.addAll([req('a', 'Koné Market', Country.ci), req('b', 'Chez Maman Mav', Country.cg)]);
-    await pumpSama(tester, location: '/account', repo: repo);
-    await tester.scrollUntilVisible(find.byKey(const Key('admin_row')), 200, scrollable: find.byType(Scrollable).first);
-    await tester.pumpAndSettle();
-    expect(find.text('Back office'), findsOneWidget);
-    await tester.tap(find.byKey(const Key('admin_row')));
-    await tester.pumpAndSettle();
+    await pumpAdmin(tester, repo: repo);
 
     // Tableau de bord
     expect(find.text('Tableau de bord'), findsWidgets);
@@ -183,7 +181,7 @@ void main() {
   testWidgets('commerçants : recherche, filtres, fiche, offrir du Pro, suspendre', (tester) async {
     phoneSize(tester);
     final repo = adminRepo();
-    await pumpSama(tester, location: '/admin/merchants', repo: repo);
+    await pumpAdmin(tester, location: '/admin/merchants', repo: repo);
     expect(find.text('Boutique Awa'), findsOneWidget);
     expect(find.text('Chez Maman Mav'), findsOneWidget);
     expect(find.text('3 boutiques'), findsOneWidget);
@@ -239,7 +237,7 @@ void main() {
   testWidgets('grand écran : menu latéral et tableau des commerçants', (tester) async {
     desktopSize(tester);
     final repo = adminRepo();
-    await pumpSama(tester, location: '/admin', repo: repo);
+    await pumpAdmin(tester, repo: repo);
     expect(find.text('Back office'), findsOneWidget);
     expect(find.byKey(const Key('admin_side_merchants')), findsOneWidget);
     expect(find.byKey(const Key('admin_tab_merchants')), findsNothing);
@@ -255,7 +253,7 @@ void main() {
 
   testWidgets('réservé à l’équipe Sama360', (tester) async {
     phoneSize(tester);
-    await pumpSama(tester, location: '/admin', repo: FakeRepo()..platformAdmin = false);
+    await pumpAdmin(tester, repo: FakeRepo()..platformAdmin = false);
     expect(find.text('Réservé à l’équipe Sama360'), findsOneWidget);
   });
 
@@ -271,5 +269,27 @@ void main() {
     expect(compactMoney(185000), '185 k F');
     expect(AdminOverview.change(21, 14), 50);
     expect(AdminOverview.change(3, 0), isNull);
+  });
+
+  testWidgets('l’app des commerçants ne contient pas le back office, même pour un admin', (tester) async {
+    phoneSize(tester);
+    final (c, _) = await pumpSama(tester, location: '/account', repo: FakeRepo()..platformAdmin = true);
+    await tester.scrollUntilVisible(find.text('Se déconnecter'), 300, scrollable: find.byType(Scrollable).first);
+    expect(find.text('Back office'), findsNothing);
+    expect(find.byKey(const Key('admin_row')), findsNothing);
+    routerOf(c).go('/admin');
+    await tester.pumpAndSettle();
+    expect(find.text('Tableau de bord'), findsNothing);
+  });
+
+  test('back office : connexion, puis accès selon le numéro', () {
+    const out = AsyncValue<AuthState>.data(AuthState());
+    const inn = AsyncValue<AuthState>.data(AuthState(me: demoMe));
+    expect(adminRedirect(out, const AsyncValue.data(false), '/admin'), '/login');
+    expect(adminRedirect(out, const AsyncValue.data(false), '/otp'), isNull);
+    expect(adminRedirect(inn, const AsyncValue.loading(), '/admin'), '/splash');
+    expect(adminRedirect(inn, const AsyncValue.data(false), '/admin'), '/denied');
+    expect(adminRedirect(inn, const AsyncValue.data(true), '/login'), '/admin');
+    expect(adminRedirect(inn, const AsyncValue.data(true), '/admin/payments'), isNull);
   });
 }
