@@ -161,6 +161,13 @@ class FakeRepo extends SamaRepository {
   /// Comptes de paiement mobile (QR à la caisse).
   Map<PayMethod, PayAccount> payAccounts = {};
 
+  /// Entrées de stock (produit, quantité, coût unitaire).
+  final stockAdds = <(String, double, int?)>[];
+
+  @override
+  Future<void> addStock(String productId, double quantity, {int? unitCost}) async =>
+      stockAdds.add((productId, quantity, unitCost));
+
   @override
   Future<void> updatePayAccounts(Map<PayMethod, PayAccount> accounts) async =>
       payAccounts = {for (final e in accounts.entries) if (!e.value.isEmpty) e.key: e.value};

@@ -63,13 +63,19 @@ void main() {
     expect(find.textContaining('Bénéfice : 1'), findsOneWidget); // 3 500 − 2 000
 
     await tester.enterText(find.byKey(const Key('pPrice')), '4000');
-    await tester.ensureVisible(find.byTooltip('Scanner le code-barres'));
+    await tester.scrollUntilVisible(
+      find.byTooltip('Scanner le code-barres'),
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
     await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('Scanner le code-barres'));
     await tester.pumpAndSettle();
     expect(find.text('6009876543210'), findsOneWidget);
 
-    await tester.scrollUntilVisible(find.text('Prix de gros'), 200, scrollable: find.byType(Scrollable).first);
+    await tester.scrollUntilVisible(find.text('Prix de gros'), -200, scrollable: find.byType(Scrollable).first);
+    await tester.drag(find.byType(Scrollable).first, const Offset(0, 250)); // le sortir de sous le bouton du bas
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Prix de gros'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byKey(const Key('pWPrice')), '4500'); // trop cher
@@ -93,7 +99,11 @@ void main() {
     await tester.enterText(find.byKey(const Key('pPrice')), '1000');
     await tester.tap(find.text('Ajouter le produit'));
     await tester.pumpAndSettle();
-    expect(find.text('Ce code-barres est déjà utilisé par « Savon noir »'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.text('Ce code-barres est déjà utilisé par « Savon noir »'),
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
   });
 
   testWidgets('supprimer un produit', (tester) async {
@@ -132,7 +142,8 @@ void main() {
     await tester.tap(find.text('Créer la fiche'));
     await tester.pumpAndSettle();
     expect(find.text('Nouveau produit'), findsOneWidget);
-    expect(find.text('999'), findsOneWidget);
+    // Code scanné : « Plus d'options » s'ouvre tout seul, le code y est déjà
+    await tester.scrollUntilVisible(find.text('999'), 200, scrollable: find.byType(Scrollable).first);
   });
 
   testWidgets('accueil : scanner un article → prix, stock, vendre', (tester) async {
@@ -214,5 +225,24 @@ void main() {
     await tester.tap(find.descendant(of: find.byType(AlertDialog), matching: find.text('Supprimer')));
     await tester.pumpAndSettle();
     expect(repo.categoryOps, ['create Épicerie', 'rename c1 Soins du corps', 'delete c2']);
+  });
+
+  testWidgets('nouveau produit : nom, prix, quantité ; le reste replié', (tester) async {
+    phoneSize(tester);
+    final (_, repo) = await pumpSama(tester, location: '/products/new');
+    expect(find.byKey(const Key('pCost')), findsNothing);
+    expect(find.byKey(const Key('pBarcode')), findsNothing);
+    expect(find.text('Plus d’options'), findsOneWidget);
+    await tester.enterText(find.byKey(const Key('pName')), 'Riz parfumé 5 kg');
+    await tester.enterText(find.byKey(const Key('pPrice')), '4500');
+    await tester.enterText(find.byKey(const Key('pQty')), '12');
+    await tester.tap(find.byKey(const Key('pMore')));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const Key('pCost')), '3800');
+    await tester.tap(find.text('Ajouter le produit'));
+    await tester.pumpAndSettle();
+    final (_, d) = repo.savedDrafts.single;
+    expect((d.name, d.price, d.cost), ('Riz parfumé 5 kg', 4500, 3800));
+    expect(repo.stockAdds.last, (repo.stockAdds.last.$1, 12.0, 3800));
   });
 }

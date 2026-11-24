@@ -39,7 +39,11 @@ class _ProductEditorScreenState extends ConsumerState<ProductEditorScreen> {
   final _threshold = TextEditingController(text: '5');
   final _wPrice = TextEditingController();
   final _wQty = TextEditingController();
+  final _qty = TextEditingController(); // nouveau produit : quantité déjà en stock
   bool _isService = false;
+
+  /// « Plus d'options » ouvert : toujours en modification ; à la création, seulement si besoin.
+  late bool _more = widget.productId != null || widget.initialBarcode != null || widget.initialService;
   int? _duration; // prestations : durée d'un rendez-vous
   String _unit = 'pièce';
   bool _trackStock = true;
@@ -93,7 +97,7 @@ class _ProductEditorScreenState extends ConsumerState<ProductEditorScreen> {
 
   @override
   void dispose() {
-    for (final c in [_name, _price, _cost, _barcode, _sku, _threshold, _wPrice, _wQty]) {
+    for (final c in [_name, _price, _cost, _barcode, _sku, _threshold, _wPrice, _wQty, _qty]) {
       c.dispose();
     }
     super.dispose();
@@ -123,7 +127,13 @@ class _ProductEditorScreenState extends ConsumerState<ProductEditorScreen> {
         }
       }
     });
-    if (_errors.isNotEmpty) return;
+    if (_errors.isNotEmpty) {
+      if (_errors.containsKey('wPrice') || _errors.containsKey('wQty')) setState(() => _more = true);
+      return;
+    }
+    final initialQty = _editing || _isService || !_trackStock
+        ? 0.0
+        : double.tryParse(_qty.text.replaceAll(',', '.').replaceAll(' ', '')) ?? 0;
 
     final draft = ProductDraft(
       name: _name.text,
@@ -145,6 +155,13 @@ class _ProductEditorScreenState extends ConsumerState<ProductEditorScreen> {
     final repo = ref.read(repoProvider);
     try {
       final saved = await repo.saveProduct(draft, id: widget.productId);
+      if (initialQty > 0) {
+        try {
+          await repo.addStock(saved.id, initialQty, unitCost: cost > 0 ? cost : null);
+        } catch (_) {
+          if (mounted) showInfo(context, 'Produit ajouté, mais le stock n’a pas pu être enregistré');
+        }
+      }
       if (_photo != null) {
         try {
           await repo.uploadProductImage(saved.id, _photo!.bytes, filename: _photo!.filename);
@@ -237,7 +254,7 @@ class _ProductEditorScreenState extends ConsumerState<ProductEditorScreen> {
                     padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
                     children: [
                       _Section(
-                        title: 'Produit',
+                        title: _editing ? 'Produit' : 'L’essentiel',
                         children: [
                           if (_photo == null && _imageFileId != null)
                             Row(
@@ -266,73 +283,6 @@ class _ProductEditorScreenState extends ConsumerState<ProductEditorScreen> {
                           const SizedBox(height: 10),
                           Row(
                             children: [
-                              for (final (service, label) in [(false, 'Article'), (true, 'Service')])
-                                Expanded(
-                                  child: Padding(
-                                    padding: EdgeInsets.only(right: service ? 0 : 8),
-                                    child: Pill(
-                                      label: label,
-                                      selected: _isService == service,
-                                      onTap: () => setState(() => _isService = service),
-                                    ),
-                                  ),
-                                ),
-                            ],
-                          ),
-                          if (_isService) ...[
-                            const SizedBox(height: 12),
-                            Text(
-                              'Durée d’un rendez-vous',
-                              style: TextStyle(color: AppColors.muted, fontWeight: FontWeight.w700, fontSize: 13),
-                            ),
-                            const SizedBox(height: 6),
-                            Wrap(
-                              spacing: 6,
-                              runSpacing: 6,
-                              children: [
-                                for (final m in const [15, 30, 45, 60, 90, 120, 180])
-                                  Pill(
-                                    key: Key('pDuration$m'),
-                                    label: m < 60 ? '$m min' : '${m ~/ 60} h${m % 60 == 0 ? '' : ' ${m % 60}'}',
-                                    selected: (_duration ?? 30) == m,
-                                    onTap: () => setState(() => _duration = m),
-                                  ),
-                              ],
-                            ),
-                          ],
-                          const SizedBox(height: 10),
-                          InkWell(
-                            borderRadius: BorderRadius.circular(14),
-                            onTap: () async {
-                              final c = await pickOrCreateCategory(context, ref, selected: _category);
-                              if (c != null) setState(() => _category = c.id.isEmpty ? null : c);
-                            },
-                            child: InputDecorator(
-                              decoration: const InputDecoration(
-                                labelText: 'Catégorie',
-                                suffixIcon: Icon(Icons.expand_more),
-                              ),
-                              child: Text(_category?.name ?? 'Sans catégorie'),
-                            ),
-                          ),
-                          SwitchListTile(
-                            key: const Key('pPublished'),
-                            contentPadding: EdgeInsets.zero,
-                            value: _published,
-                            onChanged: (v) => setState(() => _published = v),
-                            title: const Text(
-                              'Visible dans la boutique en ligne',
-                              style: TextStyle(fontWeight: FontWeight.w700),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-                      _Section(
-                        title: 'Prix',
-                        children: [
-                          Row(
-                            children: [
                               Expanded(
                                 child: TextField(
                                   key: const Key('pPrice'),
@@ -347,145 +297,278 @@ class _ProductEditorScreenState extends ConsumerState<ProductEditorScreen> {
                                   ),
                                 ),
                               ),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: TextField(
-                                  key: const Key('pCost'),
-                                  controller: _cost,
-                                  keyboardType: TextInputType.number,
-                                  inputFormatters: digits,
-                                  onChanged: (_) => setState(() {}),
-                                  decoration: const InputDecoration(labelText: 'Prix d’achat', suffixText: 'F'),
-                                ),
-                              ),
-                            ],
-                          ),
-                          if (price > 0 && cost > 0)
-                            Padding(
-                              padding: const EdgeInsets.only(top: 8),
-                              child: Text(
-                                margin >= 0
-                                    ? 'Bénéfice : ${moneyShort(margin)} par ${_unit == 'pièce' ? 'pièce' : _unit} (${(margin * 100 / price).round()} %)'
-                                    : 'Attention : vendu à perte (${moneyShort(-margin)})',
-                                style: TextStyle(
-                                  color: margin >= 0 ? AppColors.greenDark : AppColors.danger,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                            ),
-                          const SizedBox(height: 10),
-                          InputDecorator(
-                            decoration: const InputDecoration(labelText: 'Vendu par'),
-                            child: DropdownButtonHideUnderline(
-                              child: DropdownButton<String>(
-                                isDense: true,
-                                isExpanded: true,
-                                value: productUnits.contains(_unit) ? _unit : 'pièce',
-                                items: [for (final u in productUnits) DropdownMenuItem(value: u, child: Text(u))],
-                                onChanged: (u) => setState(() => _unit = u ?? 'pièce'),
-                              ),
-                            ),
-                          ),
-                          SwitchListTile(
-                            contentPadding: EdgeInsets.zero,
-                            value: _wholesale,
-                            onChanged: (v) => setState(() => _wholesale = v),
-                            title: const Text('Prix de gros', style: TextStyle(fontWeight: FontWeight.w700)),
-                            subtitle: const Text('Un prix plus bas à partir d’une certaine quantité'),
-                          ),
-                          if (_wholesale)
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: TextField(
-                                    key: const Key('pWPrice'),
-                                    controller: _wPrice,
-                                    keyboardType: TextInputType.number,
-                                    inputFormatters: digits,
-                                    decoration: InputDecoration(
-                                      labelText: 'Prix de gros',
-                                      suffixText: 'F',
-                                      errorText: _errors['wPrice'],
-                                      errorMaxLines: 2,
-                                    ),
-                                  ),
-                                ),
+                              if (!_editing && !_isService && _trackStock) ...[
                                 const SizedBox(width: 10),
                                 Expanded(
                                   child: TextField(
-                                    key: const Key('pWQty'),
-                                    controller: _wQty,
+                                    key: const Key('pQty'),
+                                    controller: _qty,
                                     keyboardType: const TextInputType.numberWithOptions(decimal: true),
                                     decoration: InputDecoration(
-                                      labelText: 'À partir de',
+                                      labelText: 'Quantité en stock',
                                       suffixText: _unit,
-                                      errorText: _errors['wQty'],
+                                      hintText: '0',
                                     ),
                                   ),
                                 ),
                               ],
-                            ),
+                            ],
+                          ),
                         ],
                       ),
                       const SizedBox(height: 12),
-                      _Section(
-                        title: 'Codes',
-                        children: [
-                          TextField(
-                            key: const Key('pBarcode'),
-                            controller: _barcode,
-                            keyboardType: TextInputType.number,
-                            decoration: InputDecoration(
-                              labelText: 'Code-barres',
-                              errorText: _errors['barcode'],
-                              errorMaxLines: 2,
-                              suffixIcon: IconButton(
-                                tooltip: 'Scanner le code-barres',
-                                onPressed: _scan,
-                                icon: const Icon(Icons.qr_code_scanner_rounded),
-                              ),
+                      // Le reste est replié à la création : un débutant n'a besoin que du nom et du prix.
+                      Glass(
+                        radius: 22,
+                        padding: EdgeInsets.zero,
+                        child: InkWell(
+                          key: const Key('pMore'),
+                          borderRadius: BorderRadius.circular(22),
+                          onTap: () => setState(() => _more = !_more),
+                          child: Padding(
+                            padding: const EdgeInsets.fromLTRB(16, 14, 12, 14),
+                            child: Row(
+                              children: [
+                                Icon(Icons.tune_rounded, color: AppColors.green),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      const Text(
+                                        'Plus d’options',
+                                        style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15),
+                                      ),
+                                      Text(
+                                        'Prix d’achat, catégorie, service, prix de gros, code-barres, alerte stock',
+                                        style: TextStyle(color: AppColors.muted, fontSize: 12.5),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                AnimatedRotation(
+                                  turns: _more ? 0.5 : 0,
+                                  duration: const Duration(milliseconds: 200),
+                                  child: Icon(Icons.expand_more_rounded, color: AppColors.muted),
+                                ),
+                              ],
                             ),
                           ),
-                          const SizedBox(height: 10),
-                          TextField(
-                            key: const Key('pSku'),
-                            controller: _sku,
-                            textCapitalization: TextCapitalization.characters,
-                            decoration: InputDecoration(
-                              labelText: 'Référence interne (facultatif)',
-                              hintText: 'Ex. RIZ-5',
-                              errorText: _errors['sku'],
-                              errorMaxLines: 2,
-                            ),
-                          ),
-                        ],
+                        ),
                       ),
-                      if (!_isService) ...[
+                      if (_more) ...[
                         const SizedBox(height: 12),
                         _Section(
-                          title: 'Stock',
+                          title: 'Prix et bénéfice',
                           children: [
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: TextField(
+                                    key: const Key('pCost'),
+                                    controller: _cost,
+                                    keyboardType: TextInputType.number,
+                                    inputFormatters: digits,
+                                    onChanged: (_) => setState(() {}),
+                                    decoration: const InputDecoration(labelText: 'Prix d’achat', suffixText: 'F'),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            if (price > 0 && cost > 0)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 8),
+                                child: Text(
+                                  margin >= 0
+                                      ? 'Bénéfice : ${moneyShort(margin)} par ${_unit == 'pièce' ? 'pièce' : _unit} (${(margin * 100 / price).round()} %)'
+                                      : 'Attention : vendu à perte (${moneyShort(-margin)})',
+                                  style: TextStyle(
+                                    color: margin >= 0 ? AppColors.greenDark : AppColors.danger,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ),
+                            const SizedBox(height: 10),
+                            InputDecorator(
+                              decoration: const InputDecoration(labelText: 'Vendu par'),
+                              child: DropdownButtonHideUnderline(
+                                child: DropdownButton<String>(
+                                  isDense: true,
+                                  isExpanded: true,
+                                  value: productUnits.contains(_unit) ? _unit : 'pièce',
+                                  items: [for (final u in productUnits) DropdownMenuItem(value: u, child: Text(u))],
+                                  onChanged: (u) => setState(() => _unit = u ?? 'pièce'),
+                                ),
+                              ),
+                            ),
                             SwitchListTile(
                               contentPadding: EdgeInsets.zero,
-                              value: _trackStock,
-                              onChanged: (v) => setState(() => _trackStock = v),
-                              title: const Text('Suivre le stock', style: TextStyle(fontWeight: FontWeight.w700)),
-                              subtitle: const Text('Les ventes diminuent la quantité en stock'),
+                              value: _wholesale,
+                              onChanged: (v) => setState(() => _wholesale = v),
+                              title: const Text('Prix de gros', style: TextStyle(fontWeight: FontWeight.w700)),
+                              subtitle: const Text('Un prix plus bas à partir d’une certaine quantité'),
                             ),
-                            if (_trackStock)
-                              TextField(
-                                key: const Key('pThreshold'),
-                                controller: _threshold,
-                                keyboardType: TextInputType.number,
-                                inputFormatters: digits,
-                                decoration: InputDecoration(
-                                  labelText: 'Me prévenir quand il reste',
-                                  suffixText: _unit,
-                                  helperText: 'Alerte « stock bas » sur l’accueil',
-                                ),
+                            if (_wholesale)
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: TextField(
+                                      key: const Key('pWPrice'),
+                                      controller: _wPrice,
+                                      keyboardType: TextInputType.number,
+                                      inputFormatters: digits,
+                                      decoration: InputDecoration(
+                                        labelText: 'Prix de gros',
+                                        suffixText: 'F',
+                                        errorText: _errors['wPrice'],
+                                        errorMaxLines: 2,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Expanded(
+                                    child: TextField(
+                                      key: const Key('pWQty'),
+                                      controller: _wQty,
+                                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                      decoration: InputDecoration(
+                                        labelText: 'À partir de',
+                                        suffixText: _unit,
+                                        errorText: _errors['wQty'],
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
                           ],
                         ),
+                        const SizedBox(height: 12),
+                        _Section(
+                          title: 'Rangement',
+                          children: [
+                            Row(
+                              children: [
+                                for (final (service, label) in [(false, 'Article'), (true, 'Service')])
+                                  Expanded(
+                                    child: Padding(
+                                      padding: EdgeInsets.only(right: service ? 0 : 8),
+                                      child: Pill(
+                                        label: label,
+                                        selected: _isService == service,
+                                        onTap: () => setState(() => _isService = service),
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                            if (_isService) ...[
+                              const SizedBox(height: 12),
+                              Text(
+                                'Durée d’un rendez-vous',
+                                style: TextStyle(color: AppColors.muted, fontWeight: FontWeight.w700, fontSize: 13),
+                              ),
+                              const SizedBox(height: 6),
+                              Wrap(
+                                spacing: 6,
+                                runSpacing: 6,
+                                children: [
+                                  for (final m in const [15, 30, 45, 60, 90, 120, 180])
+                                    Pill(
+                                      key: Key('pDuration$m'),
+                                      label: m < 60 ? '$m min' : '${m ~/ 60} h${m % 60 == 0 ? '' : ' ${m % 60}'}',
+                                      selected: (_duration ?? 30) == m,
+                                      onTap: () => setState(() => _duration = m),
+                                    ),
+                                ],
+                              ),
+                            ],
+                            const SizedBox(height: 10),
+                            InkWell(
+                              borderRadius: BorderRadius.circular(14),
+                              onTap: () async {
+                                final c = await pickOrCreateCategory(context, ref, selected: _category);
+                                if (c != null) setState(() => _category = c.id.isEmpty ? null : c);
+                              },
+                              child: InputDecorator(
+                                decoration: const InputDecoration(
+                                  labelText: 'Catégorie',
+                                  suffixIcon: Icon(Icons.expand_more),
+                                ),
+                                child: Text(_category?.name ?? 'Sans catégorie'),
+                              ),
+                            ),
+                            SwitchListTile(
+                              key: const Key('pPublished'),
+                              contentPadding: EdgeInsets.zero,
+                              value: _published,
+                              onChanged: (v) => setState(() => _published = v),
+                              title: const Text(
+                                'Visible dans la boutique en ligne',
+                                style: TextStyle(fontWeight: FontWeight.w700),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        _Section(
+                          title: 'Codes',
+                          children: [
+                            TextField(
+                              key: const Key('pBarcode'),
+                              controller: _barcode,
+                              keyboardType: TextInputType.number,
+                              decoration: InputDecoration(
+                                labelText: 'Code-barres',
+                                errorText: _errors['barcode'],
+                                errorMaxLines: 2,
+                                suffixIcon: IconButton(
+                                  tooltip: 'Scanner le code-barres',
+                                  onPressed: _scan,
+                                  icon: const Icon(Icons.qr_code_scanner_rounded),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+                            TextField(
+                              key: const Key('pSku'),
+                              controller: _sku,
+                              textCapitalization: TextCapitalization.characters,
+                              decoration: InputDecoration(
+                                labelText: 'Référence interne (facultatif)',
+                                hintText: 'Ex. RIZ-5',
+                                errorText: _errors['sku'],
+                                errorMaxLines: 2,
+                              ),
+                            ),
+                          ],
+                        ),
+                        if (!_isService) ...[
+                          const SizedBox(height: 12),
+                          _Section(
+                            title: 'Stock',
+                            children: [
+                              SwitchListTile(
+                                contentPadding: EdgeInsets.zero,
+                                value: _trackStock,
+                                onChanged: (v) => setState(() => _trackStock = v),
+                                title: const Text('Suivre le stock', style: TextStyle(fontWeight: FontWeight.w700)),
+                                subtitle: const Text('Les ventes diminuent la quantité en stock'),
+                              ),
+                              if (_trackStock)
+                                TextField(
+                                  key: const Key('pThreshold'),
+                                  controller: _threshold,
+                                  keyboardType: TextInputType.number,
+                                  inputFormatters: digits,
+                                  decoration: InputDecoration(
+                                    labelText: 'Me prévenir quand il reste',
+                                    suffixText: _unit,
+                                    helperText: 'Alerte « stock bas » sur l’accueil',
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ],
                       ],
                     ],
                   ),
