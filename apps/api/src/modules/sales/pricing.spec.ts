@@ -26,8 +26,8 @@ describe('priceSale', () => {
 
   it('refuse une vente vide et les remises excessives', () => {
     expect(() => priceSale([])).toThrow(PricingError);
-    expect(() => priceSale([line({ discount: 8000 })])).toThrow(/Remise/);
-    expect(() => priceSale([line()], 7001)).toThrow(/Remise/);
+    expect(() => priceSale([line({ discount: 8000 })])).toThrow(/Réduction/);
+    expect(() => priceSale([line()], 7001)).toThrow(/Réduction/);
   });
 });
 

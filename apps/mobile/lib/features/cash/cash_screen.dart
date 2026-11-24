@@ -262,7 +262,7 @@ class _OpenSession extends ConsumerWidget {
             child: FilledButton.icon(
               onPressed: () => context.push('/cash/close'),
               icon: const Icon(Icons.lock_clock_rounded),
-              label: const Text('Clôturer la caisse'),
+              label: const Text('Fermer la caisse'),
             ),
           ),
         ),

@@ -388,8 +388,8 @@ export class SalesService {
       throw new AppError(
         'CREDIT_LIMIT_EXCEEDED',
         available === 0
-          ? `${row.name} a atteint son plafond de crédit (${fcfa(limit)})`
-          : `Crédit possible pour ${row.name} : ${fcfa(available)} au maximum (plafond ${fcfa(limit)})`,
+          ? `${row.name} a atteint son crédit maximum (${fcfa(limit)})`
+          : `Crédit possible pour ${row.name} : ${fcfa(available)} au plus (crédit maximum ${fcfa(limit)})`,
         422,
         { limit, balance, available, requested: newDebt },
       );

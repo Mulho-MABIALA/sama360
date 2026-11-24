@@ -79,7 +79,7 @@ void main() {
       expect(e('debt', note: 'VEN-1').label, 'Vente à crédit · VEN-1');
       expect(e('repayment', method: 'orange_money').label, 'Remboursement Orange Money');
       expect(e('adjustment', ref: 'opening_debt', note: 'Cahier').label, 'Ancienne dette · Cahier');
-      expect(e('adjustment', ref: 'write_off').label, 'Remise de dette');
+      expect(e('adjustment', ref: 'write_off').label, 'Dette effacée');
       expect(e('adjustment', ref: 'sale_void', note: 'Annulation VEN-1').label, 'Annulation VEN-1');
     });
 
@@ -115,7 +115,7 @@ void main() {
       final (_, repo) = await pumpSama(tester, location: '/customers');
       expect(textMatching(r'^36 000 F$'), findsOneWidget);
       expect(find.text('Ousmane Fall'), findsOneWidget);
-      expect(find.text('Plafond dépassé'), findsWidgets); // pastille + chiffre d'en-tête
+      expect(find.text('Trop de crédit'), findsWidgets); // pastille + chiffre d'en-tête
 
       await tester.tap(find.text('Doivent de l’argent'));
       await tester.pumpAndSettle();
@@ -227,12 +227,12 @@ void main() {
       final (c, _) = await pumpSama(tester, location: '/customers/k1');
       expect(textMatching(r'^17 500 F$'), findsOneWidget);
       expect(textMatching(r'^Doit depuis 14 jours'), findsOneWidget);
-      expect(textMatching(r'^Plafond 25 000 F · encore 7 500 F possible$'), findsOneWidget);
+      expect(textMatching(r'^Crédit max 25 000 F · peut encore prendre 7 500 F$'), findsOneWidget);
       expect(find.text('Dernier rappel il y a 3 j'), findsOneWidget);
       expect(textMatching(r'^64 500 F$'), findsOneWidget);
       expect(find.text('Client depuis juin 2026'), findsOneWidget);
       await tester.scrollUntilVisible(find.text('Paie en fin de mois'), 200, scrollable: find.byType(Scrollable).first);
-      expect(textMatching(r'^1 facture à encaisser : 30 000 F$'), findsOneWidget);
+      expect(textMatching(r'^1 facture pas encore payée : 30 000 F$'), findsOneWidget);
 
       // Carnet avec le solde après chaque mouvement
       await tester.scrollUntilVisible(
@@ -313,7 +313,7 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text('Ajuster le solde'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Remise de dette'));
+      await tester.tap(find.text('Effacer une dette'));
       await tester.pumpAndSettle();
       await tester.enterText(find.byKey(const Key('adjustAmount')), '20000');
       await tester.enterText(find.byKey(const Key('adjustReason')), 'Geste commercial');

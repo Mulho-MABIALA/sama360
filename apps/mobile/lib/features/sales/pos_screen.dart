@@ -876,7 +876,7 @@ class _CheckoutPanel extends ConsumerWidget {
                 keyboardType: TextInputType.number,
                 inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                 decoration: const InputDecoration(
-                  labelText: 'Acompte payé en espèces (facultatif)',
+                  labelText: 'Avance payée en espèces (facultatif)',
                   suffixText: 'F',
                   isDense: true,
                 ),
@@ -1052,7 +1052,7 @@ class _CreditLimitHint extends StatelessWidget {
       padding: const EdgeInsets.only(top: 4),
       child: Text(
         over
-            ? 'Dépasse le plafond : crédit possible ${money(available)} au maximum'
+            ? 'Dépasse son crédit maximum : ${money(available)} au plus'
             : 'Crédit encore possible : ${money(available)}',
         style: TextStyle(
           color: over ? AppColors.danger : AppColors.muted,
@@ -1245,7 +1245,7 @@ class LoyaltyRewardChip extends ConsumerWidget {
                 children: [
                   Text(
                     used > 0
-                        ? 'Remise fidélité : −${moneyShort(cart.loyaltyDiscount)}'
+                        ? 'Réduction fidélité : −${moneyShort(cart.loyaltyDiscount)}'
                         : '${card.balance} points${max > 0 ? ' · récompense disponible' : ''}',
                     style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
                   ),

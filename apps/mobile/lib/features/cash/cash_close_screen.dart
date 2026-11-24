@@ -63,17 +63,17 @@ class _CashCloseScreenState extends ConsumerState<CashCloseScreen> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Clôturer la caisse ?'),
+        title: const Text('Fermer la caisse ?'),
         content: Text(
           diff == 0
-              ? 'Tout est juste. La caisse sera fermée et le rapport Z enregistré.'
+              ? 'Tout est juste. La caisse sera fermée et le résumé enregistré.'
               : diff < 0
               ? 'Il manque ${money(-diff)}. La caisse sera fermée avec cet écart.'
               : 'Il y a ${money(diff)} en trop. La caisse sera fermée avec cet écart.',
         ),
         actions: [
           CancelButton(onPressed: () => Navigator.pop(ctx, false)),
-          ConfirmButton(label: 'Clôturer', onPressed: () => Navigator.pop(ctx, true)),
+          ConfirmButton(label: 'Fermer', onPressed: () => Navigator.pop(ctx, true)),
         ],
       ),
     );
@@ -85,7 +85,7 @@ class _CashCloseScreenState extends ConsumerState<CashCloseScreen> {
           .closeCash(sessionId: widget.sessionId, counted: counted, note: _note.text);
       refreshCash(ref);
       if (!mounted) return;
-      showInfo(context, 'Caisse clôturée');
+      showInfo(context, 'Caisse fermée');
       context.pushReplacement('/cash/sessions/${closed.id}');
     } catch (e) {
       if (mounted) {
@@ -102,7 +102,7 @@ class _CashCloseScreenState extends ConsumerState<CashCloseScreen> {
         : ref.watch(cashSessionProvider(widget.sessionId!)).whenData<CashSession?>((s) => s);
     return AuroraScaffold(
       appBar: AppBar(
-        title: const Text('Clôture de caisse', style: TextStyle(fontWeight: FontWeight.w800)),
+        title: const Text('Fin de journée', style: TextStyle(fontWeight: FontWeight.w800)),
       ),
       body: AsyncView<CashSession?>(
         value: session,
@@ -173,7 +173,7 @@ class _CashCloseScreenState extends ConsumerState<CashCloseScreen> {
                         ],
                       ),
                       const SizedBox(height: 10),
-                      BusyButton(label: 'Clôturer la caisse', busy: _busy, onPressed: () => _close(s)),
+                      BusyButton(label: 'Fermer la caisse', busy: _busy, onPressed: () => _close(s)),
                     ],
                   ),
                 ),

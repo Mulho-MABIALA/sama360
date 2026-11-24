@@ -179,7 +179,7 @@ class _CustomersScreenState extends ConsumerState<CustomersScreen> {
                               ? 'Aucun client ne correspond à « $_search »'
                               : switch (_filter) {
                                   CustomerFilter.debt => 'Personne ne vous doit d’argent',
-                                  CustomerFilter.overLimit => 'Aucun client au-dessus de son plafond',
+                                  CustomerFilter.overLimit => 'Aucun client au-dessus de son crédit maximum',
                                   CustomerFilter.all => 'Ajoutez votre premier client',
                                 },
                           textAlign: TextAlign.center,
@@ -228,7 +228,7 @@ class _TotalsCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const LabelWithEye('Total à encaisser', style: TextStyle(color: _muted, fontSize: 12.5)),
+                const LabelWithEye('On vous doit', style: TextStyle(color: _muted, fontSize: 12.5)),
                 MaskedText(
                   money(t.totalDue),
                   style: const TextStyle(
@@ -244,7 +244,7 @@ class _TotalsCard extends StatelessWidget {
                     _Mini(label: 'Clients', value: '${t.customers}', onTap: () => onFilter(CustomerFilter.all)),
                     _Mini(label: 'Doivent', value: '${t.debtors}', onTap: () => onFilter(CustomerFilter.debt)),
                     _Mini(
-                      label: 'Plafond dépassé',
+                      label: 'Trop de crédit',
                       value: '${t.overLimit}',
                       alert: t.overLimit > 0,
                       onTap: () => onFilter(CustomerFilter.overLimit),
@@ -329,7 +329,7 @@ class _CustomerTile extends StatelessWidget {
             ),
             if (c.overLimit)
               Text(
-                'Plafond dépassé',
+                'Trop de crédit',
                 style: TextStyle(fontSize: 11, color: AppColors.danger, fontWeight: FontWeight.w700),
               ),
           ],
@@ -497,7 +497,7 @@ class _CustomerScreenState extends ConsumerState<CustomerScreen> {
               Row(
                 children: [
                   Expanded(
-                    child: StatTile(label: 'Panier moyen', value: money(o.stats.averageBasket)),
+                    child: StatTile(label: 'Achat moyen', value: money(o.stats.averageBasket)),
                   ),
                   const SizedBox(width: 10),
                   Expanded(
@@ -520,7 +520,7 @@ class _CustomerScreenState extends ConsumerState<CustomerScreen> {
                       const SizedBox(width: 10),
                       Expanded(
                         child: Text(
-                          '${o.stats.openInvoices} facture${o.stats.openInvoices > 1 ? 's' : ''} à encaisser : '
+                          '${o.stats.openInvoices} facture${o.stats.openInvoices > 1 ? 's' : ''} pas encore payée${o.stats.openInvoices > 1 ? 's' : ''} : '
                           '${money(o.stats.openInvoicesDue)}',
                           style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
                         ),
@@ -795,7 +795,7 @@ class _BalanceCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  o.balance >= 0 ? 'Solde dû' : 'Avoir du client',
+                  o.balance >= 0 ? 'Il vous doit' : 'Vous lui devez',
                   style: const TextStyle(color: _muted, fontSize: 12),
                 ),
                 Text(
@@ -833,8 +833,8 @@ class _BalanceCard extends StatelessWidget {
                   const SizedBox(height: 5),
                   Text(
                     over
-                        ? 'Plafond de ${moneyShort(limit)} dépassé de ${moneyShort(o.balance - limit)}'
-                        : 'Plafond ${moneyShort(limit)} · encore ${moneyShort(o.availableCredit ?? 0)} possible',
+                        ? 'Crédit max de ${moneyShort(limit)} dépassé de ${moneyShort(o.balance - limit)}'
+                        : 'Crédit max ${moneyShort(limit)} · peut encore prendre ${moneyShort(o.availableCredit ?? 0)}',
                     style: TextStyle(
                       color: over ? const Color(0xFFFFB199) : _muted,
                       fontSize: 12,
@@ -1054,7 +1054,7 @@ class _AdjustSheetState extends ConsumerState<_AdjustSheet> {
     if (a <= 0) return showInfo(context, 'Indiquez un montant');
     if (_reason.text.trim().length < 3) return showInfo(context, 'Indiquez la raison');
     if (!_increase && a > widget.balance) {
-      return showInfo(context, 'La remise dépasse la dette (${money(widget.balance)})');
+      return showInfo(context, 'Vous effacez plus que la dette (${money(widget.balance)})');
     }
     if (!await confirmSensitive(
       context,
@@ -1098,7 +1098,7 @@ class _AdjustSheetState extends ConsumerState<_AdjustSheet> {
               onTap: () => setState(() => _increase = true),
             ),
             if (widget.balance > 0)
-              Pill(label: 'Remise de dette', selected: !_increase, onTap: () => setState(() => _increase = false)),
+              Pill(label: 'Effacer une dette', selected: !_increase, onTap: () => setState(() => _increase = false)),
           ],
         ),
         const SizedBox(height: 6),
@@ -1276,7 +1276,7 @@ class LoyaltyCardTile extends ConsumerWidget {
                         card.rewardsAvailable > 0
                             ? '${card.rewardsAvailable} récompense${card.rewardsAvailable > 1 ? 's' : ''} disponible'
                                   '${card.rewardsAvailable > 1 ? 's' : ''} · ${moneyShort(settings.rewardValue)} chacune'
-                            : 'Encore ${card.pointsToNextReward} points pour ${moneyShort(settings.rewardValue)} de remise',
+                            : 'Encore ${card.pointsToNextReward} points pour ${moneyShort(settings.rewardValue)} de réduction',
                         style: TextStyle(color: AppColors.muted, fontSize: 12.5),
                       ),
                     ],

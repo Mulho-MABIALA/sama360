@@ -37,7 +37,7 @@ String docText(DocDetail d, CurrentBusiness b) {
     out.writeln('${qty(l.quantity)} × ${l.name} : ${receiptMoney(l.total)}');
   }
   out.writeln();
-  if (d.discount > 0) out.writeln('Remise : -${receiptMoney(d.discount)}');
+  if (d.discount > 0) out.writeln('Réduction : -${receiptMoney(d.discount)}');
   out.writeln('*Total : ${receiptMoney(d.total)}*');
   if (!d.isQuote && d.paid > 0) out.writeln('Déjà payé : ${receiptMoney(d.paid)}');
   if (!d.isQuote && d.due > 0 && !d.cancelled) out.writeln('*Reste à payer : ${receiptMoney(d.due)}*');
@@ -222,7 +222,7 @@ Future<List<int>> buildDocumentPdf(DocDetail d, CurrentBusiness b, {ReceiptFonts
                 children: [
                   if (d.discount > 0) ...[
                     totalRow('Sous-total', receiptMoney(d.subtotal)),
-                    totalRow('Remise', '-${receiptMoney(d.discount)}'),
+                    totalRow('Réduction', '-${receiptMoney(d.discount)}'),
                   ],
                   pw.Divider(color: line),
                   totalRow('TOTAL', receiptMoney(d.total), strong: true),

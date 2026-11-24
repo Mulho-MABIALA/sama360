@@ -106,7 +106,7 @@ String? checkoutBlocker(CartState cart) {
   if (cart.isEmpty) return 'Ajoutez au moins un article';
   if (cart.mode == PaymentMode.credit && cart.customer == null) return 'Choisissez le client pour une vente à crédit';
   if (cart.mode == PaymentMode.credit && cart.deposit >= cart.total) {
-    return "L'acompte couvre tout : choisissez Espèces";
+    return "L'avance couvre tout : choisissez Espèces";
   }
   return null;
 }

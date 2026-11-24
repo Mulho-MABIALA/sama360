@@ -88,7 +88,7 @@ class _CustomerPickerState extends ConsumerState<_CustomerPicker> {
                         : Text(
                             [
                               if (c.phone != null) displayPhone(c.phone!),
-                              if (c.creditLimit != null) 'plafond ${moneyShort(c.creditLimit!)}',
+                              if (c.creditLimit != null) 'crédit max ${moneyShort(c.creditLimit!)}',
                             ].join(' · '),
                           ),
                     trailing: c.balance > 0

@@ -854,7 +854,7 @@ class _CashCard extends ConsumerWidget {
                           Container(width: 1, height: 28, color: Colors.white.withValues(alpha: 0.18)),
                           Expanded(
                             child: _Figure(
-                              label: 'À encaisser',
+                              label: 'On vous doit',
                               value: maskMoney(hidden, moneyShort(s.receivables)),
                               color: const Color(0xFFFFC28F),
                             ),

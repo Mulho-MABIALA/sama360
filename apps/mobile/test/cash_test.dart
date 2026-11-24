@@ -115,7 +115,7 @@ void main() {
     testWidgets('clôture : compteur de billets, écart en direct, confirmation, rapport Z', (tester) async {
       phoneSize(tester);
       final (c, repo) = await pumpSama(tester, location: '/cash/close');
-      await tester.tap(find.text('Clôturer la caisse'));
+      await tester.tap(find.text('Fermer la caisse'));
       await tester.pumpAndSettle();
       expect(find.text('Comptez les espèces de la caisse'), findsOneWidget);
       await tester.pump(const Duration(seconds: 6)); // le message disparaît
@@ -137,16 +137,16 @@ void main() {
       expect(find.text('Juste'), findsWidgets);
       await tester.enterText(find.byKey(const Key('count_cash')), '43000');
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Clôturer la caisse'));
+      await tester.tap(find.text('Fermer la caisse'));
       await tester.pumpAndSettle();
       expect(textMatching(r'^Il manque 500 F'), findsOneWidget);
-      await tester.tap(find.widgetWithText(ConfirmButton, 'Clôturer'));
+      await tester.tap(find.widgetWithText(ConfirmButton, 'Fermer'));
       await tester.pumpAndSettle();
       final (session, counted, _) = repo.cashClosings.single;
       expect(session, isNull);
       expect(counted, {PayMethod.cash: 43000, PayMethod.wave: 21000, PayMethod.orangeMoney: 6000});
       expect(routerOf(c).state.matchedLocation, '/cash/sessions/cs0');
-      expect(find.text('Rapport Z'), findsOneWidget);
+      expect(find.text('Résumé de caisse'), findsOneWidget);
     });
 
     testWidgets('rapport Z : comptage, écart, note, impression', (tester) async {

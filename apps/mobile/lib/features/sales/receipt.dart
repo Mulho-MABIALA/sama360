@@ -41,7 +41,7 @@ String receiptText(SaleDetail s, CurrentBusiness b) {
     out.writeln('${qty(l.quantity)} × ${l.name} : ${receiptMoney(l.total)}');
   }
   out.writeln();
-  if (s.discount > 0) out.writeln('Remise : -${receiptMoney(s.discount)}');
+  if (s.discount > 0) out.writeln('Réduction : -${receiptMoney(s.discount)}');
   out.writeln('*Total : ${receiptMoney(s.total)}*');
   for (final p in s.payments) {
     out.writeln('Payé (${paymentLabel(p.method)}) : ${receiptMoney(p.amount)}');
@@ -149,12 +149,12 @@ Future<List<int>> buildReceiptPdf(SaleDetail s, CurrentBusiness b, {ReceiptFonts
           for (final l in s.lines) ...[
             pw.Text(l.name, style: bold),
             row(lineDetail(l), receiptMoney(l.total)),
-            if (l.discount > 0) row('  Remise', '-${receiptMoney(l.discount)}'),
+            if (l.discount > 0) row('  Réduction', '-${receiptMoney(l.discount)}'),
           ],
           dash(),
           if (s.discount > 0) ...[
             row('Sous-total', receiptMoney(s.subtotal)),
-            row('Remise', '-${receiptMoney(s.discount)}'),
+            row('Réduction', '-${receiptMoney(s.discount)}'),
           ],
           row('TOTAL', receiptMoney(s.total), style: bold.copyWith(fontSize: 11)),
           pw.SizedBox(height: 3),

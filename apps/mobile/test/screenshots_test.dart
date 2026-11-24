@@ -543,7 +543,7 @@ void main() {
   testWidgets('réception', (tester) async {
     phoneSize(tester);
     await pumpSama(tester, location: '/purchases/po1');
-    await tester.tap(find.text('Réceptionner'));
+    await tester.tap(find.text('Marchandise arrivée'));
     await tester.pumpAndSettle();
     await _shot(tester, '16c_reception');
   });

@@ -104,7 +104,7 @@ class _PurchaseScreenState extends ConsumerState<PurchaseScreen> {
     final d = detail.value;
     return AuroraScaffold(
       appBar: AppBar(
-        title: Text(d?.number ?? 'Bon de commande', style: const TextStyle(fontWeight: FontWeight.w800)),
+        title: Text(d?.number ?? 'Commande fournisseur', style: const TextStyle(fontWeight: FontWeight.w800)),
         actions: [
           if (d != null)
             PopupMenuButton<String>(
@@ -142,7 +142,7 @@ class _PurchaseScreenState extends ConsumerState<PurchaseScreen> {
                   child: ListTile(
                     contentPadding: EdgeInsets.zero,
                     leading: Icon(Icons.picture_as_pdf_outlined),
-                    title: Text('Bon de commande (PDF)'),
+                    title: Text('Commande en PDF'),
                   ),
                 ),
                 const PopupMenuItem(
@@ -445,7 +445,7 @@ class _ActionBar extends ConsumerWidget {
         ),
       if (d.status.canReceive)
         Expanded(
-          child: BusyButton(label: 'Réceptionner', busy: false, onPressed: () => onReceive(d)),
+          child: BusyButton(label: 'Marchandise arrivée', busy: false, onPressed: () => onReceive(d)),
         ),
       if (d.payable > 0 && d.status != PurchaseStatus.draft)
         Expanded(
@@ -547,7 +547,7 @@ class _ReceiveSheetState extends ConsumerState<_ReceiveSheet> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Text('Réceptionner la marchandise', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+          const Text('La marchandise est arrivée', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
           Text(
             'Corrigez les quantités arrivées et le prix s’il a changé. Le stock et le coût d’achat moyen sont mis à jour.',
             style: TextStyle(color: AppColors.muted, fontSize: 12.5),

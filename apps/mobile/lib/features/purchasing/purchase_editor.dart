@@ -215,7 +215,7 @@ class _PurchaseEditorScreenState extends ConsumerState<PurchaseEditorScreen> {
             : _alreadyReceived
             ? 'Achat enregistré : le stock est à jour'
             : draft
-            ? 'Brouillon enregistré'
+            ? 'Enregistré, pas encore envoyé'
             : 'Commande ${d.number} créée',
       );
       if (_editing) {
@@ -464,7 +464,7 @@ class _PurchaseEditorScreenState extends ConsumerState<PurchaseEditorScreen> {
                         if (!_editing && !_alreadyReceived)
                           TextButton(
                             onPressed: _busy ? null : () => _save(draft: true),
-                            child: const Text('Enregistrer en brouillon'),
+                            child: const Text('Enregistrer sans envoyer'),
                           ),
                       ],
                     ),

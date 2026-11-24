@@ -119,7 +119,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Factures'));
     await tester.pumpAndSettle();
-    expect(find.text('À encaisser sur factures'), findsOneWidget);
+    expect(find.text('On vous doit (factures)'), findsOneWidget);
 
     await tester.tap(find.text('Nouveau'));
     await tester.pumpAndSettle();

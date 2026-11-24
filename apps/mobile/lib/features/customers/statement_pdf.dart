@@ -129,7 +129,7 @@ Future<List<int>> buildStatementPdf(
                   if (o.oldestUnpaidAt != null)
                     pw.Text('Dette la plus ancienne : ${day.format(o.oldestUnpaidAt!.toLocal())}', style: small),
                   if (c.creditLimit != null)
-                    pw.Text('Plafond de crédit : ${receiptMoney(c.creditLimit!)}', style: small),
+                    pw.Text('Crédit maximum : ${receiptMoney(c.creditLimit!)}', style: small),
                 ],
               ),
             ),

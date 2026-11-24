@@ -33,7 +33,7 @@ const ListQuery = PageQuery.extend({
 
 function assertCanSetLimit(t: TenantContext, input: { creditLimit?: number | null }) {
   if (input.creditLimit !== undefined && !hasPermission(t.permissions, 'sales:void')) {
-    throw AppError.forbidden('Seul le gérant ou le propriétaire peut fixer un plafond de crédit');
+    throw AppError.forbidden('Seul le gérant ou le propriétaire peut fixer un crédit maximum');
   }
 }
 

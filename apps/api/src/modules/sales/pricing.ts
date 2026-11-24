@@ -31,11 +31,11 @@ export function priceSale(lines: LineInput[], saleDiscount = 0): SaleTotals {
   if (lines.length === 0) throw new PricingError('La vente doit contenir au moins un article');
   const priced = lines.map((l) => {
     const gross = Math.round(l.quantity * l.unitPrice);
-    if (l.discount > gross) throw new PricingError(`Remise supérieure au montant de « ${l.name} »`);
+    if (l.discount > gross) throw new PricingError(`Réduction supérieure au montant de « ${l.name} »`);
     return { ...l, total: gross - l.discount };
   });
   const subtotal = priced.reduce((s, l) => s + l.total, 0);
-  if (saleDiscount > subtotal) throw new PricingError('Remise supérieure au montant de la vente');
+  if (saleDiscount > subtotal) throw new PricingError('Réduction supérieure au montant de la vente');
   const costTotal = priced.reduce((s, l) => s + Math.round(l.quantity * l.unitCost), 0);
   return { lines: priced, subtotal, discount: saleDiscount, total: subtotal - saleDiscount, costTotal };
 }

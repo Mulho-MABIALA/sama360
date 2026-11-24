@@ -29,9 +29,9 @@ String courierMessage(Delivery d, {required String business, String? city}) {
     'Adresse : ${d.address}',
     'Carte : ${mapsLink(d.address, city)}',
     if (d.amountToCollect > 0)
-      '💰 À encaisser : *${moneyShort(d.amountToCollect).replaceAll(' ', ' ')}*'
+      '💰 À récupérer : *${moneyShort(d.amountToCollect).replaceAll(' ', ' ')}*'
     else
-      'Rien à encaisser (déjà payé)',
+      'Rien à récupérer (déjà payé)',
     if ((d.note ?? '').isNotEmpty) 'Note : ${d.note}',
   ];
   return lines.join('\n');
@@ -277,7 +277,7 @@ class _DeliveriesScreenState extends ConsumerState<DeliveriesScreen> {
               Padding(
                 padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
                 child: Text(
-                  '${d.address}${d.amountToCollect > 0 ? ' · à encaisser ${moneyShort(d.amountToCollect)}' : ''}',
+                  '${d.address}${d.amountToCollect > 0 ? ' · à récupérer ${moneyShort(d.amountToCollect)}' : ''}',
                   style: TextStyle(color: AppColors.muted),
                 ),
               ),
@@ -442,7 +442,7 @@ class _DeliveriesScreenState extends ConsumerState<DeliveriesScreen> {
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              'Confiez une course à un livreur : il reçoit l’adresse, la carte et le montant à encaisser '
+                              'Confiez une course à un livreur : il reçoit l’adresse, la carte et le montant à récupérer '
                               'sur WhatsApp.',
                               textAlign: TextAlign.center,
                               style: TextStyle(color: AppColors.muted),
@@ -621,7 +621,7 @@ class _DeliveryTile extends StatelessWidget {
                   Text(
                     [
                       d.courierName ?? 'Sans livreur',
-                      if (d.amountToCollect > 0) 'à encaisser ${moneyShort(d.amountToCollect)}',
+                      if (d.amountToCollect > 0) 'à récupérer ${moneyShort(d.amountToCollect)}',
                       if (d.status == DeliveryStatus.failed && d.failureReason != null) d.failureReason!,
                     ].join(' · '),
                     maxLines: 1,
@@ -769,7 +769,7 @@ class _NewDeliveryScreenState extends ConsumerState<NewDeliveryScreen> {
                 key: const Key('dl_amount'),
                 controller: _amount,
                 keyboardType: TextInputType.number,
-                decoration: const InputDecoration(labelText: 'À encaisser (F)', hintText: '0 si déjà payé'),
+                decoration: const InputDecoration(labelText: 'À récupérer (F)', hintText: '0 si déjà payé'),
               ),
             ),
             const SizedBox(width: 10),

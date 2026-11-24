@@ -849,7 +849,7 @@ class CustomerDraft {
 enum CustomerFilter {
   all('all', 'Tous'),
   debt('debt', 'Doivent de l’argent'),
-  overLimit('over_limit', 'Plafond dépassé');
+  overLimit('over_limit', 'Trop de crédit');
 
   const CustomerFilter(this.api, this.label);
   final String api;
@@ -1106,7 +1106,7 @@ class LedgerEntry {
     'repayment' => 'Remboursement ${PayMethod.fromApi(method)?.label ?? ''}'.trim(),
     _ => switch (refType) {
       'opening_debt' => 'Ancienne dette${note == null ? '' : ' · $note'}',
-      'write_off' => 'Remise de dette${note == null ? '' : ' · $note'}',
+      'write_off' => 'Dette effacée${note == null ? '' : ' · $note'}',
       _ => note ?? 'Ajustement',
     },
   };
@@ -1675,7 +1675,7 @@ DateTime? _day(Object? v) {
 }
 
 enum PurchaseStatus {
-  draft('draft', 'Brouillon'),
+  draft('draft', 'Pas envoyée'),
   ordered('ordered', 'Commandé'),
   partial('partial', 'Reçu en partie'),
   received('received', 'Reçu'),

@@ -160,7 +160,7 @@ class _ShopOrderScreenState extends ConsumerState<ShopOrderScreen> {
                               ),
                             ),
                           ListTile(
-                            title: const Text('Total à encaisser', style: TextStyle(fontWeight: FontWeight.w800)),
+                            title: const Text('Total à payer', style: TextStyle(fontWeight: FontWeight.w800)),
                             trailing: Text(
                               money(o.total),
                               style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16),

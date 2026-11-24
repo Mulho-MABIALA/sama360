@@ -46,7 +46,7 @@ class DocStatusPill extends StatelessWidget {
 /// Filtres de la liste des factures.
 enum _InvoiceFilter {
   all('Toutes', null, false),
-  open('À encaisser', 'unpaid,partial', false),
+  open('Pas encore payées', 'unpaid,partial', false),
   late('En retard', null, true),
   paid('Payées', 'paid', false);
 
@@ -259,7 +259,7 @@ class _SummaryCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const LabelWithEye('À encaisser sur factures', style: TextStyle(color: muted, fontSize: 12.5)),
+                const LabelWithEye('On vous doit (factures)', style: TextStyle(color: muted, fontSize: 12.5)),
                 MaskedText(
                   moneyShort(summary.receivable),
                   style: const TextStyle(
@@ -270,7 +270,7 @@ class _SummaryCard extends StatelessWidget {
                   ),
                 ),
                 Text(
-                  '${summary.openInvoices} facture${summary.openInvoices > 1 ? 's' : ''} à encaisser',
+                  '${summary.openInvoices} facture${summary.openInvoices > 1 ? 's' : ''} pas encore payée${summary.openInvoices > 1 ? 's' : ''}',
                   style: const TextStyle(color: muted, fontSize: 12.5),
                 ),
                 const SizedBox(height: 14),

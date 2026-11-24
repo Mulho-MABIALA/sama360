@@ -113,7 +113,7 @@ class _DocumentEditorScreenState extends ConsumerState<DocumentEditorScreen> {
   Future<void> _save() async {
     if (_customer == null) return showInfo(context, 'Choisissez le client');
     if (_lines.isEmpty) return showInfo(context, 'Ajoutez au moins une ligne');
-    if (_discountValue > _subtotal) return showInfo(context, 'La remise dépasse le montant');
+    if (_discountValue > _subtotal) return showInfo(context, 'La réduction dépasse le montant');
     final now = DateTime.now();
     final issue = DateTime(now.year, now.month, now.day);
     final body = SamaRepository.documentBody(
@@ -238,7 +238,7 @@ class _DocumentEditorScreenState extends ConsumerState<DocumentEditorScreen> {
                       ),
                       const SizedBox(height: 12),
                       _Section(
-                        title: 'Remise et note',
+                        title: 'Réduction et note',
                         child: Column(
                           children: [
                             TextField(
@@ -246,7 +246,7 @@ class _DocumentEditorScreenState extends ConsumerState<DocumentEditorScreen> {
                               controller: _discount,
                               keyboardType: TextInputType.number,
                               inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                              decoration: const InputDecoration(labelText: 'Remise (facultatif)', suffixText: 'F'),
+                              decoration: const InputDecoration(labelText: 'Réduction (facultatif)', suffixText: 'F'),
                               onChanged: (_) => setState(() {}),
                             ),
                             const SizedBox(height: 10),
@@ -278,7 +278,7 @@ class _DocumentEditorScreenState extends ConsumerState<DocumentEditorScreen> {
                           children: [
                             Expanded(
                               child: Text(
-                                _discountValue > 0 ? 'Total après remise' : 'Total',
+                                _discountValue > 0 ? 'Total après réduction' : 'Total',
                                 style: TextStyle(color: AppColors.muted, fontWeight: FontWeight.w600),
                               ),
                             ),

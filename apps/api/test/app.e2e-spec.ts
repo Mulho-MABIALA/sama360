@@ -1279,13 +1279,13 @@ describe('Socle Sama360 (e2e)', () => {
         code: 'CREDIT_LIMIT_EXCEEDED',
         details: { limit: 25000, balance: 20000, available: 5000, requested: 10000 },
       });
-      expect(over.body.error.message).toBe('Crédit possible pour Binta Sow : 5 000 F au maximum (plafond 25 000 F)');
+      expect(over.body.error.message).toBe('Crédit possible pour Binta Sow : 5 000 F au plus (crédit maximum 25 000 F)');
       // Payer une partie ramène la dette sous le plafond
       await sell(binta, 10000, 5000).expect(201);
       // Vente faite hors ligne : déjà conclue en boutique, enregistrée même au-delà du plafond
       await sell(binta, 8000, 0, { soldAt: new Date(Date.now() - 3600_000).toISOString() }).expect(201);
       const full = await sell(binta, 1000, 0).expect(422);
-      expect(full.body.error.message).toBe('Binta Sow a atteint son plafond de crédit (25 000 F)');
+      expect(full.body.error.message).toBe('Binta Sow a atteint son crédit maximum (25 000 F)');
 
       // Le caissier peut modifier le client mais pas son plafond
       await http
@@ -1338,7 +1338,7 @@ describe('Socle Sama360 (e2e)', () => {
         .set(A())
         .send({ amount: -20000, reason: 'Geste commercial' })
         .expect(422);
-      expect(tooMuch.body.error.message).toBe('La remise dépasse la dette du client (15 000 F)');
+      expect(tooMuch.body.error.message).toBe('Vous effacez plus que la dette du client (15 000 F)');
       await http
         .post(`/v1/customers/${binta}/adjustments`)
         .set(A())

@@ -179,7 +179,7 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text('Wave'));
       await tester.pumpAndSettle();
-      expect(find.text('Enregistrer en brouillon'), findsNothing);
+      expect(find.text('Enregistrer sans envoyer'), findsNothing);
       await tester.tap(find.text('Enregistrer l’achat'));
       await tester.pumpAndSettle();
       final body = repo.purchaseBodies.single;
@@ -201,8 +201,8 @@ void main() {
       await tester.tap(find.text('Scanner'));
       await tester.pumpAndSettle();
       expect(find.text('Savon noir'), findsOneWidget);
-      await tester.scrollUntilVisible(find.text('Enregistrer en brouillon'), 200, scrollable: mainScroll);
-      await tester.tap(find.text('Enregistrer en brouillon'));
+      await tester.scrollUntilVisible(find.text('Enregistrer sans envoyer'), 200, scrollable: mainScroll);
+      await tester.tap(find.text('Enregistrer sans envoyer'));
       await tester.pumpAndSettle();
       final body = repo.purchaseBodies.single;
       expect(body['draft'], true);
@@ -214,7 +214,7 @@ void main() {
       final (_, repo) = await pumpSama(tester, location: '/purchases/po1');
       expect(find.text('Livrer à la boutique de Sandaga'), findsOneWidget);
       expect(textMatching(r'^24 × 2 000 F · reçu 0/24$'), findsOneWidget);
-      await tester.tap(find.text('Réceptionner'));
+      await tester.tap(find.text('Marchandise arrivée'));
       await tester.pumpAndSettle();
       expect(textMatching(r'Valider la réception · 88 000 F$'), findsOneWidget);
       await tester.enterText(find.byKey(const Key('rq_l12')), '30');
@@ -235,7 +235,7 @@ void main() {
       phoneSize(tester);
       final (_, repo) = await pumpSama(tester, location: '/purchases/po2');
       expect(find.text('Marchandise reçue · Premier carton'), findsOneWidget);
-      await tester.tap(find.text('Réceptionner'));
+      await tester.tap(find.text('Marchandise arrivée'));
       await tester.pumpAndSettle();
       await tester.enterText(find.byKey(const Key('rq_l21')), '11');
       await tester.tap(textMatching(r'^Valider la réception'));
@@ -279,7 +279,7 @@ void main() {
 
       routerOf(c).go('/purchases/po4');
       await tester.pumpAndSettle();
-      expect(find.text('Réceptionner'), findsNothing);
+      expect(find.text('Marchandise arrivée'), findsNothing);
       await tester.tap(find.text('Passer la commande'));
       await tester.pumpAndSettle();
       expect(repo.confirmed, ['po4']);
@@ -329,14 +329,14 @@ void main() {
 
       await tester.tap(find.text('Stock').last);
       await tester.pumpAndSettle();
-      expect(find.text('Valeur du stock'), findsNothing);
+      expect(find.text('Votre stock vaut'), findsNothing);
       expect(find.textContaining('marge'), findsNothing);
     });
 
     testWidgets('nouveau fournisseur : pas de plafond de crédit', (tester) async {
       phoneSize(tester);
       final (c, repo) = await pumpSama(tester, location: '/suppliers/new');
-      expect(find.text('Plafond de crédit'), findsNothing);
+      expect(find.text('Crédit maximum'), findsNothing);
       await tester.enterText(find.byKey(const Key('cName')), 'Cosmétiques Thiès');
       await tester.enterText(find.byKey(const Key('cPhone')), '77 555 44 33');
       await tester.tap(find.text('Ajouter le fournisseur'));

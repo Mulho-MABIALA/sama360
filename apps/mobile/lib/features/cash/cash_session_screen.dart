@@ -86,7 +86,7 @@ class _CashSessionScreenState extends ConsumerState<CashSessionScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          s.open ? 'Caisse ouverte' : 'Rapport Z',
+                          s.open ? 'Caisse ouverte' : 'Résumé de caisse',
                           style: const TextStyle(color: Color(0xFFCDE9DD), fontSize: 12.5),
                         ),
                         Text(
@@ -187,7 +187,7 @@ class _CashSessionScreenState extends ConsumerState<CashSessionScreen> {
               FilledButton.icon(
                 onPressed: () => context.push('/cash/close?session=${s.id}'),
                 icon: const Icon(Icons.lock_clock_rounded),
-                label: const Text('Clôturer cette caisse'),
+                label: const Text('Fermer cette caisse'),
               ),
             ],
           ],

@@ -16,7 +16,7 @@ import '../sales/receipt_screen.dart' show receiptActionsProvider, whatsAppUri;
 String loyaltyRuleText(LoyaltySettings s) {
   final pct = (s.rate * 100);
   final pctText = pct == pct.roundToDouble() ? pct.toStringAsFixed(0) : pct.toStringAsFixed(1).replaceAll('.', ',');
-  return '1 point pour ${moneyShort(s.earnPer)} · ${s.rewardPoints} points = ${moneyShort(s.rewardValue)} de remise '
+  return '1 point pour ${moneyShort(s.earnPer)} · ${s.rewardPoints} points = ${moneyShort(s.rewardValue)} de réduction '
       '($pctText % reversé)';
 }
 
@@ -113,8 +113,8 @@ class _Launch extends StatelessWidget {
         ),
         const SizedBox(height: 10),
         Text(
-          'Vos clients gagnent des points à chaque achat et les échangent contre une remise. '
-          'Exemple : 1 point pour 1 000 F, 100 points = 2 000 F de remise.',
+          'Vos clients gagnent des points à chaque achat et les échangent contre une réduction. '
+          'Exemple : 1 point pour 1 000 F, 100 points = 2 000 F de réduction.',
           style: TextStyle(color: AppColors.muted, height: 1.35),
         ),
         const SizedBox(height: 14),
@@ -382,7 +382,7 @@ class _LoyaltySettingsScreenState extends ConsumerState<LoyaltySettingsScreen> {
   Future<void> _save() async {
     final d = _draft;
     if (d == null) return showInfo(context, 'Vérifiez les montants');
-    if (d.rate > 1) return showInfo(context, 'La remise ne peut pas dépasser ce que le client a dépensé');
+    if (d.rate > 1) return showInfo(context, 'La réduction ne peut pas dépasser ce que le client a dépensé');
     setState(() => _saving = true);
     try {
       await ref.read(repoProvider).saveLoyaltySettings(d);
@@ -457,7 +457,7 @@ class _LoyaltySettingsScreenState extends ConsumerState<LoyaltySettingsScreen> {
                           child: _NumberField(
                             key: const Key('rewardValue'),
                             controller: _rewardValue,
-                            label: 'Remise offerte',
+                            label: 'Réduction offerte',
                             suffix: 'F',
                             onChanged: () => setState(() {}),
                           ),
@@ -471,7 +471,7 @@ class _LoyaltySettingsScreenState extends ConsumerState<LoyaltySettingsScreen> {
                         decoration: BoxDecoration(color: AppColors.greenSoft, borderRadius: BorderRadius.circular(14)),
                         child: Text(
                           'Un client qui dépense ${moneyShort(d.earnPer * d.rewardPoints)} gagne '
-                          '${moneyShort(d.rewardValue)} de remise.\n${loyaltyRuleText(d)}',
+                          '${moneyShort(d.rewardValue)} de réduction.\n${loyaltyRuleText(d)}',
                           key: const Key('loyalty_preview'),
                           style: TextStyle(color: AppColors.greenDark, fontWeight: FontWeight.w700, height: 1.35),
                         ),

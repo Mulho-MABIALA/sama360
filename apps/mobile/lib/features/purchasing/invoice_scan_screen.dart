@@ -461,7 +461,7 @@ class _InvoiceScanScreenState extends ConsumerState<InvoiceScanScreen> {
                   Expanded(
                     child: Text(
                       'Total de la facture : ${moneyShort(s.total!)}, total des lignes : ${moneyShort(linesTotal)}. '
-                      'Vérifiez les quantités et les prix (remise, transport ?).',
+                      'Vérifiez les quantités et les prix (réduction, transport ?).',
                       style: const TextStyle(fontSize: 13.5),
                     ),
                   ),

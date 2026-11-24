@@ -45,7 +45,7 @@ void main() {
       expect(t, contains('*Awa Beauté*'));
       expect(t, contains('Reçu VEN-2026-0042'));
       expect(t, contains('2 × Beurre de karité 250 g : 7 000 F'));
-      expect(t, contains('Remise : -500 F'));
+      expect(t, contains('Réduction : -500 F'));
       expect(t, contains('*Total : 9 000 F*'));
       expect(t, contains('Payé (Wave) : 5 000 F'));
       expect(t, contains('*Reste à payer : 4 000 F*'));

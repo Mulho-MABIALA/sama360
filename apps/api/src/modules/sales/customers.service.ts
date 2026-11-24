@@ -252,7 +252,7 @@ export class CustomersService {
       if (input.amount < 0 && -input.amount > balance) {
         throw new AppError(
           'REPAYMENT_EXCEEDS_BALANCE',
-          `La remise dépasse la dette du client (${fcfa(Math.max(0, balance))})`,
+          `Vous effacez plus que la dette du client (${fcfa(Math.max(0, balance))})`,
           422,
           { balance },
         );

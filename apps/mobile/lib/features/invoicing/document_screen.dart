@@ -442,7 +442,7 @@ class DocumentPaper extends StatelessWidget {
           const Divider(height: 22),
           if (d.discount > 0) ...[
             total('Sous-total', moneyShort(d.subtotal)),
-            total('Remise', '−${moneyShort(d.discount)}'),
+            total('Réduction', '−${moneyShort(d.discount)}'),
           ],
           total('TOTAL', moneyShort(d.total), strong: true),
           if (!d.isQuote && d.paid > 0) total('Déjà payé', moneyShort(d.paid)),

@@ -303,13 +303,13 @@ class ReceiptPaper extends StatelessWidget {
               for (final l in s.lines) ...[
                 Text(l.name, style: const TextStyle(fontWeight: FontWeight.w700)),
                 row(lineDetail(l), moneyShort(l.total), style: const TextStyle(fontSize: 13)),
-                if (l.discount > 0) row('Remise', '−${moneyShort(l.discount)}', style: small),
+                if (l.discount > 0) row('Réduction', '−${moneyShort(l.discount)}', style: small),
                 const SizedBox(height: 4),
               ],
               const _Dashed(),
               if (s.discount > 0) ...[
                 row('Sous-total', moneyShort(s.subtotal)),
-                row('Remise', '−${moneyShort(s.discount)}'),
+                row('Réduction', '−${moneyShort(s.discount)}'),
               ],
               row('TOTAL', moneyShort(s.total), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
               const SizedBox(height: 4),

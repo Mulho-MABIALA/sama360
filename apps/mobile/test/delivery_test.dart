@@ -43,9 +43,9 @@ void main() {
       expect(msg, contains('Client : Khady Sarr · +221770001122'));
       expect(msg, contains('Adresse : Ouakam, près de la mosquée'));
       expect(msg, contains('google.com/maps'));
-      expect(msg, contains('À encaisser'));
+      expect(msg, contains('À récupérer'));
       final paid = courierMessage(_delivery('d2', DeliveryStatus.assigned, amount: 0), business: 'B');
-      expect(paid, contains('Rien à encaisser'));
+      expect(paid, contains('Rien à récupérer'));
     });
   });
 

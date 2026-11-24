@@ -96,7 +96,7 @@ class _StockScreenState extends ConsumerState<StockScreen> {
                     // Valeur du stock (prix d'achat) : pas pour le vendeur
                     if (costs) ...[
                       Expanded(
-                        child: StatTile(label: 'Valeur du stock', value: moneyShort(s.stockValue)),
+                        child: StatTile(label: 'Votre stock vaut', value: moneyShort(s.stockValue)),
                       ),
                       const SizedBox(width: 8),
                     ],
@@ -272,7 +272,7 @@ class _StockRow extends ConsumerWidget {
                     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                     decoration: BoxDecoration(color: AppColors.warnBg, borderRadius: BorderRadius.circular(6)),
                     child: Text(
-                      'Seuil ${item.threshold}',
+                      'Alerte à ${item.threshold}',
                       style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.warnText),
                     ),
                   ),

@@ -265,7 +265,7 @@ class _CustomerEditorScreenState extends ConsumerState<CustomerEditorScreen> {
                               contentPadding: EdgeInsets.zero,
                               value: _hasLimit,
                               onChanged: canLimit ? (v) => setState(() => _hasLimit = v) : null,
-                              title: const Text('Plafond de crédit', style: TextStyle(fontWeight: FontWeight.w700)),
+                              title: const Text('Crédit maximum', style: TextStyle(fontWeight: FontWeight.w700)),
                               subtitle: Text(
                                 canLimit
                                     ? 'La caisse refuse une vente à crédit qui dépasse ce montant'

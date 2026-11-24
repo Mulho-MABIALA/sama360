@@ -22,7 +22,7 @@ void main() {
 
   group('logique', () {
     test('règle, points et récompenses', () {
-      expect(flat(loyaltyRuleText(s)), '1 point pour 1 000 F · 100 points = 2 000 F de remise (2 % reversé)');
+      expect(flat(loyaltyRuleText(s)), '1 point pour 1 000 F · 100 points = 2 000 F de réduction (2 % reversé)');
       expect(s.pointsFor(31600), 31);
       expect(s.rewardsFor(250), 2);
       expect(const LoyaltySettings().pointsFor(31600), 0); // programme éteint
@@ -121,7 +121,7 @@ void main() {
       await tester.tap(find.textContaining('Utiliser'));
       await tester.pumpAndSettle();
       expect(c.read(cartProvider).total, 5000);
-      expect(flat(tester.widget<Text>(find.textContaining('Remise fidélité')).data!), 'Remise fidélité : −2 000 F');
+      expect(flat(tester.widget<Text>(find.textContaining('Réduction fidélité')).data!), 'Réduction fidélité : −2 000 F');
 
       await tester.tap(find.textContaining('Encaisser'));
       await tester.pumpAndSettle();
