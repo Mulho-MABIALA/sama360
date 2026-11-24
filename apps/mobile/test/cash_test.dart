@@ -219,8 +219,12 @@ void main() {
 
     testWidgets('profil : le patron active la caisse obligatoire', (tester) async {
       phoneSize(tester);
-      final (_, repo) = await pumpSama(tester, location: '/account');
-      await tester.ensureVisible(find.byKey(const Key('require_cash_row')));
+      final (_, repo) = await pumpSama(tester, location: '/business/settings');
+      await tester.scrollUntilVisible(
+        find.byKey(const Key('require_cash_row')),
+        200,
+        scrollable: find.byType(Scrollable).first,
+      );
       await tester.pumpAndSettle();
       expect(find.text('Désactivée'), findsOneWidget);
       await tester.tap(find.byKey(const Key('require_cash_row')));

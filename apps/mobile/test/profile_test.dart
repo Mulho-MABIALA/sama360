@@ -28,13 +28,28 @@ void main() {
 
     await tester.tap(find.text('AD').first); // avatar de l'en-tête
     await tester.pumpAndSettle();
-    expect(find.text('Mon profil'), findsOneWidget);
+    expect(find.text('Mon compte'), findsOneWidget);
     expect(find.text('+221 77 123 45 67'), findsWidgets);
-    expect(find.text('Propriétaire · Awa Beauté'), findsOneWidget);
-
+    expect(find.text('Propriétaire · Awa Beauté'), findsWidgets);
     await tester.tap(find.byTooltip('Retour'));
     await tester.pumpAndSettle();
     expect(find.text('Caisse du jour'), findsOneWidget);
+
+    await tester.tap(find.text('AD').first);
+    await tester.pumpAndSettle();
+    // Les réglages de la boutique ne sont plus ici : une seule entrée « Ma boutique »
+    expect(find.byKey(const Key('pay_accounts_row')), findsNothing);
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('business_settings_row')),
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(find.byKey(const Key('business_settings_row')));
+    await tester.pumpAndSettle();
+    expect(find.text('Ma boutique'), findsOneWidget);
+    for (final t in ['Identité', 'Encaisser', 'Vendre en ligne']) {
+      expect(find.text(t), findsOneWidget);
+    }
   });
 
   testWidgets('photo de profil : ajout depuis la galerie puis retrait', (tester) async {

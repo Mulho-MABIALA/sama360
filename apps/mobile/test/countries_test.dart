@@ -208,7 +208,7 @@ void main() {
 
   testWidgets('profil : changer le pays de l’entreprise', (tester) async {
     phoneSize(tester);
-    final (c, repo) = await pumpSama(tester, location: '/account');
+    final (c, repo) = await pumpSama(tester, location: '/business/settings');
     await tester.scrollUntilVisible(
       find.byKey(const Key('country_row')),
       200,

@@ -14,7 +14,7 @@ void main() {
   testWidgets('le patron enregistre son numéro et son lien Wave depuis le profil', (tester) async {
     phoneSize(tester);
     final repo = FakeRepo();
-    await pumpSama(tester, location: '/account', repo: repo);
+    await pumpSama(tester, location: '/business/settings', repo: repo);
     await tester.scrollUntilVisible(
       find.byKey(const Key('pay_accounts_row')),
       200,

@@ -8,7 +8,6 @@ import '../../core/pin_lock.dart';
 import '../../core/biometrics.dart';
 import '../../core/display.dart';
 import '../../core/format.dart';
-import '../shop/shop_screen.dart' show shopUrl;
 import '../../core/glass.dart';
 import '../../core/models.dart';
 import '../../core/providers.dart';
@@ -16,7 +15,6 @@ import '../../core/theme.dart';
 import '../../core/widgets.dart';
 import '../home/monument.dart' show MonumentBackdrop;
 import '../auth/auth_controller.dart';
-import '../business/business_logo.dart';
 import '../catalog/product_photo.dart';
 import '../offline/offline_ui.dart';
 
@@ -42,7 +40,8 @@ class MeAvatar extends ConsumerWidget {
 
 enum _PhotoAction { camera, gallery, remove }
 
-/// Page « Mon profil » : photo, informations, entreprise, sécurité, déconnexion.
+/// Page « Mon compte » : ce qui concerne la personne (photo, informations, sécurité, déconnexion).
+/// Les réglages de la boutique sont dans « Ma boutique » (BusinessSettingsScreen).
 class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
   @override
@@ -109,49 +108,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     }
   }
 
-  /// Pays de l'entreprise : indicatif des numéros, paiements mobiles, identifiant fiscal.
-  Future<void> _changeCountry(CurrentBusiness b) async {
-    var picked = b.country;
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setState) => AlertDialog(
-          title: const Text('Pays de l’entreprise'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              CountryPills(value: picked, onChanged: (c) => setState(() => picked = c)),
-              const SizedBox(height: 12),
-              Text(
-                'Les numéros tapés sans indicatif seront lus comme des numéros '
-                '${picked == Country.ci
-                    ? 'ivoiriens'
-                    : picked == Country.cg
-                    ? 'congolais'
-                    : 'sénégalais'}. '
-                'Les numéros déjà enregistrés ne changent pas.',
-                style: TextStyle(color: AppColors.muted, fontSize: 13),
-              ),
-            ],
-          ),
-          actions: [
-            CancelButton(onPressed: () => Navigator.pop(ctx, false)),
-            ConfirmButton(label: 'Enregistrer', onPressed: () => Navigator.pop(ctx, true)),
-          ],
-        ),
-      ),
-    );
-    if (ok != true || picked == b.country) return;
-    try {
-      await ref.read(repoProvider).updateCountry(picked.code);
-      ref.invalidate(currentBusinessProvider);
-      if (mounted) showInfo(context, 'Pays : ${picked.name}');
-    } catch (e) {
-      if (mounted) showError(context, e);
-    }
-  }
-
   Future<void> _editInfo(Me me) async {
     final saved = await showModalBottomSheet<bool>(
       useRootNavigator: true,
@@ -161,18 +117,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       builder: (_) => _EditProfileSheet(me: me),
     );
     if (saved == true && mounted) showInfo(context, 'Profil enregistré');
-  }
-
-  Future<void> _setRequireOpenCash(bool v) async {
-    try {
-      await ref.read(repoProvider).updateRequireOpenCash(v);
-      ref.invalidate(currentBusinessProvider);
-      if (mounted) {
-        showInfo(context, v ? 'Les ventes demandent maintenant une caisse ouverte' : 'Vente possible caisse fermée');
-      }
-    } catch (e) {
-      if (mounted) showError(context, e);
-    }
   }
 
   /// Activer : on vérifie d'abord l'empreinte / Face ID de la personne.
@@ -242,7 +186,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     final auth = ref.watch(authProvider).value;
     final me = auth?.me;
     final link = auth?.business;
-    final business = ref.watch(currentBusinessProvider).value;
     if (me == null) return const AuroraScaffold(body: Center(child: CircularProgressIndicator()));
 
     return AuroraScaffold(
@@ -262,7 +205,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  _Section(
+                  SettingsSection(
                     title: 'Informations personnelles',
                     action: TextButton.icon(
                       onPressed: () => _editInfo(me),
@@ -270,20 +213,20 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       label: const Text('Modifier'),
                     ),
                     children: [
-                      _Row(
+                      SettingsRow(
                         icon: Icons.badge_rounded,
                         color: AppColors.green,
                         label: 'Nom complet',
                         value: me.fullName ?? '—',
                       ),
-                      _Row(
+                      SettingsRow(
                         icon: Icons.phone_iphone_rounded,
                         color: const Color(0xFF2F6FDB),
                         label: 'Téléphone',
                         value: intlPhone(me.phone),
                         hint: 'Sert à vous connecter',
                       ),
-                      _Row(
+                      SettingsRow(
                         icon: Icons.alternate_email_rounded,
                         color: const Color(0xFF7A5AF8),
                         label: 'E-mail',
@@ -292,7 +235,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                         onTap: () => _editInfo(me),
                       ),
                       if (me.createdAt != null)
-                        _Row(
+                        SettingsRow(
                           icon: Icons.event_available_rounded,
                           color: const Color(0xFFD9822B),
                           label: 'Membre depuis',
@@ -301,75 +244,31 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     ],
                   ),
                   const SizedBox(height: 16),
-                  _Section(
-                    title: 'Mon entreprise',
+                  SettingsSection(
+                    title: 'Ma boutique',
                     children: [
-                      _Row(
+                      SettingsRow(
+                        key: const Key('business_settings_row'),
                         icon: Icons.storefront_rounded,
                         color: const Color(0xFF0E9384),
-                        label: link?.roleName ?? 'Entreprise',
-                        value: link?.name ?? 'Aucune entreprise choisie',
-                        trailing: Text(
-                          'Changer',
-                          style: TextStyle(color: AppColors.green, fontWeight: FontWeight.w800),
-                        ),
-                        onTap: () => context.push('/business'),
+                        label: link == null ? 'Boutique' : '${link.roleName} · ${link.name}',
+                        value: ref.can('business:update') ? 'Réglages de la boutique' : 'Ma boutique',
+                        hint: ref.can('business:update')
+                            ? 'Logo, paiement mobile, équipe, boutique en ligne, abonnement…'
+                            : 'Équipe, abonnement',
+                        onTap: () => context.push('/business/settings'),
                       ),
-                      if (business != null)
-                        _Row(
-                          key: const Key('country_row'),
-                          icon: Icons.public_rounded,
-                          color: const Color(0xFF1D7AF0),
-                          label: 'Pays',
-                          value: business.country.name,
-                          hint:
-                              '+${business.country.dial} · FCFA (${business.country.currency}) · '
-                              '${business.country.mobileMoney.map((m) => m.label).join(', ')}',
-                          trailing: CountryFlag(business.country, width: 28),
-                          onTap: ref.can('business:update') ? () => _changeCountry(business) : null,
-                        ),
-                      if (business != null)
-                        _Row(
-                          key: const Key('pro_row'),
-                          icon: Icons.workspace_premium_rounded,
-                          color: const Color(0xFFFF7A00),
-                          label: 'Sama360 Pro',
-                          value: !business.isPro
-                              ? 'Offre gratuite'
-                              : business.trial
-                              ? 'Essai · ${business.proDaysLeft} j'
-                              : 'Actif · ${business.proDaysLeft} j',
-                          hint: business.isPro
-                              ? 'Boutique en ligne, vendeurs, livraisons, assistant…'
-                              : 'Passez à Pro pour la boutique en ligne, les vendeurs, les livraisons…',
-                          onTap: () => context.push('/pro'),
-                        ),
-                      if (business != null && ref.can('business:update'))
-                        _Row(
-                          key: const Key('locations_row'),
-                          icon: Icons.place_rounded,
-                          color: const Color(0xFF2E90FA),
-                          label: 'Points de vente',
-                          value: switch (ref.watch(locationsProvider).value?.list.length) {
-                            null => '',
-                            1 => '1 boutique',
-                            final n => '$n boutiques',
-                          },
-                          hint: 'Plusieurs boutiques : un stock et une caisse chacune',
-                          onTap: () => context.push('/locations'),
-                        ),
-                      if (business != null)
-                        _Row(
-                          key: const Key('referral_row'),
-                          icon: Icons.card_giftcard_rounded,
-                          color: const Color(0xFFDB2777),
-                          label: 'Parrainage',
-                          value: '1 mois offert',
-                          hint: 'Invitez un commerçant : 1 mois Pro pour chacun',
-                          onTap: () => context.push('/referral'),
+                      if (me.businesses.length > 1)
+                        SettingsRow(
+                          icon: Icons.business_center_rounded,
+                          color: AppColors.muted,
+                          label: 'Mes entreprises',
+                          value: '${me.businesses.length} entreprises',
+                          hint: 'Passer d’une boutique à l’autre',
+                          onTap: () => context.push('/business'),
                         ),
                       if (ref.watch(platformAdminProvider).value == true)
-                        _Row(
+                        SettingsRow(
                           key: const Key('admin_row'),
                           icon: Icons.verified_user_rounded,
                           color: const Color(0xFF13241C),
@@ -378,103 +277,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                           hint: 'Commerçants, abonnements, paiements',
                           onTap: () => context.push('/admin'),
                         ),
-                      if (business != null && ref.can('business:update'))
-                        InkWell(
-                          borderRadius: BorderRadius.circular(16),
-                          onTap: () => changeBusinessLogo(context, ref, business),
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-                            child: Row(
-                              children: [
-                                BusinessLogo(business: business, size: 38, radius: 12),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        'Logo',
-                                        style: TextStyle(
-                                          fontSize: 12,
-                                          color: AppColors.muted,
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                      ),
-                                      Text(
-                                        business.logoFileId == null ? 'Ajouter un logo' : 'Changer le logo',
-                                        style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
-                                      ),
-                                      Text(
-                                        'Affiché sur vos factures et devis',
-                                        style: TextStyle(fontSize: 11.5, color: AppColors.muted),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                Icon(Icons.chevron_right_rounded, color: AppColors.muted),
-                              ],
-                            ),
-                          ),
-                        ),
-                      if (business != null && ref.can('business:update'))
-                        _Row(
-                          key: const Key('pay_accounts_row'),
-                          icon: Icons.qr_code_2_rounded,
-                          color: const Color(0xFF1D7AF0),
-                          label: 'Paiement mobile',
-                          value: business.payAccounts.isEmpty
-                              ? 'À configurer'
-                              : business.payAccounts.keys.map((m) => m.label).join(', '),
-                          hint: 'Votre QR et votre numéro, montrés au client à la caisse',
-                          onTap: () => context.push('/business/pay-accounts'),
-                        ),
-                      if (business != null && ref.can('business:update'))
-                        _Row(
-                          key: const Key('require_cash_row'),
-                          icon: Icons.point_of_sale_rounded,
-                          color: const Color(0xFFD9822B),
-                          label: 'Caisse obligatoire',
-                          value: business.requireOpenCash ? 'Activée' : 'Désactivée',
-                          hint: 'Obliger à ouvrir la caisse avant de vendre',
-                          trailing: Switch(value: business.requireOpenCash, onChanged: (v) => _setRequireOpenCash(v)),
-                          onTap: () => _setRequireOpenCash(!business.requireOpenCash),
-                        ),
-                      if (business != null)
-                        _Row(
-                          icon: Icons.language_rounded,
-                          color: const Color(0xFF1D7AF0),
-                          label: 'Boutique en ligne',
-                          value: shopUrl(
-                            ref.watch(apiBaseUrlProvider),
-                            '/s/${business.slug}',
-                          ).replaceFirst(RegExp(r'^https?://'), ''),
-                          hint: 'Commandes, produits publiés, partage',
-                          onTap: () => context.push('/shop'),
-                        ),
-                      if (ref.can('members:read'))
-                        _Row(
-                          icon: Icons.groups_rounded,
-                          color: const Color(0xFFDB2777),
-                          label: 'Équipe',
-                          value: 'Mon équipe',
-                          hint: ref.can('members:invite') ? 'Inviter un vendeur ou un gérant' : null,
-                          onTap: () => context.push('/team'),
-                        ),
-                      if ((me.businesses.length) > 1)
-                        _Row(
-                          icon: Icons.business_center_rounded,
-                          color: AppColors.muted,
-                          label: 'Mes entreprises',
-                          value: '${me.businesses.length} entreprises',
-                          onTap: () => context.push('/business'),
-                        ),
                     ],
                   ),
                   const SizedBox(height: 16),
-                  _Section(
+                  SettingsSection(
                     title: 'Sécurité',
                     children: [
-                      _Row(
+                      SettingsRow(
                         icon: Icons.pin_rounded,
                         color: const Color(0xFF0A8453),
                         label: 'Code secret',
@@ -483,7 +292,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                         onTap: () => context.push('/pin/change'),
                       ),
                       if (bioKind != null && ref.watch(pinLockProvider).pin != null)
-                        _Row(
+                        SettingsRow(
                           key: const Key('biometric_row'),
                           icon: bioKind == BiometricKind.face
                               ? Icons.face_retouching_natural_rounded
@@ -496,7 +305,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                               : 'À la place du code secret (le code reste en secours)',
                           onTap: () => _toggleBiometric(bioKind, !bioOn),
                         ),
-                      _Row(
+                      SettingsRow(
                         icon: Icons.devices_rounded,
                         color: const Color(0xFFE0533D),
                         label: 'Sessions',
@@ -507,10 +316,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     ],
                   ),
                   const SizedBox(height: 16),
-                  _Section(
+                  SettingsSection(
                     title: 'Application',
                     children: [
-                      _Row(
+                      SettingsRow(
                         icon: Icons.palette_rounded,
                         color: const Color(0xFF7A5AF8),
                         label: 'Affichage',
@@ -524,14 +333,14 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                             : 'Mode sombre, grands caractères',
                         onTap: () => context.push('/settings/display'),
                       ),
-                      _Row(
+                      SettingsRow(
                         icon: Icons.translate_rounded,
                         color: Color(0xFF0A8453),
                         label: 'Langue',
                         value: 'Français',
                         hint: 'Wolof et anglais bientôt',
                       ),
-                      _Row(
+                      SettingsRow(
                         icon: Icons.info_outline_rounded,
                         color: AppColors.muted,
                         label: 'Version',
@@ -540,21 +349,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     ],
                   ),
                   const SizedBox(height: 16),
-                  _Section(
-                    title: 'Supprimer',
+                  SettingsSection(
+                    title: 'Supprimer mon compte',
                     children: [
-                      if (link?.role == 'owner')
-                        _Row(
-                          key: const Key('delete_business_row'),
-                          icon: Icons.store_mall_directory_outlined,
-                          color: AppColors.danger,
-                          label: 'Boutique',
-                          value: 'Supprimer ${link!.name}',
-                          hint: '30 jours pour changer d’avis',
-                          trailing: Icon(Icons.chevron_right_rounded, color: AppColors.danger),
-                          onTap: () => context.push('/business/delete'),
-                        ),
-                      _Row(
+                      SettingsRow(
                         key: const Key('delete_account_row'),
                         icon: Icons.person_remove_alt_1_rounded,
                         color: AppColors.danger,
@@ -635,7 +433,7 @@ class _Header extends ConsumerWidget {
                         const SizedBox(width: 48),
                       const Expanded(
                         child: Text(
-                          'Mon profil',
+                          'Mon compte',
                           textAlign: TextAlign.center,
                           style: TextStyle(
                             color: Colors.white,
@@ -748,8 +546,9 @@ class _Header extends ConsumerWidget {
   }
 }
 
-class _Section extends StatelessWidget {
-  const _Section({required this.title, required this.children, this.action});
+/// Groupe de réglages en verre, avec titre (Mon compte, Ma boutique).
+class SettingsSection extends StatelessWidget {
+  const SettingsSection({super.key, required this.title, required this.children, this.action});
   final String title;
   final List<Widget> children;
   final Widget? action;
@@ -781,8 +580,9 @@ class _Section extends StatelessWidget {
   );
 }
 
-class _Row extends StatelessWidget {
-  const _Row({
+/// Ligne de réglage : pastille colorée, libellé, valeur, aide, flèche ou contrôle.
+class SettingsRow extends StatelessWidget {
+  const SettingsRow({
     super.key,
     required this.icon,
     required this.color,

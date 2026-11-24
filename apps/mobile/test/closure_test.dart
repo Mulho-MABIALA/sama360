@@ -16,8 +16,12 @@ void main() {
 
   testWidgets('propriétaire : supprimer la boutique (nom retapé), puis la restaurer', (tester) async {
     phoneSize(tester);
-    final (c, repo) = await pumpSama(tester, location: '/account');
-    await tester.ensureVisible(find.byKey(const Key('delete_business_row')));
+    final (c, repo) = await pumpSama(tester, location: '/business/settings');
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('delete_business_row')),
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
     await tester.pumpAndSettle();
     expect(find.text('Supprimer Awa Beauté'), findsOneWidget);
     await tester.tap(find.byKey(const Key('delete_business_row')));

@@ -167,6 +167,13 @@ const _documents = _Service(
   pro: ProFeature.documents,
   perm: 'documents:read',
 );
+const _settings = _Service(
+  'Ma boutique',
+  Icons.tune_rounded,
+  Color(0xFF0E9384),
+  route: '/business/settings',
+  art: 'boutique',
+);
 const _assistant = _Service(
   'Assistant IA',
   Icons.auto_awesome_rounded,
@@ -198,7 +205,7 @@ const _groups = <(String, List<_Service>)>[
   ('Clients', [_customers, _reminders, _loyalty]),
   ('Stock et achats', [_stock, _purchases, _delivery]),
   ('En ligne', [_shop, _booking]),
-  ('Gestion', [_expenses, _reports, _team, _documents, _assistant]),
+  ('Gestion', [_settings, _expenses, _reports, _team, _documents, _assistant]),
 ];
 
 class HomeScreen extends ConsumerWidget {

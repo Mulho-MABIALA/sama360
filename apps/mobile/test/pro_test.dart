@@ -155,7 +155,7 @@ void main() {
     final repo = FakeRepo()
       ..proUntil = DateTime.now().add(const Duration(days: 23, hours: 2))
       ..proTrial = true;
-    await pumpSama(tester, location: '/account', repo: repo);
+    await pumpSama(tester, location: '/business/settings', repo: repo);
     await tester.scrollUntilVisible(find.byKey(const Key('pro_row')), 200, scrollable: find.byType(Scrollable).first);
     expect(find.text('Essai · 24 j'), findsOneWidget);
     await tester.tap(find.byKey(const Key('pro_row')));
