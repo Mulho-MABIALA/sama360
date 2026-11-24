@@ -232,7 +232,8 @@ abstract final class AppTheme {
     final text = googleFonts ? GoogleFonts.plusJakartaSansTextTheme(base.textTheme) : base.textTheme;
     final border = OutlineInputBorder(
       borderRadius: BorderRadius.circular(14),
-      borderSide: BorderSide(color: p.glassLine, width: 1.2),
+      // Contour visible : sur fond clair, un champ blanc sans bord se perd dans la page
+      borderSide: BorderSide(color: dark ? p.line : Color.lerp(p.line, p.ink, 0.14)!, width: 1.2),
     );
     return base.copyWith(
       textTheme: text.apply(bodyColor: p.ink, displayColor: p.ink),

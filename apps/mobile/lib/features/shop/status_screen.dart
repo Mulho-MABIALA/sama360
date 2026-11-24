@@ -15,6 +15,7 @@ import '../../core/providers.dart';
 import '../../core/theme.dart';
 import '../../core/widgets.dart';
 import '../sales/receipt_screen.dart' show receiptActionsProvider, whatsAppUri;
+import '../catalog/product_photo.dart';
 import 'shop_screen.dart' show shopUrl;
 
 // ───────────────────────────────────────────────────────────── logique
@@ -394,8 +395,12 @@ class _ProductPickerState extends State<_ProductPicker> {
                     CheckboxListTile(
                       key: Key('pick_${p.id}'),
                       value: _sel.contains(p.id),
+                      secondary: ProductThumb(name: p.name, fileId: p.imageFileId, size: 48),
                       title: Text(p.name, style: const TextStyle(fontWeight: FontWeight.w700)),
-                      subtitle: Text(moneyShort(p.price)),
+                      subtitle: Text(
+                        moneyShort(p.price),
+                        style: TextStyle(color: AppColors.green, fontWeight: FontWeight.w800),
+                      ),
                       onChanged: (v) => setState(() {
                         if (v == true) {
                           if (_sel.length < 4) _sel.add(p.id);

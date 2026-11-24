@@ -514,8 +514,12 @@ class _ShopProductsScreenState extends ConsumerState<ShopProductsScreen> {
                         key: Key('pub_${p.id}'),
                         value: on(p),
                         onChanged: canWrite ? (v) => _set([p.id], v) : null,
+                        secondary: ProductThumb(name: p.name, fileId: p.imageFileId, size: 44),
                         title: Text(p.name, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
-                        subtitle: Text(moneyShort(p.price), style: const TextStyle(fontSize: 12.5)),
+                        subtitle: Text(
+                          moneyShort(p.price),
+                          style: TextStyle(fontSize: 13, color: AppColors.green, fontWeight: FontWeight.w800),
+                        ),
                       ),
                       if (i < shown.length - 1) const Divider(height: 1, indent: 14, endIndent: 14),
                     ],

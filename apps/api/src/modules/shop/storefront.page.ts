@@ -73,7 +73,7 @@ a{color:inherit}
 .ph img{width:100%;height:100%;object-fit:cover}
 .body{padding:11px 12px 12px;display:flex;flex-direction:column;gap:3px;flex:1}
 .name{font-weight:600;font-size:14px;line-height:1.3;min-height:2.6em}
-.price{font-weight:800;font-size:15.5px;margin-top:2px}
+.price{font-weight:800;font-size:15.5px;margin-top:2px;color:var(--green)}
 .hint{font-size:12px;color:var(--muted);font-weight:500}
 .out{font-size:12px;color:var(--danger);font-weight:700}
 .card.hot{outline:2px solid var(--leaf)}
@@ -120,6 +120,50 @@ input:focus,textarea:focus{border-color:var(--green)}
 .s.on{color:var(--ink);font-weight:700}.s.on i{border-color:var(--green);background:var(--green)}
 .foot{text-align:center;color:var(--muted);font-size:12px;margin-top:36px}
 .wa{display:inline-flex;align-items:center;gap:8px;text-decoration:none;background:#25D366;color:#08361A;font-weight:800;border-radius:14px;padding:12px 16px;margin-top:12px}
+/* ---- Commande ---- */
+.co{padding-top:14px}
+.cohead{display:flex;align-items:center;justify-content:space-between;position:sticky;top:-14px;background:#FAF9F6;z-index:2;padding:6px 0 4px}
+.cohead h2{margin:0}
+.x2{width:38px;height:38px;border-radius:50%;border:1px solid var(--line);background:#fff;font-size:15px;color:var(--ink)}
+.sec{display:flex;align-items:center;gap:10px;font-weight:800;font-size:15px;margin:18px 0 8px}
+.sec small{margin-left:auto;font-weight:600;color:var(--muted);font-size:12.5px}
+.num{width:24px;height:24px;border-radius:50%;background:var(--green);color:#fff;display:grid;place-items:center;font-size:12.5px;flex:none}
+.items{padding:6px 12px;margin:0}
+.it{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--line)}
+.it:last-child{border-bottom:0}
+.th{width:64px;height:64px;border-radius:14px;overflow:hidden;flex:none;background:linear-gradient(160deg,var(--soft),color-mix(in srgb,var(--green) 18%,#fff));display:grid;place-items:center;color:var(--green);font-family:var(--serif);font-size:22px}
+.th[data-zoom]{cursor:zoom-in}
+.th img{width:100%;height:100%;object-fit:cover}
+.itx{flex:1;min-width:0}
+.itx b{display:block;font-size:14.5px;line-height:1.3}
+.itx .mini{margin-top:6px}
+.itp{font-weight:800;color:var(--green);white-space:nowrap}
+.co .modes{gap:10px}
+.co .mode{padding:12px;border-radius:16px;display:flex;flex-direction:column;gap:2px}
+.co .mode i{font-style:normal;font-size:22px}
+.co .mode.on{box-shadow:0 0 0 3px color-mix(in srgb,var(--green) 18%,transparent)}
+.form{margin:0}
+.form label:first-child{margin-top:0}
+.sum{background:var(--deep);color:#fff;border-radius:20px;padding:14px 16px;margin-top:18px}
+.sum .row{border-bottom-color:rgba(255,255,255,.12)}
+.sum .total{font-size:20px;margin-top:8px}
+.pay{margin-top:10px;font-size:12.5px;color:rgba(255,255,255,.78);line-height:1.4}
+.zoom{position:fixed;inset:0;z-index:40;background:rgba(0,0,0,.92);display:grid;place-items:center;cursor:zoom-out;animation:up .2s ease}
+.zoom img{max-width:100%;max-height:100%;object-fit:contain}
+.zoom button{position:absolute;top:16px;right:16px;width:42px;height:42px;border-radius:50%;border:0;background:rgba(255,255,255,.15);color:#fff;font-size:18px}
+.pd .img img{cursor:zoom-in}
+/* ---- Fiche produit ---- */
+.pd{padding:0;overflow:hidden}
+.pd .img{aspect-ratio:1;background:linear-gradient(160deg,var(--soft),color-mix(in srgb,var(--green) 18%,#fff));display:grid;place-items:center;color:var(--green);font-family:var(--serif);font-size:64px;position:relative}
+.pd .img img{width:100%;height:100%;object-fit:cover}
+.pd .x{position:absolute;top:12px;right:12px;width:38px;height:38px;border:0;border-radius:50%;background:rgba(0,0,0,.45);color:#fff;font-size:18px}
+.pd .in{padding:16px 18px calc(18px + env(safe-area-inset-bottom))}
+.pd h3{margin:0;font-family:var(--serif);font-weight:400;font-size:26px;line-height:1.15}
+.pd .pp{font-size:22px;font-weight:800;color:var(--green);margin-top:6px}
+.pd .qty{display:flex;align-items:center;gap:14px;margin-top:14px}
+.pd .qty button{width:44px;height:44px;border:1px solid var(--line);border-radius:14px;background:#fff;font-size:22px;font-weight:700;color:var(--green)}
+.pd .qty b{font-size:18px;min-width:24px;text-align:center}
+.card .ph{cursor:pointer}
 @media (min-width:700px){.grid{grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:16px}.head h2{font-size:36px}}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}html{scroll-behavior:auto}}
 </style>
@@ -244,13 +288,52 @@ input:focus,textarea:focus{border-color:var(--green)}
         q2 ? '<div class="step"><button data-dec="' + p.id + '" aria-label="Un de moins">−</button><b>' + q2 + '</b><button data-inc="' + p.id + '" aria-label="Un de plus">+</button></div>' :
         '<button class="add" data-inc="' + p.id + '">Ajouter</button>';
       var hot = HOT.indexOf(p.id) >= 0;
-      return '<article class="card' + (hot ? ' hot' : '') + '"><div class="ph">' + (p.imageFileId ? '<img loading="lazy" alt="" src="/v1/files/' + esc(p.imageFileId) + '">' : initials(p.name)) + (hot ? '<span class="tag">En vedette</span>' : '') + '</div>' +
+      return '<article class="card' + (hot ? ' hot' : '') + '"><div class="ph" data-open="' + p.id + '">' + (p.imageFileId ? '<img loading="lazy" alt="" src="/v1/files/' + esc(p.imageFileId) + '">' : initials(p.name)) + (hot ? '<span class="tag">En vedette</span>' : '') + '</div>' +
         '<div class="body"><div class="name">' + esc(p.name) + '</div><div class="price">' + money(p.price) + '<span class="hint">' + unit + '</span></div>' +
         (p.wholesalePrice != null ? '<div class="hint">' + money(p.wholesalePrice) + ' dès ' + p.wholesaleMinQty + '</div>' : '') +
         (!p.available ? '<div class="out">Rupture de stock</div>' : '') + action + '</div></article>';
     }).join('');
     Array.prototype.forEach.call(grid.querySelectorAll('[data-inc]'), function(b){ b.addEventListener('click', function(){ var id=b.getAttribute('data-inc'); setQty(id,(state.cart[id]||0)+1); }); });
     Array.prototype.forEach.call(grid.querySelectorAll('[data-dec]'), function(b){ b.addEventListener('click', function(){ var id=b.getAttribute('data-dec'); setQty(id,(state.cart[id]||0)-1); }); });
+    Array.prototype.forEach.call(grid.querySelectorAll('[data-open]'), function(b){ b.addEventListener('click', function(){ showProduct(b.getAttribute('data-open')); }); });
+  }
+
+  // Photo en plein écran (toucher pour fermer)
+  function zoom(src){
+    var z = document.createElement('div'); z.className = 'zoom';
+    z.innerHTML = '<img alt="" src="' + esc(src) + '"><button aria-label="Fermer">✕</button>';
+    z.addEventListener('click', function(){ z.remove(); });
+    document.body.appendChild(z);
+  }
+
+  // Fiche d'un produit : grande photo, prix, quantité, « Ajouter au panier »
+  function showProduct(id){
+    var p = state.data.products.find(function(x){ return x.id === id; }); if (!p) return;
+    var q = Math.max(1, state.cart[id] || 1);
+    var sheet = document.createElement('div'); sheet.className = 'sheet';
+    sheet.addEventListener('click', function(e){ if (e.target === sheet) sheet.remove(); });
+    function draw(){
+      var unit = p.unit && p.unit !== 'pièce' ? ' / ' + esc(p.unit) : '';
+      sheet.innerHTML = '<div class="panel pd" role="dialog" aria-label="' + esc(p.name) + '"><div class="img">' +
+        (p.imageFileId ? '<img alt="" src="/v1/files/' + esc(p.imageFileId) + '">' : initials(p.name)) +
+        '<button class="x" id="px" aria-label="Fermer">✕</button></div><div class="in">' +
+        (HOT.indexOf(p.id) >= 0 ? '<span class="badge">En vedette</span><div style="height:8px"></div>' : '') +
+        '<h3>' + esc(p.name) + '</h3><div class="pp">' + money(p.price) + '<span class="hint">' + unit + '</span></div>' +
+        (p.wholesalePrice != null ? '<div class="hint">' + money(p.wholesalePrice) + ' dès ' + p.wholesaleMinQty + '</div>' : '') +
+        (!p.available ? '<div class="out" style="margin-top:10px">Rupture de stock</div>' :
+          '<div class="qty"><button id="pm" aria-label="Un de moins">−</button><b>' + q + '</b><button id="pl" aria-label="Un de plus">+</button></div>' +
+          '<button class="cta" id="padd">Ajouter au panier · ' + money(unitPrice(p, q) * q) + '</button>') +
+        '<button class="ghost" id="pall">Voir toute la boutique</button></div></div>';
+      sheet.querySelector('#px').addEventListener('click', function(){ sheet.remove(); });
+      var im = sheet.querySelector('.img img'); if (im) im.addEventListener('click', function(){ zoom(im.src); });
+      sheet.querySelector('#pall').addEventListener('click', function(){ sheet.remove(); openShop(); });
+      if (p.available) {
+        sheet.querySelector('#pm').addEventListener('click', function(){ q = Math.max(1, q - 1); draw(); });
+        sheet.querySelector('#pl').addEventListener('click', function(){ q = Math.min(p.maxQuantity || 99, q + 1); draw(); });
+        sheet.querySelector('#padd').addEventListener('click', function(){ setQty(p.id, q); sheet.remove(); });
+      }
+    }
+    draw(); document.body.appendChild(sheet);
   }
 
   function renderBar(){
@@ -264,35 +347,51 @@ input:focus,textarea:focus{border-color:var(--green)}
     var s = state.data.shop;
     if (!state.mode) state.mode = s.delivery ? 'delivery' : 'pickup';
     var saved = store('customer') || {};
+    var note = '';
     var sheet = document.createElement('div'); sheet.className = 'sheet';
     sheet.addEventListener('click', function(e){ if (e.target === sheet) sheet.remove(); });
     function draw(){
       var ls = lines(); if (!ls.length){ sheet.remove(); return; }
       var fee = state.mode === 'delivery' ? s.deliveryFee : 0;
       var sub = subtotal();
-      sheet.innerHTML = '<div class="panel" role="dialog" aria-label="Votre commande"><h2>Votre commande</h2><div class="box">' +
-        ls.map(function(l){ return '<div class="row"><div><b>' + esc(l.p.name) + '</b><div class="hint">' + money(l.unit) + ' × ' + l.q + '</div></div>' +
-          '<div class="mini"><button data-dec="' + l.p.id + '">−</button><b>' + l.q + '</b><button data-inc="' + l.p.id + '">+</button></div></div>'; }).join('') + '</div>' +
-        '<div class="modes">' + (s.delivery ? '<button class="mode' + (state.mode==='delivery'?' on':'') + '" data-mode="delivery"><b>🛵 Livraison</b><span>' + (s.deliveryFee ? money(s.deliveryFee) : 'Offerte') + '</span></button>' : '') +
-        (s.pickup ? '<button class="mode' + (state.mode==='pickup'?' on':'') + '" data-mode="pickup"><b>🏬 Retrait</b><span>En boutique</span></button>' : '') + '</div>' +
-        '<label for="n">Votre nom</label><input id="n" autocomplete="name" value="' + esc(saved.name||'') + '">' +
+      var n = count(), below = s.minOrder && sub < s.minOrder;
+      var thumb = function(p){ return '<div class="th"' + (p.imageFileId ? ' data-zoom="/v1/files/' + esc(p.imageFileId) + '"' : '') + '>' +
+        (p.imageFileId ? '<img alt="" src="/v1/files/' + esc(p.imageFileId) + '">' : initials(p.name)) + '</div>'; };
+      sheet.innerHTML = '<div class="panel co" role="dialog" aria-label="Votre commande">' +
+        '<div class="cohead"><h2>Votre commande</h2><button class="x2" id="close" aria-label="Fermer">✕</button></div>' +
+        '<div class="sec"><span class="num">1</span>Vos articles <small>' + n + ' article' + (n > 1 ? 's' : '') + '</small></div>' +
+        '<div class="box items">' + ls.map(function(l){
+          return '<div class="it">' + thumb(l.p) + '<div class="itx"><b>' + esc(l.p.name) + '</b><div class="hint">' + money(l.unit) + ' l’unité</div>' +
+            '<div class="mini"><button data-dec="' + l.p.id + '" aria-label="Un de moins">' + (l.q === 1 ? '🗑' : '−') + '</button><b>' + l.q + '</b><button data-inc="' + l.p.id + '" aria-label="Un de plus">+</button></div></div>' +
+            '<div class="itp">' + money(l.total) + '</div></div>'; }).join('') + '</div>' +
+        '<div class="sec"><span class="num">2</span>Comment recevoir votre commande ?</div>' +
+        '<div class="modes">' + (s.delivery ? '<button class="mode' + (state.mode==='delivery'?' on':'') + '" data-mode="delivery"><i>🛵</i><b>Livraison</b><span>' + (s.deliveryFee ? money(s.deliveryFee) : 'Offerte') + (s.deliveryZone ? ' · ' + esc(s.deliveryZone) : '') + '</span></button>' : '') +
+        (s.pickup ? '<button class="mode' + (state.mode==='pickup'?' on':'') + '" data-mode="pickup"><i>🏬</i><b>Retrait</b><span>' + esc(s.address || 'En boutique') + '</span></button>' : '') + '</div>' +
+        '<div class="sec"><span class="num">3</span>Vos coordonnées</div>' +
+        '<div class="box form"><label for="n">Votre nom</label><input id="n" autocomplete="name" placeholder="Ex. Awa Diop" value="' + esc(saved.name||'') + '">' +
         '<label for="t">Téléphone</label><input id="t" type="tel" autocomplete="tel" inputmode="tel" placeholder="' + esc(s.phoneExample || '77 123 45 67') + '" value="' + esc(saved.phone||'') + '">' +
         (state.mode === 'delivery' ? '<label for="a">Adresse de livraison</label><textarea id="a" rows="2" placeholder="Quartier, rue, repère">' + esc(saved.address||'') + '</textarea>' : '') +
-        '<label for="m">Note (facultatif)</label><input id="m" placeholder="Couleur, taille, heure de passage…">' +
-        '<div class="box"><div class="row"><span>Articles</span><b>' + money(sub) + '</b></div>' + (fee ? '<div class="row"><span>Livraison</span><b>' + money(fee) + '</b></div>' : '') +
-        '<div class="total"><span>Total</span><span>' + money(sub + fee) + '</span></div></div>' +
-        (s.minOrder && sub < s.minOrder ? '<div class="err">Commande minimum : ' + money(s.minOrder) + '</div>' : '') +
-        '<div class="err" id="e"></div><button class="cta" id="go"' + (s.minOrder && sub < s.minOrder ? ' disabled' : '') + '>Envoyer la commande · ' + money(sub + fee) + '</button>' +
-        '<button class="ghost" id="close">Continuer mes achats</button><p class="hint" style="text-align:center">Vous payez à la livraison ou au retrait (' + esc(s.payHint || 'espèces, Wave, Orange Money') + ').</p></div>';
+        '<label for="m">Note pour la boutique (facultatif)</label><input id="m" placeholder="Couleur, taille, heure de passage…" value="' + esc(note) + '"></div>' +
+        '<div class="sum"><div class="row"><span>Articles</span><b>' + money(sub) + '</b></div>' +
+        (state.mode === 'delivery' ? '<div class="row"><span>Livraison</span><b>' + (fee ? money(fee) : 'Offerte') + '</b></div>' : '') +
+        '<div class="total"><span>Total à payer</span><span>' + money(sub + fee) + '</span></div>' +
+        '<div class="pay">💳 Paiement à la ' + (state.mode === 'delivery' ? 'livraison' : 'récupération') + ' : ' + esc(s.payHint || 'espèces, Wave, Orange Money') + '</div></div>' +
+        (below ? '<div class="err">Il manque ' + money(s.minOrder - sub) + ' pour atteindre le minimum de commande (' + money(s.minOrder) + ').</div>' : '') +
+        '<div class="err" id="e"></div><button class="cta" id="go"' + (below ? ' disabled' : '') + '>Envoyer la commande · ' + money(sub + fee) + '</button>' +
+        '<button class="ghost" id="more">Continuer mes achats</button>' +
+        '<p class="hint" style="text-align:center;margin-top:12px">🔒 Pas de compte à créer. La boutique vous confirme la commande par téléphone ou WhatsApp.</p></div>';
       Array.prototype.forEach.call(sheet.querySelectorAll('[data-inc]'), function(b){ b.addEventListener('click', function(){ var id=b.getAttribute('data-inc'); setQty(id,(state.cart[id]||0)+1); keep(); draw(); }); });
       Array.prototype.forEach.call(sheet.querySelectorAll('[data-dec]'), function(b){ b.addEventListener('click', function(){ var id=b.getAttribute('data-dec'); setQty(id,(state.cart[id]||0)-1); keep(); draw(); }); });
       Array.prototype.forEach.call(sheet.querySelectorAll('[data-mode]'), function(b){ b.addEventListener('click', function(){ keep(); state.mode=b.getAttribute('data-mode'); draw(); }); });
       sheet.querySelector('#close').addEventListener('click', function(){ keep(); sheet.remove(); });
+      sheet.querySelector('#more').addEventListener('click', function(){ keep(); sheet.remove(); });
+      Array.prototype.forEach.call(sheet.querySelectorAll('[data-zoom]'), function(b){ b.addEventListener('click', function(){ zoom(b.getAttribute('data-zoom')); }); });
       sheet.querySelector('#go').addEventListener('click', send);
     }
     function keep(){
       var n = sheet.querySelector('#n'), t = sheet.querySelector('#t'), a = sheet.querySelector('#a');
       if (n) saved.name = n.value; if (t) saved.phone = t.value; if (a) saved.address = a.value;
+      var mm = sheet.querySelector('#m'); if (mm) note = mm.value;
     }
     function send(){
       keep();
@@ -353,6 +452,13 @@ input:focus,textarea:focus{border-color:var(--green)}
       state.data = d; state.cart = store('cart:' + SLUG) || {};
       if (m) return api('/orders/' + m[1]).then(showOrder);
       renderShop();
+      // Arrivée depuis un statut WhatsApp (?p=…) : on va droit aux produits mis en avant
+      var hot = HOT.filter(function(id){ return d.products.some(function(p){ return p.id === id; }); });
+      if (hot.length) {
+        var el = document.getElementById('boutique');
+        if (el) window.scrollTo(0, el.getBoundingClientRect().top + window.scrollY - 70);
+        if (hot.length === 1) showProduct(hot[0]);
+      }
     }).catch(function(e){
       app.innerHTML = '<div class="wrap"><div class="empty" style="padding-top:120px"><h2>Boutique introuvable</h2><p>' + esc(e.message) + '</p></div>';
     });
