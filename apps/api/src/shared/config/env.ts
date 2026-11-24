@@ -19,6 +19,16 @@ const BaseSchema = z.object({
   OTP_SECRET: secret,
   // Envoi des codes : console (logs, développement), orange (Orange SMS API) ou twilio
   OTP_PROVIDER: z.enum(['console', 'orange', 'twilio', 'twilio_verify']).default('console'),
+  // Compte de démonstration pour la validation Play Store / App Store : ce numéro reçoit
+  // toujours ce code, sans SMS. À ne donner qu'aux équipes de validation.
+  REVIEW_PHONE: z
+    .string()
+    .regex(/^\+\d{8,15}$/, 'numéro au format international, ex. +221770000000')
+    .optional(),
+  REVIEW_CODE: z
+    .string()
+    .regex(/^\d{6}$/, '6 chiffres')
+    .optional(),
   OTP_CONSOLE_IN_PRODUCTION: z
     .enum(['true', 'false'])
     .default('false')
@@ -118,6 +128,9 @@ const EnvSchema = BaseSchema.superRefine((e, ctx) => {
           message: `obligatoire avec ${why}`,
         });
   };
+  if (!!e.REVIEW_PHONE !== !!e.REVIEW_CODE) {
+    need(['REVIEW_PHONE', 'REVIEW_CODE'], 'compte de démonstration');
+  }
   if (e.OTP_PROVIDER === 'orange') {
     need(['ORANGE_SMS_CLIENT_ID', 'ORANGE_SMS_CLIENT_SECRET', 'ORANGE_SMS_SENDER'], 'OTP_PROVIDER=orange');
   }

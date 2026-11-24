@@ -114,6 +114,11 @@ services:
       # Adresse de contact affichée sur /cgu, /confidentialite, /suppression-compte
       - key: LEGAL_EMAIL
         sync: false
+      # Compte de démonstration pour la validation Play Store : numéro (+221…) et code à 6 chiffres
+      - key: REVIEW_PHONE
+        sync: false
+      - key: REVIEW_CODE
+        sync: false
       - key: PUBLIC_URL
         sync: false
       # Assistant IA et facture en photo : « anthropic » avec une clé, sinon « off »

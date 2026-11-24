@@ -839,7 +839,9 @@ class _CashCard extends ConsumerWidget {
                   child: const Icon(Icons.point_of_sale_rounded, size: 15, color: AppColors.glow),
                 ),
                 const SizedBox(width: 8),
+                // Le titre passe avant l'espace libre : il ne se coupe que si l'écran est vraiment étroit
                 const Flexible(
+                  flex: 6,
                   child: Text(
                     'Vendu aujourd’hui',
                     maxLines: 1,

@@ -17,6 +17,8 @@ process.env.MAX_UPLOAD_MB = '1';
 process.env.ASSISTANT_PROVIDER = 'fake'; // faux modèle : toute la chaîne testée sans API payante
 process.env.ASSISTANT_DAILY_LIMIT = '6';
 process.env.ADMIN_PHONES = '+221700000099'; // équipe Sama360 (validation des paiements Pro)
+process.env.REVIEW_PHONE = '+221700000777'; // compte de démonstration pour la validation Play Store
+process.env.REVIEW_CODE = '246810';
 process.env.PRO_PAY_TO_SN = 'Wave au 77 000 00 00 (Zolaa Tech)';
 // Paiement en ligne Chariow : l'API est simulée (fetch), les Pulses sont signés avec ce secret
 process.env.CHARIOW_API_KEY = 'sk_test_sama';
@@ -4461,6 +4463,18 @@ describe('Socle Sama360 (e2e)', () => {
         underWarranty: true,
       });
       await http.get('/v1/sales/by-serial/000').set(M()).expect(404);
+    });
+  });
+
+  describe('Compte de démonstration (validation Play Store)', () => {
+    it('le numéro de démonstration reçoit le code fixe, sans SMS', async () => {
+      const before = otp.sent.size;
+      await http.post('/v1/auth/otp/request').send({ phone: '70 000 07 77' }).expect(200);
+      expect(otp.sent.has('+221700000777')).toBe(false); // aucun SMS
+      expect(otp.sent.size).toBe(before);
+      await http.post('/v1/auth/otp/verify').send({ phone: '+221700000777', code: '111111' }).expect(400);
+      const ok = await http.post('/v1/auth/otp/verify').send({ phone: '+221700000777', code: '246810' }).expect(200);
+      expect(ok.body.accessToken).toBeTruthy();
     });
   });
 

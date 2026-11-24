@@ -74,7 +74,9 @@ export class AuthService {
       );
     }
 
-    const code = generateOtp();
+    // Compte de démonstration (validation des magasins d'applications) : code fixe, pas de SMS
+    const review = this.isReview(phone);
+    const code = review ? e.REVIEW_CODE! : generateOtp();
     const otpId = newId();
     await db.insert(otpCodes).values({
       id: otpId,
@@ -84,7 +86,7 @@ export class AuthService {
       expiresAt: new Date(Date.now() + e.OTP_TTL_SECONDS * 1000),
     });
     try {
-      await this.sender.send(phone, code, channel);
+      if (!review) await this.sender.send(phone, code, channel);
     } catch (err) {
       // Le code n'est pas parti : on l'efface pour pouvoir redemander tout de suite.
       await db.delete(otpCodes).where(eq(otpCodes.id, otpId));
@@ -166,6 +168,11 @@ export class AuthService {
    * Vérifie le dernier code envoyé à ce numéro et le consomme. Un mauvais code compte une tentative
    * (la transaction est validée, l'appelant lève l'erreur ensuite).
    */
+  private isReview(phone: string) {
+    const e = env();
+    return !!e.REVIEW_PHONE && !!e.REVIEW_CODE && phone === e.REVIEW_PHONE;
+  }
+
   private async consumeCode(tx: Tx, phone: string, code: string) {
     const e = env();
     const [otp] = await tx
@@ -183,9 +190,10 @@ export class AuthService {
       throw new AppError('OTP_TOO_MANY_ATTEMPTS', 'Trop de tentatives, demandez un nouveau code', 429);
     }
     // Code vérifié chez le fournisseur (Twilio Verify) ou comparé à celui tiré par le serveur
-    const valid = this.sender.check
-      ? await this.sender.check(phone, code)
-      : safeEqualHex(otp.codeHash, hmac(e.OTP_SECRET, `${phone}:${code}`));
+    const valid =
+      this.sender.check && !this.isReview(phone)
+        ? await this.sender.check(phone, code)
+        : safeEqualHex(otp.codeHash, hmac(e.OTP_SECRET, `${phone}:${code}`));
     if (!valid) {
       await tx
         .update(otpCodes)
