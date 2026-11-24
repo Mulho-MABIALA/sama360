@@ -459,6 +459,7 @@ class _PurchaseEditorScreenState extends ConsumerState<PurchaseEditorScreen> {
                               : 'Passer la commande',
                           busy: _busy,
                           onPressed: () => _save(),
+                          accent: true,
                         ),
                         if (!_editing && !_alreadyReceived)
                           TextButton(

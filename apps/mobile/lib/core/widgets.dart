@@ -330,19 +330,45 @@ class SamaLogo extends StatelessWidget {
   );
 }
 
+/// Style du bouton principal d'un écran (couleur d'accent, légère lueur).
+ButtonStyle accentButtonStyle() => FilledButton.styleFrom(
+  backgroundColor: AppColors.accent,
+  foregroundColor: AppColors.onAccent,
+  disabledBackgroundColor: AppColors.accent.withValues(alpha: 0.35),
+  disabledForegroundColor: AppColors.onAccent.withValues(alpha: 0.6),
+  elevation: 3,
+  shadowColor: AppColors.accent.withValues(alpha: 0.5),
+);
+
 /// Bouton plein avec indicateur de chargement intégré.
 class BusyButton extends StatelessWidget {
-  const BusyButton({super.key, required this.label, required this.busy, required this.onPressed, this.icon});
+  const BusyButton({
+    super.key,
+    required this.label,
+    required this.busy,
+    required this.onPressed,
+    this.icon,
+    this.accent = false,
+  });
   final String label;
   final bool busy;
   final VoidCallback? onPressed;
   final IconData? icon;
 
+  /// Bouton principal de l'écran : couleur d'accent ([AppColors.accent]). Un seul par écran,
+  /// sinon il n'attire plus l'œil.
+  final bool accent;
+
   @override
   Widget build(BuildContext context) => FilledButton(
+    style: accent ? accentButtonStyle() : null,
     onPressed: busy ? null : onPressed,
     child: busy
-        ? const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white))
+        ? SizedBox(
+            width: 22,
+            height: 22,
+            child: CircularProgressIndicator(strokeWidth: 2.5, color: accent ? AppColors.onAccent : Colors.white),
+          )
         : icon == null
         ? Text(label)
         : Row(

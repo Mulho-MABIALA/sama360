@@ -415,7 +415,7 @@ class _CollectSheetState extends State<_CollectSheet> {
           ),
           const SizedBox(height: 16),
           FilledButton(
-            style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(50)),
+            style: accentButtonStyle().copyWith(minimumSize: const WidgetStatePropertyAll(Size.fromHeight(50))),
             onPressed: () {
               if (_value > widget.order.total) {
                 showInfo(context, 'Le montant dépasse le total');

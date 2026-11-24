@@ -907,6 +907,7 @@ class _CheckoutPanel extends ConsumerWidget {
                       onPressed: () => context.push('/cash'),
                     )
                   : BusyButton(
+                      accent: true,
                       icon: cart.isEmpty ? null : (credit ? Icons.menu_book_rounded : Icons.check_circle_rounded),
                       label: cart.isEmpty
                           ? 'Encaisser'

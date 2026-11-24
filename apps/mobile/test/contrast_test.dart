@@ -31,6 +31,7 @@ void main() {
         check('$mode pastille verte', p.greenDark, p.greenSoft);
         check('$mode alerte', p.warnText, p.warnBg);
         check('$mode erreur sur fond', p.danger, p.ground);
+        check('$mode bouton principal (accent)', p.onAccent, p.accent);
       }
     }
     // En-tête Sama360 Pro : texte blanc sur les deux teintes du dégradé, badge « PRO » sur blanc

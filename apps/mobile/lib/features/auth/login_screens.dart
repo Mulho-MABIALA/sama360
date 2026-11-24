@@ -180,7 +180,7 @@ class _PhoneScreenState extends ConsumerState<PhoneScreen> {
                       onSubmitted: (_) => _submit(),
                     ),
                     const SizedBox(height: 18),
-                    BusyButton(label: 'Recevoir le code', busy: _busy, onPressed: _submit),
+                    BusyButton(label: 'Recevoir le code', busy: _busy, onPressed: _submit, accent: true),
                     if (showServerSetting) ...[
                       const SizedBox(height: 6),
                       TextButton.icon(
@@ -370,7 +370,7 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
                     const SizedBox(height: 16),
                     _CodeBoxes(controller: _code, error: _error, onComplete: _verify),
                     const SizedBox(height: 18),
-                    BusyButton(label: 'Valider', busy: _busy, onPressed: _verify),
+                    BusyButton(label: 'Valider', busy: _busy, onPressed: _verify, accent: true),
                     const SizedBox(height: 4),
                     TextButton.icon(
                       key: const Key('otp_resend'),
@@ -634,7 +634,7 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
               onSubmitted: (_) => _save(),
             ),
             const SizedBox(height: 20),
-            BusyButton(label: 'Continuer', busy: _busy, onPressed: _save),
+            BusyButton(label: 'Continuer', busy: _busy, onPressed: _save, accent: true),
           ],
         ),
       ),

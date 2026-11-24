@@ -437,6 +437,7 @@ class _ActionBar extends ConsumerWidget {
         Expanded(
           child: BusyButton(
             label: 'Passer la commande',
+            accent: true,
             busy: busy == 'confirm',
             onPressed: () =>
                 run('confirm', () => ref.read(repoProvider).confirmPurchase(d.id), done: 'Commande passée'),

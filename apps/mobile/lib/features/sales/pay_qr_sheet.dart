@@ -172,11 +172,7 @@ class _PayQr extends StatelessWidget {
             const SizedBox(height: 18),
             FilledButton.icon(
               key: const Key('pay_qr_received'),
-              style: FilledButton.styleFrom(
-                backgroundColor: const Color(0xFF0A7E4F),
-                foregroundColor: Colors.white,
-                minimumSize: const Size.fromHeight(54),
-              ),
+              style: accentButtonStyle().copyWith(minimumSize: const WidgetStatePropertyAll(Size.fromHeight(54))),
               onPressed: () => Navigator.pop(context, true),
               icon: const Icon(Icons.check_circle_rounded),
               label: const Text('J’ai reçu l’argent : encaisser'),

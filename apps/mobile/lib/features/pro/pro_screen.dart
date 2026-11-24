@@ -397,6 +397,7 @@ class _ProScreenState extends ConsumerState<ProScreen> with WidgetsBindingObserv
             height: 52,
             child: BusyButton(
               key: const Key('pay_online'),
+              accent: true,
               label: 'Payer $amount',
               busy: _onlineBusy,
               onPressed: _payOnline,

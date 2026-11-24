@@ -56,6 +56,19 @@ class SamaPalette {
   final Color ink, muted, ground, line, card, sheet, peach, sky;
   final Color warnBg, warnLine, warnText, warn, danger, glassLine;
 
+  /// Boutique aux couleurs chaudes (rouge, terre, kola, prune) : l'orange ne ressortirait pas.
+  bool get _warmBrand {
+    final h = HSLColor.fromColor(brand).hue;
+    return h < 50 || h > 320;
+  }
+
+  /// Couleur d'accent, réservée au bouton principal de chaque écran (celui sur lequel on veut
+  /// qu'on appuie) : orange vif sur une boutique verte ou froide, bleu électrique sur une boutique chaude.
+  Color get accent => _warmBrand ? const Color(0xFF2563EB) : const Color(0xFFFF7A2F);
+
+  /// Texte sur [accent] : brun très foncé sur l'orange (6,8:1), blanc sur le bleu (5,2:1).
+  Color get onAccent => _warmBrand ? Colors.white : const Color(0xFF2B1200);
+
   factory SamaPalette.light([Color brand = defaultBrand]) {
     const ground = Color(0xFFF4F8F5);
     // Texte et boutons : au moins 4,5:1 sur blanc et sur le fond.
@@ -157,6 +170,8 @@ abstract final class AppColors {
   static Color get warn => palette.warn;
   static Color get danger => palette.danger;
   static Color get glassLine => palette.glassLine;
+  static Color get accent => palette.accent;
+  static Color get onAccent => palette.onAccent;
 
   /// Surface claire translucide (cartes, boutons secondaires) ; vert nuit en mode sombre.
   static Color surface([double alpha = 1]) =>
