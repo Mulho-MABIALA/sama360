@@ -305,7 +305,7 @@ class _ProductEditorScreenState extends ConsumerState<ProductEditorScreen> {
                                     controller: _qty,
                                     keyboardType: const TextInputType.numberWithOptions(decimal: true),
                                     decoration: InputDecoration(
-                                      labelText: 'Quantité en stock',
+                                      labelText: 'Quantité',
                                       suffixText: _unit,
                                       hintText: '0',
                                     ),

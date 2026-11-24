@@ -15,6 +15,7 @@ import '../offline/offline_ui.dart';
 import '../profile/profile_screen.dart';
 import '../notifications/notifications_screen.dart' show tabRoutes;
 import '../../core/charts.dart';
+import '../../core/display.dart';
 import 'onboarding_card.dart';
 import '../../core/privacy.dart';
 import '../../core/skeleton.dart';
@@ -183,16 +184,7 @@ const _assistant = _Service(
 
 /// Accueil : 7 tuiles + « Plus ». Ventes, Stock et Clients n'y sont pas : ils sont déjà dans la barre
 /// du bas (un même accès à deux endroits fait hésiter). Une tuile sans le droit nécessaire laisse sa place.
-const _homeOrder = [
-  _cash,
-  _invoices,
-  _purchases,
-  _reports,
-  _expenses,
-  _reminders,
-  _loyalty,
-  _delivery,
-];
+const _homeOrder = [_cash, _invoices, _purchases, _reports, _expenses, _reminders, _loyalty, _delivery];
 
 /// « Plus » : tous les services, par famille.
 const _groups = <(String, List<_Service>)>[
@@ -214,6 +206,8 @@ class HomeScreen extends ConsumerWidget {
     final lowStock = canStock ? ref.watch(stockProvider).value?.lowStock ?? 0 : 0;
     final hasShop = ref.watch(currentBusinessProvider).value?.modules.contains('shop') ?? false;
     final newShopOrders = hasShop && ref.can('sales:read') ? ref.watch(shopProvider).value?.newOrders ?? 0 : 0;
+
+    final simple = ref.watch(displaySettingsProvider).simple;
 
     // Activité « services » : les rendez-vous passent devant le stock sur l'accueil
     final services = ref.watch(currentBusinessProvider).value?.focus == 'services';
@@ -260,36 +254,49 @@ class HomeScreen extends ConsumerWidget {
                   if (newShopOrders > 0) ...[_ShopOrdersBanner(count: newShopOrders), const SizedBox(height: 12)],
                   if (lowStock > 0) ...[_LowStockBanner(count: lowStock), const SizedBox(height: 18)],
                   const OnboardingCard(),
-                  const _SectionTitle('Vos services'),
-                  const SizedBox(height: 10),
-                  // Comme Wave : une seule carte, des icônes dans des carrés doux, sans tuile autour.
-                  Glass(
-                    radius: 24,
-                    blur: 14,
-                    padding: const EdgeInsets.fromLTRB(6, 14, 6, 6),
-                    child: GridView.count(
-                      crossAxisCount: 4,
-                      shrinkWrap: true,
-                      padding: EdgeInsets.zero,
-                      physics: const NeverScrollableScrollPhysics(),
-                      mainAxisSpacing: 6,
-                      crossAxisSpacing: 4,
-                      childAspectRatio: 1.0,
-                      children: [
-                        for (final s in shown) _ServiceTile(service: s, onTap: () => open(s)),
-                        _ServiceTile(
-                          service: const _Service('Plus', Icons.apps_rounded, Color(0xFF5E6E66)),
-                          onTap: () => _showMore(context, ref, open),
-                        ),
-                      ],
+                  if (simple) ...[
+                    _SimpleHome(onMore: () => _showMore(context, ref, open)),
+                  ] else ...[
+                    const _SectionTitle('Vos services'),
+                    const SizedBox(height: 10),
+                    // Comme Wave : une seule carte, des icônes dans des carrés doux, sans tuile autour.
+                    Glass(
+                      radius: 24,
+                      blur: 14,
+                      padding: const EdgeInsets.fromLTRB(6, 14, 6, 6),
+                      child: GridView.count(
+                        crossAxisCount: 4,
+                        shrinkWrap: true,
+                        padding: EdgeInsets.zero,
+                        physics: const NeverScrollableScrollPhysics(),
+                        mainAxisSpacing: 6,
+                        crossAxisSpacing: 4,
+                        childAspectRatio: 1.0,
+                        children: [
+                          for (final s in shown) _ServiceTile(service: s, onTap: () => open(s)),
+                          _ServiceTile(
+                            service: const _Service('Plus', Icons.apps_rounded, Color(0xFF5E6E66)),
+                            onTap: () => _showMore(context, ref, open),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                  if (canReports) const LocationsOfDay(),
-                  if (canReports) const _SellersOfDay(),
-                  const SizedBox(height: 22),
-                  const _SectionTitle('À la une'),
-                  const SizedBox(height: 10),
-                  const PromoCarousel(),
+                    if (canReports) const LocationsOfDay(),
+                    if (canReports) const _SellersOfDay(),
+                    const SizedBox(height: 22),
+                    const _SectionTitle('À la une'),
+                    const SizedBox(height: 10),
+                    const PromoCarousel(),
+                    const SizedBox(height: 10),
+                    Center(
+                      child: TextButton.icon(
+                        key: const Key('simple_mode_on'),
+                        onPressed: () => ref.read(displaySettingsProvider.notifier).setSimple(true),
+                        icon: const Icon(Icons.touch_app_rounded, size: 18),
+                        label: const Text('Trop de choses ? Passer en mode simple'),
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -364,6 +371,130 @@ class HomeScreen extends ConsumerWidget {
       ref.invalidate(summaryProvider);
       showInfo(context, 'Dépense enregistrée');
     }
+  }
+}
+
+/// Accueil en mode simple : 4 grandes actions, puis « Plus d'outils ».
+class _SimpleHome extends ConsumerWidget {
+  const _SimpleHome({required this.onMore});
+  final VoidCallback onMore;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final actions = [
+      if (ref.can('sales:create'))
+        (
+          key: 'simple_sell',
+          icon: Icons.point_of_sale_rounded,
+          color: const Color(0xFF0A8453),
+          label: 'Vendre',
+          hint: 'Encaisser un client',
+          route: '/pos',
+          tab: true,
+        ),
+      if (ref.can('catalog:write'))
+        (
+          key: 'simple_product',
+          icon: Icons.add_box_rounded,
+          color: const Color(0xFF7A5AF8),
+          label: 'Ajouter un produit',
+          hint: 'Nom, prix, quantité',
+          route: '/products/new',
+          tab: false,
+        ),
+      if (ref.can('contacts:read'))
+        (
+          key: 'simple_owed',
+          icon: Icons.menu_book_rounded,
+          color: const Color(0xFFD9822B),
+          label: 'Qui me doit ?',
+          hint: 'Clients à crédit',
+          route: '/customers',
+          tab: true,
+        ),
+      if (ref.can('reports:read'))
+        (
+          key: 'simple_day',
+          icon: Icons.today_rounded,
+          color: const Color(0xFF2563EB),
+          label: 'Ma journée',
+          hint: 'Vendu et gagné',
+          route: '/reports',
+          tab: false,
+        ),
+    ];
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const _SectionTitle('Que voulez-vous faire ?'),
+        const SizedBox(height: 10),
+        LayoutBuilder(
+          builder: (context, c) {
+            final w = (c.maxWidth - 12) / 2;
+            return Wrap(
+              spacing: 12,
+              runSpacing: 12,
+              children: [
+                for (final a in actions)
+                  SizedBox(
+                    width: w,
+                    height: 132,
+                    child: Glass(
+                      key: Key(a.key),
+                      radius: 24,
+                      onTap: () => a.tab ? context.go(a.route) : context.push(a.route),
+                      padding: const EdgeInsets.all(14),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Container(
+                            width: 46,
+                            height: 46,
+                            decoration: BoxDecoration(
+                              color: a.color.withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                            child: Icon(a.icon, color: a.color, size: 28),
+                          ),
+                          const Spacer(),
+                          Text(
+                            a.label,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16),
+                          ),
+                          Text(
+                            a.hint,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(color: AppColors.muted, fontSize: 12.5),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+              ],
+            );
+          },
+        ),
+        const SizedBox(height: 12),
+        OutlinedButton.icon(
+          key: const Key('simple_more'),
+          style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(52)),
+          onPressed: onMore,
+          icon: const Icon(Icons.apps_rounded),
+          label: const Text('Plus d’outils'),
+        ),
+        const SizedBox(height: 6),
+        Center(
+          child: TextButton(
+            key: const Key('simple_mode_off'),
+            onPressed: () => ref.read(displaySettingsProvider.notifier).setSimple(false),
+            child: const Text('Afficher tout l’accueil'),
+          ),
+        ),
+      ],
+    );
   }
 }
 
@@ -1147,9 +1278,7 @@ class _ServiceTile extends ConsumerWidget {
     );
     return Semantics(
       button: true,
-      label: locked
-          ? '${service.name}, fonction Pro'
-          : service.name,
+      label: locked ? '${service.name}, fonction Pro' : service.name,
       excludeSemantics: true,
       child: InkWell(
         onTap: onTap,

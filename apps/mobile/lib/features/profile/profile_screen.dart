@@ -320,6 +320,21 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     title: 'Application',
                     children: [
                       SettingsRow(
+                        key: const Key('simple_mode_row'),
+                        icon: Icons.touch_app_rounded,
+                        color: const Color(0xFFFF7A00),
+                        label: 'Mode simple',
+                        value: ref.watch(displaySettingsProvider).simple ? 'Activé' : 'Désactivé',
+                        hint: 'Accueil avec l’essentiel : vendre, produits, qui me doit, ma journée',
+                        trailing: Switch(
+                          value: ref.watch(displaySettingsProvider).simple,
+                          onChanged: (v) => ref.read(displaySettingsProvider.notifier).setSimple(v),
+                        ),
+                        onTap: () => ref
+                            .read(displaySettingsProvider.notifier)
+                            .setSimple(!ref.read(displaySettingsProvider).simple),
+                      ),
+                      SettingsRow(
                         icon: Icons.palette_rounded,
                         color: const Color(0xFF7A5AF8),
                         label: 'Affichage',
