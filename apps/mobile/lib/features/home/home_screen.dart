@@ -24,7 +24,7 @@ import 'monument.dart';
 import 'promo_carousel.dart';
 
 class _Service {
-  const _Service(this.name, this.icon, this.color, {this.route, this.soon = false, this.art, this.pro, this.perm});
+  const _Service(this.name, this.icon, this.color, {this.route, this.art, this.pro, this.perm});
   final String name;
   final IconData icon;
   final Color color;
@@ -32,7 +32,6 @@ class _Service {
   /// Icône en relief (`assets/icons3d/<art>.png`, Fluent Emoji 3D de Microsoft, licence MIT).
   final String? art;
   final String? route;
-  final bool soon;
 
   /// Fonction Sama360 Pro : sans Pro, la tuile mène à l'offre.
   final ProFeature? pro;
@@ -66,7 +65,6 @@ const _invoices = _Service(
   art: 'factures',
   perm: 'invoicing:read',
 );
-const _payments = _Service('Paiements', Icons.qr_code_2_rounded, Color(0xFF1D7AF0), soon: true, art: 'paiements');
 const _customers = _Service(
   'Clients',
   Icons.people_alt_rounded,
@@ -183,25 +181,22 @@ const _assistant = _Service(
   pro: ProFeature.assistant,
 );
 
-/// Accueil : 7 tuiles dans l'ordre du travail (vendre, puis gérer) + « Plus ».
-/// Ligne 1 : Ventes · Caisse · Clients · Factures — ligne 2 : Stock · Achats · Rapports.
-/// Une tuile sans le droit nécessaire laisse sa place aux suivantes.
+/// Accueil : 7 tuiles + « Plus ». Ventes, Stock et Clients n'y sont pas : ils sont déjà dans la barre
+/// du bas (un même accès à deux endroits fait hésiter). Une tuile sans le droit nécessaire laisse sa place.
 const _homeOrder = [
-  _sales,
   _cash,
-  _customers,
   _invoices,
-  _stock,
   _purchases,
   _reports,
   _expenses,
   _reminders,
   _loyalty,
+  _delivery,
 ];
 
 /// « Plus » : tous les services, par famille.
 const _groups = <(String, List<_Service>)>[
-  ('Vendre', [_sales, _cash, _invoices, _payments]),
+  ('Vendre', [_sales, _cash, _invoices]),
   ('Clients', [_customers, _reminders, _loyalty]),
   ('Stock et achats', [_stock, _purchases, _delivery]),
   ('En ligne', [_shop, _booking]),
@@ -223,14 +218,13 @@ class HomeScreen extends ConsumerWidget {
     // Activité « services » : les rendez-vous passent devant le stock sur l'accueil
     final services = ref.watch(currentBusinessProvider).value?.focus == 'services';
     final shown = [
+      if (services) _booking,
       for (final s in _homeOrder)
-        if (s.perm == null || ref.can(s.perm!)) services && s == _stock ? _booking : s,
+        if (s.perm == null || ref.can(s.perm!)) s,
     ].take(7).toList();
 
     void open(_Service s) {
-      if (s.soon) {
-        showInfo(context, '${s.name} arrive bientôt sur Sama360');
-      } else if (s.pro != null && !ref.read(isProProvider)) {
+      if (s.pro != null && !ref.read(isProProvider)) {
         context.push('/pro?feature=${s.pro!.key}');
       } else if (s.route == '/documents' && !ref.can('documents:read')) {
         showInfo(context, 'Documents : réservé au propriétaire, au gérant et au comptable');
@@ -1153,9 +1147,7 @@ class _ServiceTile extends ConsumerWidget {
     );
     return Semantics(
       button: true,
-      label: service.soon
-          ? '${service.name}, bientôt disponible'
-          : locked
+      label: locked
           ? '${service.name}, fonction Pro'
           : service.name,
       excludeSemantics: true,
@@ -1198,19 +1190,6 @@ class _ServiceTile extends ConsumerWidget {
                       child: const Text(
                         'PRO',
                         style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w800),
-                      ),
-                    ),
-                  ),
-                if (service.soon)
-                  Positioned(
-                    top: -6,
-                    right: -10,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
-                      decoration: BoxDecoration(color: AppColors.ink, borderRadius: BorderRadius.circular(6)),
-                      child: Text(
-                        'Bientôt',
-                        style: TextStyle(color: AppColors.ground, fontSize: 11, fontWeight: FontWeight.w700),
                       ),
                     ),
                   ),
