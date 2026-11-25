@@ -25,6 +25,11 @@ import 'features/auth/login_screens.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // Safari sur iPhone : sans flou ni fond animé (voir main.dart)
+  if (Motion.iosWeb) {
+    Motion.blur = false;
+    Motion.enabled = false;
+  }
   await initializeDateFormatting('fr');
   KeyValueStore store;
   try {

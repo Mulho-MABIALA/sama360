@@ -607,7 +607,7 @@ class MonumentHeader extends StatelessWidget {
   );
 }
 
-/// Étape 3 (première connexion) : nom.
+/// Étape 3 (première connexion) : prénom et nom, dans le même décor que la connexion.
 class ProfileSetupScreen extends ConsumerStatefulWidget {
   const ProfileSetupScreen({super.key});
   @override
@@ -615,20 +615,31 @@ class ProfileSetupScreen extends ConsumerStatefulWidget {
 }
 
 class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
-  final _name = TextEditingController();
+  final _first = TextEditingController();
+  final _last = TextEditingController();
+  final _lastFocus = FocusNode();
   bool _busy = false;
+  String? _firstError, _lastError;
 
   @override
   void dispose() {
-    _name.dispose();
+    _first.dispose();
+    _last.dispose();
+    _lastFocus.dispose();
     super.dispose();
   }
 
   Future<void> _save() async {
-    if (_name.text.trim().length < 2) return;
+    final first = _first.text.trim().replaceAll(RegExp(r'\s+'), ' ');
+    final last = _last.text.trim().replaceAll(RegExp(r'\s+'), ' ');
+    setState(() {
+      _firstError = first.length < 2 ? 'Entrez votre prénom' : null;
+      _lastError = last.length < 2 ? 'Entrez votre nom' : null;
+    });
+    if (_firstError != null || _lastError != null) return;
     setState(() => _busy = true);
     try {
-      await ref.read(authProvider.notifier).saveName(_name.text);
+      await ref.read(authProvider.notifier).saveName('$first $last');
     } catch (e) {
       if (mounted) showError(context, e);
     } finally {
@@ -638,26 +649,140 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final top = MediaQuery.paddingOf(context).top;
     return AuroraScaffold(
-      body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(24, 48, 24, 24),
-          children: [
-            const Text('Bienvenue sur Sama360', style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800)),
-            const SizedBox(height: 6),
-            Text('Comment vous appelez-vous ?', style: TextStyle(color: AppColors.muted, fontSize: 15)),
-            const SizedBox(height: 24),
-            TextField(
-              key: const Key('fullName'),
-              controller: _name,
-              autofocus: true,
-              textCapitalization: TextCapitalization.words,
-              decoration: const InputDecoration(labelText: 'Prénom et nom'),
-              onSubmitted: (_) => _save(),
-            ),
-            const SizedBox(height: 20),
-            BusyButton(label: 'Continuer', busy: _busy, onPressed: _save, accent: true),
-          ],
+      body: Align(
+        alignment: Alignment.topCenter,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 560),
+          child: ListView(
+            padding: EdgeInsets.zero,
+            children: [
+              MonumentHeader(
+                child: Padding(
+                  padding: EdgeInsets.fromLTRB(24, top + 36, 24, 64),
+                  child: const Column(
+                    children: [
+                      MirrorReflection(size: 68, child: BrandMark(size: 68)),
+                      SizedBox(height: 12),
+                      Text(
+                        'Bienvenue sur Sama360',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(color: Colors.white, fontSize: 25, fontWeight: FontWeight.w800),
+                      ),
+                      SizedBox(height: 4),
+                      Text(
+                        'Faisons connaissance',
+                        style: TextStyle(color: Color(0xFFE6F4EE), fontSize: 15, fontWeight: FontWeight.w600),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              Transform.translate(
+                offset: const Offset(0, -36),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 18),
+                  child: Glass(
+                    radius: 28,
+                    padding: const EdgeInsets.fromLTRB(20, 22, 20, 20),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        const Text('Quel est votre nom ?', style: TextStyle(fontSize: 21, fontWeight: FontWeight.w800)),
+                        const SizedBox(height: 6),
+                        Text(
+                          'Il s’affiche dans votre profil et auprès de votre équipe.',
+                          style: TextStyle(color: AppColors.muted),
+                        ),
+                        const SizedBox(height: 18),
+                        TextField(
+                          key: const Key('firstName'),
+                          controller: _first,
+                          autofocus: true,
+                          textCapitalization: TextCapitalization.words,
+                          textInputAction: TextInputAction.next,
+                          autofillHints: const [AutofillHints.givenName],
+                          decoration: InputDecoration(
+                            labelText: 'Prénom',
+                            hintText: 'Ex. Awa',
+                            prefixIcon: const Icon(Icons.person_rounded),
+                            errorText: _firstError,
+                          ),
+                          onChanged: (_) => _firstError == null ? null : setState(() => _firstError = null),
+                          onSubmitted: (_) => _lastFocus.requestFocus(),
+                        ),
+                        const SizedBox(height: 12),
+                        TextField(
+                          key: const Key('lastName'),
+                          controller: _last,
+                          focusNode: _lastFocus,
+                          textCapitalization: TextCapitalization.words,
+                          textInputAction: TextInputAction.done,
+                          autofillHints: const [AutofillHints.familyName],
+                          decoration: InputDecoration(
+                            labelText: 'Nom',
+                            hintText: 'Ex. Ndiaye',
+                            prefixIcon: const Icon(Icons.badge_rounded),
+                            errorText: _lastError,
+                          ),
+                          onChanged: (_) => _lastError == null ? null : setState(() => _lastError = null),
+                          onSubmitted: (_) => _save(),
+                        ),
+                        const SizedBox(height: 20),
+                        BusyButton(
+                          key: const Key('profile_continue'),
+                          label: 'Continuer',
+                          busy: _busy,
+                          onPressed: _save,
+                          accent: true,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              // Ce qui attend le commerçant : remplit le bas de l'écran avec du concret
+              Padding(
+                padding: const EdgeInsets.fromLTRB(26, 0, 26, 32),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Ensuite, en 1 minute',
+                      style: TextStyle(color: AppColors.muted, fontWeight: FontWeight.w800, fontSize: 13),
+                    ),
+                    const SizedBox(height: 10),
+                    for (final (icon, text) in const [
+                      (Icons.storefront_rounded, 'Vous créez votre boutique et choisissez votre métier'),
+                      (Icons.point_of_sale_rounded, 'Vous ajoutez vos produits et faites votre première vente'),
+                      (Icons.workspace_premium_rounded, 'Sama360 Pro offert pendant 30 jours'),
+                    ])
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 10),
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 34,
+                              height: 34,
+                              decoration: BoxDecoration(
+                                color: AppColors.green.withValues(alpha: 0.12),
+                                borderRadius: BorderRadius.circular(11),
+                              ),
+                              child: Icon(icon, size: 19, color: AppColors.green),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(text, style: const TextStyle(fontWeight: FontWeight.w600)),
+                            ),
+                          ],
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

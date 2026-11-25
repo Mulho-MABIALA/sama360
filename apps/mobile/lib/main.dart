@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'core/api/session_store.dart';
 import 'core/display.dart';
+import 'core/glass.dart';
 import 'core/offline/kv_store.dart';
 import 'core/offline/pending_sales.dart';
 import 'core/providers.dart';
@@ -17,6 +18,11 @@ import 'router.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // Safari sur iPhone : sans flou ni fond animé, sinon la page plante par manque de mémoire
+  if (Motion.iosWeb) {
+    Motion.blur = false;
+    Motion.enabled = false;
+  }
   await initializeDateFormatting('fr');
   // Cache hors ligne et ventes en attente : gardés sur le téléphone entre deux lancements.
   KeyValueStore store;

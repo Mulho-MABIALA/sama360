@@ -14,6 +14,8 @@ import 'package:intl/date_symbol_data_local.dart';
 import 'package:material_ui/material_ui.dart';
 
 import 'admin_test.dart' show adminRepo;
+import 'package:sama360/features/auth/auth_controller.dart';
+
 import 'helpers.dart';
 
 Future<void> _shot(WidgetTester tester, String name) async {
@@ -141,6 +143,11 @@ void main() {
     });
   }
   // Suggestions : l'écran du commerçant, et ce que l'équipe reçoit (avec le suivi par semaine)
+  testWidgets('65_nom', (tester) async {
+    phoneSize(tester);
+    await pumpSama(tester, auth: _NoNameAuth.new);
+    await _shot(tester, '65_nom');
+  });
   testWidgets('62_suggestions', (tester) async {
     phoneSize(tester);
     await pumpSama(tester, location: '/feedback');
@@ -199,4 +206,11 @@ void main() {
       await _shot(tester, e.key);
     });
   }
+}
+
+class _NoNameAuth extends AuthController {
+  @override
+  Future<AuthState> build() async => const AuthState(
+    me: Me(id: 'u1', phone: '+221771234567', fullName: null, createdAt: null, businesses: []),
+  );
 }

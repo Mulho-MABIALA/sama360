@@ -1,5 +1,4 @@
 import 'dart:math' as math;
-import 'dart:ui' show ImageFilter;
 
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -496,9 +495,9 @@ class _Key extends StatelessWidget {
             ? tap
             // Effet miroir : verre dépoli (la photo floutée dessous), reflet en haut à gauche, liseré clair
             : ClipOval(
-                child: BackdropFilter(
-                  filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
-                  child: DecoratedBox(
+                child: maybeBlur(
+                  16,
+                  DecoratedBox(
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       gradient: LinearGradient(

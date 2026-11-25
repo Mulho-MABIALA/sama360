@@ -1,6 +1,8 @@
 import 'dart:math' as math;
 import 'dart:ui' show ImageFilter;
 
+import 'package:flutter/foundation.dart' show kIsWeb, defaultTargetPlatform;
+
 import 'package:material_ui/material_ui.dart';
 
 import 'theme.dart';
@@ -9,6 +11,13 @@ import 'theme.dart';
 /// moins d'animations, et dans les tests ([enabled] = false).
 abstract final class Motion {
   static bool enabled = true;
+
+  /// Flou d'arrière-plan (verre dépoli). Coupé dans Safari sur iPhone / iPad : chaque flou
+  /// réserve de la mémoire graphique et Safari finit par recharger la page en boucle.
+  static bool blur = true;
+
+  /// Navigateur d'iPhone ou d'iPad (Safari, ou WhatsApp qui l'utilise).
+  static bool get iosWeb => kIsWeb && defaultTargetPlatform == TargetPlatform.iOS;
 
   static bool of(BuildContext context) {
     final m = MediaQuery.maybeOf(context);
@@ -248,9 +257,9 @@ class Glass extends StatelessWidget {
       ),
       child: ClipRRect(
         borderRadius: r,
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: blur, sigmaY: blur),
-          child: CustomPaint(
+        child: _maybeBlur(
+          blur,
+          CustomPaint(
             painter: _GlassFillPainter(radius: radius, dark: dark, night: night, tint: tint),
             foregroundPainter: _GlassBorderPainter(radius: radius, dark: dark, night: night),
             child: content,
@@ -587,3 +596,14 @@ class BrandMark extends StatelessWidget {
     ),
   );
 }
+
+/// Flou d'arrière-plan, sauf là où il est coupé (Motion.blur).
+Widget _maybeBlur(double sigma, Widget child) => Motion.blur
+    ? BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: sigma, sigmaY: sigma),
+        child: child,
+      )
+    : child;
+
+/// Pour les autres écrans : même règle que les cartes en verre.
+Widget maybeBlur(double sigma, Widget child) => _maybeBlur(sigma, child);

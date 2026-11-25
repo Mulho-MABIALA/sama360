@@ -2406,6 +2406,15 @@ class FakeRepo extends SamaRepository {
   @override
   Future<Me> me() async => profile;
 
+  /// Nom saisi à la première connexion
+  String? savedName;
+
+  @override
+  Future<void> updateName(String fullName) async {
+    savedName = fullName;
+    await updateProfile(fullName: fullName);
+  }
+
   @override
   Future<void> updateProfile({required String fullName, String? email}) async => profile = Me(
     id: profile.id,
@@ -2600,6 +2609,7 @@ Future<(ProviderContainer, FakeRepo)> pumpSama(
   PushPlatform push = const NoPush(),
   PinStore? pinStore,
   Biometrics? biometrics,
+  AuthController Function()? auth,
 }) async {
   pinUseIsolate = false; // calcul du code secret sur place (temps simulé des tests)
   Motion.enabled = false; // animations d'ambiance infinies : incompatibles avec pumpAndSettle
@@ -2614,7 +2624,7 @@ Future<(ProviderContainer, FakeRepo)> pumpSama(
       pinStoreProvider.overrideWithValue(pinStore ?? MemoryPinStore()),
       biometricsProvider.overrideWithValue(biometrics ?? FakeBiometrics()),
       repoProvider.overrideWithValue(repo),
-      authProvider.overrideWith(FakeAuth.new),
+      authProvider.overrideWith(auth ?? FakeAuth.new),
       // Notifications push : pas de Firebase dans les tests
       pushPlatformProvider.overrideWithValue(push),
       if (dark) keyValueStoreProvider.overrideWithValue(MemoryStore()..data['display.settings'] = '{"mode":"dark"}'),
