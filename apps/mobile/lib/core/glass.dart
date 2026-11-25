@@ -217,8 +217,12 @@ class Glass extends StatelessWidget {
     this.onTap,
     this.shadow = true,
     this.tint,
+    this.outlined = false,
   });
   final Widget child;
+
+  /// Contour net (cartes qu'on veut faire ressortir)
+  final bool outlined;
   final double radius;
   final double blur;
   final GlassTone tone;
@@ -241,7 +245,8 @@ class Glass extends StatelessWidget {
         child: InkWell(borderRadius: r, onTap: onTap, child: content),
       );
     }
-    return DecoratedBox(
+    final glass = DecoratedBox(
+      position: DecorationPosition.background,
       decoration: BoxDecoration(
         borderRadius: r,
         boxShadow: shadow
@@ -266,6 +271,15 @@ class Glass extends StatelessWidget {
           ),
         ),
       ),
+    );
+    if (!outlined) return glass;
+    return DecoratedBox(
+      position: DecorationPosition.foreground,
+      decoration: BoxDecoration(
+        borderRadius: r,
+        border: Border.all(color: AppColors.cardLine, width: 1.3),
+      ),
+      child: glass,
     );
   }
 }

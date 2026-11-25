@@ -89,7 +89,7 @@ a{color:inherit}
   background:var(--deep);color:#fff;padding:15px 22px;font-weight:800;font-size:15.5px;box-shadow:0 14px 34px rgba(0,0,0,.3)}
 .bar button span:last-child{background:var(--cream);color:var(--deep);border-radius:999px;padding:6px 12px;margin:-6px -10px -6px 0}
 .sheet{position:fixed;inset:0;background:rgba(10,18,14,.5);z-index:20;display:flex;align-items:flex-end;justify-content:center}
-.panel{background:#FAF9F6;width:100%;max-width:560px;max-height:92vh;overflow:auto;border-radius:26px 26px 0 0;padding:18px 18px calc(18px + env(safe-area-inset-bottom))}
+.panel{background:#FAF9F6;width:100%;max-width:560px;max-height:92vh;max-height:92dvh;overflow:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;border-radius:26px 26px 0 0;padding:18px 18px calc(18px + env(safe-area-inset-bottom))}
 .panel h2{margin:4px 0 12px;font-family:var(--serif);font-weight:400;font-size:26px}
 .row{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--line)}
 .row:last-child{border-bottom:0}
@@ -161,8 +161,8 @@ input:focus,textarea:focus{border-color:var(--green)}
 .val.on{background:var(--deep);border-color:var(--deep);color:#fff}
 .val.off{color:#A9B0AC;text-decoration:line-through}
 .val.off.on{color:#fff}
-.pd{padding:0;overflow:hidden}
-.pd .img{aspect-ratio:1;background:linear-gradient(160deg,var(--soft),color-mix(in srgb,var(--green) 18%,#fff));display:grid;place-items:center;color:var(--green);font-family:var(--serif);font-size:64px;position:relative}
+.pd{padding:0;overflow-x:hidden;overflow-y:auto}
+.pd .img{width:100%;aspect-ratio:1;max-height:52vh;max-height:52dvh;background:linear-gradient(160deg,var(--soft),color-mix(in srgb,var(--green) 18%,#fff));display:grid;place-items:center;color:var(--green);font-family:var(--serif);font-size:64px;position:relative}
 .pd .img img{width:100%;height:100%;object-fit:cover}
 .pd .gal{position:absolute;inset:0;display:flex;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none}
 .pd .gal::-webkit-scrollbar{display:none}

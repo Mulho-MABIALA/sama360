@@ -58,14 +58,6 @@ class _ShopScreenState extends ConsumerState<ShopScreen> {
     return AuroraScaffold(
       appBar: AppBar(
         title: const Text('Boutique en ligne', style: TextStyle(fontWeight: FontWeight.w800)),
-        actions: [
-          if (canSettings)
-            IconButton(
-              tooltip: 'Réglages de la boutique',
-              icon: const Icon(Icons.tune_rounded),
-              onPressed: () => context.push('/shop/settings'),
-            ),
-        ],
       ),
       body: AsyncView<ShopOverview>(
         value: shop,
@@ -88,6 +80,7 @@ class _ShopScreenState extends ConsumerState<ShopScreen> {
       const SizedBox(height: 10),
       Glass(
         key: const Key('open_status'),
+        outlined: true,
         radius: 18,
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         onTap: () => context.push('/status'),
@@ -126,6 +119,7 @@ class _ShopScreenState extends ConsumerState<ShopScreen> {
       ),
       const SizedBox(height: 10),
       Glass(
+        outlined: true,
         radius: 18,
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         onTap: () => context.push('/shop/products'),
@@ -257,6 +251,7 @@ class _LinkCard extends ConsumerWidget {
         style: FilledButton.styleFrom(
           backgroundColor: Colors.white.withValues(alpha: 0.18),
           foregroundColor: Colors.white,
+          side: BorderSide(color: Colors.white.withValues(alpha: 0.55), width: 1.2),
           minimumSize: const Size.fromHeight(40),
           padding: const EdgeInsets.symmetric(horizontal: 6),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -298,6 +293,8 @@ class _LinkCard extends ConsumerWidget {
                       }),
                     ],
                   ),
+                  // Un peu d'air sous les boutons
+                  const SizedBox(height: 8),
                 ],
               ),
             ),
@@ -320,17 +317,27 @@ class _LinkCard extends ConsumerWidget {
                 ),
               ),
             ),
-            Positioned(
-              top: 8,
-              right: 8,
-              child: IconButton(
-                key: const Key('shop_edit_cover'),
-                tooltip: 'Modifier la vitrine',
-                style: IconButton.styleFrom(backgroundColor: const Color(0x66000000), foregroundColor: Colors.white),
-                onPressed: () => context.push('/shop/settings'),
-                icon: const Icon(Icons.edit_rounded, size: 18),
+            // Seul accès aux réglages : bien visible, orange et nommé
+            if (ref.watch(canProvider('catalog:write')))
+              Positioned(
+                top: 10,
+                right: 10,
+                child: FilledButton.icon(
+                  key: const Key('shop_edit_cover'),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: AppColors.orange,
+                    foregroundColor: Colors.white,
+                    minimumSize: const Size(0, 36),
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    elevation: 3,
+                    textStyle: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
+                  ),
+                  onPressed: () => context.push('/shop/settings'),
+                  icon: const Icon(Icons.edit_rounded, size: 17),
+                  label: const Text('Modifier'),
+                ),
               ),
-            ),
           ],
         ),
         const SizedBox(height: 8),
