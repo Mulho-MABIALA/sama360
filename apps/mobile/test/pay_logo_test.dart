@@ -15,9 +15,7 @@ void main() {
       PayMethod.airtelMoney,
     ];
     await tester.pumpWidget(
-      MaterialApp(
-        home: Row(children: [for (final m in withLogo) PayLogo(m), const PayLogo(PayMethod.cash)]),
-      ),
+      MaterialApp(home: Row(children: [for (final m in withLogo) PayLogo(m), const PayLogo(PayMethod.cash)])),
     );
     final images = tester.widgetList<Image>(find.byType(Image)).toList();
     expect(images, hasLength(withLogo.length));

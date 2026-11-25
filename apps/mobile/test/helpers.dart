@@ -320,7 +320,11 @@ class FakeRepo extends SamaRepository {
     methods: businessCountry.mobileMoney,
     referralCode: referralInfo.code,
     online: proOnline,
+    onlineCycles: proOnlineCycles,
   );
+
+  /// Durées payables en ligne
+  List<String> proOnlineCycles = const ['weekly', 'monthly', 'yearly'];
 
   /// Paiement en ligne (Chariow) proposé
   bool proOnline = false;

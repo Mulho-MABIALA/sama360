@@ -74,7 +74,11 @@ void main() {
 
     await tester.scrollUntilVisible(find.text('Meilleurs produits'), 300, scrollable: find.byType(Scrollable).first);
     expect(find.text('Moyens de paiement'), findsNothing);
-    await tester.scrollUntilVisible(find.byKey(const Key('report_more')), 300, scrollable: find.byType(Scrollable).first);
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('report_more')),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
     await tester.tap(find.byKey(const Key('report_more')));
     await tester.pumpAndSettle();
     await tester.scrollUntilVisible(find.text('Moyens de paiement'), 300, scrollable: find.byType(Scrollable).first);

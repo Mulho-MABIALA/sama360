@@ -233,7 +233,7 @@ abstract final class AppTheme {
     final border = OutlineInputBorder(
       borderRadius: BorderRadius.circular(14),
       // Contour visible : sur fond clair, un champ blanc sans bord se perd dans la page
-      borderSide: BorderSide(color: dark ? p.line : Color.lerp(p.line, p.ink, 0.14)!, width: 1.2),
+      borderSide: BorderSide(color: dark ? p.line : Color.lerp(p.line, p.ink, 0.3)!, width: 1.3),
     );
     return base.copyWith(
       textTheme: text.apply(bodyColor: p.ink, displayColor: p.ink),

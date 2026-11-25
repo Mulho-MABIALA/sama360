@@ -148,6 +148,33 @@ void main() {
     await pumpSama(tester, auth: _NoNameAuth.new);
     await _shot(tester, '65_nom');
   });
+  // Retouches du test : création d'entreprise, « Plus », conditions
+  testWidgets('66_creation', (tester) async {
+    phoneSize(tester);
+    await pumpSama(tester, location: '/business');
+    await tester.tap(find.text('Créer une entreprise'));
+    await tester.pumpAndSettle();
+    await _shot(tester, '66_creation');
+  });
+  testWidgets('67_plus', (tester) async {
+    phoneSize(tester);
+    await pumpSama(tester, repo: FakeRepo()..businessCategory = 'cosmetique');
+    await tester.ensureVisible(find.byIcon(Icons.apps_rounded));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byIcon(Icons.apps_rounded));
+    await tester.pumpAndSettle();
+    await tester.drag(find.text('Tous les services'), const Offset(0, -900));
+    await tester.pumpAndSettle();
+    await _shot(tester, '67_plus');
+  });
+  testWidgets('68_conditions', (tester) async {
+    phoneSize(tester);
+    await pumpSama(tester, location: '/account');
+    await tester.scrollUntilVisible(find.byKey(const Key('legal_row')), 200, scrollable: find.byType(Scrollable).first);
+    await tester.tap(find.byKey(const Key('legal_row')));
+    await tester.pumpAndSettle();
+    await _shot(tester, '68_conditions');
+  });
   testWidgets('62_suggestions', (tester) async {
     phoneSize(tester);
     await pumpSama(tester, location: '/feedback');

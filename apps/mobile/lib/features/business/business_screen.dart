@@ -37,8 +37,11 @@ class _BusinessScreenState extends ConsumerState<BusinessScreen> {
 
   /// Code de parrainage : repris du lien d'invitation (…/app/?ref=CODE) sur la version web.
   final _referral = TextEditingController(text: kIsWeb ? (Uri.base.queryParameters['ref'] ?? '') : '');
-  String _category = 'boutique';
-  String _focus = 'products';
+
+  /// Métier : obligatoire, rien de choisi d'avance
+  String? _category;
+  String _focus = 'both';
+  String? _nameError, _tradeError;
   late bool _showReferral = _referral.text.isNotEmpty;
   bool _otherCity = false;
   bool _creating = false;
@@ -61,14 +64,18 @@ class _BusinessScreenState extends ConsumerState<BusinessScreen> {
   }
 
   Future<void> _create() async {
-    if (_name.text.trim().length < 2) return;
+    setState(() {
+      _nameError = _name.text.trim().length < 2 ? 'Entrez le nom de votre entreprise' : null;
+      _tradeError = _category == null ? 'Choisissez votre métier' : null;
+    });
+    if (_nameError != null || _tradeError != null) return;
     setState(() => _busy = true);
     try {
       await ref
           .read(authProvider.notifier)
           .createBusiness(
             name: _name.text,
-            category: _category == 'autre' ? null : _category,
+            category: _category,
             city: _city.text.trim().isEmpty ? null : _city.text.trim(),
             focus: _focus,
             referralCode: _referral.text.trim().isEmpty ? null : _referral.text.trim().toUpperCase(),
@@ -137,10 +144,16 @@ class _BusinessScreenState extends ConsumerState<BusinessScreen> {
                 key: const Key('businessName'),
                 controller: _name,
                 textCapitalization: TextCapitalization.words,
-                decoration: const InputDecoration(labelText: "Nom de l'entreprise", hintText: 'Ex. Awa Beauté'),
+                decoration: InputDecoration(
+                  labelText: "Nom de l'entreprise *",
+                  hintText: 'Ex. Awa Beauté',
+                  prefixIcon: const Icon(Icons.store_mall_directory_rounded),
+                  errorText: _nameError,
+                ),
+                onChanged: (_) => _nameError == null ? null : setState(() => _nameError = null),
               ),
-              const SizedBox(height: 16),
-              const Text('Votre métier', style: TextStyle(fontWeight: FontWeight.w700)),
+              const SizedBox(height: 18),
+              const Text('Votre métier *', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
               const SizedBox(height: 2),
               Text(
                 'Sama360 vous montre les outils de votre métier. Vous pourrez en ajouter ensuite.',
@@ -153,15 +166,26 @@ class _BusinessScreenState extends ConsumerState<BusinessScreen> {
                 children: [
                   for (final e in tradeLabels.entries)
                     Pill(
+                      key: Key('trade_${e.key}'),
                       label: e.value,
+                      icon: tradeIcons[e.key],
                       selected: _category == e.key,
                       onTap: () => setState(() {
                         _category = e.key;
                         _focus = focusFor(e.key);
+                        _tradeError = null;
                       }),
                     ),
                 ],
               ),
+              if (_tradeError != null) ...[
+                const SizedBox(height: 8),
+                Text(
+                  _tradeError!,
+                  key: const Key('trade_error'),
+                  style: TextStyle(color: AppColors.danger, fontWeight: FontWeight.w600, fontSize: 13),
+                ),
+              ],
               const SizedBox(height: 16),
               Text('Pays', style: TextStyle(color: AppColors.muted, fontSize: 12.5)),
               const SizedBox(height: 8),

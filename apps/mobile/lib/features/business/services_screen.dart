@@ -73,6 +73,7 @@ class _ServicesScreenState extends ConsumerState<ServicesScreen> {
                     Pill(
                       key: Key('trade_${e.key}'),
                       label: e.value,
+                      icon: tradeIcons[e.key],
                       selected: (b.category ?? 'autre') == e.key,
                       onTap: _busy || (b.category ?? 'autre') == e.key
                           ? () {}

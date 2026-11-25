@@ -73,4 +73,31 @@ void main() {
     expect(repo.businessServices, isNull);
     expect(tester.widget<SwitchListTile>(find.byKey(const Key('svc_delivery'))).value, isFalse);
   });
+
+  testWidgets('création : nom et métier obligatoires, aucun métier choisi d’avance', (tester) async {
+    phoneSize(tester);
+    final (_, repo) = await pumpSama(tester, location: '/business');
+    await tester.tap(find.text('Créer une entreprise'));
+    await tester.pumpAndSettle();
+    final scroll = find.byType(Scrollable).first;
+    final create = find.text("Créer l'entreprise");
+    await tester.scrollUntilVisible(create, 200, scrollable: scroll);
+    await tester.pumpAndSettle();
+    await tester.tap(create);
+    await tester.pumpAndSettle();
+    expect(repo.createdBusinesses, isEmpty);
+    await tester.scrollUntilVisible(find.byKey(const Key('trade_error')), -200, scrollable: scroll);
+    await tester.scrollUntilVisible(find.byKey(const Key('businessName')), -200, scrollable: scroll);
+    await tester.pumpAndSettle();
+    expect(find.text('Entrez le nom de votre entreprise'), findsOneWidget);
+
+    await tester.enterText(find.byKey(const Key('businessName')), 'Awa Parfums');
+    await tester.scrollUntilVisible(find.byKey(const Key('trade_cosmetique')), 200, scrollable: scroll);
+    await tester.tap(find.byKey(const Key('trade_cosmetique')));
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(create, 200, scrollable: scroll);
+    await tester.tap(create);
+    await tester.pumpAndSettle();
+    expect(repo.createdBusinesses.single, containsPair('category', 'cosmetique'));
+  });
 }

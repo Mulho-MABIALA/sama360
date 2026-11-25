@@ -376,16 +376,43 @@ class HomeScreen extends ConsumerWidget {
                 ),
               ],
             if (ref.can('business:update')) ...[
-              const SizedBox(height: 12),
-              Center(
-                child: TextButton.icon(
-                  key: const Key('manage_services'),
-                  onPressed: () {
-                    Navigator.pop(ctx);
-                    context.push('/business/services');
-                  },
-                  icon: const Icon(Icons.tune_rounded, size: 18),
-                  label: const Text('Ajouter ou retirer des services'),
+              const SizedBox(height: 16),
+              Glass(
+                key: const Key('manage_services'),
+                radius: 20,
+                tint: AppColors.green,
+                padding: const EdgeInsets.fromLTRB(14, 12, 12, 12),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  context.push('/business/services');
+                },
+                child: Row(
+                  children: [
+                    Container(
+                      width: 42,
+                      height: 42,
+                      decoration: BoxDecoration(color: AppColors.green, borderRadius: BorderRadius.circular(14)),
+                      child: const Icon(Icons.tune_rounded, color: Colors.white),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Ajouter ou retirer des services',
+                            style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            'Réservation, livraison, factures… selon votre métier',
+                            style: TextStyle(color: AppColors.muted, fontSize: 12.5),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Icon(Icons.chevron_right_rounded, color: AppColors.green),
+                  ],
                 ),
               ),
             ],
@@ -1276,27 +1303,45 @@ class _LowStockBanner extends StatelessWidget {
   final int count;
 
   @override
-  Widget build(BuildContext context) => Glass(
-    radius: 18,
-    tint: AppColors.saffron,
-    onTap: () => context.go('/stock?low=1'),
-    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-    child: Row(
-      children: [
-        const GlossyOrb(icon: Icons.warning_amber_rounded, color: Color(0xFFE08A12), size: 34),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Text(
-            count == 1 ? '1 produit en stock bas' : '$count produits en stock bas',
-            style: TextStyle(color: AppColors.warnText, fontWeight: FontWeight.w800),
+  // Une alerte : rouge, pour qu'on ne la rate pas
+  Widget build(BuildContext context) => Material(
+    key: const Key('low_stock_banner'),
+    color: Colors.transparent,
+    child: Ink(
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(colors: [Color(0xFFE5484D), Color(0xFFC62A2F)]),
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: const [BoxShadow(color: Color(0x40C62A2F), blurRadius: 16, offset: Offset(0, 7))],
+      ),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(18),
+        onTap: () => context.go('/stock?low=1'),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          child: Row(
+            children: [
+              Container(
+                width: 34,
+                height: 34,
+                decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.2), shape: BoxShape.circle),
+                child: const Icon(Icons.warning_rounded, color: Colors.white, size: 20),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  count == 1 ? '1 produit en stock bas' : '$count produits en stock bas',
+                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800),
+                ),
+              ),
+              const Text(
+                'Voir',
+                style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800),
+              ),
+              const Icon(Icons.chevron_right_rounded, color: Colors.white),
+            ],
           ),
         ),
-        Text(
-          'Voir',
-          style: TextStyle(color: AppColors.warnText, fontWeight: FontWeight.w800),
-        ),
-        Icon(Icons.chevron_right_rounded, color: AppColors.warnText),
-      ],
+      ),
     ),
   );
 }

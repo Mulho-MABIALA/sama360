@@ -115,7 +115,10 @@ void main() {
 
   testWidgets('a11y code PIN', (tester) async {
     phoneSize(tester);
-    await pumpSama(tester, pinStore: MemoryPinStore(StoredPin(userId: 'u1', hash: hashPin('2580'))));
+    await pumpSama(
+      tester,
+      pinStore: MemoryPinStore(StoredPin(userId: 'u1', hash: hashPin('2580'))),
+    );
     await _check(tester, 'code PIN');
   }, skip: !enabled);
 }

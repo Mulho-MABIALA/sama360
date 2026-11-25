@@ -85,13 +85,8 @@ class ProScreen extends ConsumerStatefulWidget {
 
 class _ProScreenState extends ConsumerState<ProScreen> with WidgetsBindingObserver {
   String _cycle = 'monthly';
-  PayMethod? _method;
-  final _ref = TextEditingController();
-  final _phone = TextEditingController();
   final _email = TextEditingController();
-  bool _busy = false;
   bool _onlineBusy = false;
-  String? _error;
   String? _onlineError;
 
   /// Paiement en ligne suivi (ouvert ici, ou retour de la page de paiement)
@@ -112,8 +107,6 @@ class _ProScreenState extends ConsumerState<ProScreen> with WidgetsBindingObserv
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _poll?.cancel();
-    _ref.dispose();
-    _phone.dispose();
     _email.dispose();
     super.dispose();
   }
@@ -174,39 +167,6 @@ class _ProScreenState extends ConsumerState<ProScreen> with WidgetsBindingObserv
       if (mounted) showError(context, e);
     } finally {
       if (mounted) setState(() => _onlineBusy = false);
-    }
-  }
-
-  Future<void> _submit(ProStatus s) async {
-    final method = _method ?? (s.methods.isEmpty ? PayMethod.wave : s.methods.first);
-    final reference = _ref.text.trim();
-    if (reference.length < 4) {
-      setState(() => _error = 'Recopiez la référence de la transaction (dans le SMS de confirmation)');
-      return;
-    }
-    String? phone;
-    if (_phone.text.trim().isNotEmpty) {
-      phone = localPhone(_phone.text, ref.read(countryProvider));
-      if (phone == null) {
-        setState(() => _error = invalidPhone(ref.read(countryProvider)));
-        return;
-      }
-    }
-    setState(() {
-      _busy = true;
-      _error = null;
-    });
-    try {
-      await ref
-          .read(repoProvider)
-          .requestProPayment(cycle: _cycle, method: method, reference: reference, payerPhone: phone);
-      ref.invalidate(subscriptionProvider);
-      _ref.clear();
-      if (mounted) showInfo(context, 'Merci ! Nous vérifions votre paiement.');
-    } catch (e) {
-      if (mounted) showError(context, e);
-    } finally {
-      if (mounted) setState(() => _busy = false);
     }
   }
 
@@ -321,25 +281,19 @@ class _ProScreenState extends ConsumerState<ProScreen> with WidgetsBindingObserv
                 )
               else if (s.online && s.onlineCycles.contains(_cycle)) ...[
                 if (!_paid) _onlineForm(s),
-                const SizedBox(height: 10),
+              ] else
+                // Tout se paie en ligne par Chariow ; cette durée n'y est pas encore proposée
                 Glass(
-                  radius: 22,
-                  padding: EdgeInsets.zero,
-                  child: Theme(
-                    data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-                    child: ExpansionTile(
-                      key: const Key('pay_manual'),
-                      shape: const RoundedRectangleBorder(),
-                      collapsedShape: const RoundedRectangleBorder(),
-                      title: const Text('Déjà payé par transfert ?', style: TextStyle(fontWeight: FontWeight.w700)),
-                      subtitle: const Text('Envoyez la référence de la transaction', style: TextStyle(fontSize: 12.5)),
-                      childrenPadding: EdgeInsets.zero,
-                      children: [_payForm(s, framed: false)],
-                    ),
+                  key: const Key('pay_unavailable'),
+                  radius: 20,
+                  padding: const EdgeInsets.all(16),
+                  child: Text(
+                    s.online
+                        ? 'Cette durée n’est pas encore payable en ligne. Choisissez le mois ou l’année.'
+                        : 'Le paiement en ligne revient dans quelques instants. Réessayez un peu plus tard.',
+                    style: TextStyle(color: AppColors.muted),
                   ),
                 ),
-              ] else
-                _payForm(s),
               const SizedBox(height: 14),
               Glass(
                 key: const Key('open_referral'),
@@ -406,7 +360,13 @@ class _ProScreenState extends ConsumerState<ProScreen> with WidgetsBindingObserv
             controller: _email,
             keyboardType: TextInputType.emailAddress,
             autocorrect: false,
-            decoration: const InputDecoration(labelText: 'E-mail pour le reçu', hintText: 'ex. awa@gmail.com'),
+            autofillHints: const [AutofillHints.email],
+            decoration: const InputDecoration(
+              labelText: 'Votre e-mail *',
+              hintText: 'ex. awa@gmail.com',
+              prefixIcon: Icon(Icons.mail_rounded),
+              helperText: 'Obligatoire : Chariow vous y envoie le reçu du paiement',
+            ),
           ),
           if (_onlineError != null) ...[
             const SizedBox(height: 8),
@@ -436,83 +396,6 @@ class _ProScreenState extends ConsumerState<ProScreen> with WidgetsBindingObserv
         ],
       ),
     );
-  }
-
-  Widget _payForm(ProStatus s, {bool framed = true}) {
-    final method = _method ?? (s.methods.isEmpty ? PayMethod.wave : s.methods.first);
-    final amount = moneyShort(s.priceOf(_cycle));
-    final body = Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text('Payer', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
-        if (s.lastRejected != null) ...[
-          const SizedBox(height: 8),
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(color: AppColors.warnBg, borderRadius: BorderRadius.circular(12)),
-            child: Text(
-              'Paiement « ${s.lastRejected!.reference} » non retrouvé'
-              '${s.lastRejected!.note == null ? '' : ' : ${s.lastRejected!.note}'}',
-              style: TextStyle(color: AppColors.warnText, fontSize: 13),
-            ),
-          ),
-        ],
-        const SizedBox(height: 10),
-        _Step(
-          n: 1,
-          text: s.payTo == null
-              ? 'Envoyez $amount par ${s.methods.map((m) => m.label).join(', ')}. '
-                    'Le numéro vous est donné par l’équipe Sama360.'
-              : 'Envoyez $amount à : ${s.payTo}',
-        ),
-        const _Step(n: 2, text: 'Gardez la référence de la transaction, reçue par SMS.'),
-        const _Step(n: 3, text: 'Remplissez ci-dessous : nous activons Pro dès que le paiement est vérifié.'),
-        const SizedBox(height: 10),
-        Wrap(
-          spacing: 6,
-          runSpacing: 6,
-          children: [
-            for (final m in s.methods)
-              PayMethodChip(m, selected: method == m, onTap: () => setState(() => _method = m)),
-          ],
-        ),
-        const SizedBox(height: 12),
-        TextField(
-          key: const Key('pay_ref'),
-          controller: _ref,
-          textCapitalization: TextCapitalization.characters,
-          decoration: const InputDecoration(labelText: 'Référence de la transaction', hintText: 'ex. TX12AB34CD'),
-        ),
-        const SizedBox(height: 10),
-        TextField(
-          key: const Key('pay_phone'),
-          controller: _phone,
-          keyboardType: TextInputType.phone,
-          decoration: InputDecoration(
-            labelText: 'Numéro qui a payé (facultatif)',
-            prefixText: '+${ref.watch(countryProvider).dial} ',
-          ),
-        ),
-        if (_error != null) ...[
-          const SizedBox(height: 8),
-          Text(_error!, style: TextStyle(color: AppColors.danger, fontSize: 13)),
-        ],
-        const SizedBox(height: 14),
-        SizedBox(
-          width: double.infinity,
-          height: 52,
-          child: BusyButton(
-            key: const Key('pay_submit'),
-            label: 'J’ai payé $amount',
-            busy: _busy,
-            onPressed: () => _submit(s),
-          ),
-        ),
-      ],
-    );
-    return framed
-        ? Glass(radius: 22, padding: const EdgeInsets.all(16), child: body)
-        : Padding(padding: const EdgeInsets.fromLTRB(16, 0, 16, 16), child: body);
   }
 }
 
@@ -624,32 +507,6 @@ class _PriceCard extends StatelessWidget {
           ],
         ),
       ),
-    ),
-  );
-}
-
-class _Step extends StatelessWidget {
-  const _Step({required this.n, required this.text});
-  final int n;
-  final String text;
-
-  @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: 4),
-    child: Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        CircleAvatar(
-          radius: 11,
-          backgroundColor: AppColors.green,
-          child: Text(
-            '$n',
-            style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w800),
-          ),
-        ),
-        const SizedBox(width: 10),
-        Expanded(child: Text(text, style: const TextStyle(fontSize: 14))),
-      ],
     ),
   );
 }

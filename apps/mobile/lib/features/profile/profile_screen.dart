@@ -121,13 +121,21 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            for (final (icon, label, path) in [
-              (Icons.description_rounded, 'Conditions d’utilisation', '/cgu'),
-              (Icons.privacy_tip_rounded, 'Politique de confidentialité', '/confidentialite'),
-              (Icons.person_remove_rounded, 'Supprimer mon compte (page web)', '/suppression-compte'),
+            for (final (icon, color, label, path) in [
+              (Icons.description_rounded, const Color(0xFF2563EB), 'Conditions d’utilisation', '/cgu'),
+              (Icons.privacy_tip_rounded, const Color(0xFF0A8453), 'Politique de confidentialité', '/confidentialite'),
+              (Icons.person_remove_rounded, AppColors.danger, 'Supprimer mon compte (page web)', '/suppression-compte'),
             ])
               ListTile(
-                leading: Icon(icon),
+                leading: Container(
+                  width: 38,
+                  height: 38,
+                  decoration: BoxDecoration(
+                    color: color.withValues(alpha: 0.13),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(icon, color: color, size: 21),
+                ),
                 title: Text(label, style: const TextStyle(fontWeight: FontWeight.w700)),
                 trailing: const Icon(Icons.open_in_new_rounded, size: 18),
                 onTap: () {

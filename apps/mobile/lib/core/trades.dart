@@ -1,3 +1,5 @@
+import 'package:material_ui/material_ui.dart';
+
 import 'models.dart';
 
 /// Métiers proposés à la création de l'entreprise (clé enregistrée → libellé).
@@ -12,6 +14,20 @@ const tradeLabels = {
   'salon': 'Salon / beauté',
   'prestataire': 'Prestataire',
   'autre': 'Autre',
+};
+
+/// Icône de chaque métier (création de l'entreprise, « Métier et services »).
+const tradeIcons = <String, IconData>{
+  'boutique': Icons.storefront_rounded,
+  'mode': Icons.checkroom_rounded,
+  'cosmetique': Icons.spa_rounded,
+  'quincaillerie': Icons.handyman_rounded,
+  'alimentation': Icons.local_grocery_store_rounded,
+  'telephonie': Icons.smartphone_rounded,
+  'restaurant': Icons.restaurant_rounded,
+  'salon': Icons.content_cut_rounded,
+  'prestataire': Icons.home_repair_service_rounded,
+  'autre': Icons.more_horiz_rounded,
 };
 
 /// Services qu'on peut ajouter ou retirer de l'accueil (mêmes clés que l'API : shared/services.ts).

@@ -46,7 +46,7 @@ class SalesHistoryScreen extends ConsumerWidget {
                     ),
                     const SizedBox(width: 8),
                     Expanded(
-                      child: StatTile(label: "Chiffre d'affaires", value: moneyShort(total)),
+                      child: StatTile(label: "Chiffre d'affaires", value: moneyShort(total), money: true),
                     ),
                   ],
                 ),
@@ -67,19 +67,11 @@ class SalesHistoryScreen extends ConsumerWidget {
                     child: Card(
                       child: ListTile(
                         contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
-                        leading: Container(
-                          width: 42,
-                          height: 42,
-                          decoration: BoxDecoration(
-                            color: s.status == 'voided'
-                                ? AppColors.softOf(const Color(0xFFFBEAEA), AppColors.danger)
-                                : AppColors.greenSoft,
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Icon(
-                            s.status == 'voided' ? Icons.block_rounded : Icons.receipt_long_rounded,
-                            color: s.status == 'voided' ? AppColors.danger : AppColors.green,
-                          ),
+                        // Reçu en relief, vert (annulée : rouge barré)
+                        leading: GlossyOrb(
+                          icon: s.status == 'voided' ? Icons.block_rounded : Icons.receipt_long_rounded,
+                          color: s.status == 'voided' ? AppColors.danger : const Color(0xFF0E9F6E),
+                          size: 44,
                         ),
                         title: Text(
                           s.title,
@@ -104,9 +96,10 @@ class SalesHistoryScreen extends ConsumerWidget {
                             Text(
                               moneyShort(s.total),
                               style: TextStyle(
-                                fontSize: 14,
-                                color: AppColors.ink,
-                                fontWeight: FontWeight.w800,
+                                fontSize: 16,
+                                // Le montant ressort : vert, annulé gris
+                                color: s.status == 'voided' ? AppColors.muted : AppColors.green,
+                                fontWeight: FontWeight.w900,
                                 decoration: s.status == 'voided' ? TextDecoration.lineThrough : null,
                               ),
                             ),

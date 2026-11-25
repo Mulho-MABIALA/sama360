@@ -184,6 +184,8 @@ void main() {
     await tester.tap(find.text('Créer une entreprise'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byKey(const Key('businessName')), 'Chez Maman Mav');
+    await tapCentered(tester, find.byKey(const Key('trade_alimentation')));
+    await tester.pump();
     await tester.ensureVisible(find.byKey(const Key('country_CG')));
     await tester.tap(find.byKey(const Key('country_CG')));
     await tester.pump();

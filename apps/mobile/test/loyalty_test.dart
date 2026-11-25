@@ -121,7 +121,10 @@ void main() {
       await tester.tap(find.textContaining('Utiliser'));
       await tester.pumpAndSettle();
       expect(c.read(cartProvider).total, 5000);
-      expect(flat(tester.widget<Text>(find.textContaining('Réduction fidélité')).data!), 'Réduction fidélité : −2 000 F');
+      expect(
+        flat(tester.widget<Text>(find.textContaining('Réduction fidélité')).data!),
+        'Réduction fidélité : −2 000 F',
+      );
 
       await tester.tap(find.textContaining('Encaisser'));
       await tester.pumpAndSettle();

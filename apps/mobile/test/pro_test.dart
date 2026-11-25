@@ -42,7 +42,7 @@ void main() {
     });
   });
 
-  testWidgets('sans Pro : la tuile Livraison mène à l’offre, puis « J’ai payé »', (tester) async {
+  testWidgets('sans Pro : la tuile Livraison mène à l’offre, sans paiement par transfert', (tester) async {
     phoneSize(tester);
     final repo = FakeRepo()..proUntil = DateTime(2026, 1, 1);
     await pumpSama(tester, repo: repo);
@@ -57,33 +57,14 @@ void main() {
     expect(find.text('Votre Sama360 Pro est terminé'), findsOneWidget);
     expect(find.text('« Livraisons et livreurs » fait partie de Sama360 Pro.'), findsOneWidget);
 
-    await tester.tap(find.byKey(const Key('cycle_yearly')));
-    await tester.pumpAndSettle();
+    // Paiement en ligne indisponible : pas de transfert, on l'explique
     await tester.scrollUntilVisible(
-      find.byKey(const Key('pay_submit')),
+      find.byKey(const Key('pay_unavailable')),
       300,
       scrollable: find.descendant(of: find.byType(ListView), matching: find.byType(Scrollable)).first,
     );
-    await tester.ensureVisible(find.byKey(const Key('pay_submit')));
-    await tester.pumpAndSettle();
-    expect(find.textContaining('Envoyez ${moneyShort(50000)} à : Wave au 77 000 00 00 (Zolaa Tech)'), findsOneWidget);
-    await tester.tap(find.byKey(const Key('pay_submit')));
-    await tester.pumpAndSettle();
-    expect(find.textContaining('Recopiez la référence'), findsOneWidget);
-
-    await tester.tap(find.text('Orange Money'));
-    await tester.enterText(find.byKey(const Key('pay_ref')), 'OM2611.1834.A12345');
-    await tester.enterText(find.byKey(const Key('pay_phone')), '77 555 66 77');
-    await tester.tap(find.byKey(const Key('pay_submit')));
-    await tester.pumpAndSettle();
-    expect(repo.proPayments.single, {
-      'cycle': 'yearly',
-      'method': PayMethod.orangeMoney,
-      'reference': 'OM2611.1834.A12345',
-      'payerPhone': '+221775556677',
-    });
-    expect(find.byKey(const Key('pay_pending')), findsOneWidget);
-    expect(find.textContaining('réf. OM2611.1834.A12345'), findsOneWidget);
+    expect(find.byKey(const Key('pay_submit')), findsNothing);
+    expect(find.textContaining('Envoyez'), findsNothing);
   });
 
   testWidgets('paiement en ligne : e-mail, page Chariow ouverte, Pro activé dès la confirmation', (tester) async {
@@ -109,8 +90,8 @@ void main() {
     await tester.scrollUntilVisible(find.byKey(const Key('pay_online')), 300, scrollable: scroll);
     await tester.pumpAndSettle();
     expect(find.text('Payer ${moneyShort(50000)}'), findsOneWidget);
-    // Le formulaire « J'ai payé » reste disponible, replié
-    expect(find.byKey(const Key('pay_manual')), findsOneWidget);
+    // Tout passe par Chariow : plus de formulaire de transfert
+    expect(find.byKey(const Key('pay_manual')), findsNothing);
     expect(find.byKey(const Key('pay_ref')), findsNothing);
 
     await tester.enterText(find.byKey(const Key('pay_email')), 'pas-un-email');
@@ -221,6 +202,8 @@ void main() {
     await tester.tap(find.text('Créer une entreprise'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byKey(const Key('businessName')), 'Ibou Quincaillerie');
+    await tapCentered(tester, find.byKey(const Key('trade_alimentation')));
+    await tester.pump();
     await tester.ensureVisible(find.byKey(const Key('show_referral')));
     await tester.tap(find.byKey(const Key('show_referral')));
     await tester.pumpAndSettle();

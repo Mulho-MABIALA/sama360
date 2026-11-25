@@ -103,7 +103,7 @@ class _StockScreenState extends ConsumerState<StockScreen> {
                       // Valeur du stock (prix d'achat) : pas pour le vendeur
                       if (costs) ...[
                         Expanded(
-                          child: StatTile(label: 'Valeur du stock', value: moneyShort(s.stockValue)),
+                          child: StatTile(label: 'Valeur du stock', value: moneyShort(s.stockValue), money: true),
                         ),
                         const SizedBox(width: 8),
                       ],
@@ -112,7 +112,7 @@ class _StockScreenState extends ConsumerState<StockScreen> {
                       ),
                       const SizedBox(width: 8),
                       Expanded(
-                        child: StatTile(label: 'Stock bas', value: '${s.lowStock}', warn: s.lowStock > 0),
+                        child: StatTile(label: 'Stock bas', value: '${s.lowStock}', alert: s.lowStock > 0),
                       ),
                     ],
                   ),
@@ -253,6 +253,13 @@ class _StockRow extends ConsumerWidget {
   }
 
   Widget _card(BuildContext context, String breakdown, bool costs) => Card(
+    // Stock bas : liseré rouge autour de la carte
+    shape: item.low
+        ? RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+            side: BorderSide(color: AppColors.danger.withValues(alpha: 0.6), width: 1.5),
+          )
+        : null,
     child: InkWell(
       borderRadius: BorderRadius.circular(16),
       onTap: onTap,
@@ -273,8 +280,16 @@ class _StockRow extends ConsumerWidget {
                     style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
                   ),
                   const SizedBox(height: 2),
-                  Text(
-                    costs ? '${moneyShort(item.price)} · marge ${item.margin} %' : moneyShort(item.price),
+                  Text.rich(
+                    TextSpan(
+                      children: [
+                        TextSpan(
+                          text: moneyShort(item.price),
+                          style: TextStyle(color: AppColors.green, fontWeight: FontWeight.w800, fontSize: 13),
+                        ),
+                        if (costs) TextSpan(text: ' · marge ${item.margin} %'),
+                      ],
+                    ),
                     style: TextStyle(fontSize: 12, color: AppColors.muted),
                   ),
                   if (breakdown.isNotEmpty)
@@ -295,7 +310,7 @@ class _StockRow extends ConsumerWidget {
                   style: TextStyle(
                     fontSize: 17,
                     fontWeight: FontWeight.w800,
-                    color: item.low ? AppColors.warn : AppColors.ink,
+                    color: item.low ? AppColors.danger : AppColors.ink,
                   ),
                 ),
                 if (item.expiresOn != null && item.onHand > 0)
@@ -327,10 +342,17 @@ class _StockRow extends ConsumerWidget {
                   Container(
                     margin: const EdgeInsets.only(top: 3),
                     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                    decoration: BoxDecoration(color: AppColors.warnBg, borderRadius: BorderRadius.circular(6)),
-                    child: Text(
-                      'Alerte à ${item.threshold}',
-                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.warnText),
+                    decoration: BoxDecoration(color: AppColors.danger, borderRadius: BorderRadius.circular(6)),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.warning_rounded, size: 12, color: Colors.white),
+                        const SizedBox(width: 3),
+                        Text(
+                          'Alerte à ${item.threshold}',
+                          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: Colors.white),
+                        ),
+                      ],
                     ),
                   ),
               ],

@@ -53,7 +53,7 @@ void main() {
     expect(cycleLabel('weekly'), 'Semaine');
   });
 
-  testWidgets('écran Pro : trois durées, prix fixe sans commission, la semaine se paie par transfert', (tester) async {
+  testWidgets('écran Pro : trois durées, prix fixe sans commission, la semaine se paie sur Chariow', (tester) async {
     phoneSize(tester);
     final repo = FakeRepo()
       ..proUntil = DateTime(2026, 1, 1)
@@ -68,14 +68,18 @@ void main() {
 
     await tester.tap(find.byKey(const Key('cycle_weekly')));
     await tester.pumpAndSettle();
-    await tester.scrollUntilVisible(find.byKey(const Key('pay_submit')), 300, scrollable: scroll);
+    await tester.scrollUntilVisible(find.byKey(const Key('pay_online')), 300, scrollable: scroll);
     await tester.pumpAndSettle();
-    expect(find.byKey(const Key('pay_online')), findsNothing);
-    expect(find.textContaining('Envoyez ${moneyShort(1500)}'), findsOneWidget);
-    await tester.enterText(find.byKey(const Key('pay_ref')), 'TX-SEMAINE1');
-    await tester.tap(find.byKey(const Key('pay_submit')));
+    expect(find.text('Payer ${moneyShort(1500)}'), findsOneWidget);
+    // E-mail obligatoire
+    await tester.tap(find.byKey(const Key('pay_online')));
     await tester.pumpAndSettle();
-    expect(repo.proPayments.single['cycle'], 'weekly');
+    expect(repo.onlineCheckouts, isEmpty);
+    await tester.enterText(find.byKey(const Key('pay_email')), 'awa@gmail.com');
+    await tester.tap(find.byKey(const Key('pay_online')));
+    await tester.pump(const Duration(milliseconds: 300)); // suivi du paiement : minuterie qui tourne
+    expect(repo.onlineCheckouts.single['cycle'], 'weekly');
+    await tester.pumpWidget(const SizedBox()); // arrête la minuterie
   });
 
   testWidgets('limite atteinte pendant une action : feuille Pro, puis l’offre', (tester) async {

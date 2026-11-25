@@ -199,13 +199,69 @@ class Avatar extends StatelessWidget {
 
 /// Petite carte chiffre + libellé (bandeaux de statistiques).
 class StatTile extends StatelessWidget {
-  const StatTile({super.key, required this.label, required this.value, this.warn = false});
+  const StatTile({
+    super.key,
+    required this.label,
+    required this.value,
+    this.warn = false,
+    this.alert = false,
+    this.money = false,
+  });
+
+  /// Un montant : le chiffre en vert
+  final bool money;
   final String label;
   final String value;
+
+  /// À surveiller (orange)
   final bool warn;
 
+  /// Alerte (rouge) : stock bas, dette en retard…
+  final bool alert;
+
   @override
-  Widget build(BuildContext context) => Container(
+  Widget build(BuildContext context) => alert ? _alert() : _tile();
+
+  Widget _alert() => Container(
+    padding: const EdgeInsets.all(14),
+    decoration: BoxDecoration(
+      gradient: const LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [Color(0xFFE5484D), Color(0xFFC62A2F)],
+      ),
+      borderRadius: BorderRadius.circular(18),
+      boxShadow: const [BoxShadow(color: Color(0x40C62A2F), blurRadius: 16, offset: Offset(0, 7))],
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            const Icon(Icons.warning_rounded, size: 13, color: Colors.white),
+            const SizedBox(width: 3),
+            Flexible(
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Colors.white),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 2),
+        Text(
+          value,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w900, color: Colors.white),
+        ),
+      ],
+    ),
+  );
+
+  Widget _tile() => Container(
     padding: const EdgeInsets.all(14),
     decoration: BoxDecoration(
       gradient: LinearGradient(
@@ -237,7 +293,15 @@ class StatTile extends StatelessWidget {
           value,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
-          style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: warn ? AppColors.warnText : AppColors.ink),
+          style: TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.w800,
+            color: warn
+                ? AppColors.warnText
+                : money
+                ? AppColors.green
+                : AppColors.ink,
+          ),
         ),
       ],
     ),
@@ -325,10 +389,13 @@ class TapTarget extends StatelessWidget {
 }
 
 class Pill extends StatelessWidget {
-  const Pill({super.key, required this.label, required this.selected, required this.onTap});
+  const Pill({super.key, required this.label, required this.selected, required this.onTap, this.icon});
   final String label;
   final bool selected;
   final VoidCallback onTap;
+
+  /// Icône devant le libellé (ex. le métier)
+  final IconData? icon;
 
   @override
   Widget build(BuildContext context) => TapTarget(
@@ -343,14 +410,23 @@ class Pill extends StatelessWidget {
           customBorder: const StadiumBorder(),
           onTap: onTap,
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
-            child: Text(
-              label,
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
-                color: selected ? AppColors.ground : AppColors.ink,
-              ),
+            padding: EdgeInsets.fromLTRB(icon == null ? 14 : 11, 9, 14, 9),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (icon != null) ...[
+                  Icon(icon, size: 17, color: selected ? AppColors.ground : AppColors.green),
+                  const SizedBox(width: 6),
+                ],
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
+                    color: selected ? AppColors.ground : AppColors.ink,
+                  ),
+                ),
+              ],
             ),
           ),
         ),
