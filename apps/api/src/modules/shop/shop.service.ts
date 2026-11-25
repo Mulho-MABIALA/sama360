@@ -660,7 +660,9 @@ export class ShopService {
     if (!o) return null;
     const lines = (
       await tx.execute(sql`
-        SELECT l.id, l.product_id, l.name, l.quantity, l.unit_price, l.total, p.image_file_ids[1] AS image_file_id, p.unit
+        SELECT l.id, l.product_id, l.name, l.quantity, l.unit_price, l.total,
+               coalesce(p.image_file_ids[1], (SELECT pp.image_file_ids[1] FROM catalog.products pp WHERE pp.id = p.parent_id))
+                 AS image_file_id, p.unit
         FROM shop.order_lines l LEFT JOIN catalog.products p ON p.id = l.product_id
         WHERE l.order_id = ${id} ORDER BY l.position`)
     ).rows as Row[];

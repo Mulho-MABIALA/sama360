@@ -4266,6 +4266,24 @@ describe('Socle Sama360 (e2e)', () => {
       const noirM = id('Noir · M');
       const blancL = id('Blanc · L');
 
+      // Photo du modèle : les variantes sans photo la montrent dans le stock
+      const png = Buffer.from(
+        'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
+        'base64',
+      );
+      const photo = (
+        await http
+          .post(`/v1/catalog/products/${tshirt}/images`)
+          .set(O())
+          .attach('file', png, { filename: 'p.png', contentType: 'image/png' })
+          .expect(200)
+      ).body.imageFileIds[0];
+      const stockItems = (await http.get('/v1/inventory/stock').set(O()).expect(200)).body.items as {
+        productId: string;
+        imageFileId: string | null;
+      }[];
+      expect(stockItems.find((i) => i.productId === noirM)?.imageFileId).toBe(photo);
+
       // Prix et code-barres par variante ; les autres gardent les leurs
       const v2 = (
         await http

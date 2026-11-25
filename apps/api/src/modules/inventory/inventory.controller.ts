@@ -69,7 +69,10 @@ export class InventoryController {
       const warehouseId = t.locationFilter;
       const search = q.search ? `%${q.search}%` : null;
       const res = await tx.execute(sql`
-        SELECT p.id, p.name, p.sku, p.price, p.cost, p.low_stock_threshold, p.image_file_ids[1] AS image_file_id,
+        SELECT p.id, p.name, p.sku, p.price, p.cost, p.low_stock_threshold,
+               -- Une variante sans photo prend celle de son produit (50 ml, 75 ml… du même parfum)
+               coalesce(p.image_file_ids[1], (SELECT pp.image_file_ids[1] FROM catalog.products pp WHERE pp.id = p.parent_id))
+                 AS image_file_id,
                p.expires_on::text AS expires_on,
                coalesce(sum(sl.on_hand) FILTER (WHERE ${warehouseId}::uuid IS NULL OR sl.warehouse_id = ${warehouseId}), 0)
                  AS on_hand,
