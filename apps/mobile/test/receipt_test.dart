@@ -118,7 +118,7 @@ void main() {
     });
   });
 
-  testWidgets('écran reçu : WhatsApp au client, PDF, impression', (tester) async {
+  testWidgets('écran reçu : PDF en premier, message au client s’il a un numéro, impression', (tester) async {
     final actions = RecordingActions();
     await pumpSama(tester, location: '/sales/s2', overrides: [receiptActionsProvider.overrideWithValue(actions)]);
 
@@ -126,12 +126,12 @@ void main() {
     expect(find.text('Aminata Ba'), findsOneWidget);
     expect(find.text('Reste à payer'), findsOneWidget);
 
-    await tester.tap(find.text('Envoyer au client par WhatsApp'));
+    await tester.tap(find.text('Message au client'));
     await tester.pumpAndSettle();
     expect(actions.whatsApp!.path, '/221765551234');
 
     await tester.runAsync(() async {
-      await tester.tap(find.text('Partager le PDF'));
+      await tester.tap(find.text('Envoyer le reçu (PDF)'));
       await Future<void>.delayed(const Duration(milliseconds: 600));
     });
     await tester.pumpAndSettle();
@@ -148,7 +148,9 @@ void main() {
   testWidgets('vente annulée : tampon visible', (tester) async {
     await pumpSama(tester, location: '/sales/voided');
     expect(find.text('VENTE ANNULÉE'), findsOneWidget);
-    expect(find.text('Envoyer par WhatsApp'), findsOneWidget);
+    // Sans client connu : le PDF, pas de message direct
+    expect(find.text('Envoyer le reçu (PDF)'), findsOneWidget);
+    expect(find.text('Message au client'), findsNothing);
   });
 
   testWidgets('historique : ouvre le reçu', (tester) async {

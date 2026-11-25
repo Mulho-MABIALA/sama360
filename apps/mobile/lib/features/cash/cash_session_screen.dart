@@ -139,9 +139,22 @@ class _CashSessionScreenState extends ConsumerState<CashSessionScreen> {
                       ListTile(
                         leading: PayLogo(l.method, size: 26, color: AppColors.green),
                         title: Text(l.method.label, style: const TextStyle(fontWeight: FontWeight.w700)),
-                        subtitle: Text(
-                          'Attendu ${moneyShort(l.expected)} · compté ${moneyShort(l.counted)}',
-                          style: const TextStyle(fontSize: 12.5),
+                        subtitle: Text.rich(
+                          TextSpan(
+                            children: [
+                              const TextSpan(text: 'Attendu '),
+                              TextSpan(
+                                text: moneyShort(l.expected),
+                                style: TextStyle(color: AppColors.green, fontWeight: FontWeight.w800),
+                              ),
+                              const TextSpan(text: ' · compté '),
+                              TextSpan(
+                                text: moneyShort(l.counted),
+                                style: TextStyle(color: AppColors.green, fontWeight: FontWeight.w800),
+                              ),
+                            ],
+                          ),
+                          style: const TextStyle(fontSize: 13),
                         ),
                         trailing: DifferenceText(value: l.difference),
                       ),
@@ -166,9 +179,30 @@ class _CashSessionScreenState extends ConsumerState<CashSessionScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    if (s.report.creditTotal > 0) Text('Dont vendu à crédit : ${money(s.report.creditTotal)}'),
+                    if (s.report.creditTotal > 0)
+                      Text.rich(
+                        TextSpan(
+                          children: [
+                            const TextSpan(text: 'Dont vendu à crédit : '),
+                            TextSpan(
+                              text: money(s.report.creditTotal),
+                              style: TextStyle(color: AppColors.warnText, fontWeight: FontWeight.w800),
+                            ),
+                          ],
+                        ),
+                      ),
                     if (s.report.voidedCount > 0)
-                      Text('${s.report.voidedCount} vente(s) annulée(s) : ${money(s.report.voidedTotal)}'),
+                      Text.rich(
+                        TextSpan(
+                          children: [
+                            TextSpan(text: '${s.report.voidedCount} vente(s) annulée(s) : '),
+                            TextSpan(
+                              text: money(s.report.voidedTotal),
+                              style: TextStyle(color: AppColors.danger, fontWeight: FontWeight.w800),
+                            ),
+                          ],
+                        ),
+                      ),
                   ],
                 ),
               ),
@@ -261,10 +295,21 @@ class CashHistoryScreen extends ConsumerWidget {
                           '${c.userName ?? c.number} · ${dateTime(c.openedAt)}',
                           style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
                         ),
-                        subtitle: Text(
-                          c.open
-                              ? '${c.number} · ouverte'
-                              : '${c.number} · ${c.salesCount ?? 0} vente(s) · ${moneyShort(c.salesTotal ?? 0)}',
+                        subtitle: Text.rich(
+                          TextSpan(
+                            children: [
+                              TextSpan(
+                                text: c.open
+                                    ? '${c.number} · ouverte'
+                                    : '${c.number} · ${c.salesCount ?? 0} vente(s) · ',
+                              ),
+                              if (!c.open)
+                                TextSpan(
+                                  text: moneyShort(c.salesTotal ?? 0),
+                                  style: TextStyle(color: AppColors.green, fontWeight: FontWeight.w800),
+                                ),
+                            ],
+                          ),
                           style: const TextStyle(fontSize: 12),
                         ),
                         trailing: c.open

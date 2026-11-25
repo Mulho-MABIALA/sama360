@@ -18,9 +18,11 @@ String _flat(String s) => s.replaceAll(RegExp(r'[\u202f\u00a0]'), ' ');
 /// Bulle d'aide, espaces fines ignorées.
 Finder tip(String text) => find.byWidgetPredicate((w) => w is Tooltip && _flat(w.message ?? '') == text);
 
-Finder textMatching(String pattern) => find.byWidgetPredicate(
-  (w) => w is Text && w.data != null && RegExp(pattern).hasMatch(w.data!.replaceAll(RegExp(r'[  ]'), ' ')),
-);
+Finder textMatching(String pattern) => find.byWidgetPredicate((w) {
+  // Texte simple ou en plusieurs morceaux (montants en couleur)
+  final t = w is Text ? (w.data ?? w.textSpan?.toPlainText()) : null;
+  return t != null && RegExp(pattern).hasMatch(t.replaceAll(RegExp(r'[\u202f\u00a0]'), ' '));
+});
 
 void main() {
   setUpAll(() async {

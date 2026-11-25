@@ -204,23 +204,29 @@ class _ActionsBar extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            // Le reçu en PDF : on choisit WhatsApp puis le contact (pas besoin du numéro du client)
             FilledButton.icon(
+              key: const Key('receipt_send_pdf'),
               style: FilledButton.styleFrom(backgroundColor: AppColors.whatsapp, foregroundColor: AppColors.onWhatsapp),
-              onPressed: busy == null ? onWhatsApp : null,
-              icon: busy == 'whatsapp' ? spinner(AppColors.onWhatsapp) : const Icon(Icons.chat_rounded),
-              label: Text(hasPhone ? 'Envoyer au client par WhatsApp' : 'Envoyer par WhatsApp'),
+              onPressed: busy == null ? onShare : null,
+              icon: busy == 'share' ? spinner(AppColors.onWhatsapp) : const Icon(Icons.send_rounded),
+              label: const Text('Envoyer le reçu (PDF)'),
             ),
             const SizedBox(height: 10),
             Row(
               children: [
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: busy == null ? onShare : null,
-                    icon: busy == 'share' ? spinner(AppColors.green) : const Icon(Icons.ios_share_rounded),
-                    label: const Text('Partager le PDF'),
+                // Client enregistré avec son numéro : message WhatsApp direct, en plus du PDF
+                if (hasPhone) ...[
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      key: const Key('receipt_whatsapp_text'),
+                      onPressed: busy == null ? onWhatsApp : null,
+                      icon: busy == 'whatsapp' ? spinner(AppColors.green) : const Icon(Icons.chat_rounded),
+                      label: const FittedBox(fit: BoxFit.scaleDown, child: Text('Message au client')),
+                    ),
                   ),
-                ),
-                const SizedBox(width: 10),
+                  const SizedBox(width: 10),
+                ],
                 Expanded(
                   child: OutlinedButton.icon(
                     onPressed: busy == null ? onPrint : null,

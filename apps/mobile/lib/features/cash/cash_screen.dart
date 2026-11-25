@@ -301,7 +301,10 @@ class CashMethodTile extends StatelessWidget {
         shape: const RoundedRectangleBorder(),
         leading: PayLogo(line.method, size: 26, color: AppColors.green),
         title: Text(line.method.label, style: const TextStyle(fontWeight: FontWeight.w700)),
-        trailing: Text(money(line.expected), style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
+        trailing: Text(
+          money(line.expected),
+          style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: AppColors.green),
+        ),
         childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
         children: [
           for (final (label, amount) in line.breakdown)
@@ -317,7 +320,7 @@ class CashMethodTile extends StatelessWidget {
                     style: TextStyle(
                       fontWeight: FontWeight.w700,
                       fontSize: 13,
-                      color: amount < 0 ? AppColors.danger : AppColors.ink,
+                      color: amount < 0 ? AppColors.danger : AppColors.green,
                     ),
                   ),
                 ],
