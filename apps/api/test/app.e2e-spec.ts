@@ -2718,6 +2718,64 @@ describe('Socle Sama360 (e2e)', () => {
       await sell({ items: [{ name: 'Savon', quantity: 1, unitPrice: 2000 }], discount: 2500 }).expect(422);
       await sell({ items: [{ name: 'Savon', quantity: 1, unitPrice: 2000, discount: 2001 }] }).expect(422);
     });
+
+    it('demande d’annulation : le vendeur demande, le gérant refuse ou annule, chacun est prévenu', async () => {
+      const C = auth(cashierToken, awaBiz);
+      const vend = async () =>
+        (
+          await http
+            .post('/v1/sales')
+            .set(C)
+            .send({
+              items: [{ name: 'Flacon 30 ml', quantity: 1, unitPrice: 8000 }],
+              payments: [{ method: 'cash', amount: 8000 }],
+            })
+            .expect(201)
+        ).body.id as string;
+      const kinds = async (h: Record<string, string>) =>
+        ((await http.get('/v1/notifications').set(h).expect(200)).body.items as { kind: string; title: string }[]).map(
+          (n) => n.kind,
+        );
+
+      const id = await vend();
+      const ask = (sid: string) =>
+        http.post(`/v1/sales/${sid}/void-request`).set(C).send({ reason: 'Le client a changé d’avis' });
+      expect((await ask(id).expect(200)).body).toMatchObject({ status: 'completed', voidRequestStatus: 'pending' });
+      await ask(id).expect(409);
+      // Pas sur la vente d'un autre, ni d'annulation directe
+      const me = (await http.get(`/v1/sales/${id}`).set(C).expect(200)).body.cashierId as string;
+      const other = (await http.get('/v1/sales?limit=50').set(A()).expect(200)).body.data.find(
+        (x: { cashierId: string; status: string }) => x.cashierId !== me && x.status === 'completed',
+      );
+      await ask(other.id).expect(404);
+      await http.post(`/v1/sales/${id}/void`).set(C).send({ reason: 'moi-même' }).expect(403);
+
+      // Le gérant voit la demande dans la liste et dans ses notifications
+      const pending = (await http.get('/v1/sales?voidRequest=pending').set(A()).expect(200)).body.data;
+      expect(pending.map((x: { id: string }) => x.id)).toContain(id);
+      expect(pending.find((x: { id: string }) => x.id === id)).toMatchObject({
+        voidRequestReason: 'Le client a changé d’avis',
+      });
+      expect(await kinds(A())).toContain('void_request');
+
+      // Refus : la vente reste, le vendeur est prévenu
+      await http.post(`/v1/sales/${id}/void-request/reject`).set(C).send({}).expect(403);
+      const refused = await http
+        .post(`/v1/sales/${id}/void-request/reject`)
+        .set(A())
+        .send({ reason: 'Article déjà ouvert' })
+        .expect(200);
+      expect(refused.body).toMatchObject({ status: 'completed', voidRequestStatus: 'rejected' });
+      expect(await kinds(C)).toContain('void_rejected');
+      await http.post(`/v1/sales/${id}/void-request/reject`).set(A()).send({}).expect(409);
+
+      // Nouvelle demande, acceptée : la vente est annulée
+      await ask(id).expect(200);
+      const voided = await http.post(`/v1/sales/${id}/void`).set(A()).send({ reason: 'Accepté' }).expect(200);
+      expect(voided.body).toMatchObject({ status: 'voided', voidRequestStatus: null });
+      expect(await kinds(C)).toContain('void_accepted');
+      expect((await http.get('/v1/sales?voidRequest=pending').set(A()).expect(200)).body.data).toHaveLength(0);
+    });
   });
 
   describe('Analyses', () => {

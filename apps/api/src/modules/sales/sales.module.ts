@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { InventoryModule } from '../inventory/inventory.module';
+import { NotificationsModule } from '../notifications/notifications.module';
 import { CashController } from './cash.controller';
 import { CashService } from './cash.service';
 import { CustomersController } from './customers.controller';
@@ -14,7 +15,7 @@ import { SalesController } from './sales.controller';
 import { SalesService } from './sales.service';
 
 @Module({
-  imports: [InventoryModule],
+  imports: [InventoryModule, NotificationsModule],
   controllers: [
     SalesController,
     ReportsController,

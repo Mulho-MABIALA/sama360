@@ -58,7 +58,7 @@ class _ReceiptScreenState extends ConsumerState<ReceiptScreen> {
 
   /// Annuler la vente : motif, puis code secret (ou empreinte).
   Future<void> _void(SaleDetail s) async {
-    final reason = TextEditingController();
+    final reason = TextEditingController(text: s.voidPending ? (s.voidRequestReason ?? '') : '');
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -103,6 +103,82 @@ class _ReceiptScreenState extends ConsumerState<ReceiptScreen> {
     });
   }
 
+  /// Motif saisi dans une petite fenêtre (demande ou refus d'annulation). null si on renonce.
+  Future<String?> _askReason({
+    required String title,
+    required String intro,
+    required String label,
+    required String confirm,
+    bool required = true,
+  }) async {
+    final reason = TextEditingController();
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(title),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(intro, style: TextStyle(color: AppColors.muted)),
+            const SizedBox(height: 12),
+            TextField(
+              key: const Key('askReason'),
+              controller: reason,
+              autofocus: true,
+              decoration: InputDecoration(labelText: label),
+            ),
+          ],
+        ),
+        actions: dialogActions([
+          CancelButton(label: 'Retour', onPressed: () => Navigator.pop(ctx, false)),
+          ConfirmButton(
+            label: confirm,
+            onPressed: () {
+              if (required && reason.text.trim().length < 3) return;
+              Navigator.pop(ctx, true);
+            },
+          ),
+        ]),
+      ),
+    );
+    return ok == true ? reason.text.trim() : null;
+  }
+
+  /// Vendeur : demander au gérant d'annuler la vente.
+  Future<void> _requestVoid(SaleDetail s) async {
+    final reason = await _askReason(
+      title: 'Demander l’annulation ?',
+      intro: 'Le propriétaire ou le gérant reçoit votre demande et décide. La vente reste valable en attendant.',
+      label: 'Motif (ex. erreur de saisie, client a rendu)',
+      confirm: 'Envoyer la demande',
+    );
+    if (reason == null || !mounted) return;
+    await _run('ask', () async {
+      await ref.read(repoProvider).requestVoid(s.id, reason);
+      ref.invalidate(saleProvider(s.id));
+      refreshBusinessData(ref);
+      if (mounted) showInfo(context, 'Demande envoyée au gérant');
+    });
+  }
+
+  /// Gérant : refuser la demande du vendeur.
+  Future<void> _rejectVoid(SaleDetail s) async {
+    final reason = await _askReason(
+      title: 'Refuser l’annulation ?',
+      intro: 'La vente reste valable. Le vendeur est prévenu.',
+      label: 'Motif (facultatif)',
+      confirm: 'Refuser',
+      required: false,
+    );
+    if (reason == null || !mounted) return;
+    await _run('reject', () async {
+      await ref.read(repoProvider).rejectVoid(s.id, reason: reason.isEmpty ? null : reason);
+      ref.invalidate(saleProvider(s.id));
+      refreshBusinessData(ref);
+      if (mounted) showInfo(context, 'Demande refusée');
+    });
+  }
+
   /// PDF ticket avec le logo de l'entreprise s'il est disponible.
   Future<List<int>> _pdf(SaleDetail s, CurrentBusiness b) async {
     final logo = b.logoFileId == null ? null : await ref.read(repoProvider).fileBytes(b.logoFileId!);
@@ -124,6 +200,14 @@ class _ReceiptScreenState extends ConsumerState<ReceiptScreen> {
               tooltip: 'Annuler la vente',
               onPressed: _busy == null ? () => _void(sale.value!) : null,
               icon: const Icon(Icons.block_rounded),
+            )
+          // Vendeur : il ne peut pas annuler, il le demande
+          else if (!ref.can('sales:void') && sale.value != null && !sale.value!.voided && !sale.value!.voidPending)
+            IconButton(
+              key: const Key('ask_void'),
+              tooltip: 'Demander l’annulation',
+              onPressed: _busy == null ? () => _requestVoid(sale.value!) : null,
+              icon: const Icon(Icons.undo_rounded),
             ),
         ],
       ),
@@ -144,6 +228,13 @@ class _ReceiptScreenState extends ConsumerState<ReceiptScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
+                          _VoidRequestBanner(
+                            sale: s,
+                            manager: ref.can('sales:void'),
+                            busy: _busy != null,
+                            onAccept: () => _void(s),
+                            onReject: () => _rejectVoid(s),
+                          ),
                           ReceiptPaper(sale: s, business: b),
                           const AddLogoHint(
                             key: Key('receipt_add_logo'),
@@ -418,4 +509,86 @@ class _Dashed extends StatelessWidget {
       },
     ),
   );
+}
+
+/// Demande d'annulation : en attente (le gérant accepte ou refuse) ou refusée.
+class _VoidRequestBanner extends StatelessWidget {
+  const _VoidRequestBanner({
+    required this.sale,
+    required this.manager,
+    required this.busy,
+    required this.onAccept,
+    required this.onReject,
+  });
+  final SaleDetail sale;
+  final bool manager;
+  final bool busy;
+  final VoidCallback onAccept;
+  final VoidCallback onReject;
+
+  @override
+  Widget build(BuildContext context) {
+    final s = sale;
+    if (s.voided || s.voidRequestStatus == null) return const SizedBox.shrink();
+    final pending = s.voidPending;
+    final reason = pending ? s.voidRequestReason : s.voidRejectReason;
+    final title = pending
+        ? (manager
+              ? '${s.cashierName == null ? 'Le vendeur' : firstName(s.cashierName!)} demande l’annulation'
+              : 'Annulation demandée : en attente du gérant')
+        : 'Demande d’annulation refusée';
+    final color = pending ? AppColors.orange : AppColors.danger;
+    return Container(
+      key: Key(pending ? 'void_request_pending' : 'void_request_rejected'),
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        border: Border.all(color: color.withValues(alpha: 0.5)),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Icon(pending ? Icons.hourglass_top_rounded : Icons.do_not_disturb_on_rounded, color: color),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(title, style: const TextStyle(fontWeight: FontWeight.w800)),
+              ),
+            ],
+          ),
+          if ((reason ?? '').isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 4, left: 32),
+              child: Text('Motif : $reason', style: TextStyle(color: AppColors.muted)),
+            ),
+          if (pending && manager) ...[
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    key: const Key('void_reject'),
+                    onPressed: busy ? null : onReject,
+                    child: const Text('Refuser'),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: FilledButton(
+                    key: const Key('void_accept'),
+                    style: FilledButton.styleFrom(backgroundColor: AppColors.danger),
+                    onPressed: busy ? null : onAccept,
+                    child: const Text('Annuler la vente'),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
 }

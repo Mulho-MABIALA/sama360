@@ -505,6 +505,20 @@ class SamaRepository {
   Future<void> voidSale(String id, String reason) =>
       api.post<Map<String, dynamic>>('/v1/sales/$id/void', data: {'reason': reason});
 
+  /// Le vendeur demande l'annulation d'une de ses ventes (le gérant décide).
+  Future<void> requestVoid(String id, String reason) =>
+      api.post<Map<String, dynamic>>('/v1/sales/$id/void-request', data: {'reason': reason});
+
+  /// Le gérant refuse la demande d'annulation : la vente reste valable.
+  Future<void> rejectVoid(String id, {String? reason}) =>
+      api.post<Map<String, dynamic>>('/v1/sales/$id/void-request/reject', data: {'reason': ?reason});
+
+  /// Ventes dont un vendeur demande l'annulation (gérant).
+  Future<List<SaleSummary>> salesPendingVoid() async {
+    final r = await api.get<Map<String, dynamic>>('/v1/sales', query: {'voidRequest': 'pending', 'limit': 50});
+    return (r['data'] as List).map((e) => SaleSummary.fromJson(e as Map<String, dynamic>)).toList();
+  }
+
   Future<SaleDetail> sale(String id) async =>
       SaleDetail.fromJson(await _cachedGet<Map<String, dynamic>>('/v1/sales/$id'));
 

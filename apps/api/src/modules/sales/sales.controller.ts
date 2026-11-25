@@ -49,6 +49,7 @@ const CreateSale = z.object({
 });
 
 const VoidSale = z.object({ reason: z.string().trim().min(3).max(500) });
+const RejectVoid = z.object({ reason: z.string().trim().max(500).nullish() });
 const Repayment = z.object({ amount: positive, method, note: z.string().max(500).nullish() });
 const Expense = z.object({
   category: z.string().trim().min(2).max(40),
@@ -65,6 +66,8 @@ const ListSales = PageQuery.extend({
   /** « true » : seulement mes ventes (vendeur connecté). */
   mine: z.enum(['true', 'false']).optional(),
   status: z.enum(['completed', 'voided']).optional(),
+  /** « pending » : ventes dont le vendeur demande l'annulation. */
+  voidRequest: z.enum(['pending']).optional(),
   /** Numéro du reçu : « 42 », « 0042 » ou « VEN-2026-0042 ». */
   number: z.string().trim().min(1).max(30).optional(),
 });
@@ -119,6 +122,7 @@ export class SalesController {
       if (q.to) where.push(lt(sales.soldAt, endOf(q.to)));
       if (q.customerId) where.push(eq(sales.customerId, q.customerId));
       if (q.status) where.push(eq(sales.status, q.status));
+      if (q.voidRequest) where.push(and(eq(sales.voidRequestStatus, 'pending'), eq(sales.status, 'completed'))!);
       if (q.number) {
         // Que des chiffres : la fin du numéro (« 42 » → …-0042) ; sinon le numéro complet ou une partie
         const digits = /^\d+$/.test(q.number) ? q.number.replace(/^0+(?=\d)/, '') : null;
@@ -145,6 +149,8 @@ export class SalesController {
           paid: sales.paid,
           soldAt: sales.soldAt,
           locationId: sales.warehouseId,
+          voidRequestStatus: sales.voidRequestStatus,
+          voidRequestReason: sales.voidRequestReason,
           // Pour titrer la vente dans la liste : « Savon noir + 2 autres »
           firstItem: sql<
             string | null
@@ -460,5 +466,32 @@ export class SalesController {
     @Body() body: unknown,
   ) {
     return this.salesService.void(t.businessId, user.id, id, parse(VoidSale, body).reason);
+  }
+
+  /** Le vendeur demande l'annulation d'une de ses ventes (le gérant décide). */
+  @Post(':id/void-request')
+  @HttpCode(200)
+  @RequirePermission('sales:create')
+  requestVoid(
+    @CurrentTenant() t: TenantContext,
+    @CurrentUser() user: AuthUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() body: unknown,
+  ) {
+    const own = !hasPermission(t.permissions, 'reports:read');
+    return this.salesService.requestVoid(t.businessId, user.id, id, parse(VoidSale, body).reason, own);
+  }
+
+  /** Le gérant refuse la demande : la vente reste valable. */
+  @Post(':id/void-request/reject')
+  @HttpCode(200)
+  @RequirePermission('sales:void')
+  rejectVoid(
+    @CurrentTenant() t: TenantContext,
+    @CurrentUser() user: AuthUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() body: unknown,
+  ) {
+    return this.salesService.rejectVoid(t.businessId, user.id, id, parse(RejectVoid, body ?? {}).reason ?? null);
   }
 }

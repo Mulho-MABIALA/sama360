@@ -1409,10 +1409,19 @@ class SaleDetail {
     this.customer,
     this.cashierName,
     this.loyalty,
+    this.voidRequestStatus,
+    this.voidRequestReason,
+    this.voidRejectReason,
   });
   final String id;
   final String number;
   final String status; // completed, voided
+
+  /// Demande d'annulation du vendeur : « pending » (en attente du gérant) ou « rejected ».
+  final String? voidRequestStatus;
+  final String? voidRequestReason;
+  final String? voidRejectReason;
+  bool get voidPending => voidRequestStatus == 'pending' && !voided;
   final DateTime soldAt;
   final int subtotal;
   final int discount;
@@ -1447,6 +1456,9 @@ class SaleDetail {
     customer: j['customer'] == null ? null : Contact.fromJson(j['customer'] as Map<String, dynamic>),
     cashierName: j['cashierName'] as String?,
     loyalty: j['loyalty'] == null ? null : SaleLoyalty.fromJson(j['loyalty'] as Map<String, dynamic>),
+    voidRequestStatus: j['voidRequestStatus'] as String?,
+    voidRequestReason: j['voidRequestReason'] as String?,
+    voidRejectReason: j['voidRejectReason'] as String?,
   );
 }
 
@@ -1472,10 +1484,16 @@ class SaleSummary {
     required this.total,
     required this.due,
     required this.soldAt,
+    this.voidRequestReason,
+    this.voidPending = false,
   });
   final String id;
   final String number;
   final String status;
+
+  /// Le vendeur demande l'annulation (motif) : en attente du gérant.
+  final bool voidPending;
+  final String? voidRequestReason;
   final String? customerName;
   final String? cashierName;
   final String? firstItem;
@@ -1507,6 +1525,8 @@ class SaleSummary {
     // La liste renvoie « paid » ; le détail renvoie aussi « due ».
     due: j['due'] != null ? _int(j['due']) : _int(j['total']) - _int(j['paid']),
     soldAt: _date(j['soldAt']) ?? DateTime.now(),
+    voidPending: j['voidRequestStatus'] == 'pending' && j['status'] != 'voided',
+    voidRequestReason: j['voidRequestReason'] as String?,
   );
 }
 

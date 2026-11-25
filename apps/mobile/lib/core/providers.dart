@@ -392,6 +392,14 @@ final salesTodayProvider = FutureProvider<List<SaleSummary>>((ref) async {
   return ref.watch(repoProvider).salesOfDay(null, !hasPermission(b.permissions, 'reports:read'));
 });
 
+/// Demandes d'annulation des vendeurs, en attente (gérant seulement ; vide sinon).
+final pendingVoidsProvider = FutureProvider<List<SaleSummary>>((ref) async {
+  ref.watch(scopeProvider);
+  final b = await ref.watch(currentBusinessProvider.future);
+  if (!hasPermission(b.permissions, 'sales:void')) return const [];
+  return ref.watch(repoProvider).salesPendingVoid();
+});
+
 final myDayProvider = FutureProvider<MyDay>((ref) {
   ref.watch(scopeProvider);
   return ref.watch(repoProvider).myDay();
@@ -462,6 +470,7 @@ void refreshBusinessData(WidgetRef ref) {
   ref.invalidate(customerListProvider);
   ref.invalidate(customerOverviewProvider);
   ref.invalidate(salesTodayProvider);
+  ref.invalidate(pendingVoidsProvider);
   ref.invalidate(myDayProvider);
   ref.invalidate(cashCurrentProvider);
   ref.invalidate(unreadNotificationsProvider);

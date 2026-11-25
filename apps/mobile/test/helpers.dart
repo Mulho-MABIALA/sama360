@@ -2548,9 +2548,60 @@ class FakeRepo extends SamaRepository {
   Future<void> unregisterPushToken(String token) async => pushTokens.remove(token);
 
   @override
-  Future<SaleDetail> sale(String id) async => id == 'voided' || voidedSales.containsKey(id) ? demoVoidedSale : demoSale;
+  Future<SaleDetail> sale(String id) async {
+    if (id == 'voided' || voidedSales.containsKey(id)) return demoVoidedSale;
+    final r = voidRequests[id];
+    if (r == null) return demoSale;
+    final d = demoSale;
+    return SaleDetail(
+      id: d.id,
+      number: d.number,
+      status: d.status,
+      soldAt: d.soldAt,
+      subtotal: d.subtotal,
+      discount: d.discount,
+      total: d.total,
+      paid: d.paid,
+      due: d.due,
+      lines: d.lines,
+      payments: d.payments,
+      customer: d.customer,
+      cashierName: 'Moussa Fall',
+      voidRequestStatus: r.$1,
+      voidRequestReason: r.$2,
+      voidRejectReason: r.$3,
+    );
+  }
 
   final voidedSales = <String, String>{};
+
+  /// Demandes d'annulation : statut, motif du vendeur, motif du refus.
+  final voidRequests = <String, (String, String, String?)>{};
+
+  @override
+  Future<void> requestVoid(String id, String reason) async => voidRequests[id] = ('pending', reason, null);
+
+  @override
+  Future<void> rejectVoid(String id, {String? reason}) async =>
+      voidRequests[id] = ('rejected', voidRequests[id]!.$2, reason);
+
+  @override
+  Future<List<SaleSummary>> salesPendingVoid() async => [
+    for (final s in await salesOfDay())
+      if (voidRequests[s.id]?.$1 == 'pending' && !voidedSales.containsKey(s.id))
+        SaleSummary(
+          id: s.id,
+          number: s.number,
+          status: s.status,
+          customerName: s.customerName,
+          cashierName: 'Moussa Fall',
+          total: s.total,
+          due: s.due,
+          soldAt: s.soldAt,
+          voidPending: true,
+          voidRequestReason: voidRequests[s.id]!.$2,
+        ),
+  ];
 
   @override
   Future<void> voidSale(String id, String reason) async => voidedSales[id] = reason;

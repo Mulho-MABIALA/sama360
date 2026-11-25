@@ -17,6 +17,7 @@ import { OutboxService } from '../../shared/events/outbox.service';
 import { AppError, variantRequired } from '../../shared/http/app-error';
 import { newId } from '../../shared/ids';
 import { InventoryService } from '../inventory/inventory.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { LineInput, priceSale, PricingError, catalogUnitPrice } from './pricing';
 
 export interface CreateSaleInput {
@@ -48,6 +49,7 @@ export class SalesService {
     private readonly outbox: OutboxService,
     private readonly inventory: InventoryService,
     private readonly loyalty: LoyaltyService,
+    private readonly notifications: NotificationsService,
   ) {}
 
   /**
@@ -286,8 +288,21 @@ export class SalesService {
 
       await tx
         .update(sales)
-        .set({ status: 'voided', voidedAt: new Date(), voidReason: reason })
+        .set({ status: 'voided', voidedAt: new Date(), voidReason: reason, voidRequestStatus: null })
         .where(eq(sales.id, saleId));
+      // Le vendeur qui l'avait demandée est prévenu
+      if (sale.voidRequestStatus === 'pending' && sale.voidRequestedBy && sale.voidRequestedBy !== actorId) {
+        await this.notifications.push(tx, businessId, {
+          kind: 'void_accepted',
+          title: `Annulation de ${sale.number} acceptée`,
+          body: 'La vente est annulée et la marchandise est revenue en stock.',
+          link: `/sales/${sale.id}`,
+          audience: 'sales:read',
+          userId: sale.voidRequestedBy,
+          actorId,
+          dedupeKey: `void_accepted:${sale.id}`,
+        });
+      }
 
       const due = sale.total - sale.paid;
       if (due > 0 && sale.customerId) {
@@ -328,6 +343,73 @@ export class SalesService {
           due,
         },
       });
+      return (await this.findFull(tx, saleId))!;
+    });
+  }
+
+  /**
+   * Le vendeur demande l'annulation d'une de ses ventes (erreur de saisie, client qui rend l'article…).
+   * Les gérants sont prévenus ; eux seuls annulent ou refusent.
+   */
+  async requestVoid(businessId: string, actorId: string, saleId: string, reason: string, own: boolean) {
+    return this.dbs.withTenant(businessId, async (tx) => {
+      const [sale] = await tx.select().from(sales).where(eq(sales.id, saleId)).limit(1).for('update');
+      if (!sale || (own && sale.cashierId !== actorId)) throw AppError.notFound('Vente');
+      if (sale.status === 'voided') throw new AppError('SALE_ALREADY_VOIDED', 'Cette vente est déjà annulée', 409);
+      if (sale.voidRequestStatus === 'pending') {
+        throw new AppError('CONFLICT', 'Une demande d’annulation est déjà en attente', 409);
+      }
+      await tx
+        .update(sales)
+        .set({
+          voidRequestStatus: 'pending',
+          voidRequestReason: reason,
+          voidRequestedBy: actorId,
+          voidRequestedAt: new Date(),
+          voidRejectReason: null,
+        })
+        .where(eq(sales.id, saleId));
+      const [who] = await tx
+        .select({ name: users.fullName, phone: users.phone })
+        .from(users)
+        .where(eq(users.id, actorId));
+      await this.notifications.push(tx, businessId, {
+        kind: 'void_request',
+        title: `Demande d’annulation : ${sale.number}`,
+        body: `${who?.name ?? who?.phone ?? 'Un vendeur'} · ${reason}`,
+        link: `/sales/${sale.id}`,
+        audience: 'sales:void',
+        actorId,
+        dedupeKey: `void_request:${sale.id}:${Date.now()}`,
+      });
+      return (await this.findFull(tx, saleId))!;
+    });
+  }
+
+  /** Le gérant refuse la demande : la vente reste valable, le vendeur est prévenu. */
+  async rejectVoid(businessId: string, actorId: string, saleId: string, reason: string | null) {
+    return this.dbs.withTenant(businessId, async (tx) => {
+      const [sale] = await tx.select().from(sales).where(eq(sales.id, saleId)).limit(1).for('update');
+      if (!sale) throw AppError.notFound('Vente');
+      if (sale.voidRequestStatus !== 'pending') {
+        throw new AppError('CONFLICT', 'Aucune demande d’annulation en attente pour cette vente', 409);
+      }
+      await tx
+        .update(sales)
+        .set({ voidRequestStatus: 'rejected', voidRejectReason: reason })
+        .where(eq(sales.id, saleId));
+      if (sale.voidRequestedBy && sale.voidRequestedBy !== actorId) {
+        await this.notifications.push(tx, businessId, {
+          kind: 'void_rejected',
+          title: `Annulation de ${sale.number} refusée`,
+          body: reason ? `Motif : ${reason}` : 'La vente reste valable.',
+          link: `/sales/${sale.id}`,
+          audience: 'sales:read',
+          userId: sale.voidRequestedBy,
+          actorId,
+          dedupeKey: `void_rejected:${sale.id}:${Date.now()}`,
+        });
+      }
       return (await this.findFull(tx, saleId))!;
     });
   }

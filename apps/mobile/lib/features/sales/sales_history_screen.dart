@@ -119,6 +119,7 @@ class _SalesHistoryScreenState extends ConsumerState<SalesHistoryScreen> {
                               ],
                             ),
                             const SizedBox(height: 12),
+                            const _PendingVoids(),
                             const PendingSalesSection(),
                             if (list.isEmpty && ref.watch(pendingForBusinessProvider).isEmpty)
                               Padding(
@@ -168,7 +169,8 @@ class _SaleTile extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(fontWeight: FontWeight.w800),
           ),
-          subtitle: Text(
+          subtitle: _subtitle(
+            s,
             [
               DateFormat('HH:mm', 'fr').format(s.soldAt.toLocal()),
               // Le numéro reste visible, en petit
@@ -201,6 +203,47 @@ class _SaleTile extends StatelessWidget {
           ),
           onTap: () => context.push('/sales/${s.id}'),
         ),
+      ),
+    );
+  }
+}
+
+Widget _subtitle(SaleSummary s, String text) => s.voidPending
+    ? Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(text),
+          Text(
+            'Annulation demandée',
+            style: TextStyle(color: AppColors.warnText, fontWeight: FontWeight.w800, fontSize: 12.5),
+          ),
+        ],
+      )
+    : Text(text);
+
+/// Gérant : les ventes dont un vendeur demande l'annulation, en haut de la liste.
+class _PendingVoids extends ConsumerWidget {
+  const _PendingVoids();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final list = ref.watch(pendingVoidsProvider).value ?? const [];
+    if (list.isEmpty) return const SizedBox.shrink();
+    return Padding(
+      key: const Key('pending_voids'),
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(left: 4, bottom: 6),
+            child: Text(
+              list.length == 1 ? '1 demande d’annulation' : '${list.length} demandes d’annulation',
+              style: TextStyle(fontWeight: FontWeight.w800, color: AppColors.warnText),
+            ),
+          ),
+          for (final s in list) _SaleTile(sale: s, showSeller: true),
+        ],
       ),
     );
   }

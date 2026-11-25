@@ -31,7 +31,6 @@ const qty = customType<{ data: number; driverData: string }>({
   toDriver: (v) => String(v),
 });
 
-
 // ---------- core ----------
 export const core = pgSchema('core');
 
@@ -328,6 +327,12 @@ export const sales = salesSchema.table('sales', {
   soldAt: ts('sold_at').notNull(),
   voidedAt: ts('voided_at'),
   voidReason: text('void_reason'),
+  /** Demande d'annulation du vendeur : en attente, ou refusée (motif du refus). */
+  voidRequestStatus: varchar('void_request_status', { length: 10 }).$type<'pending' | 'rejected' | null>(),
+  voidRequestReason: text('void_request_reason'),
+  voidRequestedBy: uuid('void_requested_by'),
+  voidRequestedAt: ts('void_requested_at'),
+  voidRejectReason: text('void_reject_reason'),
   createdAt: ts('created_at').notNull().defaultNow(),
 });
 
@@ -347,7 +352,8 @@ export const saleItems = salesSchema.table('sale_items', {
   warrantyUntil: date('warranty_until', { mode: 'string' }),
 });
 
-export type PaymentMethod = 'cash' | 'wave' | 'orange_money' | 'free_money' | 'mtn_momo' | 'moov_money' | 'airtel_money' | 'card';
+export type PaymentMethod =
+  'cash' | 'wave' | 'orange_money' | 'free_money' | 'mtn_momo' | 'moov_money' | 'airtel_money' | 'card';
 
 export const salePayments = salesSchema.table('sale_payments', {
   id: uuid('id').primaryKey(),
@@ -416,7 +422,8 @@ export const invoiceSequences = invoicingSchema.table(
 );
 
 export type DocumentKind = 'quote' | 'invoice';
-export type DocumentStatus = 'pending' | 'accepted' | 'declined' | 'invoiced' | 'unpaid' | 'partial' | 'paid' | 'cancelled';
+export type DocumentStatus =
+  'pending' | 'accepted' | 'declined' | 'invoiced' | 'unpaid' | 'partial' | 'paid' | 'cancelled';
 
 export const documents = invoicingSchema.table('documents', {
   id: uuid('id').primaryKey(),
