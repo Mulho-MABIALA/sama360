@@ -192,6 +192,8 @@ void main() {
 
     await tester.enterText(find.byKey(const Key('pName')), 'Beurre de karité 500 g');
     await tester.enterText(find.byKey(const Key('pPrice')), '6000');
+    await tester.tap(find.byKey(const Key('pCat_c1'))); // catégorie obligatoire
+    await tester.pump();
     await tester.tap(find.text('Ajouter le produit'));
     await tester.pumpAndSettle();
 

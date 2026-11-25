@@ -183,6 +183,7 @@ class _ProductEditorScreenState extends ConsumerState<ProductEditorScreen> {
     }
     setState(() {
       _errors.clear();
+      if (_category == null && !(_product?.isVariant ?? false)) _errors['category'] = 'Choisissez une catégorie';
       if (_name.text.trim().isEmpty) _errors['name'] = 'Donnez un nom';
       if (price == null) _errors['price'] = 'Indiquez le prix de vente';
       if (_pack && !_isService && (packSize == null || packSize <= 1)) {
@@ -277,6 +278,62 @@ class _ProductEditorScreenState extends ConsumerState<ProductEditorScreen> {
       _extraName.clear();
       _extraPrice.clear();
     });
+  }
+
+  /// Catégories du commerce en pastilles, « + Nouvelle » pour en créer une sans quitter la fiche.
+  Widget _categoryPicker() {
+    final cats = ref.watch(categoriesProvider).value ?? const <Category>[];
+    final error = _errors['category'];
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: 12),
+        Text(
+          'Catégorie *',
+          style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13.5, color: error != null ? AppColors.danger : null),
+        ),
+        const SizedBox(height: 6),
+        Wrap(
+          spacing: 6,
+          runSpacing: 6,
+          children: [
+            for (final c in cats)
+              Pill(
+                key: Key('pCat_${c.id}'),
+                label: c.name,
+                selected: _category?.id == c.id,
+                onTap: () => setState(() {
+                  _category = c;
+                  _errors.remove('category');
+                }),
+              ),
+            Pill(
+              key: const Key('pCat_new'),
+              label: 'Nouvelle',
+              icon: Icons.add_rounded,
+              selected: false,
+              onTap: () async {
+                final c = await pickOrCreateCategory(context, ref, selected: _category);
+                if (c != null && c.id.isNotEmpty) {
+                  setState(() {
+                    _category = c;
+                    _errors.remove('category');
+                  });
+                }
+              },
+            ),
+          ],
+        ),
+        if (error != null) ...[
+          const SizedBox(height: 6),
+          Text(
+            error,
+            key: const Key('pCat_error'),
+            style: TextStyle(color: AppColors.danger, fontWeight: FontWeight.w600, fontSize: 12.5),
+          ),
+        ],
+      ],
+    );
   }
 
   /// Suppléments, péremption, IMEI et garantie : utiles selon le métier.
@@ -535,6 +592,8 @@ class _ProductEditorScreenState extends ConsumerState<ProductEditorScreen> {
                               ],
                             ],
                           ),
+                          // Catégorie obligatoire, à portée de main (boutique en ligne et caisse rangées)
+                          if (!(_product?.isVariant ?? false)) _categoryPicker(),
                           // Quincaillerie, alimentation : on choisit tout de suite au mètre, au kilo, au sac…
                           if (!_isService && _unitFirst) ...[
                             const SizedBox(height: 10),
@@ -815,21 +874,6 @@ class _ProductEditorScreenState extends ConsumerState<ProductEditorScreen> {
                               ),
                             ],
                             if (!_isService) _tradeFields(digits),
-                            const SizedBox(height: 10),
-                            InkWell(
-                              borderRadius: BorderRadius.circular(14),
-                              onTap: () async {
-                                final c = await pickOrCreateCategory(context, ref, selected: _category);
-                                if (c != null) setState(() => _category = c.id.isEmpty ? null : c);
-                              },
-                              child: InputDecorator(
-                                decoration: const InputDecoration(
-                                  labelText: 'Catégorie',
-                                  suffixIcon: Icon(Icons.expand_more),
-                                ),
-                                child: Text(_category?.name ?? 'Sans catégorie'),
-                              ),
-                            ),
                             SwitchListTile(
                               key: const Key('pPublished'),
                               contentPadding: EdgeInsets.zero,

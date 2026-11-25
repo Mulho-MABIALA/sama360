@@ -116,6 +116,8 @@ void main() {
     final (_, repo) = await pumpSama(tester, location: '/products/new');
     await tester.enterText(find.byKey(const Key('pName')), 'Yassa poulet');
     await tester.enterText(find.byKey(const Key('pPrice')), '2000');
+    await tester.tap(find.byKey(const Key('pCat_c1'))); // catégorie obligatoire
+    await tester.pump();
     await tester.tap(find.byKey(const Key('pMore')));
     await tester.pumpAndSettle();
     await tester.scrollUntilVisible(find.byKey(const Key('pExtraAdd')), 200, scrollable: find.byType(Scrollable).first);

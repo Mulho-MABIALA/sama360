@@ -66,6 +66,10 @@ void main() {
     expect(find.textContaining('Bénéfice : 1'), findsOneWidget); // 3 500 − 2 000
 
     await tester.enterText(find.byKey(const Key('pPrice')), '4000');
+
+    await tester.tap(find.byKey(const Key('pCat_c1'))); // catégorie obligatoire
+
+    await tester.pump();
     await tester.scrollUntilVisible(
       find.byTooltip('Scanner le code-barres'),
       200,
@@ -100,6 +104,8 @@ void main() {
     await pumpSama(tester, location: '/products/new?barcode=0000000000000');
     await tester.enterText(find.byKey(const Key('pName')), 'Savon doublon');
     await tester.enterText(find.byKey(const Key('pPrice')), '1000');
+    await tester.tap(find.byKey(const Key('pCat_c1'))); // catégorie obligatoire
+    await tester.pump();
     await tester.tap(find.text('Ajouter le produit'));
     await tester.pumpAndSettle();
     await tester.scrollUntilVisible(
@@ -230,6 +236,24 @@ void main() {
     expect(repo.categoryOps, ['create Épicerie', 'rename c1 Soins du corps', 'delete c2']);
   });
 
+  testWidgets('nouveau produit : catégorie obligatoire, choisie ou créée sur place', (tester) async {
+    phoneSize(tester);
+    final (_, repo) = await pumpSama(tester, location: '/products/new');
+    await tester.enterText(find.byKey(const Key('pName')), 'Eau de parfum Oud');
+    await tester.enterText(find.byKey(const Key('pPrice')), '25000');
+    await tester.tap(find.text('Ajouter le produit'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('pCat_error')), findsOneWidget);
+    expect(repo.createdProducts, isEmpty);
+
+    await tester.tap(find.byKey(const Key('pCat_c2')));
+    await tester.pump();
+    expect(find.byKey(const Key('pCat_error')), findsNothing);
+    await tester.tap(find.text('Ajouter le produit'));
+    await tester.pumpAndSettle();
+    expect(repo.createdProducts, ['Eau de parfum Oud']);
+  });
+
   testWidgets('nouveau produit : nom, prix, quantité ; le reste replié', (tester) async {
     phoneSize(tester);
     final (_, repo) = await pumpSama(tester, location: '/products/new');
@@ -238,6 +262,8 @@ void main() {
     expect(find.text('Plus d’options'), findsOneWidget);
     await tester.enterText(find.byKey(const Key('pName')), 'Riz parfumé 5 kg');
     await tester.enterText(find.byKey(const Key('pPrice')), '4500');
+    await tester.tap(find.byKey(const Key('pCat_c1'))); // catégorie obligatoire
+    await tester.pump();
     await tester.enterText(find.byKey(const Key('pQty')), '12');
     await tester.tap(find.byKey(const Key('pMore')));
     await tester.pumpAndSettle();
