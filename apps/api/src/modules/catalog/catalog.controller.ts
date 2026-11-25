@@ -163,6 +163,10 @@ function checkWholesale(price: number, wholesalePrice?: number | null, minQty?: 
   }
 }
 
+/** Photos par produit : la première est la principale (caisse, boutique en ligne). */
+const MAX_PRODUCT_IMAGES = 5;
+const ImageOrder = z.object({ fileIds: z.array(z.string().uuid()).min(1).max(MAX_PRODUCT_IMAGES) });
+
 @Controller('v1/catalog')
 export class CatalogController {
   constructor(
@@ -589,6 +593,103 @@ export class CatalogController {
         .where(eq(products.id, id))
         .returning();
       for (const old of current.imageFileIds) await this.filesService.remove(tx, old);
+      return product;
+    });
+  }
+
+  /** Photos en plus (galerie) : ajoutée à la suite, jusqu'à MAX_PRODUCT_IMAGES. La première est la principale. */
+  @Post('products/:id/images')
+  @HttpCode(200)
+  @RequirePermission('catalog:write')
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 20 * 1024 * 1024, files: 1 } }))
+  addImage(
+    @CurrentTenant() t: TenantContext,
+    @CurrentUser() user: AuthUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @UploadedFile() file?: { buffer: Buffer; size: number },
+  ) {
+    if (!file?.buffer?.length) throw new AppError('VALIDATION_FAILED', 'Ajoutez une photo (champ « file »)', 422);
+    const maxMb = env().MAX_UPLOAD_MB;
+    if (file.size > maxMb * 1024 * 1024) {
+      throw new AppError('PAYLOAD_TOO_LARGE', `Photo trop lourde (maximum ${maxMb} Mo)`, 413);
+    }
+    return this.dbs.withTenant(t.businessId, async (tx) => {
+      const [current] = await tx
+        .select({ imageFileIds: products.imageFileIds, version: products.version })
+        .from(products)
+        .where(and(eq(products.id, id), isNull(products.deletedAt)))
+        .limit(1);
+      if (!current) throw AppError.notFound('Produit');
+      if (current.imageFileIds.length >= MAX_PRODUCT_IMAGES) {
+        throw new AppError('VALIDATION_FAILED', `${MAX_PRODUCT_IMAGES} photos au maximum par produit`, 422);
+      }
+      const saved = await this.filesService.saveImage(tx, {
+        businessId: t.businessId,
+        kind: 'product_image',
+        data: file.buffer,
+        createdBy: user.id,
+      });
+      const [product] = await tx
+        .update(products)
+        .set({ imageFileIds: [...current.imageFileIds, saved.id], version: current.version + 1, updatedAt: new Date() })
+        .where(eq(products.id, id))
+        .returning();
+      return product;
+    });
+  }
+
+  /** Retire une photo de la galerie. */
+  @Delete('products/:id/images/:fileId')
+  @RequirePermission('catalog:write')
+  removeOneImage(
+    @CurrentTenant() t: TenantContext,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('fileId', ParseUUIDPipe) fileId: string,
+  ) {
+    return this.dbs.withTenant(t.businessId, async (tx) => {
+      const [current] = await tx
+        .select({ imageFileIds: products.imageFileIds, version: products.version })
+        .from(products)
+        .where(and(eq(products.id, id), isNull(products.deletedAt)))
+        .limit(1);
+      if (!current) throw AppError.notFound('Produit');
+      if (!current.imageFileIds.includes(fileId)) throw AppError.notFound('Photo');
+      const [product] = await tx
+        .update(products)
+        .set({
+          imageFileIds: current.imageFileIds.filter((f) => f !== fileId),
+          version: current.version + 1,
+          updatedAt: new Date(),
+        })
+        .where(eq(products.id, id))
+        .returning();
+      await this.filesService.remove(tx, fileId);
+      return product;
+    });
+  }
+
+  /** Ordre des photos (la première devient la photo principale) : mêmes photos, nouvel ordre. */
+  @Put('products/:id/images')
+  @RequirePermission('catalog:write')
+  orderImages(@CurrentTenant() t: TenantContext, @Param('id', ParseUUIDPipe) id: string, @Body() body: unknown) {
+    const { fileIds } = parse(ImageOrder, body);
+    return this.dbs.withTenant(t.businessId, async (tx) => {
+      const [current] = await tx
+        .select({ imageFileIds: products.imageFileIds, version: products.version })
+        .from(products)
+        .where(and(eq(products.id, id), isNull(products.deletedAt)))
+        .limit(1);
+      if (!current) throw AppError.notFound('Produit');
+      const same =
+        fileIds.length === current.imageFileIds.length &&
+        new Set(fileIds).size === fileIds.length &&
+        fileIds.every((f) => current.imageFileIds.includes(f));
+      if (!same) throw new AppError('VALIDATION_FAILED', 'Les photos ont changé : rechargez la fiche', 422);
+      const [product] = await tx
+        .update(products)
+        .set({ imageFileIds: fileIds, version: current.version + 1, updatedAt: new Date() })
+        .where(eq(products.id, id))
+        .returning();
       return product;
     });
   }

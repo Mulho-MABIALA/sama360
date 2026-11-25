@@ -66,8 +66,10 @@ class _ProductEditorScreenState extends ConsumerState<ProductEditorScreen> {
   bool _published = true; // nouveau produit : visible dans la boutique en ligne
   bool _wholesale = false;
   Category? _category;
-  PickedPhoto? _photo;
-  String? _imageFileId;
+
+  /// Galerie : photos en ligne (fileId) ou choisies, pas encore envoyées (picked). La première est la principale.
+  List<GalleryPhoto> _photos = [];
+  List<String> _serverPhotos = const [];
   bool _loaded = false;
   bool _busy = false;
 
@@ -128,7 +130,8 @@ class _ProductEditorScreenState extends ConsumerState<ProductEditorScreen> {
           _wQty.text = qty(p.wholesaleMinQty!);
         }
         _category = cats.where((c) => c.id == p.categoryId).firstOrNull;
-        _imageFileId = p.imageFileId;
+        _serverPhotos = p.images.isEmpty && p.imageFileId != null ? [p.imageFileId!] : p.images;
+        _photos = [for (final f in _serverPhotos) GalleryPhoto(fileId: f)];
         _loaded = true;
       });
     });
@@ -238,12 +241,10 @@ class _ProductEditorScreenState extends ConsumerState<ProductEditorScreen> {
           if (mounted) showInfo(context, 'Produit ajouté, mais le stock n’a pas pu être enregistré');
         }
       }
-      if (_photo != null) {
-        try {
-          await repo.uploadProductImage(saved.id, _photo!.bytes, filename: _photo!.filename);
-        } catch (_) {
-          if (mounted) showInfo(context, 'Produit enregistré, mais la photo n’a pas pu être envoyée');
-        }
+      try {
+        await syncGallery(repo, saved.id, server: _serverPhotos, wanted: _photos);
+      } catch (_) {
+        if (mounted) showInfo(context, 'Produit enregistré, mais les photos n’ont pas toutes été envoyées');
       }
       refreshBusinessData(ref);
       ref.invalidate(categoriesProvider);
@@ -476,23 +477,11 @@ class _ProductEditorScreenState extends ConsumerState<ProductEditorScreen> {
                       _Section(
                         title: _editing ? 'Produit' : 'L’essentiel',
                         children: [
-                          if (_photo == null && _imageFileId != null)
-                            Row(
-                              children: [
-                                ProductThumb(name: _name.text, fileId: _imageFileId, size: 64),
-                                const SizedBox(width: 12),
-                                TextButton.icon(
-                                  onPressed: () async {
-                                    final p = await choosePhoto(context, ref);
-                                    if (p != null) setState(() => _photo = p);
-                                  },
-                                  icon: const Icon(Icons.photo_camera_rounded),
-                                  label: const Text('Changer la photo'),
-                                ),
-                              ],
-                            )
-                          else
-                            PhotoField(photo: _photo, onChanged: (p) => setState(() => _photo = p)),
+                          PhotoGallery(
+                            name: _name.text,
+                            photos: _photos,
+                            onChanged: (list) => setState(() => _photos = list),
+                          ),
                           const SizedBox(height: 12),
                           if (_product?.isVariant ?? false)
                             Padding(

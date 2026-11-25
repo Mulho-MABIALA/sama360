@@ -6,7 +6,9 @@ import 'package:material_ui/material_ui.dart';
 
 import '../../core/format.dart';
 import '../../core/providers.dart';
+import '../../core/repositories.dart';
 import '../../core/theme.dart';
+import '../../core/widgets.dart';
 
 /// Photo choisie sur le téléphone : octets déjà compressés + nom de fichier.
 class PickedPhoto {
@@ -198,6 +200,203 @@ class PhotoField extends ConsumerWidget {
             ],
           ),
         ),
+      ],
+    );
+  }
+}
+
+/// Une photo de la galerie : déjà en ligne (fileId) ou choisie et pas encore envoyée (picked).
+class GalleryPhoto {
+  const GalleryPhoto({this.fileId, this.picked});
+  final String? fileId;
+  final PickedPhoto? picked;
+}
+
+/// Photos par produit (la première est la principale : caisse, boutique en ligne).
+const maxProductPhotos = 5;
+
+/// Envoie les changements de la galerie : retraits, ajouts, puis l'ordre voulu.
+Future<void> syncGallery(
+  SamaRepository repo,
+  String productId, {
+  required List<String> server,
+  required List<GalleryPhoto> wanted,
+}) async {
+  final kept = {for (final p in wanted) ?p.fileId};
+  var current = [...server];
+  for (final f in server) {
+    if (!kept.contains(f)) {
+      current = (await repo.removeProductImage(productId, f)).images;
+    }
+  }
+  final ids = <String>[];
+  for (final p in wanted) {
+    if (p.fileId != null) {
+      ids.add(p.fileId!);
+    } else if (p.picked != null) {
+      current = (await repo.addProductImage(productId, p.picked!.bytes, filename: p.picked!.filename)).images;
+      ids.add(current.last);
+    }
+  }
+  if (ids.isNotEmpty && ids.join() != current.join()) await repo.orderProductImages(productId, ids);
+}
+
+/// Bande de photos : la principale en premier, « + Photo » jusqu'à 5, toucher une photo pour la mettre
+/// en principale ou la retirer.
+class PhotoGallery extends ConsumerWidget {
+  const PhotoGallery({super.key, required this.name, required this.photos, required this.onChanged});
+  final String name;
+  final List<GalleryPhoto> photos;
+  final ValueChanged<List<GalleryPhoto>> onChanged;
+
+  Future<void> _add(BuildContext context, WidgetRef ref) async {
+    try {
+      final p = await choosePhoto(context, ref);
+      if (p != null) onChanged([...photos, GalleryPhoto(picked: p)]);
+    } catch (_) {
+      if (context.mounted) showInfo(context, 'Photo impossible à ouvrir. Réessayez avec une autre.');
+    }
+  }
+
+  Future<void> _menu(BuildContext context, int i) async {
+    final action = await showModalBottomSheet<String>(
+      useRootNavigator: true,
+      context: context,
+      showDragHandle: true,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (i > 0)
+              ListTile(
+                key: const Key('photo_main'),
+                leading: Icon(Icons.star_rounded, color: AppColors.saffron),
+                title: const Text('Mettre en photo principale', style: TextStyle(fontWeight: FontWeight.w700)),
+                onTap: () => Navigator.pop(ctx, 'main'),
+              ),
+            ListTile(
+              key: const Key('photo_remove'),
+              leading: Icon(Icons.delete_outline_rounded, color: AppColors.danger),
+              title: Text(
+                'Retirer la photo',
+                style: TextStyle(fontWeight: FontWeight.w700, color: AppColors.danger),
+              ),
+              onTap: () => Navigator.pop(ctx, 'remove'),
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+    final list = [...photos];
+    if (action == 'main') {
+      list.insert(0, list.removeAt(i));
+      onChanged(list);
+    } else if (action == 'remove') {
+      list.removeAt(i);
+      onChanged(list);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    const size = 82.0;
+    Widget frame(Widget child, {bool main = false}) => Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: main ? AppColors.green : AppColors.line, width: main ? 2 : 1),
+      ),
+      child: ClipRRect(borderRadius: BorderRadius.circular(15), child: child),
+    );
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            const Text('Photos', style: TextStyle(fontWeight: FontWeight.w800)),
+            const SizedBox(width: 6),
+            Text('${photos.length}/$maxProductPhotos', style: TextStyle(color: AppColors.muted, fontSize: 12.5)),
+          ],
+        ),
+        const SizedBox(height: 8),
+        SizedBox(
+          height: size,
+          child: ListView(
+            scrollDirection: Axis.horizontal,
+            children: [
+              for (final (i, p) in photos.indexed) ...[
+                GestureDetector(
+                  key: Key('photo_$i'),
+                  onTap: () => _menu(context, i),
+                  child: Stack(
+                    children: [
+                      frame(
+                        p.picked != null
+                            ? Image.memory(
+                                Uint8List.fromList(p.picked!.bytes),
+                                fit: BoxFit.cover,
+                                width: size,
+                                height: size,
+                              )
+                            : ProductThumb(name: name, fileId: p.fileId, size: size),
+                        main: i == 0,
+                      ),
+                      if (i == 0)
+                        Positioned(
+                          left: 6,
+                          bottom: 6,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(color: AppColors.green, borderRadius: BorderRadius.circular(6)),
+                            child: const Text(
+                              'Principale',
+                              style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w800),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+              ],
+              if (photos.length < maxProductPhotos)
+                InkWell(
+                  key: const Key('photo_add'),
+                  borderRadius: BorderRadius.circular(16),
+                  onTap: () => _add(context, ref),
+                  child: Container(
+                    width: size,
+                    height: size,
+                    decoration: BoxDecoration(
+                      color: AppColors.greenSoft,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: AppColors.green.withValues(alpha: 0.4), width: 1.5),
+                    ),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.add_a_photo_rounded, color: AppColors.green),
+                        const SizedBox(height: 4),
+                        Text(
+                          photos.isEmpty ? 'Photo' : 'Ajouter',
+                          style: TextStyle(color: AppColors.green, fontWeight: FontWeight.w800, fontSize: 12),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+        if (photos.length > 1) ...[
+          const SizedBox(height: 6),
+          Text(
+            'Touchez une photo pour la mettre en principale ou la retirer.',
+            style: TextStyle(color: AppColors.muted, fontSize: 12),
+          ),
+        ],
       ],
     );
   }

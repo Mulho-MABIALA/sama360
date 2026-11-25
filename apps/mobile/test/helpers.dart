@@ -145,6 +145,33 @@ class FakeRepo extends SamaRepository {
   @override
   Future<void> deleteCategory(String id) async => categoryOps.add('delete $id');
 
+  /// Galerie de photos par produit (ajouts, retraits, ordre)
+  final galleries = <String, List<String>>{};
+  final galleryOps = <String>[];
+  var _galleryN = 0;
+
+  @override
+  Future<Product> addProductImage(String productId, List<int> bytes, {String filename = 'photo.jpg'}) async {
+    final g = galleries.putIfAbsent(productId, () => []);
+    g.add('g${++_galleryN}');
+    galleryOps.add('add ${g.last}');
+    return Product(id: productId, name: 'x', price: 0, cost: 0, imageFileId: g.first, images: [...g]);
+  }
+
+  @override
+  Future<Product> removeProductImage(String productId, String fileId) async {
+    final g = galleries.putIfAbsent(productId, () => [])..remove(fileId);
+    galleryOps.add('remove $fileId');
+    return Product(id: productId, name: 'x', price: 0, cost: 0, imageFileId: g.firstOrNull, images: [...g]);
+  }
+
+  @override
+  Future<Product> orderProductImages(String productId, List<String> fileIds) async {
+    galleries[productId] = [...fileIds];
+    galleryOps.add('order ${fileIds.join(',')}');
+    return Product(id: productId, name: 'x', price: 0, cost: 0, imageFileId: fileIds.first, images: [...fileIds]);
+  }
+
   @override
   Future<Product> uploadProductImage(String productId, List<int> bytes, {String filename = 'photo.jpg'}) async {
     uploads[productId] = bytes.length;

@@ -115,7 +115,9 @@ void main() {
     expect(routerOf(c).state.matchedLocation, '/customers/k1');
   });
 
-  testWidgets('nouveau produit avec photo : la photo est envoyée après la création', (tester) async {
+  testWidgets('nouveau produit avec plusieurs photos : envoyées après la création, principale au choix', (
+    tester,
+  ) async {
     phoneSize(tester);
     // Remplace la galerie du téléphone par une photo de test
     final png = base64Decode(
@@ -129,12 +131,28 @@ void main() {
 
     await tester.tap(find.text('Nouveau produit'));
     await tester.pumpAndSettle();
-    expect(find.text('Ajouter une photo'), findsOneWidget);
-    await tester.tap(find.bySemanticsLabel('Choisir une photo du produit'));
+    Future<void> addPhoto() async {
+      await tester.tap(find.byKey(const Key('photo_add')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Choisir dans la galerie'));
+      await tester.pumpAndSettle();
+    }
+
+    await addPhoto();
+    await addPhoto();
+    await addPhoto();
+    expect(find.text('3/5'), findsOneWidget);
+    expect(find.text('Principale'), findsOneWidget);
+    // La 3e devient la principale, la 2e est retirée
+    await tester.tap(find.byKey(const Key('photo_2')));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Choisir dans la galerie'));
+    await tester.tap(find.byKey(const Key('photo_main')));
     await tester.pumpAndSettle();
-    expect(find.text('Photo ajoutée'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('photo_2')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('photo_remove')));
+    await tester.pumpAndSettle();
+    expect(find.text('2/5'), findsOneWidget);
 
     await tester.enterText(find.byKey(const Key('pName')), 'Beurre de karité 500 g');
     await tester.enterText(find.byKey(const Key('pPrice')), '6000');
@@ -142,7 +160,9 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(repo.createdProducts, ['Beurre de karité 500 g']);
-    expect(repo.uploads, {'new-1': png.length});
+    // Deux photos envoyées dans l'ordre choisi : déjà le bon ordre, pas de réordonnancement
+    expect(repo.galleryOps, ['add g1', 'add g2']);
+    expect(repo.galleries['new-1'], ['g1', 'g2']);
     expect(find.text('Produit ajouté'), findsOneWidget);
   });
 

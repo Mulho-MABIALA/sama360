@@ -164,6 +164,12 @@ input:focus,textarea:focus{border-color:var(--green)}
 .pd{padding:0;overflow:hidden}
 .pd .img{aspect-ratio:1;background:linear-gradient(160deg,var(--soft),color-mix(in srgb,var(--green) 18%,#fff));display:grid;place-items:center;color:var(--green);font-family:var(--serif);font-size:64px;position:relative}
 .pd .img img{width:100%;height:100%;object-fit:cover}
+.pd .gal{position:absolute;inset:0;display:flex;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none}
+.pd .gal::-webkit-scrollbar{display:none}
+.pd .gal img{flex:0 0 100%;scroll-snap-align:center}
+.pd .dots{position:absolute;bottom:12px;left:0;right:0;display:flex;gap:6px;justify-content:center;pointer-events:none}
+.pd .dots i{width:7px;height:7px;border-radius:50%;background:rgba(255,255,255,.55);box-shadow:0 1px 3px rgba(0,0,0,.3)}
+.pd .dots i.on{background:#fff;width:18px;border-radius:4px}
 .pd .x{position:absolute;top:12px;right:12px;width:38px;height:38px;border:0;border-radius:50%;background:rgba(0,0,0,.45);color:#fff;font-size:18px}
 .pd .in{padding:16px 18px calc(18px + env(safe-area-inset-bottom))}
 .pd h3{margin:0;font-family:var(--serif);font-weight:400;font-size:26px;line-height:1.15}
@@ -357,6 +363,9 @@ input:focus,textarea:focus{border-color:var(--green)}
       var unit = p.unit && p.unit !== 'pièce' ? ' / ' + esc(p.unit) : '';
       var missing = p.variants ? p.variantAxes.filter(function(a){ return !sel[a.name]; }).map(function(a){ return a.name.toLowerCase(); }) : [];
       var img = shown.imageFileId || p.imageFileId;
+      // Galerie : la photo de la version choisie d'abord, puis celles du produit
+      var imgs = [];
+      [img].concat(p.images || []).forEach(function(f){ if (f && imgs.indexOf(f) < 0) imgs.push(f); });
       var opts = p.variants ? p.variantAxes.map(function(a){
         return '<div class="ax"><div class="axn">' + esc(a.name) + (sel[a.name] ? ' : <b>' + esc(sel[a.name]) + '</b>' : '') + '</div><div class="vals">' +
           a.values.map(function(val){
@@ -365,7 +374,10 @@ input:focus,textarea:focus{border-color:var(--green)}
       }).join('') : '';
       var canAdd = v ? v.available : (!p.variants && p.available);
       sheet.innerHTML = '<div class="panel pd" role="dialog" aria-label="' + esc(p.name) + '"><div class="img">' +
-        (img ? '<img alt="" src="/v1/files/' + esc(img) + '">' : initials(p.name)) +
+        (imgs.length > 1
+          ? '<div class="gal">' + imgs.map(function(f){ return '<img alt="" src="/v1/files/' + esc(f) + '">'; }).join('') + '</div>' +
+            '<div class="dots">' + imgs.map(function(_, i){ return '<i' + (i === 0 ? ' class="on"' : '') + '></i>'; }).join('') + '</div>'
+          : img ? '<img alt="" src="/v1/files/' + esc(img) + '">' : initials(p.name)) +
         '<button class="x" id="px" aria-label="Fermer">✕</button></div><div class="in">' +
         (HOT.indexOf(p.id) >= 0 ? '<span class="badge">En vedette</span><div style="height:8px"></div>' : '') +
         '<h3>' + esc(p.name) + '</h3><div class="pp">' + (p.variants && !v && p.priceFrom ? '<span class="hint">dès </span>' : '') + money(shown.price) + '<span class="hint">' + unit + '</span></div>' +
@@ -379,7 +391,12 @@ input:focus,textarea:focus{border-color:var(--green)}
           (missing.length ? 'Choisissez ' + missing.join(' et ') : 'Ajouter au panier · ' + money(unitPrice(shown, q) * q)) + '</button>' : '') +
         '<button class="ghost" id="pall">Voir toute la boutique</button></div></div>';
       sheet.querySelector('#px').addEventListener('click', function(){ sheet.remove(); });
-      var im = sheet.querySelector('.img img'); if (im) im.addEventListener('click', function(){ zoom(im.src); });
+      Array.prototype.forEach.call(sheet.querySelectorAll('.img img'), function(im){ im.addEventListener('click', function(){ zoom(im.src); }); });
+      var gal = sheet.querySelector('.gal');
+      if (gal) gal.addEventListener('scroll', function(){
+        var k = Math.round(gal.scrollLeft / gal.clientWidth);
+        Array.prototype.forEach.call(sheet.querySelectorAll('.dots i'), function(d, i){ d.className = i === k ? 'on' : ''; });
+      });
       sheet.querySelector('#pall').addEventListener('click', function(){ sheet.remove(); openShop(); });
       Array.prototype.forEach.call(sheet.querySelectorAll('[data-ax]'), function(b){
         b.addEventListener('click', function(){ sel[b.getAttribute('data-ax')] = b.getAttribute('data-val'); draw(); });

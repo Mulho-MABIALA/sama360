@@ -433,6 +433,21 @@ class SamaRepository {
 
   Future<void> deleteProductImage(String productId) => api.delete<void>('/v1/catalog/products/$productId/image');
 
+  /// Galerie : ajoute une photo à la suite (5 au plus).
+  Future<Product> addProductImage(String productId, List<int> bytes, {String filename = 'photo.jpg'}) async =>
+      Product.fromJson(
+        await api.upload<Map<String, dynamic>>('/v1/catalog/products/$productId/images', bytes, filename: filename),
+      );
+
+  /// Galerie : retire une photo.
+  Future<Product> removeProductImage(String productId, String fileId) async =>
+      Product.fromJson(await api.delete<Map<String, dynamic>>('/v1/catalog/products/$productId/images/$fileId'));
+
+  /// Galerie : nouvel ordre (la première devient la photo principale).
+  Future<Product> orderProductImages(String productId, List<String> fileIds) async => Product.fromJson(
+    await api.put<Map<String, dynamic>>('/v1/catalog/products/$productId/images', data: {'fileIds': fileIds}),
+  );
+
   /// Adresse publique d'un fichier (photo de produit).
   String fileUrl(String fileId) => '${api.dio.options.baseUrl}/v1/files/$fileId';
 

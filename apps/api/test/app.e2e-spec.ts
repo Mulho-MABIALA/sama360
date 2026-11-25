@@ -2188,6 +2188,58 @@ describe('Socle Sama360 (e2e)', () => {
       expect(res.body.imageFileIds).toEqual([]);
       await http.get(`/v1/files/${before}`).expect(404);
     });
+
+    it('galerie : plusieurs photos, photo principale au choix, 5 au maximum', async () => {
+      const add = async () =>
+        (
+          await http
+            .post(`/v1/catalog/products/${productId}/images`)
+            .set(A())
+            .attach('file', png, { filename: 'p.png', contentType: 'image/png' })
+            .expect(200)
+        ).body.imageFileIds as string[];
+      await add();
+      await add();
+      const three = await add();
+      expect(three).toHaveLength(3);
+
+      // La troisième devient la principale (inventaire et caisse la montrent)
+      const order = [three[2], three[0], three[1]];
+      const ordered = await http
+        .put(`/v1/catalog/products/${productId}/images`)
+        .set(A())
+        .send({ fileIds: order })
+        .expect(200);
+      expect(ordered.body.imageFileIds).toEqual(order);
+      const stock = await http.get('/v1/inventory/stock').set(A()).expect(200);
+      expect(stock.body.items.find((i: { productId: string }) => i.productId === productId).imageFileId).toBe(three[2]);
+      // Ordre avec une photo inconnue : refusé
+      await http
+        .put(`/v1/catalog/products/${productId}/images`)
+        .set(A())
+        .send({ fileIds: [three[0], three[1]] })
+        .expect(422);
+
+      // Retirer une photo : le fichier disparaît, les autres restent dans l'ordre
+      const removed = await http.delete(`/v1/catalog/products/${productId}/images/${three[0]}`).set(A()).expect(200);
+      expect(removed.body.imageFileIds).toEqual([three[2], three[1]]);
+      await http.get(`/v1/files/${three[0]}`).expect(404);
+
+      await add();
+      await add();
+      await add(); // 5
+      const full = await http
+        .post(`/v1/catalog/products/${productId}/images`)
+        .set(A())
+        .attach('file', png, { filename: 'p.png', contentType: 'image/png' })
+        .expect(422);
+      expect(full.body.error.message).toContain('5 photos');
+      // Le caissier ne touche pas aux photos
+      await http
+        .delete(`/v1/catalog/products/${productId}/images/${three[1]}`)
+        .set(auth(cashierToken, awaBiz))
+        .expect(403);
+    });
   });
 
   describe('Photo de profil', () => {

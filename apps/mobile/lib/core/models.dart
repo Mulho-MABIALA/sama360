@@ -497,6 +497,7 @@ class Product {
     this.trackStock = true,
     this.lowStockThreshold = 5,
     this.imageFileId,
+    this.images = const [],
     this.isService = false,
     this.durationMinutes,
     this.unit = 'pièce',
@@ -560,6 +561,9 @@ class Product {
   final bool trackStock;
   final int lowStockThreshold;
   final String? imageFileId; // photo principale (GET /v1/files/:id)
+
+  /// Toutes les photos, la principale d'abord (5 au plus)
+  final List<String> images;
   final bool isService;
 
   /// Prestation : durée d'un rendez-vous (réservation en ligne).
@@ -589,6 +593,7 @@ class Product {
     trackStock: j['trackStock'] as bool? ?? true,
     lowStockThreshold: _int(j['lowStockThreshold']),
     imageFileId: ((j['imageFileIds'] as List?) ?? const []).cast<String>().firstOrNull,
+    images: ((j['imageFileIds'] as List?) ?? const []).cast<String>(),
     isService: j['type'] == 'service',
     durationMinutes: (j['durationMinutes'] as num?)?.toInt(),
     unit: j['unit'] as String? ?? 'pièce',

@@ -134,7 +134,8 @@ export class ShopService {
       if (!settings.enabled) throw AppError.notFound('Boutique');
       const products = (
         await tx.execute(sql`
-          SELECT p.id, p.name, p.price, p.unit, p.category_id, p.image_file_ids[1] AS image_file_id, p.track_stock,
+          SELECT p.id, p.name, p.price, p.unit, p.category_id, p.image_file_ids[1] AS image_file_id,
+                 p.image_file_ids AS images, p.track_stock,
                  p.wholesale_price, p.wholesale_min_qty, coalesce(sum(sl.on_hand), 0) AS on_hand,
                  p.parent_id, p.options, p.variant_axes, p.pack_name, p.pack_size
           FROM catalog.products p
@@ -183,6 +184,8 @@ export class ShopService {
               unit: p.unit,
               categoryId: p.category_id ?? null,
               imageFileId: (p.image_file_id as string | null) ?? null,
+              // Galerie : toutes les photos, la principale d'abord
+              images: (p.images as string[] | null) ?? [],
               wholesalePrice: p.wholesale_price === null ? null : Number(p.wholesale_price),
               wholesaleMinQty: p.wholesale_min_qty === null ? null : Number(p.wholesale_min_qty),
               // Conditionnement : le client peut commander « 1 carton (24) »

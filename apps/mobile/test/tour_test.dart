@@ -171,6 +171,14 @@ void main() {
     await tester.pumpAndSettle();
     await _shot(tester, '70_unites');
   });
+  testWidgets('71_photos', (tester) async {
+    phoneSize(tester);
+    final repo = FakeRepo();
+    await pumpSama(tester, location: '/products/new', repo: repo);
+    await tester.enterText(find.byKey(const Key('pName')), 'Eau de parfum Oud');
+    await tester.pumpAndSettle();
+    await _shot(tester, '71_photos');
+  });
   testWidgets('66_creation', (tester) async {
     phoneSize(tester);
     await pumpSama(tester, location: '/business');
