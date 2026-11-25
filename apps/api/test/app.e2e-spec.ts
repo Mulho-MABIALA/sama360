@@ -798,6 +798,26 @@ describe('Socle Sama360 (e2e)', () => {
       expect(list[0]).toMatchObject({ total: 100, cashierName: CAISSIER, firstItem: expect.any(String), itemCount: 1 });
       const all = (await http.get('/v1/sales').set(A()).expect(200)).body.data as { cashierName: string }[];
       expect(new Set(all.map((x) => x.cashierName))).toEqual(new Set(['Awa Diallo', CAISSIER]));
+
+      // Recherche par numéro de reçu : « 7 », « 0007 » ou le numéro complet
+      const target = (all as unknown as { id: string; number: string }[])[0];
+      const tail = target.number.split('-').pop()!;
+      for (const q of [String(Number(tail)), tail, target.number, target.number.toLowerCase()]) {
+        const found = (
+          await http
+            .get(`/v1/sales?number=${encodeURIComponent(q)}`)
+            .set(A())
+            .expect(200)
+        ).body.data as {
+          id: string;
+        }[];
+        expect(found.map((x) => x.id)).toContain(target.id);
+        expect(found.every((x) => (x as unknown as { number: string }).number.endsWith(tail) || q.includes('-'))).toBe(
+          true,
+        );
+      }
+      const none = (await http.get('/v1/sales?number=99999').set(A()).expect(200)).body.data;
+      expect(none).toEqual([]);
     });
 
     it('rapport sur 7 jours : totaux, série jour par jour, comparaison, droits', async () => {
@@ -1790,6 +1810,17 @@ describe('Socle Sama360 (e2e)', () => {
         .post(`${pub()}/orders`)
         .send({ ...base, customerPhone: '12', address: 'Ouakam', items: [{ productId: pagne, quantity: 1 }] })
         .expect(422);
+      // Boutique au Sénégal : un numéro du Congo est refusé (livraison et contact dans le pays)
+      const foreign = await http
+        .post(`${pub()}/orders`)
+        .send({
+          ...base,
+          customerPhone: '+242066123456',
+          address: 'Ouakam',
+          items: [{ productId: pagne, quantity: 1 }],
+        })
+        .expect(422);
+      expect(foreign.body.error.message).toContain('du Sénégal (+221)');
       const below = await http
         .post(`${pub()}/orders`)
         .send({ ...base, address: 'Ouakam', items: [{ productId: pagne, quantity: 1 }] })

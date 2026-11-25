@@ -170,6 +170,7 @@ export class ShopService {
           // Pays : exemple de numéro et moyens de paiement affichés sur la page
           country: b.country,
           phoneExample: COUNTRIES[b.country].example,
+          phoneDial: COUNTRIES[b.country].dial,
           payHint: payHint(COUNTRIES[b.country]),
         },
         categories: categories.filter((c) => usedCategories.has(c.id)).map((c) => ({ id: c.id, name: c.name })),
@@ -237,6 +238,12 @@ export class ShopService {
     const b = await this.resolve(slug);
     const phone = normalizePhone(input.customerPhone, b.country);
     if (!phone) throw new AppError('PHONE_INVALID', 'Numéro de téléphone invalide', 422);
+    // Livraison et contact dans le pays de la boutique : pas de numéro étranger
+    const home = COUNTRIES[b.country];
+    if (!phone.startsWith(`+${home.dial}`)) {
+      const of = { SN: 'du Sénégal', CI: 'de Côte d’Ivoire', CG: 'du Congo' }[b.country];
+      throw new AppError('PHONE_INVALID', `Entrez un numéro ${of} (+${home.dial})`, 422);
+    }
     return this.dbs.withTenant(b.id, async (tx) => {
       const existing = await this.findOrder(tx, input.id);
       if (existing) return { created: false, order: this.publicView(existing) };

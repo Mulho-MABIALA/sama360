@@ -20,22 +20,41 @@ class ShopStatusChip extends StatelessWidget {
   const ShopStatusChip({super.key, required this.status});
   final ShopOrderStatus status;
 
+  /// Une couleur par étape, fixe (ne suit pas la couleur de la boutique) : on reconnaît l'étape d'un coup d'œil.
+  static Color colorOf(ShopOrderStatus s) => switch (s) {
+    ShopOrderStatus.newOrder => const Color(0xFFE5484D), // rouge : à traiter
+    ShopOrderStatus.confirmed => const Color(0xFF2563EB), // bleu : acceptée
+    ShopOrderStatus.ready => const Color(0xFFE08A12), // orange : prête
+    ShopOrderStatus.delivering => const Color(0xFF7C3AED), // violet : en route
+    ShopOrderStatus.completed => const Color(0xFF12A150), // vert : livrée, encaissée
+    ShopOrderStatus.cancelled => const Color(0xFF8A948F), // gris : annulée
+  };
+
+  static IconData iconOf(ShopOrderStatus s) => switch (s) {
+    ShopOrderStatus.newOrder => Icons.fiber_new_rounded,
+    ShopOrderStatus.confirmed => Icons.thumb_up_alt_rounded,
+    ShopOrderStatus.ready => Icons.inventory_2_rounded,
+    ShopOrderStatus.delivering => Icons.delivery_dining_rounded,
+    ShopOrderStatus.completed => Icons.check_circle_rounded,
+    ShopOrderStatus.cancelled => Icons.cancel_rounded,
+  };
+
   @override
   Widget build(BuildContext context) {
-    final (bg, fg) = switch (status) {
-      ShopOrderStatus.newOrder => AppColors.tone(const Color(0xFFFDE7E4), AppColors.danger),
-      ShopOrderStatus.confirmed => AppColors.tone(const Color(0xFFE6EFFC), const Color(0xFF1F5BB8)),
-      ShopOrderStatus.ready => AppColors.tone(AppColors.warnBg, AppColors.warnText),
-      ShopOrderStatus.delivering => AppColors.tone(const Color(0xFFEDE7FB), const Color(0xFF5B3CC4)),
-      ShopOrderStatus.completed => AppColors.tone(AppColors.greenSoft, AppColors.greenDark),
-      ShopOrderStatus.cancelled => AppColors.tone(const Color(0xFFEFF1F0), AppColors.muted),
-    };
+    final c = colorOf(status);
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(20)),
-      child: Text(
-        status.label,
-        style: TextStyle(color: fg, fontSize: 11.5, fontWeight: FontWeight.w700),
+      padding: const EdgeInsets.fromLTRB(6, 3, 9, 3),
+      decoration: BoxDecoration(color: c, borderRadius: BorderRadius.circular(20)),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(iconOf(status), size: 13, color: Colors.white),
+          const SizedBox(width: 4),
+          Text(
+            status.label,
+            style: const TextStyle(color: Colors.white, fontSize: 11.5, fontWeight: FontWeight.w800),
+          ),
+        ],
       ),
     );
   }
@@ -203,14 +222,12 @@ class ShopOrderTile extends StatelessWidget {
         width: 42,
         height: 42,
         decoration: BoxDecoration(
-          color: o.status == ShopOrderStatus.newOrder
-              ? AppColors.softOf(const Color(0xFFFDE7E4), AppColors.danger)
-              : AppColors.greenSoft,
+          color: ShopStatusChip.colorOf(o.status).withValues(alpha: 0.14),
           borderRadius: BorderRadius.circular(14),
         ),
         child: Icon(
           o.delivery ? Icons.delivery_dining_rounded : Icons.storefront_rounded,
-          color: o.status == ShopOrderStatus.newOrder ? AppColors.danger : AppColors.green,
+          color: ShopStatusChip.colorOf(o.status),
         ),
       ),
       title: Row(
@@ -230,7 +247,15 @@ class ShopOrderTile extends StatelessWidget {
         '${o.number} · ${dateTime(o.createdAt)} · ${o.lineCount} article${o.lineCount > 1 ? 's' : ''}',
         style: const TextStyle(fontSize: 12),
       ),
-      trailing: Text(moneyShort(o.total), style: const TextStyle(fontWeight: FontWeight.w800)),
+      trailing: Text(
+        moneyShort(o.total),
+        style: TextStyle(
+          fontWeight: FontWeight.w900,
+          fontSize: 15,
+          color: o.status == ShopOrderStatus.cancelled ? AppColors.muted : AppColors.green,
+          decoration: o.status == ShopOrderStatus.cancelled ? TextDecoration.lineThrough : null,
+        ),
+      ),
     ),
   );
 }

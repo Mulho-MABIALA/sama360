@@ -2550,6 +2550,19 @@ class FakeRepo extends SamaRepository {
   Future<void> voidSale(String id, String reason) async => voidedSales[id] = reason;
 
   @override
+  Future<List<SaleSummary>> salesByNumber(String number) async {
+    final all = await salesOfDay();
+    final digits = RegExp(r'^\d+$').hasMatch(number) ? number.replaceFirst(RegExp(r'^0+(?=\d)'), '') : null;
+    return [
+      for (final s in all)
+        if (digits != null
+            ? RegExp('-0*$digits\$').hasMatch(s.number)
+            : s.number.toLowerCase().contains(number.toLowerCase()))
+          s,
+    ];
+  }
+
+  @override
   Future<List<SaleSummary>> salesOfDay([DateTime? day, bool mine = false]) async => [
     SaleSummary(
       id: 's2',

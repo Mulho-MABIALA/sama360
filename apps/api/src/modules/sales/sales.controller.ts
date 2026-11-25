@@ -65,6 +65,8 @@ const ListSales = PageQuery.extend({
   /** « true » : seulement mes ventes (vendeur connecté). */
   mine: z.enum(['true', 'false']).optional(),
   status: z.enum(['completed', 'voided']).optional(),
+  /** Numéro du reçu : « 42 », « 0042 » ou « VEN-2026-0042 ». */
+  number: z.string().trim().min(1).max(30).optional(),
 });
 const Period = z.object({ from: day.optional(), to: day.optional() });
 
@@ -112,6 +114,15 @@ export class SalesController {
       if (q.to) where.push(lt(sales.soldAt, endOf(q.to)));
       if (q.customerId) where.push(eq(sales.customerId, q.customerId));
       if (q.status) where.push(eq(sales.status, q.status));
+      if (q.number) {
+        // Que des chiffres : la fin du numéro (« 42 » → …-0042) ; sinon le numéro complet ou une partie
+        const digits = /^\d+$/.test(q.number) ? q.number.replace(/^0+(?=\d)/, '') : null;
+        where.push(
+          digits
+            ? sql`${sales.number} ~ ${`-0*${digits}$`}`
+            : sql`${sales.number} ILIKE ${`%${q.number.replace(/[%_\\]/g, '')}%`}`,
+        );
+      }
       if (q.cursor) where.push(lt(sales.id, q.cursor));
       if (t.locationFilter) where.push(eq(sales.warehouseId, t.locationFilter));
       // Sans accès aux rapports (vendeur), on ne voit que ses propres ventes

@@ -147,7 +147,10 @@ class _ShopOrderScreenState extends ConsumerState<ShopOrderScreen> {
                                 '${qty(l.quantity)} × ${moneyShort(l.unitPrice)}',
                                 style: const TextStyle(fontSize: 12.5),
                               ),
-                              trailing: Text(moneyShort(l.total), style: const TextStyle(fontWeight: FontWeight.w800)),
+                              trailing: Text(
+                                moneyShort(l.total),
+                                style: TextStyle(fontWeight: FontWeight.w800, color: AppColors.green),
+                              ),
                             ),
                           const Divider(height: 1, indent: 14, endIndent: 14),
                           if (o.deliveryFee > 0)
@@ -163,7 +166,7 @@ class _ShopOrderScreenState extends ConsumerState<ShopOrderScreen> {
                             title: const Text('Total à payer', style: TextStyle(fontWeight: FontWeight.w800)),
                             trailing: Text(
                               money(o.total),
-                              style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
+                              style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: AppColors.green),
                             ),
                           ),
                         ],
@@ -357,14 +360,14 @@ class _Progress extends StatelessWidget {
 }
 
 /// Encaissement à la livraison : montant reçu (tout par défaut) et moyen de paiement.
-class _CollectSheet extends StatefulWidget {
+class _CollectSheet extends ConsumerStatefulWidget {
   const _CollectSheet({required this.order});
   final ShopOrder order;
   @override
-  State<_CollectSheet> createState() => _CollectSheetState();
+  ConsumerState<_CollectSheet> createState() => _CollectSheetState();
 }
 
-class _CollectSheetState extends State<_CollectSheet> {
+class _CollectSheetState extends ConsumerState<_CollectSheet> {
   late final _amount = TextEditingController(text: '${widget.order.total}');
   PayMethod _method = PayMethod.cash;
 
@@ -409,7 +412,7 @@ class _CollectSheetState extends State<_CollectSheet> {
             spacing: 8,
             runSpacing: 8,
             children: [
-              for (final m in const [PayMethod.cash, PayMethod.wave, PayMethod.orangeMoney, PayMethod.freeMoney])
+              for (final m in [PayMethod.cash, ...ref.watch(countryProvider).mobileMoney])
                 PayMethodChip(m, selected: _method == m, onTap: () => setState(() => _method = m)),
             ],
           ),

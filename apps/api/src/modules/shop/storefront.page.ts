@@ -89,6 +89,9 @@ a{color:inherit}
   background:var(--deep);color:#fff;padding:15px 22px;font-weight:800;font-size:15.5px;box-shadow:0 14px 34px rgba(0,0,0,.3)}
 .bar button span:last-child{background:var(--cream);color:var(--deep);border-radius:999px;padding:6px 12px;margin:-6px -10px -6px 0}
 .sheet{position:fixed;inset:0;background:rgba(10,18,14,.5);z-index:20;display:flex;align-items:flex-end;justify-content:center}
+.tel{display:flex;align-items:stretch}
+.tel span{display:flex;align-items:center;padding:0 12px;border:1px solid #D6DCD8;border-right:0;border-radius:14px 0 0 14px;background:#EEF2EF;font-weight:700;color:#24382E}
+.tel input{border-radius:0 14px 14px 0;flex:1;min-width:0}
 .panel{background:#FAF9F6;width:100%;max-width:560px;max-height:92vh;max-height:92dvh;overflow:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;border-radius:26px 26px 0 0;padding:18px 18px calc(18px + env(safe-area-inset-bottom))}
 .panel h2{margin:4px 0 12px;font-family:var(--serif);font-weight:400;font-size:26px}
 .row{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--line)}
@@ -426,6 +429,10 @@ input:focus,textarea:focus{border-color:var(--green)}
 
   function checkout(){
     var s = state.data.shop;
+    // Indicatif du pays de la boutique, affiché devant le numéro
+    var dial = s.phoneDial || '221';
+    var countryOf = ({ SN: 'du Sénégal', CI: 'de Côte d’Ivoire', CG: 'du Congo' })[s.country] || 'du pays';
+    function localPart(v){ var d = String(v).replace(/\\D/g,''); return d.indexOf(dial) === 0 && d.length > 9 ? d.slice(dial.length) : v; }
     if (!state.mode) state.mode = s.delivery ? 'delivery' : 'pickup';
     var saved = store('customer') || {};
     var note = '';
@@ -450,7 +457,7 @@ input:focus,textarea:focus{border-color:var(--green)}
         (s.pickup ? '<button class="mode' + (state.mode==='pickup'?' on':'') + '" data-mode="pickup"><i>🏬</i><b>Retrait</b><span>' + esc(s.address || 'En boutique') + '</span></button>' : '') + '</div>' +
         '<div class="sec"><span class="num">3</span>Vos coordonnées</div>' +
         '<div class="box form"><label for="n">Votre nom</label><input id="n" autocomplete="name" placeholder="Ex. Awa Diop" value="' + esc(saved.name||'') + '">' +
-        '<label for="t">Téléphone</label><input id="t" type="tel" autocomplete="tel" inputmode="tel" placeholder="' + esc(s.phoneExample || '77 123 45 67') + '" value="' + esc(saved.phone||'') + '">' +
+        '<label for="t">Téléphone</label><div class="tel"><span>+' + esc(dial) + '</span><input id="t" type="tel" autocomplete="tel-national" inputmode="tel" placeholder="' + esc(s.phoneExample || '77 123 45 67') + '" value="' + esc(localPart(saved.phone||'')) + '"></div>' +
         (state.mode === 'delivery' ? '<label for="a">Adresse de livraison</label><textarea id="a" rows="2" placeholder="Quartier, rue, repère">' + esc(saved.address||'') + '</textarea>' : '') +
         '<label for="m">Note pour la boutique (facultatif)</label><input id="m" placeholder="Couleur, taille, heure de passage…" value="' + esc(note) + '"></div>' +
         '<div class="sum"><div class="row"><span>Articles</span><b>' + money(sub) + '</b></div>' +
@@ -478,7 +485,10 @@ input:focus,textarea:focus{border-color:var(--green)}
       keep();
       var err = sheet.querySelector('#e'), btn = sheet.querySelector('#go');
       if (!saved.name || saved.name.trim().length < 2) { err.textContent = 'Indiquez votre nom'; return; }
-      if (!saved.phone || saved.phone.replace(/\\D/g,'').length < 9) { err.textContent = 'Indiquez votre numéro de téléphone'; return; }
+      if (!saved.phone || saved.phone.replace(/\\D/g,'').length < 8) { err.textContent = 'Indiquez votre numéro de téléphone'; return; }
+      // Numéro du pays de la boutique : un numéro étranger (ou rempli par le navigateur) est refusé
+      var tdig = saved.phone.replace(/\\D/g,'');
+      if (/^\\s*(\\+|00)/.test(saved.phone) && tdig.replace(/^00/,'').indexOf(dial) !== 0) { err.textContent = 'Entrez un numéro ' + countryOf + ' (+' + dial + ')'; return; }
       if (state.mode === 'delivery' && !(saved.address||'').trim()) { err.textContent = 'Indiquez l’adresse de livraison'; return; }
       store('customer', saved);
       var pendingId = store('pending:' + SLUG) || uuid();

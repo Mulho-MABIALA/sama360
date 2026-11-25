@@ -515,6 +515,12 @@ class SamaRepository {
     return (r['data'] as List).map((e) => SaleSummary.fromJson(e as Map<String, dynamic>)).toList();
   }
 
+  /// Reçus dont le numéro correspond (« 42 », « VEN-2026-0042 »), tous les jours.
+  Future<List<SaleSummary>> salesByNumber(String number) async {
+    final r = await api.get<Map<String, dynamic>>('/v1/sales', query: {'number': number, 'limit': 50});
+    return (r['data'] as List).map((e) => SaleSummary.fromJson(e as Map<String, dynamic>)).toList();
+  }
+
   Future<DaySummary> todaySummary() async =>
       DaySummary.fromJson(await _cachedGet<Map<String, dynamic>>('/v1/sales/summary'));
 

@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:material_ui/material_ui.dart' show Key;
 import 'package:pdf/pdf.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:sama360/core/models.dart';
@@ -151,6 +152,17 @@ void main() {
     // Sans client connu : le PDF, pas de message direct
     expect(find.text('Envoyer le reçu (PDF)'), findsOneWidget);
     expect(find.text('Message au client'), findsNothing);
+  });
+
+  testWidgets('recherche d’un reçu par son numéro', (tester) async {
+    await pumpSama(tester, location: '/sales');
+    await tester.enterText(find.byKey(const Key('sale_search')), '42');
+    await tester.pumpAndSettle();
+    expect(find.text('Aminata Ba'), findsOneWidget);
+    expect(find.text('Beurre de karité 250 g + 2 autres'), findsNothing);
+    await tester.enterText(find.byKey(const Key('sale_search')), '999');
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('sale_search_empty')), findsOneWidget);
   });
 
   testWidgets('historique : ouvre le reçu', (tester) async {
