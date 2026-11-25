@@ -1,4 +1,6 @@
 // Back office de l'équipe Sama360 : données renvoyées par /v1/admin/*.
+import 'package:material_ui/material_ui.dart';
+
 import 'countries.dart';
 
 DateTime? _date(Object? v) => v == null ? null : DateTime.parse(v as String).toLocal();
@@ -61,9 +63,17 @@ class AdminOverview {
     required this.countries,
     required this.top,
     required this.latest,
+    this.weeks = const [],
+    this.newFeedback = 0,
   });
 
+  /// Suggestions pas encore lues
+  final int newFeedback;
+
   final int days;
+
+  /// Semaine par semaine (lundi), de la plus ancienne à la plus récente.
+  final List<AdminWeek> weeks;
   final int businesses, newBusinesses, newPrevious, active7, everSold, suspended, deleted, users;
   final Map<AdminPlan, int> plans;
   final List<({String id, String name, String ownerPhone, int daysLeft})> trialsEnding;
@@ -109,6 +119,8 @@ class AdminOverview {
       revenueManual: _int(r['manual']),
       paymentsCount: _int(r['payments']),
       pendingPayments: _int(j['pendingPayments']),
+      newFeedback: _int(j['newFeedback']),
+      weeks: [for (final w in (j['weeks'] as List? ?? []).cast<Map<String, dynamic>>()) AdminWeek.fromJson(w)],
       gmv30: _int(j['merchantsGmv30']),
       sales30: _int(j['merchantsSales30']),
       signupsByDay: [for (final d in (j['signupsByDay'] as List)) DayValue.fromJson(d as Map<String, dynamic>)],
@@ -426,4 +438,95 @@ class AdminBusinessQuery {
 
   @override
   int get hashCode => Object.hash(search, plan, status, country, sort, page);
+}
+
+/// Une semaine de croissance : les inscrits de la semaine (et combien ont vendu, payé),
+/// et les départs de la semaine (abonnés qui n'ont pas renouvelé, essais finis sans paiement).
+class AdminWeek {
+  const AdminWeek({
+    required this.week,
+    required this.signups,
+    required this.sold,
+    required this.paid,
+    required this.stopped,
+    required this.trialsLost,
+  });
+
+  factory AdminWeek.fromJson(Map<String, dynamic> j) => AdminWeek(
+    week: DateTime.parse(j['week'] as String),
+    signups: _int(j['signups']),
+    sold: _int(j['sold']),
+    paid: _int(j['paid']),
+    stopped: _int(j['stopped']),
+    trialsLost: _int(j['trialsLost']),
+  );
+
+  final DateTime week;
+  final int signups, sold, paid, stopped, trialsLost;
+}
+
+/// Type de suggestion envoyée depuis le profil.
+enum FeedbackKind {
+  idea('idea', 'Une idée', Icons.lightbulb_rounded),
+  problem('problem', 'Un problème', Icons.report_problem_rounded),
+  other('other', 'Autre chose', Icons.chat_bubble_rounded);
+
+  const FeedbackKind(this.api, this.label, this.icon);
+  final String api;
+  final String label;
+  final IconData icon;
+
+  static FeedbackKind of(String? v) => values.firstWhere((k) => k.api == v, orElse: () => other);
+}
+
+/// Suivi d'une suggestion par l'équipe.
+enum FeedbackStatus {
+  fresh('new', 'Nouvelles'),
+  read('read', 'Lues'),
+  done('done', 'Traitées');
+
+  const FeedbackStatus(this.api, this.label);
+  final String api;
+  final String label;
+
+  static FeedbackStatus of(String? v) => values.firstWhere((k) => k.api == v, orElse: () => fresh);
+}
+
+/// Une suggestion reçue (back office).
+class AdminFeedback {
+  const AdminFeedback({
+    required this.id,
+    required this.kind,
+    required this.message,
+    required this.status,
+    required this.createdAt,
+    required this.userPhone,
+    this.userName,
+    this.businessId,
+    this.businessName,
+    this.category,
+    this.appVersion,
+  });
+
+  factory AdminFeedback.fromJson(Map<String, dynamic> j) => AdminFeedback(
+    id: j['id'] as String,
+    kind: FeedbackKind.of(j['kind'] as String?),
+    message: j['message'] as String,
+    status: FeedbackStatus.of(j['status'] as String?),
+    createdAt: DateTime.parse(j['createdAt'] as String).toLocal(),
+    userPhone: j['userPhone'] as String? ?? '',
+    userName: j['userName'] as String?,
+    businessId: j['businessId'] as String?,
+    businessName: j['businessName'] as String?,
+    category: j['category'] as String?,
+    appVersion: j['appVersion'] as String?,
+  );
+
+  final String id;
+  final FeedbackKind kind;
+  final String message;
+  final FeedbackStatus status;
+  final DateTime createdAt;
+  final String userPhone;
+  final String? userName, businessId, businessName, category, appVersion;
 }

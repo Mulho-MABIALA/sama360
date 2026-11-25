@@ -380,6 +380,15 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                         hint: 'Wolof et anglais bientôt',
                       ),
                       SettingsRow(
+                        key: const Key('feedback_row'),
+                        icon: Icons.lightbulb_rounded,
+                        color: const Color(0xFFFF7A00),
+                        label: 'Suggestions',
+                        value: 'Une idée, un problème ?',
+                        hint: 'Écrivez à l’équipe Sama360',
+                        onTap: () => context.push('/feedback'),
+                      ),
+                      SettingsRow(
                         key: const Key('legal_row'),
                         icon: Icons.gavel_rounded,
                         color: const Color(0xFF475467),

@@ -3294,6 +3294,28 @@ describe('Socle Sama360 (e2e)', () => {
       expect(offer.freeLimits).toEqual({ products: 50, historyDays: 30 });
       expect(offer.features.map((f: { key: string }) => f.key)).toEqual(expect.arrayContaining(['catalog', 'history']));
 
+      // Rappel de fin d'essai à J-3, avec ce que CE commerçant va perdre
+      await dbs.withTenant(iBiz, (tx) =>
+        tx.execute(sql`
+          INSERT INTO catalog.products (id, business_id, name, price)
+          SELECT gen_random_uuid(), ${iBiz}, 'En plus ' || i, 1000 FROM generate_series(1, 2) i`),
+      );
+      await dbs.db.execute(
+        sql`UPDATE core.subscriptions SET current_period_end = now() + interval '2 days 12 hours' WHERE business_id = ${iBiz}`,
+      );
+      const reminders = (await http.get('/v1/notifications').set(I()).expect(200)).body.items as {
+        kind: string;
+        title: string;
+        body: string;
+      }[];
+      const ending = reminders.find((n) => n.kind === 'pro_ending');
+      expect(ending?.title).toMatch(/se termine dans 3 jours/);
+      expect(ending?.body).toContain('vous en avez 52, 50 en gratuit');
+      expect(ending?.body).toContain('1 500 F la semaine');
+      await dbs.db.execute(
+        sql`UPDATE core.subscriptions SET current_period_end = now() - interval '1 day' WHERE business_id = ${iBiz}`,
+      );
+
       // « J'ai payé »
       const req = (
         await http
@@ -4530,7 +4552,9 @@ describe('Socle Sama360 (e2e)', () => {
       const cgu = await http.get('/cgu').expect(200);
       expect(cgu.headers['content-type']).toContain('text/html');
       expect(cgu.text).toContain('Conditions d’utilisation');
-      expect(cgu.text).toContain('5 000 F CFA par mois');
+      expect(cgu.text).toContain('5&nbsp;000&nbsp;F&nbsp;CFA par mois');
+      expect(cgu.text).toContain('1&nbsp;500&nbsp;F&nbsp;CFA par semaine');
+      expect(cgu.text).toContain('jusqu’à 50 produits');
       const privacy = await http.get('/confidentialite').expect(200);
       for (const w of ['loi n° 2008-12', 'loi n° 2013-450', 'loi n° 29-2019', 'Twilio', 'Chariow']) {
         expect(privacy.text).toContain(w);
@@ -4594,8 +4618,22 @@ describe('Socle Sama360 (e2e)', () => {
         .send({ items: [{ productId: p.id, quantity: 2 }], payments: [{ method: 'cash', amount: 30000 }] })
         .expect(201);
 
+      // Suggestion envoyée depuis le profil ; l'entreprise d'un autre n'est pas gardée
+      await http.post('/v1/feedback').set(auth(owner.accessToken)).send({ kind: 'idea', message: 'a' }).expect(422);
+      await http
+        .post('/v1/feedback')
+        .set(auth(owner.accessToken))
+        .send({ kind: 'idea', message: 'Ajoutez le wolof svp', businessId: biz, appVersion: '1.0.0' })
+        .expect(201);
+      await http
+        .post('/v1/feedback')
+        .set(auth(owner.accessToken))
+        .send({ kind: 'problem', message: 'Le reçu ne part pas', businessId: '00000000-0000-4000-8000-000000000000' })
+        .expect(201);
+      await http.get('/v1/admin/feedback').set(auth(owner.accessToken)).expect(403);
+
       // Un commerçant n'y a pas accès
-      for (const path of ['overview', 'businesses', `businesses/${biz}`, 'payments']) {
+      for (const path of ['overview', 'businesses', `businesses/${biz}`, 'payments', 'feedback']) {
         await http.get(`/v1/admin/${path}`).set(auth(owner.accessToken)).expect(403);
       }
 
@@ -4608,6 +4646,30 @@ describe('Socle Sama360 (e2e)', () => {
       expect(ov.merchantsGmv30).toBeGreaterThanOrEqual(30000);
       expect(ov.countries[0]).toEqual(expect.objectContaining({ code: 'SN', name: 'Sénégal' }));
       expect(ov.plans.trial + ov.plans.active + ov.plans.expired + ov.plans.free).toBe(ov.businesses.total);
+      expect(ov.newFeedback).toBeGreaterThanOrEqual(2);
+      const fb = (await http.get('/v1/admin/feedback?status=new').set(A()).expect(200)).body;
+      const idea = fb.items.find((f: { message: string }) => f.message === 'Ajoutez le wolof svp');
+      expect(idea).toMatchObject({
+        kind: 'idea',
+        businessName: 'Atelier Xaritou',
+        userPhone: '+221770050001',
+        appVersion: '1.0.0',
+      });
+      expect(fb.items.find((f: { kind: string }) => f.kind === 'problem')).toMatchObject({ businessId: null });
+      await http.patch(`/v1/admin/feedback/${idea.id}`).set(A()).send({ status: 'done' }).expect(200);
+      const after = (await http.get('/v1/admin/feedback?status=done').set(A()).expect(200)).body;
+      expect(after.items.map((f: { id: string }) => f.id)).toContain(idea.id);
+      expect(after.counts.done).toBeGreaterThanOrEqual(1);
+      // Semaine par semaine : 8 semaines, la dernière contient les boutiques de ce test (dont une qui a vendu)
+      expect(ov.weeks).toHaveLength(8);
+      const thisWeek = ov.weeks[7];
+      expect(new Date(thisWeek.week).getUTCDay()).toBe(1); // lundi
+      expect(thisWeek.signups).toBeGreaterThanOrEqual(1);
+      expect(thisWeek.sold).toBeGreaterThanOrEqual(1);
+      expect(thisWeek.sold).toBeLessThanOrEqual(thisWeek.signups);
+      expect(thisWeek.paid).toBeLessThanOrEqual(thisWeek.signups);
+      for (const w of ov.weeks)
+        expect(w).toEqual(expect.objectContaining({ stopped: expect.any(Number), trialsLost: expect.any(Number) }));
 
       const found = (await http.get('/v1/admin/businesses?q=xaritou').set(A()).expect(200)).body;
       expect(found.total).toBe(1);

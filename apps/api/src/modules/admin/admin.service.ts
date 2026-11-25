@@ -4,7 +4,7 @@ import { countryOf } from '../../shared/countries';
 import { DbService } from '../../shared/db/db.service';
 import { newId } from '../../shared/ids';
 import { AppError } from '../../shared/http/app-error';
-import { effectivePlan, PRO_PRICES } from '../../shared/plans';
+import { Cycle, effectivePlan, PRO_PRICES } from '../../shared/plans';
 import { BillingService } from '../billing/billing.service';
 import { ClosureService, GRACE_DAYS } from '../core/closure.service';
 
@@ -397,6 +397,36 @@ export class AdminService {
 
   // ─────────────────────────────── tableau de bord
 
+  /**
+   * Les 8 dernières semaines (lundi → dimanche). Pour les boutiques inscrites cette semaine-là :
+   * combien ont fait au moins une vente, combien ont payé Pro depuis. Et ce qui s'est arrêté
+   * pendant la semaine : abonnés qui n'ont pas renouvelé, essais finis sans paiement.
+   */
+  private weekly(rows: Row[], stats: Map<string, BusinessStats>, paid: Row[], now: Date) {
+    const payers = new Set(paid.map((p) => p.business_id as string));
+    const monday = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+    monday.setUTCDate(monday.getUTCDate() - ((monday.getUTCDay() + 6) % 7));
+    const all = rows.map((r) => this.summary(r, stats.get(r.id as string)));
+    const out = [];
+    for (let w = 7; w >= 0; w--) {
+      const from = new Date(monday.getTime() - w * 7 * DAY);
+      const to = new Date(from.getTime() + 7 * DAY);
+      const within = (iso?: string | null) =>
+        !!iso && new Date(iso) >= from && new Date(iso) < to && new Date(iso) <= now;
+      const cohort = all.filter((b) => within(b.createdAt));
+      const ended = all.filter((b) => b.plan.state === 'expired' && within(b.plan.endsAt));
+      out.push({
+        week: dayKey(from),
+        signups: cohort.length,
+        sold: cohort.filter((b) => b.stats.lastSaleAt).length,
+        paid: cohort.filter((b) => payers.has(b.id)).length,
+        stopped: ended.filter((b) => payers.has(b.id)).length,
+        trialsLost: ended.filter((b) => !payers.has(b.id)).length,
+      });
+    }
+    return out;
+  }
+
   async overview(days = 30, now = new Date()) {
     const from = new Date(now.getTime() - days * DAY);
     const [rows, stats] = await Promise.all([this.baseRows(), this.allStats()]);
@@ -415,16 +445,23 @@ export class AdminService {
           FROM core.subscription_requests WHERE status = 'approved'`),
       )
     ).rows as Row[];
-    const amountOf = (p: Row) => Number(p.amount) || PRO_PRICES[p.cycle as 'monthly' | 'yearly'];
+    const amountOf = (p: Row) => Number(p.amount) || PRO_PRICES[p.cycle as Cycle];
     const inPeriod = paid.filter((p) => new Date(p.at as string) >= from);
     // Revenu mensuel récurrent : chaque boutique Pro payante, au prix de son dernier paiement (l'année / 12)
     const lastCycle = new Map<string, string>();
     for (const p of [...paid].sort((a, b) => String(a.at).localeCompare(String(b.at)))) {
       lastCycle.set(p.business_id as string, p.cycle as string);
     }
+    // Ramené au mois : l'année / 12, la semaine × 30 / 7
+    const monthlyOf = (cycle?: string) =>
+      cycle === 'yearly'
+        ? PRO_PRICES.yearly / 12
+        : cycle === 'weekly'
+          ? (PRO_PRICES.weekly * 30) / 7
+          : PRO_PRICES.monthly;
     const mrr = alive
       .filter((b) => b.plan.state === 'active')
-      .reduce((sum, b) => sum + (lastCycle.get(b.id) === 'yearly' ? PRO_PRICES.yearly / 12 : PRO_PRICES.monthly), 0);
+      .reduce((sum, b) => sum + monthlyOf(lastCycle.get(b.id)), 0);
 
     const series = (dates: Date[], values?: number[]) => {
       const m = new Map<string, number>();
@@ -453,6 +490,7 @@ export class AdminService {
     ).rows[0] as Row;
 
     const activeShops = alive.filter((b) => b.stats.sales7 > 0).length;
+    const weeks = this.weekly(rows, stats, paid, now);
     const withSales = alive.filter((b) => b.stats.lastSaleAt).length;
     return {
       days,
@@ -485,6 +523,8 @@ export class AdminService {
         manual: inPeriod.filter((p) => p.source === 'manual').reduce((s, p) => s + amountOf(p), 0),
         payments: inPeriod.length,
       },
+      // Semaine par semaine : inscrits, ceux qui vendent, ceux qui paient, ceux qui arrêtent
+      weeks,
       pendingPayments: Number(pending.n),
       merchantsGmv30: alive.reduce((s, b) => s + b.stats.revenue30, 0),
       merchantsSales30: alive.reduce((s, b) => s + b.stats.sales30, 0),

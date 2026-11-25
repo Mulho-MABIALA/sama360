@@ -63,6 +63,17 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
               ),
               const SizedBox(height: 14),
               if (o.pendingPayments > 0) ...[_PendingBanner(count: o.pendingPayments), const SizedBox(height: 14)],
+              if (o.newFeedback > 0) ...[
+                _PendingBanner(
+                  key: const Key('admin_feedback_banner'),
+                  count: o.newFeedback,
+                  text:
+                      '${o.newFeedback} nouvelle${o.newFeedback > 1 ? 's' : ''} suggestion${o.newFeedback > 1 ? 's' : ''} de commerçants',
+                  icon: Icons.lightbulb_rounded,
+                  path: '/admin/feedback',
+                ),
+                const SizedBox(height: 14),
+              ],
               _Hero(o: o),
               const SizedBox(height: 14),
               TileGrid(
@@ -104,6 +115,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
               _Columns(
                 wide: wide,
                 left: [
+                  if (o.weeks.isNotEmpty) _Weeks(o: o),
                   AdminCard(
                     title: 'Revenus Pro',
                     trailing: Text(
@@ -198,14 +210,22 @@ class _Columns extends StatelessWidget {
 }
 
 class _PendingBanner extends StatelessWidget {
-  const _PendingBanner({required this.count});
+  const _PendingBanner({
+    super.key = const Key('admin_pending_banner'),
+    required this.count,
+    this.text,
+    this.icon = Icons.hourglass_top_rounded,
+    this.path = '/admin/payments',
+  });
   final int count;
+  final String? text;
+  final IconData icon;
+  final String path;
   @override
   Widget build(BuildContext context) => Glass(
-    key: const Key('admin_pending_banner'),
     radius: 20,
     tint: AppColors.orange,
-    onTap: () => context.pushReplacement('/admin/payments'),
+    onTap: () => context.pushReplacement(path),
     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
     child: Row(
       children: [
@@ -216,12 +236,12 @@ class _PendingBanner extends StatelessWidget {
             color: AppColors.orange.withValues(alpha: 0.2),
             borderRadius: BorderRadius.circular(12),
           ),
-          child: Icon(Icons.hourglass_top_rounded, color: AppColors.warnText, size: 20),
+          child: Icon(icon, color: AppColors.warnText, size: 20),
         ),
         const SizedBox(width: 12),
         Expanded(
           child: Text(
-            '$count paiement${count > 1 ? 's' : ''} par transfert à vérifier',
+            text ?? '$count paiement${count > 1 ? 's' : ''} par transfert à vérifier',
             style: const TextStyle(fontWeight: FontWeight.w800),
           ),
         ),
@@ -434,4 +454,76 @@ class _Latest extends StatelessWidget {
             ],
           ),
   );
+}
+
+/// Semaine par semaine : est-ce que Sama360 prend ? Inscrits → ont vendu → Pro, et les départs.
+class _Weeks extends StatelessWidget {
+  const _Weeks({required this.o});
+  final AdminOverview o;
+
+  @override
+  Widget build(BuildContext context) {
+    final head = TextStyle(color: AppColors.muted, fontSize: 11.5, fontWeight: FontWeight.w700);
+    String pct(int part, int of) => of == 0 ? '' : ' (${(part * 100 / of).round()} %)';
+    Widget cell(String text, {TextStyle? style, int flex = 2}) => Expanded(
+      flex: flex,
+      child: Text(text, textAlign: flex == 3 ? TextAlign.start : TextAlign.end, style: style),
+    );
+    final total = o.weeks.fold((0, 0, 0), (t, w) => (t.$1 + w.signups, t.$2 + w.sold, t.$3 + w.paid));
+    return AdminCard(
+      key: const Key('admin_weeks'),
+      title: 'Semaine par semaine',
+      child: Column(
+        children: [
+          Text(
+            'Sur 8 semaines : ${total.$1} inscrits, ${total.$2} vendent${pct(total.$2, total.$1)}, '
+            '${total.$3} passés à Pro${pct(total.$3, total.$1)}',
+            style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              cell('Semaine', style: head, flex: 3),
+              cell('Inscrits', style: head),
+              cell('Vendent', style: head),
+              cell('Pro', style: head),
+              cell('Arrêts', style: head),
+            ],
+          ),
+          const SizedBox(height: 4),
+          for (final w in o.weeks.reversed)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 6),
+              child: Row(
+                children: [
+                  cell('du ${DateFormat('d MMM', 'fr').format(w.week)}', flex: 3),
+                  cell('${w.signups}', style: const TextStyle(fontWeight: FontWeight.w800)),
+                  cell(
+                    '${w.sold}',
+                    style: TextStyle(color: AppColors.green, fontWeight: FontWeight.w700),
+                  ),
+                  cell(
+                    '${w.paid}',
+                    style: const TextStyle(color: Color(0xFFB7791F), fontWeight: FontWeight.w800),
+                  ),
+                  cell(
+                    '${w.stopped + w.trialsLost}',
+                    style: TextStyle(
+                      color: w.stopped > 0 ? AppColors.danger : AppColors.muted,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          const SizedBox(height: 6),
+          Text(
+            'Vendent et Pro : parmi les inscrits de la semaine. Arrêts : abonnés non renouvelés '
+            '(en rouge) et essais finis sans payer, pendant la semaine.',
+            style: TextStyle(color: AppColors.muted, fontSize: 11.5),
+          ),
+        ],
+      ),
+    );
+  }
 }

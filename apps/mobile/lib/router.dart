@@ -16,6 +16,7 @@ import 'features/auth/auth_controller.dart';
 import 'features/auth/login_screens.dart';
 import 'features/assistant/assistant_screen.dart';
 import 'features/auth/pin_screen.dart';
+import 'features/profile/feedback_screen.dart';
 import 'features/profile/closure_screens.dart';
 import 'features/booking/booking_screen.dart';
 import 'features/delivery/delivery_screen.dart';
@@ -116,6 +117,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/notifications', builder: (_, _) => const NotificationsScreen()),
       GoRoute(path: '/reminders', builder: (_, _) => const RemindersScreen()),
       GoRoute(path: '/settings/display', builder: (_, _) => const DisplaySettingsScreen()),
+      GoRoute(path: '/feedback', builder: (_, _) => const FeedbackScreen()),
       GoRoute(path: '/loyalty', builder: (_, _) => const LoyaltyScreen()),
       GoRoute(path: '/loyalty/settings', builder: (_, _) => const LoyaltySettingsScreen()),
       GoRoute(

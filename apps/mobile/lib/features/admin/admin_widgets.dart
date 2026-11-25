@@ -18,7 +18,8 @@ const adminWide = 900.0;
 enum AdminSection {
   dashboard('Tableau de bord', Icons.space_dashboard_rounded, '/admin'),
   merchants('Commerçants', Icons.storefront_rounded, '/admin/merchants'),
-  payments('Paiements', Icons.payments_rounded, '/admin/payments');
+  payments('Paiements', Icons.payments_rounded, '/admin/payments'),
+  feedback('Suggestions', Icons.lightbulb_rounded, '/admin/feedback');
 
   const AdminSection(this.label, this.icon, this.path);
   final String label;
@@ -56,6 +57,12 @@ class AdminShell extends ConsumerWidget {
     final wide = MediaQuery.sizeOf(context).width >= adminWide;
     final allowed = ref.watch(platformAdminProvider);
     final pending = ref.watch(adminPaymentsProvider('pending')).value?.length ?? 0;
+    final fresh = ref.watch(adminFeedbackProvider(FeedbackStatus.fresh)).value?.counts[FeedbackStatus.fresh] ?? 0;
+    int badgeOf(AdminSection s) => switch (s) {
+      AdminSection.payments => pending,
+      AdminSection.feedback => fresh,
+      _ => 0,
+    };
 
     final body = allowed.value == false ? const _Forbidden() : child;
 
@@ -122,7 +129,7 @@ class AdminShell extends ConsumerWidget {
       return AuroraScaffold(
         body: Row(
           children: [
-            _Sidebar(current: section, pending: pending, onOpen: (s) => _open(context, s)),
+            _Sidebar(current: section, badgeOf: badgeOf, onOpen: (s) => _open(context, s)),
             Expanded(child: content),
           ],
         ),
@@ -145,7 +152,7 @@ class AdminShell extends ConsumerWidget {
                         child: _NavTab(
                           section: s,
                           selected: s == section,
-                          badge: s == AdminSection.payments ? pending : 0,
+                          badge: badgeOf(s),
                           onTap: () => _open(context, s),
                         ),
                       ),
@@ -234,9 +241,9 @@ class _Badged extends StatelessWidget {
 
 /// Menu latéral (bureau) : vert profond, comme la carte « chiffre d'affaires » de l'app.
 class _Sidebar extends StatelessWidget {
-  const _Sidebar({required this.current, required this.pending, required this.onOpen});
+  const _Sidebar({required this.current, required this.badgeOf, required this.onOpen});
   final AdminSection current;
-  final int pending;
+  final int Function(AdminSection) badgeOf;
   final ValueChanged<AdminSection> onOpen;
 
   @override
@@ -279,12 +286,7 @@ class _Sidebar extends StatelessWidget {
                     for (final s in AdminSection.values)
                       Padding(
                         padding: const EdgeInsets.only(bottom: 6),
-                        child: _SideItem(
-                          section: s,
-                          selected: s == current,
-                          badge: s == AdminSection.payments ? pending : 0,
-                          onTap: () => onOpen(s),
-                        ),
+                        child: _SideItem(section: s, selected: s == current, badge: badgeOf(s), onTap: () => onOpen(s)),
                       ),
                     const Spacer(),
                     Container(

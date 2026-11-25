@@ -15,6 +15,7 @@ import 'core/offline/kv_store.dart';
 import 'core/offline/pending_sales.dart';
 import 'core/providers.dart';
 import 'core/theme.dart';
+import 'features/admin/admin_feedback.dart';
 import 'features/admin/admin_dashboard.dart';
 import 'features/admin/admin_merchant.dart';
 import 'features/admin/admin_merchants.dart';
@@ -73,22 +74,29 @@ final adminRouterProvider = Provider<GoRouter>((ref) {
   return GoRouter(
     initialLocation: '/splash',
     refreshListenable: refresh,
-    redirect: (_, state) => adminRedirect(ref.read(authProvider), ref.read(platformAdminProvider), state.matchedLocation),
+    redirect: (_, state) =>
+        adminRedirect(ref.read(authProvider), ref.read(platformAdminProvider), state.matchedLocation),
     routes: [
       GoRoute(path: '/', builder: (_, _) => const _AdminSplash()),
       GoRoute(path: '/splash', builder: (_, _) => const _AdminSplash()),
       GoRoute(path: '/denied', builder: (_, _) => const _AdminDenied()),
-      GoRoute(path: '/login', builder: (_, _) => const PhoneScreen(tagline: 'Back office · équipe Sama360')),
+      GoRoute(
+        path: '/login',
+        builder: (_, _) => const PhoneScreen(tagline: 'Back office · équipe Sama360'),
+      ),
       GoRoute(
         path: '/otp',
-        builder: (_, s) => OtpScreen(
-          target: s.extra is OtpTarget ? s.extra! as OtpTarget : OtpTarget(s.extra as String? ?? ''),
-        ),
+        builder: (_, s) =>
+            OtpScreen(target: s.extra is OtpTarget ? s.extra! as OtpTarget : OtpTarget(s.extra as String? ?? '')),
       ),
       GoRoute(path: '/admin', builder: (_, _) => const AdminDashboardScreen()),
       GoRoute(path: '/admin/merchants', builder: (_, _) => const AdminMerchantsScreen()),
-      GoRoute(path: '/admin/merchants/:id', builder: (_, s) => AdminMerchantScreen(id: s.pathParameters['id']!)),
+      GoRoute(
+        path: '/admin/merchants/:id',
+        builder: (_, s) => AdminMerchantScreen(id: s.pathParameters['id']!),
+      ),
       GoRoute(path: '/admin/payments', builder: (_, _) => const AdminPaymentsScreen()),
+      GoRoute(path: '/admin/feedback', builder: (_, _) => const AdminFeedbackScreen()),
     ],
   );
 });

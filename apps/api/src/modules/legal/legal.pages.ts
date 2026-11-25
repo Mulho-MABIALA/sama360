@@ -3,8 +3,13 @@
  * suppression du compte (page web exigée par Google Play). HTML autonome, sans dépendance.
  */
 
+import { FREE_LIMITS, PRO_PRICES, TRIAL_DAYS } from '../../shared/plans';
+
+/** « 5 000 F CFA » (espace insécable entre les milliers) */
+const price = (n: number) => `${n.toLocaleString('fr-FR').replace(/\s/g, '&nbsp;')}&nbsp;F&nbsp;CFA`;
+
 /** Date de la version en vigueur, affichée en haut de chaque page. */
-export const LEGAL_VERSION = '24 novembre 2026';
+export const LEGAL_VERSION = '25 novembre 2026';
 
 /** Adresse de contact affichée (variable LEGAL_EMAIL sur le serveur). */
 export const legalEmail = () => process.env.LEGAL_EMAIL?.trim() || 'imulhomabiala@gmail.com';
@@ -95,8 +100,8 @@ export function termsPage(): string {
 
 <h2>4. Offre gratuite et Sama360 Pro</h2>
 <ul>
-<li>L’offre gratuite reste gratuite : ventes, caisse, stock, clients et crédits, dépenses, factures et rapports simples.</li>
-<li><strong>Sama360 Pro</strong> ajoute la boutique en ligne, les vendeurs, les livraisons, la réservation en ligne, les statistiques avancées, l’assistant et d’autres outils. Prix : <strong>5 000 F CFA par mois</strong> ou <strong>50 000 F CFA par an</strong>. Une nouvelle boutique reçoit un essai gratuit de 30 jours.</li>
+<li>L’offre gratuite reste gratuite : ventes, caisse, stock (jusqu’à ${FREE_LIMITS.products} produits), clients et crédits, dépenses, factures et rapports des ${FREE_LIMITS.historyDays} derniers jours. Les reçus envoyés depuis l’offre gratuite portent la mention « fait avec Sama360 ».</li>
+<li><strong>Sama360 Pro</strong> donne accès à tout : produits illimités, tout l’historique, boutique en ligne, vendeurs, livraisons, réservation en ligne, statistiques avancées, assistant et les autres outils. Prix fixe, sans commission sur vos ventes : <strong>${price(PRO_PRICES.weekly)} par semaine</strong>, <strong>${price(PRO_PRICES.monthly)} par mois</strong> ou <strong>${price(PRO_PRICES.yearly)} par an</strong>. Une nouvelle boutique reçoit un essai gratuit de ${TRIAL_DAYS} jours.</li>
 <li>Vous payez en ligne (Wave, Orange Money, MoMo, carte, via notre prestataire Chariow) ou par transfert que nous vérifions. Pro s’active pour la durée payée. <strong>Il n’y a pas de renouvellement automatique</strong> : rien n’est prélevé sans que vous payiez à nouveau.</li>
 <li>Une période payée n’est pas remboursée, sauf si l’erreur vient de nous (paiement débité deux fois, Pro jamais activé). Écrivez-nous dans ce cas.</li>
 <li>Nous pouvons changer les prix ; le nouveau prix ne s’applique qu’à la période suivante, et nous vous prévenons dans l’application avant.</li>

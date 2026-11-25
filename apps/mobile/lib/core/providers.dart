@@ -114,6 +114,12 @@ final adminPaymentsProvider = FutureProvider.autoDispose.family<List<PaymentRequ
   (ref, status) => ref.watch(repoProvider).adminPaymentRequests(status: status),
 );
 
+/// Back office : suggestions des commerçants, par statut.
+final adminFeedbackProvider = FutureProvider.autoDispose
+    .family<({List<AdminFeedback> items, Map<FeedbackStatus, int> counts}), FeedbackStatus>(
+      (ref, status) => ref.watch(repoProvider).adminFeedback(status),
+    );
+
 /// Back office : tableau de bord sur une période (jours).
 final adminOverviewProvider = FutureProvider.autoDispose.family<AdminOverview, int>(
   (ref, days) => ref.watch(repoProvider).adminOverview(days: days),

@@ -139,6 +139,19 @@ void main() {
     expect(find.textContaining('185'), findsWidgets);
     expect(find.text('128'), findsWidgets); // boutiques
     expect(find.byKey(const Key('admin_pending_banner')), findsOneWidget);
+    // Semaine par semaine : la plus récente en premier
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('admin_weeks')),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(find.text('du 16 nov.'), findsOneWidget);
+    expect(find.textContaining('108 inscrits, 76 vendent (70 %)'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('admin_days_7')),
+      -300,
+      scrollable: find.byType(Scrollable).first,
+    );
 
     // Autre période : le tableau de bord est rechargé
     await tester.tap(find.byKey(const Key('admin_days_7')));

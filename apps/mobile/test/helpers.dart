@@ -396,6 +396,38 @@ class FakeRepo extends SamaRepository {
   @override
   Future<AdminOverview> adminOverview({int days = 30}) async => overview ?? fakeOverview(days: days);
 
+  /// Suggestions envoyées (profil) et reçues (back office)
+  final sentFeedback = <(FeedbackKind, String, String?)>[];
+  final feedbackInbox = <AdminFeedback>[];
+
+  @override
+  Future<void> sendFeedback(FeedbackKind kind, String message, {String? businessId, String? appVersion}) async =>
+      sentFeedback.add((kind, message, businessId));
+
+  @override
+  Future<({List<AdminFeedback> items, Map<FeedbackStatus, int> counts})> adminFeedback(FeedbackStatus status) async => (
+    items: feedbackInbox.where((f) => f.status == status).toList(),
+    counts: {for (final s in FeedbackStatus.values) s: feedbackInbox.where((f) => f.status == s).length},
+  );
+
+  @override
+  Future<void> adminSetFeedback(String id, FeedbackStatus status) async {
+    final i = feedbackInbox.indexWhere((f) => f.id == id);
+    final f = feedbackInbox[i];
+    feedbackInbox[i] = AdminFeedback(
+      id: f.id,
+      kind: f.kind,
+      message: f.message,
+      status: status,
+      createdAt: f.createdAt,
+      userPhone: f.userPhone,
+      userName: f.userName,
+      businessId: f.businessId,
+      businessName: f.businessName,
+      category: f.category,
+    );
+  }
+
   @override
   Future<AdminPage<AdminBusiness>> adminBusinesses(AdminBusinessQuery q) async {
     adminQueries.add(q);
@@ -2670,6 +2702,17 @@ AdminOverview fakeOverview({int days = 30}) {
     'plans': {'trial': 52, 'active': 31, 'expired': 12, 'free': 33},
     'trialsEnding': [
       {'id': 'b2', 'name': 'Chez Maman Mav', 'ownerPhone': '+242061234567', 'daysLeft': 2},
+    ],
+    'weeks': [
+      for (var i = 0; i < 8; i++)
+        {
+          'week': DateTime.utc(2026, 9, 28).add(Duration(days: 7 * i)).toIso8601String().substring(0, 10),
+          'signups': 10 + i,
+          'sold': 6 + i,
+          'paid': i == 7 ? 4 : 2,
+          'stopped': i == 6 ? 1 : 0,
+          'trialsLost': 3,
+        },
     ],
     'revenue': {
       'period': 185000,

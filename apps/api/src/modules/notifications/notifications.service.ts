@@ -6,7 +6,7 @@ import { AppError } from '../../shared/http/app-error';
 import { newId } from '../../shared/ids';
 import { hourLabel } from '../booking/booking';
 import { EXPIRY_WARNING_DAYS } from '../documents/documents';
-import { effectivePlan, SubscriptionRow } from '../../shared/plans';
+import { effectivePlan, FREE_LIMITS, PRO_PRICES, SubscriptionRow } from '../../shared/plans';
 import { fcfa, weekOf } from '../sales/insights';
 import { enqueuePush } from './push-queue';
 
@@ -273,7 +273,8 @@ export class NotificationsService {
       }
     }
 
-    // Sama360 Pro : fin d'essai ou d'abonnement (7 jours, la veille, puis terminé)
+    // Sama360 Pro : fin d'essai ou d'abonnement (7 jours, 3 jours, la veille, puis terminé),
+    // avec ce que ce commerçant-là va perdre : c'est le moment où il est le plus prêt à payer
     if (can('business:update')) {
       const sub = (
         await tx.execute(sql`
@@ -284,11 +285,14 @@ export class NotificationsService {
       const what = sub?.status === 'trialing' ? 'Votre essai Sama360 Pro' : 'Votre abonnement Sama360 Pro';
       const end = p.endsAt?.slice(0, 10);
       if (p.pro && p.daysLeft <= 7) {
-        const bucket = p.daysLeft <= 1 ? 1 : 7;
+        const bucket = p.daysLeft <= 1 ? 1 : p.daysLeft <= 3 ? 3 : 7;
+        const losses = await this.proLosses(tx, businessId, now);
         await this.push(tx, businessId, {
           kind: 'pro_ending',
           title: p.daysLeft <= 1 ? `${what} se termine demain` : `${what} se termine dans ${p.daysLeft} jours`,
-          body: 'Renouvelez pour garder la boutique en ligne, les vendeurs, les livraisons et l’assistant.',
+          body: losses.length
+            ? `Sans Pro, vous perdez : ${losses.join(', ')}. Dès ${fcfa(PRO_PRICES.weekly)} la semaine.`
+            : `Gardez les produits illimités, tout l’historique et la boutique en ligne. Dès ${fcfa(PRO_PRICES.weekly)} la semaine.`,
           link: '/pro',
           audience: 'business:update',
           dedupeKey: `pro_ending:${end}:${bucket}`,
@@ -304,6 +308,27 @@ export class NotificationsService {
         });
       }
     }
+  }
+
+  /** Ce que la fin de Pro enlèverait à ce commerce, d'après ce qu'il utilise vraiment. */
+  private async proLosses(tx: Tx, businessId: string, now: Date): Promise<string[]> {
+    const since = new Date(now.getTime() - 30 * 86_400_000);
+    const r = (
+      await tx.execute(sql`
+        SELECT
+          (SELECT count(*)::int FROM catalog.products WHERE deleted_at IS NULL AND parent_id IS NULL) AS products,
+          (SELECT count(*)::int FROM core.memberships m JOIN core.businesses b ON b.id = m.business_id
+            WHERE m.business_id = ${businessId} AND m.status = 'active' AND m.user_id <> b.owner_id) AS staff,
+          (SELECT count(*)::int FROM shop.orders WHERE created_at >= ${since}) AS orders,
+          (SELECT count(*)::int FROM sales.deliveries WHERE created_at >= ${since}) AS deliveries`)
+    ).rows[0] as { products: number; staff: number; orders: number; deliveries: number };
+    const out: string[] = [];
+    if (r.products > FREE_LIMITS.products)
+      out.push(`l’ajout de produits (vous en avez ${r.products}, ${FREE_LIMITS.products} en gratuit)`);
+    if (r.staff > 0) out.push(r.staff === 1 ? 'votre vendeur' : `vos ${r.staff} vendeurs`);
+    if (r.orders > 0) out.push(`la boutique en ligne (${r.orders} commande${r.orders > 1 ? 's' : ''} ce mois)`);
+    if (r.deliveries > 0) out.push('les livraisons');
+    return out;
   }
 
   /** Notifications visibles par ce membre, les plus récentes d'abord. */

@@ -131,11 +131,7 @@ class SamaRepository {
   /// Métier et services de l'accueil (services null = ceux du métier).
   Future<void> updateTrade({String? category, List<String>? services, bool resetServices = false}) => api.patch<void>(
     '/v1/business',
-    data: {
-      'category': ?category,
-      'services': ?services,
-      if (resetServices) 'services': null,
-    },
+    data: {'category': ?category, 'services': ?services, if (resetServices) 'services': null},
   );
 
   // ── Sama360 Pro et parrainage
@@ -208,6 +204,25 @@ class SamaRepository {
   Future<void> adminUnsuspend(String id) => api.post<void>('/v1/admin/businesses/$id/unsuspend');
 
   Future<void> adminRestore(String id) => api.post<void>('/v1/admin/businesses/$id/restore');
+
+  /// Suggestion envoyée depuis le profil (rattachée à l'entreprise ouverte).
+  Future<void> sendFeedback(FeedbackKind kind, String message, {String? businessId, String? appVersion}) =>
+      api.post<void>(
+        '/v1/feedback',
+        data: {'kind': kind.api, 'message': message, 'businessId': ?businessId, 'appVersion': ?appVersion},
+      );
+
+  Future<({List<AdminFeedback> items, Map<FeedbackStatus, int> counts})> adminFeedback(FeedbackStatus status) async {
+    final j = await api.get<Map<String, dynamic>>('/v1/admin/feedback', query: {'status': status.api});
+    final c = j['counts'] as Map<String, dynamic>? ?? const {};
+    return (
+      items: [for (final f in j['items'] as List) AdminFeedback.fromJson(f as Map<String, dynamic>)],
+      counts: {for (final s in FeedbackStatus.values) s: (c[s.api] as num?)?.toInt() ?? 0},
+    );
+  }
+
+  Future<void> adminSetFeedback(String id, FeedbackStatus status) =>
+      api.patch<void>('/v1/admin/feedback/$id', data: {'status': status.api});
 
   Future<({List<AdminPayment> items, bool hasMore})> adminPayments({
     AdminPayStatus? status,

@@ -8,10 +8,12 @@ import 'dart:io';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sama360/core/api/api_client.dart';
+import 'package:sama360/core/admin_models.dart';
 import 'package:sama360/core/models.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:material_ui/material_ui.dart';
 
+import 'admin_test.dart' show adminRepo;
 import 'helpers.dart';
 
 Future<void> _shot(WidgetTester tester, String name) async {
@@ -136,6 +138,58 @@ void main() {
         await tester.pumpAndSettle();
       }
       await _shot(tester, e.key);
+    });
+  }
+  // Suggestions : l'écran du commerçant, et ce que l'équipe reçoit (avec le suivi par semaine)
+  testWidgets('62_suggestions', (tester) async {
+    phoneSize(tester);
+    await pumpSama(tester, location: '/feedback');
+    await tester.enterText(
+      find.byKey(const Key('fb_message')),
+      'Pouvoir envoyer le reçu par SMS aux clients sans WhatsApp',
+    );
+    await tester.pumpAndSettle();
+    await _shot(tester, '62_suggestions');
+  });
+  for (final name in ['63_admin_suggestions', '64_admin_semaines']) {
+    testWidgets(name, (tester) async {
+      phoneSize(tester);
+      final repo = adminRepo()
+        ..feedbackInbox.addAll([
+          AdminFeedback(
+            id: 'f1',
+            kind: FeedbackKind.idea,
+            message: 'Ajoutez le wolof, mes vendeuses lisent mal le français.',
+            status: FeedbackStatus.fresh,
+            createdAt: DateTime(2026, 11, 25, 10, 30),
+            userPhone: '+221770000001',
+            userName: 'Awa Ndiaye',
+            businessId: 'b1',
+            businessName: 'Awa Beauté',
+            category: 'cosmetique',
+            appVersion: '1.0.0',
+          ),
+          AdminFeedback(
+            id: 'f2',
+            kind: FeedbackKind.problem,
+            message: 'Le reçu ne s’imprime pas sur mon imprimante Bluetooth.',
+            status: FeedbackStatus.fresh,
+            createdAt: DateTime(2026, 11, 24, 18, 5),
+            userPhone: '+221770000002',
+            businessName: 'Quincaillerie Touba',
+            category: 'quincaillerie',
+          ),
+        ]);
+      await pumpAdmin(tester, repo: repo, location: name.contains('suggestions') ? '/admin/feedback' : '/admin');
+      if (name.contains('semaines')) {
+        await tester.scrollUntilVisible(
+          find.byKey(const Key('admin_weeks')),
+          300,
+          scrollable: find.byType(Scrollable).first,
+        );
+        await tester.pumpAndSettle();
+      }
+      await _shot(tester, name);
     });
   }
   for (final e in routes.entries) {

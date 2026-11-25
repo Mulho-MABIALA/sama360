@@ -4,6 +4,7 @@ import type { AuthUser } from '../../shared/auth/auth.types';
 import { CurrentUser } from '../../shared/auth/decorators';
 import { parse } from '../../shared/http/zod';
 import { AdminService } from './admin.service';
+import { FeedbackService } from './feedback.service';
 
 const ListQuery = z.object({
   q: z.string().trim().max(80).optional(),
@@ -31,13 +32,16 @@ const Suspend = z.object({ reason: z.string().trim().min(3).max(300) });
 /** Back office de l'équipe Sama360 (numéros dans ADMIN_PHONES). */
 @Controller('v1/admin')
 export class AdminController {
-  constructor(private readonly admin: AdminService) {}
+  constructor(
+    private readonly admin: AdminService,
+    private readonly feedback: FeedbackService,
+  ) {}
 
   @Get('overview')
   async overview(@CurrentUser() user: AuthUser, @Query('days') days?: string) {
     await this.admin.assertAdmin(user.id);
     const d = [7, 30, 90, 365].includes(Number(days)) ? Number(days) : 30;
-    return this.admin.overview(d);
+    return { ...(await this.admin.overview(d)), newFeedback: await this.feedback.newCount() };
   }
 
   @Get('businesses')
