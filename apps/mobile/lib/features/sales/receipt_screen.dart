@@ -12,8 +12,10 @@ import '../../core/glass.dart';
 import '../../core/models.dart';
 import '../../core/providers.dart';
 import '../../core/theme.dart';
+import '../../core/thermal/printer.dart';
 import '../../core/widgets.dart';
 import '../business/business_logo.dart';
+import 'printer_sheet.dart';
 import 'receipt.dart';
 
 /// Actions de partage (remplaçables dans les tests).
@@ -256,9 +258,21 @@ class _ReceiptScreenState extends ConsumerState<ReceiptScreen> {
                 onShare: () => _run('share', () async {
                   await actions.sharePdf(await _pdf(s, b), receiptFileName(s));
                 }),
+                // Imprimante Bluetooth (Android) ; sinon, ou si on le préfère, le PDF
                 onPrint: () => _run('print', () async {
-                  await actions.printPdf(await _pdf(s, b), s.number);
+                  final r = await printReceiptThermal(context, ref, s, b);
+                  if (r == PrintOutcome.usePdf) await actions.printPdf(await _pdf(s, b), s.number);
+                  if (r == PrintOutcome.printed && context.mounted) showInfo(context, 'Reçu imprimé');
                 }),
+                printerName: ref.watch(thermalPrinterProvider).supported
+                    ? ref.watch(savedPrinterProvider).value?.name
+                    : null,
+                onChangePrinter: ref.watch(thermalPrinterProvider).supported
+                    ? () => _run('print', () async {
+                        final r = await printReceiptThermal(context, ref, s, b, choose: true);
+                        if (r == PrintOutcome.usePdf) await actions.printPdf(await _pdf(s, b), s.number);
+                      })
+                    : null,
               ),
             ],
           ),
@@ -275,8 +289,14 @@ class _ActionsBar extends StatelessWidget {
     required this.onWhatsApp,
     required this.onShare,
     required this.onPrint,
+    this.printerName,
+    this.onChangePrinter,
   });
   final String? busy;
+
+  /// Imprimante Bluetooth enregistrée (affichée sous le bouton) et changement d'imprimante.
+  final String? printerName;
+  final VoidCallback? onChangePrinter;
   final bool hasPhone;
   final VoidCallback onWhatsApp;
   final VoidCallback onShare;
@@ -320,13 +340,28 @@ class _ActionsBar extends StatelessWidget {
                 ],
                 Expanded(
                   child: OutlinedButton.icon(
+                    key: const Key('receipt_print'),
                     onPressed: busy == null ? onPrint : null,
+                    onLongPress: busy == null ? onChangePrinter : null,
                     icon: busy == 'print' ? spinner(AppColors.green) : const Icon(Icons.print_rounded),
                     label: const Text('Imprimer'),
                   ),
                 ),
               ],
             ),
+            if (onChangePrinter != null && printerName != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: InkWell(
+                  key: const Key('receipt_printer_change'),
+                  onTap: busy == null ? onChangePrinter : null,
+                  child: Text(
+                    'Imprimante : $printerName · changer',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: AppColors.muted, fontSize: 12.5, fontWeight: FontWeight.w600),
+                  ),
+                ),
+              ),
           ],
         ),
       ),

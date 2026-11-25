@@ -17,6 +17,7 @@ import '../../core/permissions.dart';
 import '../../core/offline/pending_sales.dart';
 import '../../core/providers.dart';
 import '../../core/theme.dart';
+import '../../core/thermal/printer.dart';
 import '../../core/widgets.dart';
 import '../locations/locations_screen.dart' show SellingAtBanner;
 import '../catalog/variant_picker.dart';
@@ -29,6 +30,7 @@ import '../catalog/barcode_scanner.dart';
 import 'cart.dart';
 import 'discount_sheet.dart';
 import 'pay_qr_sheet.dart';
+import 'printer_sheet.dart';
 
 /// Caisse : produits à gauche/en haut, panier et encaissement en bas (maquette « Nouvelle vente »).
 class PosScreen extends ConsumerStatefulWidget {
@@ -286,6 +288,32 @@ class _PosScreenState extends ConsumerState<PosScreen> {
                       icon: const Icon(Icons.receipt_long_rounded),
                       label: const Text('Voir le reçu'),
                     ),
+                    // Android : le ticket part sur l'imprimante Bluetooth sans ouvrir le reçu
+                    if (ref.read(thermalPrinterProvider).supported) ...[
+                      const SizedBox(height: 8),
+                      OutlinedButton.icon(
+                        key: const Key('sale_print'),
+                        style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(48)),
+                        onPressed: () async {
+                          try {
+                            final detail = await ref.read(repoProvider).sale(sale.id);
+                            final business = await ref.read(currentBusinessProvider.future);
+                            if (!ctx.mounted) return;
+                            final r = await printReceiptThermal(ctx, ref, detail, business);
+                            if (r == PrintOutcome.usePdf && ctx.mounted) {
+                              Navigator.pop(ctx);
+                              if (mounted) context.push('/sales/${sale.id}');
+                            } else if (r == PrintOutcome.printed && ctx.mounted) {
+                              showInfo(ctx, 'Reçu imprimé');
+                            }
+                          } catch (e) {
+                            if (ctx.mounted) showError(ctx, e);
+                          }
+                        },
+                        icon: const Icon(Icons.print_rounded),
+                        label: const Text('Imprimer le reçu'),
+                      ),
+                    ],
                     const SizedBox(height: 8),
                     TextButton.icon(
                       style: TextButton.styleFrom(minimumSize: const Size.fromHeight(46)),
