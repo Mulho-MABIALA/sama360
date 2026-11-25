@@ -52,14 +52,21 @@ void main() {
     final (c, _) = await pumpSama(tester, location: '/pos', repo: _repo());
     expect(find.text('Rechercher parmi 7 produits'), findsOneWidget); // les variantes ne comptent pas
     // Une carte pour le modèle, pas une par variante ; stock additionné, prix « dès »
-    await tester.scrollUntilVisible(find.text('T-shirt col V'), 200, scrollable: find.byType(Scrollable).last);
+    await tester.scrollUntilVisible(
+      find.text('T-shirt col V'),
+      200,
+      scrollable: find.descendant(of: find.byType(GridView), matching: find.byType(Scrollable)).first,
+    );
     expect(find.text('T-shirt col V'), findsOneWidget);
     expect(find.text('T-shirt col V · Noir · M'), findsNothing);
     expect(find.textContaining(RegExp(r'dès 5.000 F'), findRichText: true), findsOneWidget);
     expect(find.text('En stock : 11'), findsOneWidget);
 
     // La carte passe au-dessus du panier en bas de l'écran
-    await tester.drag(find.byType(Scrollable).last, const Offset(0, -200));
+    await tester.drag(
+      find.descendant(of: find.byType(GridView), matching: find.byType(Scrollable)).first,
+      const Offset(0, -200),
+    );
     await tester.pumpAndSettle();
     await tester.tap(find.text('T-shirt col V'));
     await tester.pumpAndSettle();

@@ -892,3 +892,39 @@ DropdownMenuItem<String> colorItem(String value, {String? label, IconData? icon}
     ],
   ),
 );
+
+/// Bouton « Partager » de la barre du haut : vert et nommé, pour qu'on le remarque.
+class ShareAction extends StatelessWidget {
+  const ShareAction({super.key, required this.onPressed, this.busy = false, this.tooltip = 'Partager'});
+  final VoidCallback? onPressed;
+  final bool busy;
+  final String tooltip;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.only(right: 10),
+    child: Tooltip(
+      message: tooltip,
+      child: FilledButton.icon(
+        key: const Key('share_action'),
+        style: FilledButton.styleFrom(
+          backgroundColor: AppColors.green,
+          foregroundColor: Colors.white,
+          minimumSize: const Size(0, 38),
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          textStyle: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13.5),
+        ),
+        onPressed: busy ? null : onPressed,
+        icon: busy
+            ? const SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+              )
+            : const Icon(Icons.ios_share_rounded, size: 18),
+        label: const Text('Partager'),
+      ),
+    ),
+  );
+}

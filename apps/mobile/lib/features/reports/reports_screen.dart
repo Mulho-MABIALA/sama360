@@ -107,13 +107,7 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
         title: const Text('Rapports', style: TextStyle(fontWeight: FontWeight.w800)),
         actions: [
           if (report.value != null)
-            IconButton(
-              tooltip: 'Exporter en PDF',
-              onPressed: _exporting ? null : () => _export(report.value!),
-              icon: _exporting
-                  ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                  : const Icon(Icons.ios_share_rounded),
-            ),
+            ShareAction(tooltip: 'Exporter en PDF', busy: _exporting, onPressed: () => _export(report.value!)),
         ],
       ),
       body: RefreshIndicator(

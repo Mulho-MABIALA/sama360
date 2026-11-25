@@ -60,11 +60,7 @@ class _CashSessionScreenState extends ConsumerState<CashSessionScreen> {
               onPressed: _busy ? null : () => _pdf(s, print: true),
               icon: const Icon(Icons.print_rounded),
             ),
-            IconButton(
-              tooltip: 'Partager le rapport (PDF)',
-              onPressed: _busy ? null : () => _pdf(s, print: false),
-              icon: const Icon(Icons.ios_share_rounded),
-            ),
+            ShareAction(tooltip: 'Partager le rapport (PDF)', busy: _busy, onPressed: () => _pdf(s, print: false)),
           ],
         ],
       ),
