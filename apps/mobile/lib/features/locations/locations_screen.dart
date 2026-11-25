@@ -683,7 +683,8 @@ class _TransferScreenState extends ConsumerState<TransferScreen> {
             _to = s.list.where((l) => l.id != _from).firstOrNull?.id;
             Future(_loadStock);
           }
-          DropdownMenuItem<String> item(ShopLocation l) => DropdownMenuItem(value: l.id, child: Text(l.name));
+          DropdownMenuItem<String> item(ShopLocation l) =>
+              colorItem(l.id, label: l.name, icon: Icons.storefront_rounded);
           return ListView(
             padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
             children: [

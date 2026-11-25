@@ -149,6 +149,28 @@ void main() {
     await _shot(tester, '65_nom');
   });
   // Retouches du test : création d'entreprise, « Plus », conditions
+  testWidgets('69_variantes_parfum', (tester) async {
+    phoneSize(tester);
+    await pumpSama(tester, location: '/products/p1/variants', repo: FakeRepo()..businessCategory = 'cosmetique');
+    await _shot(tester, '69_variantes_parfum');
+  });
+  testWidgets('70_unites', (tester) async {
+    phoneSize(tester);
+    await pumpSama(tester, location: '/products/new', repo: FakeRepo()..businessCategory = 'quincaillerie');
+    await tester.tap(find.byKey(const Key('pMore')));
+    await tester.pumpAndSettle();
+    final unit = find.text('Vendu par');
+    await tester.scrollUntilVisible(unit, 200, scrollable: find.byType(Scrollable).first);
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.descendant(
+        of: find.ancestor(of: unit, matching: find.byType(InputDecorator)),
+        matching: find.byType(DropdownButton<String>),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await _shot(tester, '70_unites');
+  });
   testWidgets('66_creation', (tester) async {
     phoneSize(tester);
     await pumpSama(tester, location: '/business');

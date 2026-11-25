@@ -530,8 +530,8 @@ class MemberLocationPicker extends ConsumerWidget {
           prefixIcon: Icon(Icons.place_rounded),
         ),
         items: [
-          const DropdownMenuItem(value: '', child: Text('Tous les points de vente')),
-          for (final l in s.list) DropdownMenuItem(value: l.id, child: Text(l.name)),
+          colorItem('', label: 'Tous les points de vente', icon: Icons.store_mall_directory_rounded),
+          for (final l in s.list) colorItem(l.id, label: l.name, icon: Icons.storefront_rounded),
         ],
         onChanged: (v) {
           if (v != null && v != current) onChanged(v);

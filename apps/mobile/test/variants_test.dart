@@ -93,7 +93,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Tailles, couleurs…'), findsOneWidget);
     // Taille : S à XXL, puis une couleur ajoutée à la main
-    await tester.tap(find.byKey(const Key('preset_Taille')));
+    await tester.tap(find.byKey(const Key('preset_Taille_Tailles S à XXL')));
     await tester.pumpAndSettle();
     expect(find.text('Enregistrer 5 variantes'), findsOneWidget);
     await tester.tap(find.byKey(const Key('axis_new')));

@@ -20,6 +20,35 @@ const variantPresets = <(String, String, List<String>)>[
   ('Taille enfant', 'Tailles enfant', ['2 ans', '4 ans', '6 ans', '8 ans', '10 ans', '12 ans']),
 ];
 
+/// Listes proposées d'abord selon le métier : une parfumerie voit les contenances, pas les pointures.
+List<(String, String, List<String>)> variantPresetsFor(String? trade) => switch (trade) {
+  'cosmetique' => const [
+    ('Contenance', 'Parfums 30 à 100 ml', ['30 ml', '50 ml', '75 ml', '100 ml']),
+    ('Contenance', 'Crèmes 50 à 500 ml', ['50 ml', '100 ml', '250 ml', '500 ml']),
+    ('Teinte', 'Teintes (maquillage)', ['Clair', 'Moyen', 'Foncé']),
+    ('Parfum', 'Senteurs', ['Vanille', 'Coco', 'Rose', 'Musc']),
+  ],
+  'mode' => [variantPresets[0], variantPresets[1], variantPresets[2], variantPresets[4]],
+  'alimentation' || 'restaurant' => const [
+    ('Taille', 'Petit, moyen, grand', ['Petit', 'Moyen', 'Grand']),
+    ('Contenance', 'Contenances', ['33 cl', '50 cl', '1 L', '1,5 L']),
+    ('Poids', 'Poids', ['250 g', '500 g', '1 kg', '5 kg']),
+  ],
+  'telephonie' => const [
+    ('Mémoire', 'Mémoire', ['64 Go', '128 Go', '256 Go']),
+    ('Couleur', 'Couleurs', ['Noir', 'Blanc', 'Bleu', 'Or']),
+  ],
+  _ => variantPresets,
+};
+
+/// Titre des variantes selon le métier.
+String variantTitleFor(String? trade) => switch (trade) {
+  'cosmetique' => 'Contenances, teintes…',
+  'alimentation' || 'restaurant' => 'Tailles, contenances…',
+  'telephonie' => 'Mémoire, couleurs…',
+  _ => 'Tailles, couleurs…',
+};
+
 const _axisSuggestions = ['Taille', 'Couleur', 'Pointure', 'Contenance', 'Modèle', 'Longueur', 'Diamètre'];
 
 class _Axis {
@@ -253,7 +282,10 @@ class _VariantsScreenState extends ConsumerState<VariantsScreen> {
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Tailles, couleurs…', style: TextStyle(fontWeight: FontWeight.w800)),
+            Text(
+              variantTitleFor(ref.watch(currentBusinessProvider).value?.category),
+              style: const TextStyle(fontWeight: FontWeight.w800),
+            ),
             if (p != null)
               Text(
                 p.name,
@@ -282,9 +314,9 @@ class _VariantsScreenState extends ConsumerState<VariantsScreen> {
                         spacing: 8,
                         runSpacing: 8,
                         children: [
-                          for (final pr in variantPresets)
+                          for (final pr in variantPresetsFor(ref.watch(currentBusinessProvider).value?.category))
                             ActionChip(
-                              key: Key('preset_${pr.$1}'),
+                              key: Key('preset_${pr.$1}_${pr.$2}'),
                               avatar: Icon(Icons.auto_awesome_rounded, size: 16, color: AppColors.green),
                               label: Text(pr.$2),
                               onPressed: () => _preset(pr),

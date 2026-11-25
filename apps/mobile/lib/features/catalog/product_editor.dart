@@ -13,6 +13,7 @@ import '../../core/providers.dart';
 import '../../core/theme.dart';
 import '../../core/trades.dart';
 import '../../core/widgets.dart';
+import 'variants_screen.dart' show variantTitleFor;
 import 'barcode_scanner.dart';
 import 'categories_screen.dart' show pickOrCreateCategory;
 import 'product_photo.dart';
@@ -665,7 +666,7 @@ class _ProductEditorScreenState extends ConsumerState<ProductEditorScreen> {
                                   isDense: true,
                                   isExpanded: true,
                                   value: productUnits.contains(_unit) ? _unit : 'pièce',
-                                  items: [for (final u in productUnits) DropdownMenuItem(value: u, child: Text(u))],
+                                  items: [for (final u in productUnits) colorItem(u)],
                                   onChanged: (u) => setState(() => _unit = u ?? 'pièce'),
                                 ),
                               ),
@@ -735,9 +736,7 @@ class _ProductEditorScreenState extends ConsumerState<ProductEditorScreen> {
                                             isDense: true,
                                             isExpanded: true,
                                             value: packNames.contains(_packName) ? _packName : packNames.first,
-                                            items: [
-                                              for (final n in packNames) DropdownMenuItem(value: n, child: Text(n)),
-                                            ],
+                                            items: [for (final n in packNames) colorItem(n)],
                                             onChanged: (n) => setState(() => _packName = n ?? packNames.first),
                                           ),
                                         ),
@@ -960,13 +959,13 @@ class _Section extends StatelessWidget {
 }
 
 /// « Tailles, couleurs… » : ouvre les variantes du produit (à la création, enregistre d'abord).
-class _VariantsCard extends StatelessWidget {
+class _VariantsCard extends ConsumerWidget {
   const _VariantsCard({required this.product, required this.onTap});
   final Product? product;
   final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final axes = product?.variantAxes ?? const <VariantAxis>[];
     final count = axes.fold(1, (n, a) => n * a.values.length);
     return Glass(
@@ -995,7 +994,9 @@ class _VariantsCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      axes.isEmpty ? 'Tailles, couleurs…' : 'Variantes · $count',
+                      axes.isEmpty
+                          ? variantTitleFor(ref.watch(currentBusinessProvider).value?.category)
+                          : 'Variantes · $count',
                       style: const TextStyle(fontWeight: FontWeight.w800),
                     ),
                     Text(

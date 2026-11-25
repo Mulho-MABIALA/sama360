@@ -849,3 +849,46 @@ class LegalNotice extends StatelessWidget {
     );
   }
 }
+
+/// Icône d'une unité ou d'un conditionnement (listes de la fiche produit).
+IconData unitIcon(String unit) => switch (unit.toLowerCase()) {
+  'kg' || 'g' || 'tonne' => Icons.scale_rounded,
+  'litre' => Icons.water_drop_rounded,
+  'mètre' => Icons.straighten_rounded,
+  'm²' => Icons.square_foot_rounded,
+  'sac' => Icons.shopping_bag_rounded,
+  'sachet' => Icons.local_mall_rounded,
+  'paquet' || 'carton' || 'boîte' => Icons.inventory_2_rounded,
+  'rouleau' => Icons.donut_large_rounded,
+  'barre' => Icons.horizontal_rule_rounded,
+  'douzaine' => Icons.grid_view_rounded,
+  'heure' => Icons.schedule_rounded,
+  'fût' => Icons.oil_barrel_rounded,
+  'palette' => Icons.pallet,
+  _ => Icons.category_rounded,
+};
+
+/// Ligne d'une liste déroulante en couleur : icône verte et texte appuyé.
+DropdownMenuItem<String> colorItem(String value, {String? label, IconData? icon}) => DropdownMenuItem(
+  value: value,
+  child: Row(
+    mainAxisSize: MainAxisSize.min, // aussi dans une liste non étirée (largeur libre)
+    children: [
+      Container(
+        width: 26,
+        height: 26,
+        decoration: BoxDecoration(color: AppColors.greenSoft, borderRadius: BorderRadius.circular(8)),
+        child: Icon(icon ?? unitIcon(value), size: 16, color: AppColors.green),
+      ),
+      const SizedBox(width: 10),
+      ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 230),
+        child: Text(
+          label ?? value,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(color: AppColors.greenDark, fontWeight: FontWeight.w700),
+        ),
+      ),
+    ],
+  ),
+);
