@@ -5,6 +5,10 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:sama360/features/catalog/product_photo.dart';
 
+import 'package:sama360/features/sales/cart.dart';
+
+import 'package:sama360/core/models.dart';
+
 import 'helpers.dart';
 
 void main() {
@@ -90,6 +94,38 @@ void main() {
     await tester.pump();
     expect(find.text('Choisissez le client pour une vente à crédit'), findsOneWidget);
     expect(repo.sales, isEmpty);
+  });
+
+  testWidgets('caisse : crédit avec avance par Wave, obligatoire de dire s’il y a une avance', (tester) async {
+    phoneSize(tester);
+    final (c, repo) = await pumpSama(tester, location: '/pos');
+    await tester.tap(find.text('Savon noir'));
+    await tester.pump();
+    c.read(cartProvider.notifier).setCustomer(const Contact(id: 'k1', name: 'Aminata Ba'));
+    await tester.tap(find.text('Crédit'));
+    await tester.pumpAndSettle();
+    // Rien de choisi : on ne valide pas
+    await tester.tap(find.text('Valider à crédit'));
+    await tester.pump();
+    expect(find.textContaining('Le client a-t-il donné une avance'), findsOneWidget);
+    expect(repo.sales, isEmpty);
+    ScaffoldMessenger.of(tester.element(find.text('Valider à crédit'))).removeCurrentSnackBar();
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('advance_wave')));
+    await tester.pumpAndSettle();
+    expect(find.text('Montant reçu en Wave *'), findsOneWidget);
+    await tester.enterText(find.byKey(const Key('deposit')), '500');
+    await tester.pump();
+    await tester.ensureVisible(find.text('Valider à crédit'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Valider à crédit'));
+    await tester.pumpAndSettle();
+
+    expect(repo.sales, hasLength(1));
+    expect(repo.sales.single['payments'], [
+      {'method': 'wave', 'amount': 500},
+    ]);
   });
 
   testWidgets('stock : stock bas mis en avant et filtre', (tester) async {

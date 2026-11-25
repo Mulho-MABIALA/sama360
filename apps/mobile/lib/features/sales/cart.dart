@@ -65,6 +65,8 @@ class CartState {
     this.customer,
     this.mode = PaymentMode.cash,
     this.deposit = 0,
+    this.depositMethod,
+    this.noAdvance = false,
     this.saleId,
     this.rewards = 0,
     this.rewardValue = 0,
@@ -73,7 +75,12 @@ class CartState {
   final Map<String, CartLine> lines; // par productId, dans l'ordre d'ajout
   final Contact? customer;
   final PaymentMode mode;
-  final int deposit; // acompte en espèces pour une vente à crédit
+  final int deposit; // avance reçue pour une vente à crédit
+
+  /// Vente à crédit : comment l'avance a été payée (espèces, Wave…), ou [noAdvance] si le client n'a rien donné.
+  /// L'un des deux est obligatoire : on ne valide pas un crédit sans l'avoir dit.
+  final PayMethod? depositMethod;
+  final bool noAdvance;
   final String? saleId; // généré une fois : un renvoi après coupure ne crée pas de doublon
 
   /// Récompenses de fidélité utilisées et valeur de chacune (remise en F).
@@ -99,6 +106,9 @@ class CartState {
     bool clearCustomer = false,
     PaymentMode? mode,
     int? deposit,
+    PayMethod? depositMethod,
+    bool clearDepositMethod = false,
+    bool? noAdvance,
     String? saleId,
     int? rewards,
     int? rewardValue,
@@ -107,6 +117,8 @@ class CartState {
     customer: clearCustomer ? null : (customer ?? this.customer),
     mode: mode ?? this.mode,
     deposit: deposit ?? this.deposit,
+    depositMethod: clearDepositMethod ? null : (depositMethod ?? this.depositMethod),
+    noAdvance: noAdvance ?? this.noAdvance,
     saleId: saleId ?? this.saleId,
     rewards: rewards ?? this.rewards,
     rewardValue: rewardValue ?? this.rewardValue,
@@ -114,10 +126,15 @@ class CartState {
 }
 
 /// Paiements envoyés à l'API pour un panier donné. Fonction pure, testée.
-List<({PayMethod method, int amount})> paymentsFor(int total, PaymentMode mode, int deposit) {
+List<({PayMethod method, int amount})> paymentsFor(
+  int total,
+  PaymentMode mode,
+  int deposit, {
+  PayMethod depositMethod = PayMethod.cash,
+}) {
   if (mode == PaymentMode.credit) {
     final d = deposit.clamp(0, total);
-    return d > 0 ? [(method: PayMethod.cash, amount: d)] : [];
+    return d > 0 ? [(method: depositMethod, amount: d)] : [];
   }
   return total > 0 ? [(method: mode.method!, amount: total)] : [];
 }
@@ -126,8 +143,14 @@ List<({PayMethod method, int amount})> paymentsFor(int total, PaymentMode mode, 
 String? checkoutBlocker(CartState cart) {
   if (cart.isEmpty) return 'Ajoutez au moins un article';
   if (cart.mode == PaymentMode.credit && cart.customer == null) return 'Choisissez le client pour une vente à crédit';
-  if (cart.mode == PaymentMode.credit && cart.deposit >= cart.total) {
-    return "L'avance couvre tout : choisissez Espèces";
+  if (cart.mode == PaymentMode.credit) {
+    if (!cart.noAdvance && cart.depositMethod == null) {
+      return 'Le client a-t-il donné une avance ? Choisissez « Aucune avance » ou comment il a payé';
+    }
+    if (cart.depositMethod != null && cart.deposit <= 0) return 'Entrez le montant de l’avance reçue';
+    if (cart.depositMethod != null && cart.deposit >= cart.total) {
+      return "L'avance couvre tout : ce n'est pas un crédit, encaissez normalement";
+    }
   }
   return null;
 }
@@ -197,8 +220,16 @@ class CartController extends Notifier<CartState> {
 
   /// Utilise [n] récompenses de fidélité (0 pour annuler), chacune valant [value] F.
   void setRewards(int n, int value) => state = state.copyWith(rewards: n < 0 ? 0 : n, rewardValue: value);
-  void setMode(PaymentMode m) => state = state.copyWith(mode: m);
+
+  /// Changer de mode remet l'avance à zéro (rien n'est choisi d'avance pour un crédit).
+  void setMode(PaymentMode m) =>
+      state = m == state.mode ? state : state.copyWith(mode: m, deposit: 0, clearDepositMethod: true, noAdvance: false);
   void setDeposit(int amount) => state = state.copyWith(deposit: amount < 0 ? 0 : amount);
+
+  /// Crédit : aucune avance (null) ou avance reçue par [method].
+  void setAdvance(PayMethod? method) => state = method == null
+      ? state.copyWith(noAdvance: true, deposit: 0, clearDepositMethod: true)
+      : state.copyWith(noAdvance: false, depositMethod: method);
 
   /// Identifiant de vente stable jusqu'au succès (idempotence côté serveur).
   String ensureSaleId() {

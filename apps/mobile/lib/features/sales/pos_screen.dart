@@ -99,7 +99,12 @@ class _PosScreenState extends ConsumerState<PosScreen> {
                   },
             },
             names: {for (final (n, l) in cart.lines.values.indexed) n: l.name},
-            payments: paymentsFor(cart.total, cart.mode, cart.deposit),
+            payments: paymentsFor(
+              cart.total,
+              cart.mode,
+              cart.deposit,
+              depositMethod: cart.depositMethod ?? PayMethod.cash,
+            ),
             redeemRewards: cart.customer == null ? 0 : cart.rewards,
           );
     } on ApiException catch (e) {
@@ -492,7 +497,15 @@ class _PosScreenState extends ConsumerState<PosScreen> {
             return Column(
               children: [
                 ...catalog,
-                _CheckoutPanel(busy: _busy, onCheckout: _checkout, compact: true),
+                // Panneau d'encaissement : jamais plus de la moitié de l'écran ; il défile au besoin
+                // (crédit avec avance, clavier ouvert sur un petit téléphone)
+                ConstrainedBox(
+                  constraints: BoxConstraints(maxHeight: box.maxHeight * 0.55),
+                  child: SingleChildScrollView(
+                    reverse: true,
+                    child: _CheckoutPanel(busy: _busy, onCheckout: _checkout, compact: true),
+                  ),
+                ),
               ],
             );
           }
@@ -1121,18 +1134,46 @@ class _CheckoutPanel extends ConsumerWidget {
               },
             ),
             if (credit) ...[
-              const SizedBox(height: 10),
-              TextField(
-                key: const Key('deposit'),
-                keyboardType: TextInputType.number,
-                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                decoration: const InputDecoration(
-                  labelText: 'Avance payée en espèces (facultatif)',
-                  suffixText: 'F',
-                  isDense: true,
-                ),
-                onChanged: (v) => ctrl.setDeposit(int.tryParse(v) ?? 0),
+              const SizedBox(height: 12),
+              // Obligatoire : aucune avance, ou l'avance et son moyen de paiement
+              const Text('Avance du client *', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13.5)),
+              const SizedBox(height: 6),
+              Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                children: [
+                  Pill(
+                    key: const Key('advance_none'),
+                    label: 'Aucune avance',
+                    icon: Icons.do_not_disturb_alt_rounded,
+                    selected: cart.noAdvance,
+                    onTap: () => ctrl.setAdvance(null),
+                  ),
+                  for (final m in [PayMethod.cash, ...ref.watch(countryProvider).mobileMoney])
+                    Pill(
+                      key: Key('advance_${m.name}'),
+                      label: m.label,
+                      icon: m == PayMethod.cash ? Icons.payments_rounded : Icons.phone_android_rounded,
+                      selected: cart.depositMethod == m,
+                      onTap: () => ctrl.setAdvance(m),
+                    ),
+                ],
               ),
+              if (cart.depositMethod != null) ...[
+                const SizedBox(height: 10),
+                TextField(
+                  key: const Key('deposit'),
+                  autofocus: true,
+                  keyboardType: TextInputType.number,
+                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                  decoration: InputDecoration(
+                    labelText: 'Montant reçu en ${cart.depositMethod!.label} *',
+                    suffixText: 'F',
+                    isDense: true,
+                  ),
+                  onChanged: (v) => ctrl.setDeposit(int.tryParse(v) ?? 0),
+                ),
+              ],
               if (cart.total > 0)
                 Padding(
                   padding: const EdgeInsets.only(top: 6),

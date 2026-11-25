@@ -96,6 +96,10 @@ void main() {
       expect(paymentsFor(11600, PaymentMode.wave, 999), [(method: PayMethod.wave, amount: 11600)]);
       expect(paymentsFor(20000, PaymentMode.credit, 5000), [(method: PayMethod.cash, amount: 5000)]);
       expect(paymentsFor(20000, PaymentMode.credit, 0), isEmpty);
+      // Avance reçue par Wave : enregistrée comme paiement Wave
+      expect(paymentsFor(20000, PaymentMode.credit, 5000, depositMethod: PayMethod.wave), [
+        (method: PayMethod.wave, amount: 5000),
+      ]);
     });
 
     test('ce qui bloque l’encaissement', () {
@@ -103,12 +107,40 @@ void main() {
       final line = {'p2': const CartLine(_p2, 5)};
       expect(checkoutBlocker(const CartState()), contains('article'));
       expect(checkoutBlocker(CartState(lines: line, mode: PaymentMode.credit)), contains('client'));
+      // Crédit : il faut dire s'il y a une avance, et comment
+      expect(checkoutBlocker(CartState(lines: line, mode: PaymentMode.credit, customer: customer)), contains('avance'));
       expect(
-        checkoutBlocker(CartState(lines: line, mode: PaymentMode.credit, customer: customer, deposit: 20000)),
-        contains('Espèces'),
+        checkoutBlocker(CartState(lines: line, mode: PaymentMode.credit, customer: customer, noAdvance: true)),
+        isNull,
       );
       expect(
-        checkoutBlocker(CartState(lines: line, mode: PaymentMode.credit, customer: customer, deposit: 5000)),
+        checkoutBlocker(
+          CartState(lines: line, mode: PaymentMode.credit, customer: customer, depositMethod: PayMethod.wave),
+        ),
+        contains('montant'),
+      );
+      expect(
+        checkoutBlocker(
+          CartState(
+            lines: line,
+            mode: PaymentMode.credit,
+            customer: customer,
+            depositMethod: PayMethod.cash,
+            deposit: 20000,
+          ),
+        ),
+        contains('couvre tout'),
+      );
+      expect(
+        checkoutBlocker(
+          CartState(
+            lines: line,
+            mode: PaymentMode.credit,
+            customer: customer,
+            depositMethod: PayMethod.wave,
+            deposit: 5000,
+          ),
+        ),
         isNull,
       );
       expect(checkoutBlocker(CartState(lines: line)), isNull);

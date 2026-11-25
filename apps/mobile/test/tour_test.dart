@@ -16,6 +16,7 @@ import 'package:material_ui/material_ui.dart';
 import 'admin_test.dart' show adminRepo;
 import 'package:sama360/features/auth/auth_controller.dart';
 
+import 'package:sama360/features/sales/cart.dart';
 import 'helpers.dart';
 
 Future<void> _shot(WidgetTester tester, String name) async {
@@ -178,6 +179,20 @@ void main() {
     await tester.enterText(find.byKey(const Key('pName')), 'Eau de parfum Oud');
     await tester.pumpAndSettle();
     await _shot(tester, '71_photos');
+  });
+  testWidgets('72_credit_avance', (tester) async {
+    phoneSize(tester);
+    final (c, _) = await pumpSama(tester, location: '/pos');
+    await tester.tap(find.text('Savon noir'));
+    await tester.pump();
+    c.read(cartProvider.notifier).setCustomer(const Contact(id: 'k1', name: 'Aminata Ba'));
+    await tester.tap(find.text('Crédit'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('advance_wave')));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const Key('deposit')), '500');
+    await tester.pumpAndSettle();
+    await _shot(tester, '72_credit_avance');
   });
   testWidgets('66_creation', (tester) async {
     phoneSize(tester);
