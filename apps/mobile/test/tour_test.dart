@@ -194,6 +194,17 @@ void main() {
     await tester.pumpAndSettle();
     await _shot(tester, '72_credit_avance');
   });
+  testWidgets('73_rapports_chiffres', (tester) async {
+    phoneSize(tester);
+    await pumpSama(tester, location: '/reports');
+    final more = find.byKey(const Key('report_more'));
+    await tester.scrollUntilVisible(more, 300, scrollable: find.byType(Scrollable).first);
+    await tester.tap(more);
+    await tester.pumpAndSettle();
+    await tester.drag(find.byType(Scrollable).first, const Offset(0, -350));
+    await tester.pumpAndSettle();
+    await _shot(tester, '73_rapports_chiffres');
+  });
   testWidgets('66_creation', (tester) async {
     phoneSize(tester);
     await pumpSama(tester, location: '/business');

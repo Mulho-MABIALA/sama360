@@ -273,7 +273,8 @@ class StatTile extends StatelessWidget {
                   : const [Color(0xFFFFF4E2), Color(0xEBFDEACC)])
             : [AppColors.surface(0.9), AppColors.surface(0.62)],
       ),
-      border: Border.all(color: warn ? AppColors.warnLine : AppColors.glassLine, width: 1.2),
+      // Contour visible : la case se détache du fond
+      border: Border.all(color: warn ? AppColors.warnLine : AppColors.cardLine, width: 1.3),
       borderRadius: BorderRadius.circular(18),
       boxShadow: const [BoxShadow(color: Color(0x140B3D2E), blurRadius: 18, offset: Offset(0, 8))],
     ),
@@ -924,6 +925,42 @@ class ShareAction extends StatelessWidget {
               )
             : const Icon(Icons.ios_share_rounded, size: 18),
         label: const Text('Partager'),
+      ),
+    ),
+  );
+}
+
+/// Raccourci de la barre du haut : icône et nom sur fond coloré, pour qu'on le voie (Achats, Catégories…).
+class ToolAction extends StatelessWidget {
+  const ToolAction({super.key, required this.icon, required this.label, required this.color, required this.onPressed});
+  final IconData icon;
+  final String label;
+  final Color color;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.only(left: 6),
+    child: Material(
+      color: color.withValues(alpha: 0.12),
+      shape: StadiumBorder(side: BorderSide(color: color.withValues(alpha: 0.45), width: 1.2)),
+      child: InkWell(
+        customBorder: const StadiumBorder(),
+        onTap: onPressed,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 17, color: color),
+              const SizedBox(width: 5),
+              Text(
+                label,
+                style: TextStyle(color: color, fontWeight: FontWeight.w800, fontSize: 13),
+              ),
+            ],
+          ),
+        ),
       ),
     ),
   );

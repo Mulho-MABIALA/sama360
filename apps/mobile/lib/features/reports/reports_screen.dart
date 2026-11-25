@@ -229,7 +229,10 @@ class _ReportBodyState extends State<_ReportBody> {
                             ],
                           ),
                         ),
-                        Text(moneyShort(p.revenue), style: const TextStyle(fontWeight: FontWeight.w800)),
+                        Text(
+                          moneyShort(p.revenue),
+                          style: TextStyle(fontWeight: FontWeight.w900, fontSize: 15, color: AppColors.green),
+                        ),
                       ],
                     ),
                   ),
@@ -274,22 +277,39 @@ class _ReportBodyState extends State<_ReportBody> {
               _Kpi(
                 label: 'Gagné sur les ventes',
                 value: moneyShort(r.grossProfit),
+                color: AppColors.green,
                 hint: 'Marge ${r.marginRate.toStringAsFixed(1).replaceAll('.', ',')} %',
               ),
               _Kpi(
                 label: 'Dépenses',
                 value: moneyShort(r.expenses),
+                color: r.expenses > 0 ? AppColors.danger : null,
                 hint: '${r.expensesByCategory.length} catégorie(s)',
               ),
-              _Kpi(label: 'Vente moyenne', value: moneyShort(r.averageBasket), hint: '${r.salesCount} vente(s)'),
-              _Kpi(label: 'Argent reçu', value: moneyShort(r.collected), hint: 'sur les ventes'),
+              _Kpi(
+                label: 'Vente moyenne',
+                value: moneyShort(r.averageBasket),
+                color: const Color(0xFF2563EB),
+                hint: '${r.salesCount} vente(s)',
+              ),
+              _Kpi(
+                label: 'Argent reçu',
+                value: moneyShort(r.collected),
+                color: AppColors.green,
+                hint: 'sur les ventes',
+              ),
               _Kpi(
                 label: 'Vendu à crédit',
                 value: moneyShort(r.onCredit),
                 hint: 'on vous doit encore',
                 warn: r.onCredit > 0,
               ),
-              _Kpi(label: 'Réductions', value: moneyShort(r.discounts), hint: '${r.voidedCount} vente(s) annulée(s)'),
+              _Kpi(
+                label: 'Réductions',
+                value: moneyShort(r.discounts),
+                color: const Color(0xFF7C3AED),
+                hint: '${r.voidedCount} vente(s) annulée(s)',
+              ),
             ],
           ),
           if (r.byMethod.isNotEmpty) ...[
@@ -541,17 +561,23 @@ class _HeroFigure extends StatelessWidget {
 }
 
 class _Kpi extends StatelessWidget {
-  const _Kpi({required this.label, required this.value, required this.hint, this.warn = false});
+  const _Kpi({required this.label, required this.value, required this.hint, this.warn = false, this.color});
   final String label;
   final String value;
   final String hint;
   final bool warn;
 
+  /// Couleur du montant (vert : gagné, rouge : dépenses…)
+  final Color? color;
+
   @override
-  Widget build(BuildContext context) => Glass(
-    radius: 18,
-    blur: 10,
+  Widget build(BuildContext context) => Container(
     padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+    decoration: BoxDecoration(
+      color: AppColors.surface(0.85),
+      borderRadius: BorderRadius.circular(18),
+      border: Border.all(color: AppColors.cardLine, width: 1.3),
+    ),
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisAlignment: MainAxisAlignment.center,
@@ -568,7 +594,7 @@ class _Kpi extends StatelessWidget {
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.w800,
-              color: warn ? AppColors.warnText : AppColors.ink,
+              color: warn ? AppColors.warnText : (color ?? AppColors.ink),
             ),
           ),
         ),
@@ -589,19 +615,26 @@ class _Card extends StatelessWidget {
   final Widget child;
 
   @override
-  Widget build(BuildContext context) => Glass(
-    radius: 22,
-    padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Semantics(
-          header: true,
-          child: Text(title, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
-        ),
-        const SizedBox(height: 10),
-        child,
-      ],
+  Widget build(BuildContext context) => Container(
+    // Contour net autour de chaque carte du rapport
+    foregroundDecoration: BoxDecoration(
+      borderRadius: BorderRadius.circular(22),
+      border: Border.all(color: AppColors.cardLine, width: 1.3),
+    ),
+    child: Glass(
+      radius: 22,
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Semantics(
+            header: true,
+            child: Text(title, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
+          ),
+          const SizedBox(height: 10),
+          child,
+        ],
+      ),
     ),
   );
 }
@@ -647,7 +680,10 @@ class _Bars extends StatelessWidget {
                         style: const TextStyle(fontWeight: FontWeight.w700),
                       ),
                     ),
-                    Text(moneyShort(r.value), style: const TextStyle(fontWeight: FontWeight.w800)),
+                    Text(
+                      moneyShort(r.value),
+                      style: TextStyle(fontWeight: FontWeight.w900, fontSize: 15, color: AppColors.green),
+                    ),
                     SizedBox(
                       width: 48,
                       child: Text(

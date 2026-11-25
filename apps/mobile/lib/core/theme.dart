@@ -169,6 +169,9 @@ abstract final class AppColors {
   static Color get warnText => palette.warnText;
   static Color get warn => palette.warn;
   static Color get danger => palette.danger;
+
+  /// Contour des cartes et des cases de chiffres : visible sur fond clair comme sombre.
+  static Color get cardLine => isDark ? palette.line : Color.lerp(palette.line, palette.ink, 0.22)!;
   static Color get glassLine => palette.glassLine;
   static Color get accent => palette.accent;
   static Color get onAccent => palette.onAccent;

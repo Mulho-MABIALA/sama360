@@ -468,6 +468,10 @@ void refreshBusinessData(WidgetRef ref) {
   ref.invalidate(remindersProvider);
   ref.invalidate(loyaltyDashboardProvider);
   ref.invalidate(loyaltyCardProvider);
+  // Rapports et analyses : une vente, une dépense ou un achat les change
+  ref.invalidate(reportProvider);
+  ref.invalidate(insightsProvider);
+  ref.invalidate(weeklyReportProvider);
 }
 
 /// Message lisible pour l'utilisateur à partir de n'importe quelle erreur.

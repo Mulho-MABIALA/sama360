@@ -1779,6 +1779,12 @@ class FakeRepo extends SamaRepository {
   // ---------- Rapports ----------
   final reportRequests = <(DateTime, DateTime)>[];
 
+  /// Dépenses ajoutées depuis l'accueil
+  final expenses = <(String, int)>[];
+
+  @override
+  Future<void> addExpense({required String category, required int amount}) async => expenses.add((category, amount));
+
   // ---------- Réservation ----------
   BookingSettings bookingSettingsValue = const BookingSettings(bookingPath: '/r/awa-beaute');
   final savedBookingSettings = <BookingSettings>[];

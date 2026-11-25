@@ -60,16 +60,21 @@ class _StockScreenState extends ConsumerState<StockScreen> {
               icon: const Icon(Icons.swap_horiz_rounded),
             ),
           if (ref.can('purchasing:read'))
-            IconButton(
-              tooltip: 'Achats et fournisseurs',
+            ToolAction(
+              key: const Key('stock_purchases'),
+              icon: Icons.local_shipping_rounded,
+              label: 'Achats',
+              color: const Color(0xFFE07A10),
               onPressed: () => context.push('/purchases'),
-              icon: const Icon(Icons.local_shipping_outlined),
             ),
-          IconButton(
-            tooltip: 'Catégories',
+          ToolAction(
+            key: const Key('stock_categories'),
+            icon: Icons.sell_rounded,
+            label: 'Catégories',
+            color: const Color(0xFF7C3AED),
             onPressed: () => context.push('/categories'),
-            icon: const Icon(Icons.label_outline_rounded),
           ),
+          const SizedBox(width: 6),
         ],
       ),
       floatingActionButton: canCatalog

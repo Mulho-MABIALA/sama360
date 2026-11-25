@@ -431,7 +431,8 @@ class HomeScreen extends ConsumerWidget {
       builder: (_) => const _ExpenseSheet(),
     );
     if (saved == true && context.mounted) {
-      ref.invalidate(summaryProvider);
+      // Accueil, caisse et rapports : la dépense compte partout tout de suite
+      refreshBusinessData(ref);
       showInfo(context, 'Dépense enregistrée');
     }
   }
