@@ -117,6 +117,7 @@ void main() {
     await tester.enterText(find.byKey(const Key('pName')), 'Yassa poulet');
     await tester.enterText(find.byKey(const Key('pPrice')), '2000');
     await tester.tap(find.byKey(const Key('pCat_c1'))); // catégorie obligatoire
+    await tester.enterText(find.byKey(const Key('pCost')), '500'); // prix d'achat obligatoire
     await tester.pump();
     await tester.tap(find.byKey(const Key('pMore')));
     await tester.pumpAndSettle();

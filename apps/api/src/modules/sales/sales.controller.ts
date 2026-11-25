@@ -92,6 +92,11 @@ export class SalesController {
     @Res({ passthrough: true }) res: Response,
   ) {
     const input = parse(CreateSale, body);
+    // Remises : réservées à ceux qui fixent les prix (propriétaire, gérant)
+    const discounted = (input.discount ?? 0) > 0 || input.items.some((i) => (i.discount ?? 0) > 0);
+    if (discounted && !hasPermission(t.permissions, 'catalog:write')) {
+      throw AppError.forbidden('Seuls le propriétaire et le gérant peuvent accorder une remise');
+    }
     const result = await this.salesService.create(t.businessId, user.id, {
       ...input,
       locationId: locationFor(t, input.locationId),

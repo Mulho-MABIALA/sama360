@@ -8,6 +8,7 @@ import 'admin_models.dart';
 import 'api/api_client.dart';
 import 'push.dart' show PushWebConfig;
 import 'models.dart';
+import 'discount.dart';
 import 'offline/kv_store.dart';
 
 /// Toutes les routes de l'API utilisées par l'app, regroupées et typées.
@@ -471,8 +472,10 @@ class SamaRepository {
     required List<({PayMethod method, int amount})> payments,
     DateTime? soldAt,
     int redeemRewards = 0,
-    // Par ligne : suppléments (restaurant), IMEI (téléphonie)
+    // Par ligne : suppléments (restaurant), IMEI (téléphonie), remise
     Map<int, Map<String, Object>> details = const {},
+    // Remise sur toute la vente (en F)
+    int discount = 0,
   }) => {
     'id': id,
     'customerId': ?customerId,
@@ -484,6 +487,7 @@ class SamaRepository {
     ],
     if (soldAt != null) 'soldAt': soldAt.toUtc().toIso8601String(),
     if (redeemRewards > 0) 'redeemRewards': redeemRewards,
+    if (discount > 0) 'discount': discount,
   };
 
   Future<SaleResult> createSale({
@@ -1176,6 +1180,7 @@ class DocLineDraft {
     this.description,
     required this.quantity,
     required this.unitPrice,
+    this.discount = Discount.none,
   });
   final String? productId;
   final String name;
@@ -1183,15 +1188,22 @@ class DocLineDraft {
   final double quantity;
   final int unitPrice;
 
-  int get total => (quantity * unitPrice).round();
+  /// Remise sur la ligne : % ou montant.
+  final Discount discount;
 
-  DocLineDraft copyWith({double? quantity, int? unitPrice, String? name, String? description}) => DocLineDraft(
-    productId: productId,
-    name: name ?? this.name,
-    description: description ?? this.description,
-    quantity: quantity ?? this.quantity,
-    unitPrice: unitPrice ?? this.unitPrice,
-  );
+  int get gross => (quantity * unitPrice).round();
+  int get discountAmount => discount.of(gross);
+  int get total => gross - discountAmount;
+
+  DocLineDraft copyWith({double? quantity, int? unitPrice, String? name, String? description, Discount? discount}) =>
+      DocLineDraft(
+        productId: productId,
+        name: name ?? this.name,
+        description: description ?? this.description,
+        quantity: quantity ?? this.quantity,
+        unitPrice: unitPrice ?? this.unitPrice,
+        discount: discount ?? this.discount,
+      );
 
   factory DocLineDraft.fromLine(DocLine l) => DocLineDraft(
     productId: l.productId,
@@ -1199,6 +1211,7 @@ class DocLineDraft {
     description: l.description,
     quantity: l.quantity,
     unitPrice: l.unitPrice,
+    discount: l.discount > 0 ? Discount.amount(l.discount) : Discount.none,
   );
 
   Map<String, dynamic> toJson() => {
@@ -1207,6 +1220,7 @@ class DocLineDraft {
     if ((description ?? '').trim().isNotEmpty) 'description': description!.trim(),
     'quantity': quantity,
     'unitPrice': unitPrice,
+    if (discountAmount > 0) 'discount': discountAmount,
   };
 }
 

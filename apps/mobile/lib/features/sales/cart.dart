@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../core/discount.dart';
 import '../../core/models.dart';
 
 /// Mode d'encaissement choisi à la caisse.
@@ -31,9 +32,18 @@ enum PaymentMode {
 }
 
 class CartLine {
-  const CartLine(this.product, this.quantity, {this.extras = const [], this.serials = const []});
+  const CartLine(
+    this.product,
+    this.quantity, {
+    this.extras = const [],
+    this.serials = const [],
+    this.discount = Discount.none,
+  });
   final Product product;
   final double quantity;
+
+  /// Remise sur cette ligne (propriétaire, gérant) : % ou montant.
+  final Discount discount;
 
   /// Restaurant : suppléments choisis (ajoutés au prix).
   final List<ProductExtra> extras;
@@ -49,10 +59,19 @@ class CartLine {
   /// Prix unitaire appliqué (prix de gros dès la quantité minimale, comme le serveur), suppléments compris.
   int get unitPrice => product.unitPriceFor(quantity) + extras.fold(0, (s, e) => s + e.price);
   bool get wholesale => product.unitPriceFor(quantity) != product.price;
-  int get total => (unitPrice * quantity).round();
 
-  CartLine copyWith({double? quantity, List<String>? serials}) =>
-      CartLine(product, quantity ?? this.quantity, extras: extras, serials: serials ?? this.serials);
+  /// Montant avant remise.
+  int get gross => (unitPrice * quantity).round();
+  int get discountAmount => discount.of(gross);
+  int get total => gross - discountAmount;
+
+  CartLine copyWith({double? quantity, List<String>? serials, Discount? discount}) => CartLine(
+    product,
+    quantity ?? this.quantity,
+    extras: extras,
+    serials: serials ?? this.serials,
+    discount: discount ?? this.discount,
+  );
 }
 
 /// Clé d'une ligne de panier : le produit et ses suppléments.
@@ -70,6 +89,7 @@ class CartState {
     this.saleId,
     this.rewards = 0,
     this.rewardValue = 0,
+    this.saleDiscount = Discount.none,
   });
 
   final Map<String, CartLine> lines; // par productId, dans l'ordre d'ajout
@@ -87,12 +107,25 @@ class CartState {
   final int rewards;
   final int rewardValue;
 
-  /// Total des articles, avant la remise fidélité.
-  int get subtotal => lines.values.fold(0, (s, l) => s + l.total);
-  int get loyaltyDiscount => math.min(rewards * rewardValue, subtotal);
+  /// Remise sur toute la vente (propriétaire, gérant) : 10 % ou 5 000 F.
+  final Discount saleDiscount;
 
-  /// À payer : articles moins la remise fidélité.
-  int get total => subtotal - loyaltyDiscount;
+  /// Articles avant toute remise.
+  int get grossTotal => lines.values.fold(0, (s, l) => s + l.gross);
+
+  /// Remises faites sur les lignes.
+  int get lineDiscounts => lines.values.fold(0, (s, l) => s + l.discountAmount);
+
+  /// Total des articles (remises par ligne déduites), avant la remise sur la vente et la fidélité.
+  int get subtotal => lines.values.fold(0, (s, l) => s + l.total);
+  int get saleDiscountAmount => saleDiscount.of(subtotal);
+  int get loyaltyDiscount => math.min(rewards * rewardValue, subtotal - saleDiscountAmount);
+
+  /// Toutes les remises (articles, vente, fidélité).
+  int get discountTotal => grossTotal - total;
+
+  /// À payer : articles moins les remises.
+  int get total => subtotal - saleDiscountAmount - loyaltyDiscount;
   double get itemCount => lines.values.fold(0.0, (s, l) => s + l.quantity);
   bool get isEmpty => lines.isEmpty;
 
@@ -112,6 +145,7 @@ class CartState {
     String? saleId,
     int? rewards,
     int? rewardValue,
+    Discount? saleDiscount,
   }) => CartState(
     lines: lines ?? this.lines,
     customer: clearCustomer ? null : (customer ?? this.customer),
@@ -122,6 +156,7 @@ class CartState {
     saleId: saleId ?? this.saleId,
     rewards: rewards ?? this.rewards,
     rewardValue: rewardValue ?? this.rewardValue,
+    saleDiscount: saleDiscount ?? this.saleDiscount,
   );
 }
 
@@ -217,6 +252,21 @@ class CartController extends Notifier<CartState> {
   void setCustomer(Contact? c) => state = c == null
       ? state.copyWith(clearCustomer: true, rewards: 0)
       : state.copyWith(customer: c, rewards: c.id == state.customer?.id ? state.rewards : 0);
+
+  /// Remise sur une ligne du panier (Discount.none pour la retirer).
+  void setLineDiscount(String key, Discount d) {
+    final current = state.lines[key];
+    if (current == null) return;
+    state = state.copyWith(
+      lines: {
+        ...state.lines,
+        key: current.copyWith(discount: d),
+      },
+    );
+  }
+
+  /// Remise sur toute la vente.
+  void setSaleDiscount(Discount d) => state = state.copyWith(saleDiscount: d);
 
   /// Utilise [n] récompenses de fidélité (0 pour annuler), chacune valant [value] F.
   void setRewards(int n, int value) => state = state.copyWith(rewards: n < 0 ? 0 : n, rewardValue: value);

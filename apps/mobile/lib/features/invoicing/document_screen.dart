@@ -432,6 +432,11 @@ class DocumentPaper extends StatelessWidget {
                         Text(l.name, style: const TextStyle(fontWeight: FontWeight.w700)),
                         if ((l.description ?? '').isNotEmpty) Text(l.description!, style: small),
                         Text('${qty(l.quantity)} × ${moneyShort(l.unitPrice)}', style: small),
+                        if (l.discount > 0)
+                          Text(
+                            'Remise : −${moneyShort(l.discount)}',
+                            style: small.copyWith(color: AppColors.warnText, fontWeight: FontWeight.w700),
+                          ),
                       ],
                     ),
                   ),

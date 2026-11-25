@@ -94,6 +94,7 @@ void main() {
     await tester.enterText(find.byKey(const Key('pName')), 'Eau minérale 1,5 L');
     await tester.enterText(find.byKey(const Key('pPrice')), '400');
     await tester.tap(find.byKey(const Key('pCat_c1'))); // catégorie obligatoire
+    await tester.enterText(find.byKey(const Key('pCost')), '500'); // prix d'achat obligatoire
     await tester.pump();
     await tester.tap(find.byKey(const Key('pMore')));
     await tester.pumpAndSettle();

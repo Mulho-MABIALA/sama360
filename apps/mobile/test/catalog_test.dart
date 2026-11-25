@@ -68,6 +68,7 @@ void main() {
     await tester.enterText(find.byKey(const Key('pPrice')), '4000');
 
     await tester.tap(find.byKey(const Key('pCat_c1'))); // catégorie obligatoire
+    await tester.enterText(find.byKey(const Key('pCost')), '500'); // prix d'achat obligatoire
 
     await tester.pump();
     await tester.scrollUntilVisible(
@@ -105,6 +106,7 @@ void main() {
     await tester.enterText(find.byKey(const Key('pName')), 'Savon doublon');
     await tester.enterText(find.byKey(const Key('pPrice')), '1000');
     await tester.tap(find.byKey(const Key('pCat_c1'))); // catégorie obligatoire
+    await tester.enterText(find.byKey(const Key('pCost')), '500'); // prix d'achat obligatoire
     await tester.pump();
     await tester.tap(find.text('Ajouter le produit'));
     await tester.pumpAndSettle();
@@ -249,20 +251,26 @@ void main() {
     await tester.tap(find.byKey(const Key('pCat_c2')));
     await tester.pump();
     expect(find.byKey(const Key('pCat_error')), findsNothing);
+    // Prix d'achat obligatoire : le bénéfice s'affiche dès qu'il est saisi
+    expect(find.text('Indiquez le prix d’achat : il sert à calculer vos bénéfices'), findsOneWidget);
+    await tester.enterText(find.byKey(const Key('pCost')), '15000');
+    await tester.pump();
+    expect(find.byKey(const Key('pMargin')), findsOneWidget);
     await tester.tap(find.text('Ajouter le produit'));
     await tester.pumpAndSettle();
     expect(repo.createdProducts, ['Eau de parfum Oud']);
   });
 
-  testWidgets('nouveau produit : nom, prix, quantité ; le reste replié', (tester) async {
+  testWidgets('nouveau produit : nom, prix, prix d’achat, quantité ; le reste replié', (tester) async {
     phoneSize(tester);
     final (_, repo) = await pumpSama(tester, location: '/products/new');
-    expect(find.byKey(const Key('pCost')), findsNothing);
+    expect(find.byKey(const Key('pCost')), findsOneWidget); // dans l'essentiel
     expect(find.byKey(const Key('pBarcode')), findsNothing);
     expect(find.text('Plus d’options'), findsOneWidget);
     await tester.enterText(find.byKey(const Key('pName')), 'Riz parfumé 5 kg');
     await tester.enterText(find.byKey(const Key('pPrice')), '4500');
     await tester.tap(find.byKey(const Key('pCat_c1'))); // catégorie obligatoire
+    await tester.enterText(find.byKey(const Key('pCost')), '500'); // prix d'achat obligatoire
     await tester.pump();
     await tester.enterText(find.byKey(const Key('pQty')), '12');
     await tester.tap(find.byKey(const Key('pMore')));

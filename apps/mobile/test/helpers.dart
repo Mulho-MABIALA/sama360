@@ -1685,10 +1685,16 @@ class FakeRepo extends SamaRepository {
       saleCounter++;
     }
     final items = (body['items'] as List).cast<Map>();
-    final total = items.fold<int>(
-      0,
-      (s, i) => s + (demoProducts.firstWhere((p) => p.id == i['productId']).price * (i['quantity'] as num)).round(),
-    );
+    // Remises comme le serveur : par ligne, puis sur toute la vente
+    final total =
+        items.fold<int>(
+          0,
+          (s, i) =>
+              s +
+              (demoProducts.firstWhere((p) => p.id == i['productId']).price * (i['quantity'] as num)).round() -
+              ((i['discount'] as num?)?.toInt() ?? 0),
+        ) -
+        ((body['discount'] as num?)?.toInt() ?? 0);
     final paid = (body['payments'] as List).cast<Map>().fold<int>(0, (s, p) => s + (p['amount'] as num).toInt());
     return SaleResult(id: id, number: 'VEN-2026-000$saleCounter', total: total, paid: paid, due: total - paid);
   }

@@ -706,6 +706,13 @@ describe('Socle Sama360 (e2e)', () => {
       expect(sale.body).toMatchObject({ number: `VEN-${year}-0003`, total: 100, costTotal: 0 });
       expect((await http.get('/v1/sales/summary').set(C).expect(403)).body.error.code).toBe('INSUFFICIENT_PERMISSION');
       await http.post(`/v1/sales/${cashSaleId}/void`).set(C).send({ reason: 'erreur de saisie' }).expect(403);
+      // Remise : réservée au propriétaire et au gérant
+      const remise = await http
+        .post('/v1/sales')
+        .set(C)
+        .send({ items: [{ name: 'Sachet', quantity: 1, unitPrice: 100 }], discount: 10 })
+        .expect(403);
+      expect(remise.body.error.message).toContain('remise');
     });
 
     it('le caissier ne voit que ses ventes, sans prix d’achat ni achats fournisseurs', async () => {
@@ -2695,6 +2702,21 @@ describe('Socle Sama360 (e2e)', () => {
         title: string;
       }[];
       expect(notifs.find((n) => n.kind === 'birthday')?.title).toBe('Anniversaire de Khady Ndiaye aujourd’hui');
+    });
+
+    it('remises : sur un article et sur toute la vente ; refusées si plus grandes que le montant', async () => {
+      const s = await sell({
+        items: [
+          { name: 'Parfum 50 ml', quantity: 2, unitPrice: 25000, discount: 5000 },
+          { name: 'Savon', quantity: 1, unitPrice: 2000 },
+        ],
+        discount: 4700, // 10 % du reste
+        payments: [{ method: 'cash', amount: 42300 }],
+      }).expect(201);
+      expect(s.body).toMatchObject({ subtotal: 47000, discount: 4700, total: 42300, paid: 42300, due: 0 });
+      expect(s.body.items[0]).toMatchObject({ discount: 5000, total: 45000 });
+      await sell({ items: [{ name: 'Savon', quantity: 1, unitPrice: 2000 }], discount: 2500 }).expect(422);
+      await sell({ items: [{ name: 'Savon', quantity: 1, unitPrice: 2000, discount: 2001 }] }).expect(422);
     });
   });
 

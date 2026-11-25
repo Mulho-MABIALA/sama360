@@ -149,8 +149,15 @@ void main() {
     await tester.tap(find.text('Valider la ligne'));
     await tester.pumpAndSettle();
 
-    await tester.enterText(find.byKey(const Key('docDiscount')), '1000');
+    // Remise en francs sur tout le devis
+    await tester.tap(find.byKey(const Key('docDiscount')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('En francs'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const Key('discount_value')), '1000');
     await tester.pump();
+    await tester.tap(find.byKey(const Key('discount_apply')));
+    await tester.pumpAndSettle();
     expect(find.textContaining(RegExp(r'^8.000 F$')), findsOneWidget);
 
     await tester.tap(find.text('Créer le devis'));

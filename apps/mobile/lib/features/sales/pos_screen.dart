@@ -11,7 +11,9 @@ import '../../core/charts.dart';
 import '../../core/api/api_client.dart';
 import '../../core/format.dart';
 import '../../core/glass.dart';
+import '../../core/discount.dart';
 import '../../core/models.dart';
+import '../../core/permissions.dart';
 import '../../core/offline/pending_sales.dart';
 import '../../core/providers.dart';
 import '../../core/theme.dart';
@@ -25,6 +27,7 @@ import '../customers/customer_picker.dart';
 import '../offline/offline_ui.dart';
 import '../catalog/barcode_scanner.dart';
 import 'cart.dart';
+import 'discount_sheet.dart';
 import 'pay_qr_sheet.dart';
 
 /// Caisse : produits à gauche/en haut, panier et encaissement en bas (maquette « Nouvelle vente »).
@@ -92,10 +95,11 @@ class _PosScreenState extends ConsumerState<PosScreen> {
             lines: [for (final l in cart.lines.values) (product: l.product, quantity: l.quantity)],
             details: {
               for (final (n, l) in cart.lines.values.indexed)
-                if (l.extras.isNotEmpty || l.serials.isNotEmpty)
+                if (l.extras.isNotEmpty || l.serials.isNotEmpty || l.discountAmount > 0)
                   n: {
                     if (l.extras.isNotEmpty) 'extras': [for (final e in l.extras) e.name],
                     if (l.serials.isNotEmpty) 'serials': l.serials,
+                    if (l.discountAmount > 0) 'discount': l.discountAmount,
                   },
             },
             names: {for (final (n, l) in cart.lines.values.indexed) n: l.name},
@@ -106,6 +110,7 @@ class _PosScreenState extends ConsumerState<PosScreen> {
               depositMethod: cart.depositMethod ?? PayMethod.cash,
             ),
             redeemRewards: cart.customer == null ? 0 : cart.rewards,
+            discount: cart.saleDiscountAmount,
           );
     } on ApiException catch (e) {
       // Refus du serveur : le panier et son identifiant sont gardés pour corriger et réessayer.
@@ -535,6 +540,12 @@ class _PosScreenState extends ConsumerState<PosScreen> {
 const wideCheckoutWidth = 900.0;
 
 /// Grand écran : les lignes du panier, avec + / − pour ajuster les quantités.
+/// Remises : réservées à ceux qui fixent les prix (propriétaire, gérant), comme le serveur.
+bool canDiscount(WidgetRef ref) =>
+    hasPermission(ref.watch(currentBusinessProvider).value?.permissions ?? const [], 'catalog:write');
+
+const _discountTone = (Color(0xFFFFF4E2), Color(0xFF9A5B00));
+
 class _CartLines extends ConsumerWidget {
   const _CartLines();
 
@@ -543,6 +554,7 @@ class _CartLines extends ConsumerWidget {
     final cart = ref.watch(cartProvider);
     final ctrl = ref.read(cartProvider.notifier);
     final lines = cart.lines.values.toList();
+    final discounts = canDiscount(ref);
     return Padding(
       padding: const EdgeInsets.fromLTRB(10, 0, 10, 0),
       child: Glass(
@@ -625,10 +637,39 @@ class _CartLines extends ConsumerWidget {
                                           decorationStyle: TextDecorationStyle.dotted,
                                         ),
                                       ),
+                                      if (l.discountAmount > 0)
+                                        Text(
+                                          'Remise ${discountLabel(l.discount)} : −${moneyShort(l.discountAmount)}',
+                                          key: Key('cart_disc_label_${l.key}'),
+                                          style: TextStyle(
+                                            color: AppColors.strongOf(_discountTone.$1, _discountTone.$2),
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w800,
+                                          ),
+                                        ),
                                     ],
                                   ),
                                 ),
                               ),
+                              if (discounts)
+                                IconButton(
+                                  key: Key('cart_disc_${l.key}'),
+                                  tooltip: 'Remise sur cet article',
+                                  visualDensity: VisualDensity.compact,
+                                  onPressed: () async {
+                                    final d = await pickDiscount(
+                                      context,
+                                      title: 'Remise sur ${l.name}',
+                                      base: l.gross,
+                                      current: l.discount,
+                                    );
+                                    if (d != null) ctrl.setLineDiscount(l.key, d);
+                                  },
+                                  icon: Icon(
+                                    l.discountAmount > 0 ? Icons.local_offer_rounded : Icons.local_offer_outlined,
+                                    color: AppColors.strongOf(_discountTone.$1, _discountTone.$2),
+                                  ),
+                                ),
                               IconButton(
                                 tooltip: 'Retirer un',
                                 onPressed: () => ctrl.remove(l.key),
@@ -652,10 +693,24 @@ class _CartLines extends ConsumerWidget {
                               ),
                               SizedBox(
                                 width: 78,
-                                child: Text(
-                                  moneyShort(l.total),
-                                  textAlign: TextAlign.right,
-                                  style: const TextStyle(fontWeight: FontWeight.w800),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.end,
+                                  children: [
+                                    if (l.discountAmount > 0)
+                                      Text(
+                                        moneyShort(l.gross),
+                                        style: TextStyle(
+                                          fontSize: 11.5,
+                                          color: AppColors.muted,
+                                          decoration: TextDecoration.lineThrough,
+                                        ),
+                                      ),
+                                    Text(
+                                      moneyShort(l.total),
+                                      textAlign: TextAlign.right,
+                                      style: const TextStyle(fontWeight: FontWeight.w800),
+                                    ),
+                                  ],
                                 ),
                               ),
                             ],
@@ -1051,8 +1106,8 @@ class _CheckoutPanel extends ConsumerWidget {
                               child: Text(
                                 n == 0
                                     ? 'Panier vide'
-                                    : cart.loyaltyDiscount > 0
-                                    ? '${qty(n)} article${n > 1 ? 's' : ''} · au lieu de ${moneyShort(cart.subtotal)}'
+                                    : cart.discountTotal > 0
+                                    ? '${qty(n)} article${n > 1 ? 's' : ''} · au lieu de ${moneyShort(cart.grossTotal)}'
                                     : '${qty(n)} article${n > 1 ? 's' : ''}',
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
@@ -1106,6 +1161,7 @@ class _CheckoutPanel extends ConsumerWidget {
                 if (!cart.isEmpty) TrashButton(tooltip: 'Vider le panier', onPressed: ctrl.clear),
               ],
             ),
+            if (!cart.isEmpty && canDiscount(ref)) const _SaleDiscountChip(),
             if (cart.customer != null && !cart.isEmpty) LoyaltyRewardChip(customer: cart.customer!),
             const SellingAtBanner(),
             const SizedBox(height: 10),
@@ -1513,7 +1569,9 @@ class LoyaltyRewardChip extends ConsumerWidget {
     final online = ref.watch(onlineProvider);
     final used = cart.rewards;
     // Pas plus de récompenses que le client n'en a, ni que le montant des articles
-    final maxBySubtotal = settings.rewardValue == 0 ? 0 : cart.subtotal ~/ settings.rewardValue;
+    final maxBySubtotal = settings.rewardValue == 0
+        ? 0
+        : (cart.subtotal - cart.saleDiscountAmount) ~/ settings.rewardValue;
     final max = math.min(card.rewardsAvailable, maxBySubtotal);
     final earn = settings.pointsFor(cart.total);
     return Padding(
@@ -1555,6 +1613,75 @@ class LoyaltyRewardChip extends ConsumerWidget {
                     : () => showInfo(context, 'Connexion nécessaire pour utiliser des points'),
                 child: Text('Utiliser −${moneyShort(settings.rewardValue)}'),
               ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Remise sur toute la vente : « Remise » à toucher, puis « Remise 10 % : −4 700 F ».
+class _SaleDiscountChip extends ConsumerWidget {
+  const _SaleDiscountChip();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final cart = ref.watch(cartProvider);
+    final ctrl = ref.read(cartProvider.notifier);
+    final strong = AppColors.strongOf(_discountTone.$1, _discountTone.$2);
+    final has = !cart.saleDiscount.isNone;
+    Future<void> pick() async {
+      final d = await pickDiscount(
+        context,
+        title: 'Remise sur toute la vente',
+        base: cart.subtotal,
+        current: cart.saleDiscount,
+      );
+      if (d != null) ctrl.setSaleDiscount(d);
+    }
+
+    if (!has) {
+      return Align(
+        alignment: Alignment.centerLeft,
+        child: Padding(
+          padding: const EdgeInsets.only(top: 6),
+          child: TextButton.icon(
+            key: const Key('sale_discount'),
+            onPressed: pick,
+            style: TextButton.styleFrom(foregroundColor: strong, visualDensity: VisualDensity.compact),
+            icon: const Icon(Icons.local_offer_outlined, size: 18),
+            label: const Text('Faire une remise', style: TextStyle(fontWeight: FontWeight.w800)),
+          ),
+        ),
+      );
+    }
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: Container(
+        key: const Key('sale_discount_chip'),
+        padding: const EdgeInsets.fromLTRB(12, 4, 4, 4),
+        decoration: BoxDecoration(
+          color: AppColors.softOf(_discountTone.$1, _discountTone.$2),
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.local_offer_rounded, color: strong, size: 20),
+            const SizedBox(width: 8),
+            Expanded(
+              child: InkWell(
+                onTap: pick,
+                child: Text(
+                  'Remise ${discountLabel(cart.saleDiscount)} : −${moneyShort(cart.saleDiscountAmount)}',
+                  style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13, color: strong),
+                ),
+              ),
+            ),
+            TextButton(
+              key: const Key('sale_discount_remove'),
+              onPressed: () => ctrl.setSaleDiscount(Discount.none),
+              child: const Text('Retirer'),
+            ),
           ],
         ),
       ),

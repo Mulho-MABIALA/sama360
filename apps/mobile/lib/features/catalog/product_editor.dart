@@ -9,6 +9,7 @@ import '../../core/api/api_client.dart';
 import '../../core/format.dart';
 import '../../core/glass.dart';
 import '../../core/models.dart';
+import '../../core/permissions.dart';
 import '../../core/providers.dart';
 import '../../core/theme.dart';
 import '../../core/trades.dart';
@@ -78,6 +79,9 @@ class _ProductEditorScreenState extends ConsumerState<ProductEditorScreen> {
   final _errors = <String, String>{};
 
   bool get _editing => widget.productId != null;
+
+  /// Le propriétaire et ceux qui voient les coûts : prix d'achat demandé (et obligatoire pour un article).
+  bool get _seesCosts => seesCosts(ref.watch(currentBusinessProvider).value?.permissions ?? const []);
 
   /// Métier où l'unité compte autant que le prix (mètre de câble, sac de ciment, kilo de riz).
   bool get _unitFirst {
@@ -184,6 +188,9 @@ class _ProductEditorScreenState extends ConsumerState<ProductEditorScreen> {
     setState(() {
       _errors.clear();
       if (_category == null && !(_product?.isVariant ?? false)) _errors['category'] = 'Choisissez une catégorie';
+      if (_seesCosts && !_isService && (_int(_cost) ?? 0) <= 0) {
+        _errors['cost'] = 'Indiquez le prix d’achat : il sert à calculer vos bénéfices';
+      }
       if (_name.text.trim().isEmpty) _errors['name'] = 'Donnez un nom';
       if (price == null) _errors['price'] = 'Indiquez le prix de vente';
       if (_pack && !_isService && (packSize == null || packSize <= 1)) {
@@ -592,6 +599,41 @@ class _ProductEditorScreenState extends ConsumerState<ProductEditorScreen> {
                               ],
                             ],
                           ),
+                          // Prix d'achat : obligatoire pour un article (sans lui, pas de bénéfice juste)
+                          if (_seesCosts) ...[
+                            const SizedBox(height: 10),
+                            TextField(
+                              key: const Key('pCost'),
+                              controller: _cost,
+                              keyboardType: TextInputType.number,
+                              inputFormatters: digits,
+                              onChanged: (_) => setState(() => _errors.remove('cost')),
+                              decoration: InputDecoration(
+                                labelText: _isService ? 'Coût (facultatif)' : 'Prix d’achat *',
+                                suffixText: 'F',
+                                prefixIcon: const Icon(Icons.shopping_cart_checkout_rounded),
+                                helperText: price > 0 && cost > 0
+                                    ? null
+                                    : 'Ce que l’article vous coûte : Sama360 calcule vos bénéfices avec',
+                                helperMaxLines: 2,
+                                errorText: _errors['cost'],
+                              ),
+                            ),
+                            if (price > 0 && cost > 0)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 8),
+                                child: Text(
+                                  margin >= 0
+                                      ? 'Bénéfice : ${moneyShort(margin)} par ${_unit == 'pièce' ? 'pièce' : _unit} (${(margin * 100 / price).round()} %)'
+                                      : 'Attention : vendu à perte (${moneyShort(-margin)})',
+                                  key: const Key('pMargin'),
+                                  style: TextStyle(
+                                    color: margin >= 0 ? AppColors.green : AppColors.danger,
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                                ),
+                              ),
+                          ],
                           // Catégorie obligatoire, à portée de main (boutique en ligne et caisse rangées)
                           if (!(_product?.isVariant ?? false)) _categoryPicker(),
                           // Quincaillerie, alimentation : on choisit tout de suite au mètre, au kilo, au sac…
@@ -677,36 +719,8 @@ class _ProductEditorScreenState extends ConsumerState<ProductEditorScreen> {
                       if (_more) ...[
                         const SizedBox(height: 12),
                         _Section(
-                          title: 'Prix et bénéfice',
+                          title: 'Vente et unité',
                           children: [
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: TextField(
-                                    key: const Key('pCost'),
-                                    controller: _cost,
-                                    keyboardType: TextInputType.number,
-                                    inputFormatters: digits,
-                                    onChanged: (_) => setState(() {}),
-                                    decoration: const InputDecoration(labelText: 'Prix d’achat', suffixText: 'F'),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            if (price > 0 && cost > 0)
-                              Padding(
-                                padding: const EdgeInsets.only(top: 8),
-                                child: Text(
-                                  margin >= 0
-                                      ? 'Bénéfice : ${moneyShort(margin)} par ${_unit == 'pièce' ? 'pièce' : _unit} (${(margin * 100 / price).round()} %)'
-                                      : 'Attention : vendu à perte (${moneyShort(-margin)})',
-                                  style: TextStyle(
-                                    color: margin >= 0 ? AppColors.greenDark : AppColors.danger,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                              ),
-                            const SizedBox(height: 10),
                             InputDecorator(
                               decoration: const InputDecoration(labelText: 'Vendu par'),
                               child: DropdownButtonHideUnderline(

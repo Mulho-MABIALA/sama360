@@ -24,6 +24,9 @@ class StockScreen extends ConsumerStatefulWidget {
 class _StockScreenState extends ConsumerState<StockScreen> {
   late bool _lowOnly = widget.lowOnly;
 
+  /// Seulement les produits sans prix d'achat (bénéfices faux tant qu'il manque)
+  bool _noCostOnly = false;
+
   /// Alimentation : seulement ce qui est périmé ou le sera dans les 30 jours.
   bool _expiringOnly = false;
   String _search = '';
@@ -92,6 +95,7 @@ class _StockScreenState extends ConsumerState<StockScreen> {
         data: (s) {
           final items = s.items
               .where((i) => !_lowOnly || i.low)
+              .where((i) => !_noCostOnly || i.cost <= 0)
               .where((i) => !_expiringOnly || i.expiresWithin(30))
               .where((i) => _search.isEmpty || i.name.toLowerCase().contains(_search))
               .toList();
@@ -123,6 +127,43 @@ class _StockScreenState extends ConsumerState<StockScreen> {
                   ),
                 ),
                 const FreeProductsBanner(),
+                // Prix d'achat manquants : les bénéfices sont faux, on le dit et on mène aux produits
+                if (costs && s.items.any((i) => i.cost <= 0))
+                  Padding(
+                    padding: const EdgeInsets.only(top: 12),
+                    child: Material(
+                      key: const Key('no_cost_banner'),
+                      color: AppColors.orange.withValues(alpha: 0.12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                        side: BorderSide(color: AppColors.orange.withValues(alpha: 0.6), width: 1.3),
+                      ),
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(16),
+                        onTap: () => setState(() {
+                          _noCostOnly = true;
+                          _lowOnly = _expiringOnly = false;
+                        }),
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(14, 12, 10, 12),
+                          child: Row(
+                            children: [
+                              Icon(Icons.info_rounded, color: AppColors.orange),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Text(() {
+                                  final n = s.items.where((i) => i.cost <= 0).length;
+                                  return '$n produit${n > 1 ? 's' : ''} sans prix d’achat : vos bénéfices sont faux. '
+                                      'Touchez pour les compléter.';
+                                }(), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+                              ),
+                              Icon(Icons.chevron_right_rounded, color: AppColors.orange),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
                 const SizedBox(height: 12),
                 TextField(
                   controller: _searchCtrl,
@@ -139,35 +180,47 @@ class _StockScreenState extends ConsumerState<StockScreen> {
                   onChanged: (v) => setState(() => _search = v.trim().toLowerCase()),
                 ),
                 const SizedBox(height: 10),
-                Row(
-                  children: [
-                    Pill(
-                      label: 'Tous',
-                      selected: !_lowOnly && !_expiringOnly,
-                      onTap: () => setState(() => _lowOnly = _expiringOnly = false),
-                    ),
-                    const SizedBox(width: 8),
-                    Pill(
-                      label: 'Stock bas',
-                      selected: _lowOnly,
-                      onTap: () => setState(() {
-                        _lowOnly = true;
-                        _expiringOnly = false;
-                      }),
-                    ),
-                    if (s.items.any((i) => i.expiresOn != null)) ...[
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: [
+                      Pill(
+                        label: 'Tous',
+                        selected: !_lowOnly && !_expiringOnly && !_noCostOnly,
+                        onTap: () => setState(() => _lowOnly = _expiringOnly = _noCostOnly = false),
+                      ),
                       const SizedBox(width: 8),
                       Pill(
-                        key: const Key('filter_expiring'),
-                        label: 'Bientôt périmés (${s.items.where((i) => i.expiresWithin(30)).length})',
-                        selected: _expiringOnly,
+                        label: 'Stock bas',
+                        selected: _lowOnly,
                         onTap: () => setState(() {
-                          _expiringOnly = true;
-                          _lowOnly = false;
+                          _lowOnly = true;
+                          _expiringOnly = _noCostOnly = false;
                         }),
                       ),
+                      if (_noCostOnly) ...[
+                        const SizedBox(width: 8),
+                        Pill(
+                          key: const Key('filter_no_cost'),
+                          label: 'Sans prix d’achat',
+                          selected: true,
+                          onTap: () => setState(() => _noCostOnly = false),
+                        ),
+                      ],
+                      if (s.items.any((i) => i.expiresOn != null)) ...[
+                        const SizedBox(width: 8),
+                        Pill(
+                          key: const Key('filter_expiring'),
+                          label: 'Bientôt périmés (${s.items.where((i) => i.expiresWithin(30)).length})',
+                          selected: _expiringOnly,
+                          onTap: () => setState(() {
+                            _expiringOnly = true;
+                            _lowOnly = false;
+                          }),
+                        ),
+                      ],
                     ],
-                  ],
+                  ),
                 ),
                 if (_lowOnly && s.lowStock > 0 && ref.can('inventory:write')) ...[
                   const SizedBox(height: 10),

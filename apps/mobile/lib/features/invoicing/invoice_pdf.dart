@@ -34,7 +34,10 @@ String docText(DocDetail d, CurrentBusiness b) {
     ..writeln('Client : ${d.customer.name}')
     ..writeln();
   for (final l in d.lines) {
-    out.writeln('${qty(l.quantity)} × ${l.name} : ${receiptMoney(l.total)}');
+    out.writeln(
+      '${qty(l.quantity)} × ${l.name} : ${receiptMoney(l.total)}'
+      '${l.discount > 0 ? ' (remise ${receiptMoney(l.discount)})' : ''}',
+    );
   }
   out.writeln();
   if (d.discount > 0) out.writeln('Réduction : -${receiptMoney(d.discount)}');
@@ -165,7 +168,11 @@ Future<List<int>> buildDocumentPdf(DocDetail d, CurrentBusiness b, {ReceiptFonts
           data: [
             for (final l in d.lines)
               [
-                (l.description ?? '').isEmpty ? l.name : '${l.name}\n${l.description}',
+                [
+                  l.name,
+                  if ((l.description ?? '').isNotEmpty) l.description!,
+                  if (l.discount > 0) 'Remise : -${receiptMoney(l.discount)}',
+                ].join('\n'),
                 qty(l.quantity),
                 receiptMoney(l.unitPrice),
                 receiptMoney(l.total),

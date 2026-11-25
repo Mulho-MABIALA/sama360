@@ -163,6 +163,7 @@ class PendingSalesController extends Notifier<List<PendingSale>> {
     int redeemRewards = 0,
     Map<int, Map<String, Object>> details = const {},
     Map<int, String> names = const {},
+    int discount = 0,
   }) async {
     final soldAt = now ?? DateTime.now();
     final body = SamaRepository.saleBody(
@@ -173,6 +174,7 @@ class PendingSalesController extends Notifier<List<PendingSale>> {
       soldAt: soldAt,
       redeemRewards: redeemRewards,
       details: details,
+      discount: discount,
     );
     // Point de vente au moment de la vente : une vente hors ligne envoyée plus tard reste au bon endroit
     final location = ref.read(apiClientProvider).locationId;

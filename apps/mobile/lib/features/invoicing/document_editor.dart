@@ -5,6 +5,8 @@ import 'package:intl/intl.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../core/discount.dart';
+import '../sales/discount_sheet.dart';
 import '../../core/api/api_client.dart';
 import '../../core/format.dart';
 import '../../core/glass.dart';
@@ -34,7 +36,7 @@ class DocumentEditorScreen extends ConsumerStatefulWidget {
 
 class _DocumentEditorScreenState extends ConsumerState<DocumentEditorScreen> {
   final _id = const Uuid().v7(); // même identifiant à chaque essai : pas de doublon
-  final _discount = TextEditingController();
+  Discount _discount = Discount.none;
   final _note = TextEditingController();
   Contact? _customer;
   final _lines = <DocLineDraft>[];
@@ -44,7 +46,8 @@ class _DocumentEditorScreenState extends ConsumerState<DocumentEditorScreen> {
 
   bool get _isQuote => widget.kind == DocKind.quote;
   int get _subtotal => _lines.fold(0, (s, l) => s + l.total);
-  int get _discountValue => int.tryParse(_discount.text.replaceAll(' ', '')) ?? 0;
+  int get _discountValue => _discount.of(_subtotal);
+  int get _lineDiscounts => _lines.fold(0, (s, l) => s + l.discountAmount);
   int get _total => (_subtotal - _discountValue).clamp(0, _subtotal);
 
   @override
@@ -58,7 +61,7 @@ class _DocumentEditorScreenState extends ConsumerState<DocumentEditorScreen> {
         setState(() {
           _customer = d.customer;
           _lines.addAll(d.lines.map(DocLineDraft.fromLine));
-          if (d.discount > 0) _discount.text = '${d.discount}';
+          if (d.discount > 0) _discount = Discount.amount(d.discount);
           _note.text = d.note ?? '';
           if (d.dueDate != null) _days = d.dueDate!.difference(d.issueDate).inDays;
           _loaded = true;
@@ -69,7 +72,6 @@ class _DocumentEditorScreenState extends ConsumerState<DocumentEditorScreen> {
 
   @override
   void dispose() {
-    _discount.dispose();
     _note.dispose();
     super.dispose();
   }
@@ -113,7 +115,6 @@ class _DocumentEditorScreenState extends ConsumerState<DocumentEditorScreen> {
   Future<void> _save() async {
     if (_customer == null) return showInfo(context, 'Choisissez le client');
     if (_lines.isEmpty) return showInfo(context, 'Ajoutez au moins une ligne');
-    if (_discountValue > _subtotal) return showInfo(context, 'La réduction dépasse le montant');
     final now = DateTime.now();
     final issue = DateTime(now.year, now.month, now.day);
     final body = SamaRepository.documentBody(
@@ -241,13 +242,58 @@ class _DocumentEditorScreenState extends ConsumerState<DocumentEditorScreen> {
                         title: 'Réduction et note',
                         child: Column(
                           children: [
-                            TextField(
+                            // Remise sur tout le document : 10 % de 100 000 F = 10 000 F
+                            InkWell(
                               key: const Key('docDiscount'),
-                              controller: _discount,
-                              keyboardType: TextInputType.number,
-                              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                              decoration: const InputDecoration(labelText: 'Réduction (facultatif)', suffixText: 'F'),
-                              onChanged: (_) => setState(() {}),
+                              borderRadius: BorderRadius.circular(14),
+                              onTap: _subtotal == 0
+                                  ? () => showInfo(context, 'Ajoutez d’abord des lignes')
+                                  : () async {
+                                      final d = await pickDiscount(
+                                        context,
+                                        title: 'Remise sur ${_isQuote ? 'le devis' : 'la facture'}',
+                                        base: _subtotal,
+                                        current: _discount,
+                                      );
+                                      if (d != null) setState(() => _discount = d);
+                                    },
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                                decoration: BoxDecoration(
+                                  color: _discount.isNone
+                                      ? null
+                                      : AppColors.softOf(const Color(0xFFFFF4E2), const Color(0xFF9A5B00)),
+                                  border: Border.all(color: AppColors.cardLine),
+                                  borderRadius: BorderRadius.circular(14),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      _discount.isNone ? Icons.local_offer_outlined : Icons.local_offer_rounded,
+                                      color: AppColors.strongOf(const Color(0xFFFFF4E2), const Color(0xFF9A5B00)),
+                                    ),
+                                    const SizedBox(width: 10),
+                                    Expanded(
+                                      child: Text(
+                                        _discount.isNone
+                                            ? 'Faire une remise (en % ou en F)'
+                                            : 'Remise ${discountLabel(_discount)} : −${moneyShort(_discountValue)}',
+                                        style: const TextStyle(fontWeight: FontWeight.w700),
+                                      ),
+                                    ),
+                                    if (!_discount.isNone)
+                                      IconButton(
+                                        key: const Key('docDiscountRemove'),
+                                        tooltip: 'Retirer la remise',
+                                        visualDensity: VisualDensity.compact,
+                                        onPressed: () => setState(() => _discount = Discount.none),
+                                        icon: const Icon(Icons.close_rounded),
+                                      )
+                                    else
+                                      Icon(Icons.chevron_right_rounded, color: AppColors.muted),
+                                  ],
+                                ),
+                              ),
                             ),
                             const SizedBox(height: 10),
                             TextField(
@@ -274,11 +320,21 @@ class _DocumentEditorScreenState extends ConsumerState<DocumentEditorScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
+                        if (_discountValue + _lineDiscounts > 0)
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 4),
+                            child: Text(
+                              'Remises : −${moneyShort(_discountValue + _lineDiscounts)} · '
+                              'au lieu de ${moneyShort(_subtotal + _lineDiscounts)}',
+                              key: const Key('docDiscountsTotal'),
+                              style: TextStyle(color: AppColors.warnText, fontWeight: FontWeight.w700, fontSize: 12.5),
+                            ),
+                          ),
                         Row(
                           children: [
                             Expanded(
                               child: Text(
-                                _discountValue > 0 ? 'Total après réduction' : 'Total',
+                                _discountValue + _lineDiscounts > 0 ? 'Total après remise' : 'Total',
                                 style: TextStyle(color: AppColors.muted, fontWeight: FontWeight.w600),
                               ),
                             ),
@@ -352,6 +408,11 @@ class _LineTile extends StatelessWidget {
                   '${qty(line.quantity)} × ${moneyShort(line.unitPrice)} = ${moneyShort(line.total)}',
                   style: TextStyle(fontSize: 13, color: AppColors.muted),
                 ),
+                if (line.discountAmount > 0)
+                  Text(
+                    'Remise ${discountLabel(line.discount)} : −${moneyShort(line.discountAmount)}',
+                    style: TextStyle(fontSize: 12.5, color: AppColors.warnText, fontWeight: FontWeight.w700),
+                  ),
               ],
             ),
           ),
@@ -383,7 +444,14 @@ class _LineSheetState extends State<_LineSheet> {
   late final _desc = TextEditingController(text: widget.line?.description ?? '');
   late final _qty = TextEditingController(text: widget.line == null ? '1' : qty(widget.line!.quantity));
   late final _price = TextEditingController(text: widget.line == null ? '' : '${widget.line!.unitPrice}');
+  late Discount _lineDiscount = widget.line?.discount ?? Discount.none;
   String? _error;
+
+  int get _gross {
+    final q = double.tryParse(_qty.text.replaceAll(',', '.').replaceAll(' ', '')) ?? 0;
+    final p = int.tryParse(_price.text.replaceAll(' ', '')) ?? 0;
+    return (q * p).round();
+  }
 
   @override
   void dispose() {
@@ -400,6 +468,10 @@ class _LineSheetState extends State<_LineSheet> {
       setState(() => _error = 'Désignation, quantité et prix sont nécessaires');
       return;
     }
+    if (!_lineDiscount.isPercent && _lineDiscount.amount > (q * p).round()) {
+      setState(() => _error = 'La remise dépasse le montant de la ligne');
+      return;
+    }
     Navigator.pop(
       context,
       DocLineDraft(
@@ -408,6 +480,7 @@ class _LineSheetState extends State<_LineSheet> {
         description: _desc.text.trim().isEmpty ? null : _desc.text.trim(),
         quantity: q,
         unitPrice: p,
+        discount: _lineDiscount,
       ),
     );
   }
@@ -443,6 +516,7 @@ class _LineSheetState extends State<_LineSheet> {
               child: TextField(
                 key: const Key('lineQty'),
                 controller: _qty,
+                onChanged: (_) => setState(() {}),
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
                 decoration: const InputDecoration(labelText: 'Quantité'),
               ),
@@ -453,6 +527,7 @@ class _LineSheetState extends State<_LineSheet> {
               child: TextField(
                 key: const Key('linePrice'),
                 controller: _price,
+                onChanged: (_) => setState(() {}),
                 keyboardType: TextInputType.number,
                 inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                 decoration: const InputDecoration(labelText: 'Prix unitaire', suffixText: 'F'),
@@ -460,12 +535,41 @@ class _LineSheetState extends State<_LineSheet> {
             ),
           ],
         ),
+        const SizedBox(height: 8),
+        // Remise sur cette ligne : en % ou en F
+        Align(
+          alignment: Alignment.centerLeft,
+          child: TextButton.icon(
+            key: const Key('lineDiscount'),
+            style: TextButton.styleFrom(
+              foregroundColor: AppColors.strongOf(const Color(0xFFFFF4E2), const Color(0xFF9A5B00)),
+            ),
+            onPressed: _gross <= 0
+                ? null
+                : () async {
+                    final d = await pickDiscount(
+                      context,
+                      title: 'Remise sur la ligne',
+                      base: _gross,
+                      current: _lineDiscount,
+                    );
+                    if (d != null) setState(() => _lineDiscount = d);
+                  },
+            icon: Icon(_lineDiscount.isNone ? Icons.local_offer_outlined : Icons.local_offer_rounded),
+            label: Text(
+              _lineDiscount.isNone
+                  ? 'Remise sur cette ligne'
+                  : 'Remise ${discountLabel(_lineDiscount)} : −${moneyShort(_lineDiscount.of(_gross))}',
+              style: const TextStyle(fontWeight: FontWeight.w800),
+            ),
+          ),
+        ),
         if (_error != null)
           Padding(
             padding: const EdgeInsets.only(top: 8),
             child: Text(_error!, style: TextStyle(color: AppColors.danger)),
           ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 12),
         FilledButton(onPressed: _ok, child: const Text('Valider la ligne')),
       ],
     ),
